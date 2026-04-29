@@ -6,24 +6,32 @@
     android:key="settings">
     <com.wireguard.android.preference.VersionPreference
         android:icon="@mipmap/ic_launcher"
-        android:key="version" />
+        android:key="version"
+        android:layout="@layout/tunnl_preference_item" />
     <CheckBoxPreference
         android:defaultValue="false"
         android:key="restore_on_boot"
+        android:layout="@layout/tunnl_preference_item"
         android:singleLineTitle="false"
         android:summaryOff="@string/restore_on_boot_summary_off"
         android:summaryOn="@string/restore_on_boot_summary_on"
         android:title="@string/restore_on_boot_title" />
-    <com.wireguard.android.preference.ZipExporterPreference android:key="zip_exporter" />
-    <com.wireguard.android.preference.QuickTilePreference android:key="quick_tile" />
+    <com.wireguard.android.preference.ZipExporterPreference
+        android:key="zip_exporter"
+        android:layout="@layout/tunnl_preference_item" />
+    <com.wireguard.android.preference.QuickTilePreference
+        android:key="quick_tile"
+        android:layout="@layout/tunnl_preference_item" />
     <Preference
         android:key="log_viewer"
+        android:layout="@layout/tunnl_preference_item"
         android:singleLineTitle="false"
         android:summary="@string/log_viewer_pref_summary"
         android:title="@string/log_viewer_pref_title" />
     <CheckBoxPreference
         android:defaultValue="false"
         android:key="dark_theme"
+        android:layout="@layout/tunnl_preference_item"
         android:singleLineTitle="false"
         android:summaryOff="@string/dark_theme_summary_off"
         android:summaryOn="@string/dark_theme_summary_on"
@@ -31,18 +39,26 @@
     <CheckBoxPreference
         android:defaultValue="false"
         android:key="multiple_tunnels"
+        android:layout="@layout/tunnl_preference_item"
         android:singleLineTitle="false"
         android:summaryOff="@string/multiple_tunnels_summary_off"
         android:summaryOn="@string/multiple_tunnels_summary_on"
         android:title="@string/multiple_tunnels_title" />
-    <com.wireguard.android.preference.ToolsInstallerPreference android:key="tools_installer" />
-    <com.wireguard.android.preference.KernelModuleEnablerPreference android:key="kernel_module_enabler" />
+    <com.wireguard.android.preference.ToolsInstallerPreference
+        android:key="tools_installer"
+        android:layout="@layout/tunnl_preference_item" />
+    <com.wireguard.android.preference.KernelModuleEnablerPreference
+        android:key="kernel_module_enabler"
+        android:layout="@layout/tunnl_preference_item" />
     <CheckBoxPreference
         android:defaultValue="false"
         android:key="allow_remote_control_intents"
+        android:layout="@layout/tunnl_preference_item"
         android:singleLineTitle="false"
         android:summaryOff="@string/allow_remote_control_intents_summary_off"
         android:summaryOn="@string/allow_remote_control_intents_summary_on"
         android:title="@string/allow_remote_control_intents_title" />
-    <com.wireguard.android.preference.DonatePreference android:singleLineTitle="false" />
+    <com.wireguard.android.preference.DonatePreference
+        android:layout="@layout/tunnl_preference_item"
+        android:singleLineTitle="false" />
 </androidx.preference.PreferenceScreen>

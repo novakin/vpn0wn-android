@@ -5,6 +5,7 @@
 package com.wireguard.android.databinding
 
 import android.text.InputFilter
+import android.os.SystemClock
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.EditText
@@ -25,6 +26,7 @@ import com.wireguard.android.databinding.ObservableKeyedRecyclerViewAdapter.RowC
 import com.wireguard.android.model.ObservableTunnel
 import com.wireguard.android.util.QuantityFormatter
 import com.wireguard.android.widget.TunnelSignalView
+import com.wireguard.android.widget.TunnelThroughputView
 import com.wireguard.android.widget.ToggleSwitch
 import com.wireguard.android.widget.ToggleSwitch.OnBeforeCheckedChangeListener
 import com.wireguard.android.widget.TvCardView
@@ -34,11 +36,15 @@ import com.wireguard.config.InetNetwork
 import java.util.Locale
 import java.net.InetAddress
 import java.util.Optional
+import java.util.WeakHashMap
 
 /**
  * Static methods for use by generated code in the Android data binding library.
  */
 object BindingAdapters {
+    private data class RateSample(val rx: Long, val tx: Long, val timeMs: Long, val rxRate: Long = 0L, val txRate: Long = 0L)
+    private val rateSamples = WeakHashMap<ObservableTunnel, RateSample>()
+
     @JvmStatic
     @BindingAdapter("checked")
     fun setChecked(view: ToggleSwitch, checked: Boolean) {
@@ -210,12 +216,10 @@ object BindingAdapters {
     fun tunnelTx(statistics: Statistics?): String = formatBytesValue(statistics?.totalTx() ?: 0L)
 
     @JvmStatic
-    fun tunnelRxSub(statistics: Statistics?): String =
-        if (statistics == null) "--" else "total in"
+    fun tunnelRxRate(tunnel: ObservableTunnel?, @Suppress("UNUSED_PARAMETER") statistics: Statistics?): String = tunnelRate(tunnel).first
 
     @JvmStatic
-    fun tunnelTxSub(statistics: Statistics?): String =
-        if (statistics == null) "--" else "total out"
+    fun tunnelTxRate(tunnel: ObservableTunnel?, @Suppress("UNUSED_PARAMETER") statistics: Statistics?): String = tunnelRate(tunnel).second
 
     @JvmStatic
     fun tunnelHandshake(statistics: Statistics?): String {
@@ -238,6 +242,36 @@ object BindingAdapters {
         return raw.uppercase(Locale.getDefault()).replace("I", "")
     }
 
+    private fun tunnelRate(tunnel: ObservableTunnel?): Pair<String, String> {
+        tunnel ?: return "--" to "--"
+        val stats = tunnel.statistics ?: return "--" to "--"
+        val now = SystemClock.elapsedRealtime()
+        val rx = stats.totalRx()
+        val tx = stats.totalTx()
+        val sample = synchronized(rateSamples) {
+            val previous = rateSamples[tunnel]
+            val updated = if (previous == null || now <= previous.timeMs || rx < previous.rx || tx < previous.tx) {
+                RateSample(rx, tx, now)
+            } else {
+                val elapsed = now - previous.timeMs
+                if (elapsed < 250L) {
+                    previous
+                } else {
+                    RateSample(
+                        rx,
+                        tx,
+                        now,
+                        ((rx - previous.rx) * 1000L) / elapsed,
+                        ((tx - previous.tx) * 1000L) / elapsed
+                    )
+                }
+            }
+            rateSamples[tunnel] = updated
+            updated
+        }
+        return "${formatBytesValue(sample.rxRate)}/S" to "${formatBytesValue(sample.txRate)}/S"
+    }
+
     @JvmStatic
     @BindingAdapter("isUp")
     fun setIsUp(card: TvCardView, up: Boolean) {
@@ -248,6 +282,19 @@ object BindingAdapters {
     @BindingAdapter("isUp")
     fun setIsUp(signalView: TunnelSignalView, up: Boolean) {
         signalView.live = up
+    }
+
+    @JvmStatic
+    @BindingAdapter("isUp")
+    fun setIsUp(throughputView: TunnelThroughputView, up: Boolean) {
+        throughputView.live = up
+    }
+
+    @JvmStatic
+    @BindingAdapter(requireAll = false, value = ["trafficTunnel", "trafficStatistics"])
+    fun setTrafficTunnel(throughputView: TunnelThroughputView, tunnel: ObservableTunnel?, @Suppress("UNUSED_PARAMETER") statistics: Statistics?) {
+        val rates = tunnelRate(tunnel)
+        throughputView.setRates(rates.first, rates.second)
     }
 
     @JvmStatic

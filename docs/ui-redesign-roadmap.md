@@ -26,14 +26,13 @@ The reference in `.design/` is a React prototype for "Tunnl", a WireGuard tunnel
 3. **Detail**
    - Re-skin interface and peer cards with Tunnl card styling.
    - Add section-style labels and stronger active-state presentation.
-   - Later: add a native schematic/throughput component if deeper work is approved.
+   - Add a native schematic/throughput component with live state and transfer rates.
 
 4. **Editor / Add / Logs / Settings**
    - Rework add sheet options into outlined import tiles.
    - Apply sectioned field groups to editor screens.
-   - Re-skin log viewer as mono stream with severity styling.
-   - Re-skin settings groups and toggles.
-   - Next deeper pass: replace standard preference rows with custom Tunnl rows if the app keeps Android preference screens.
+   - Re-skin log viewer as mono stream with severity styling and level filters.
+   - Re-skin settings groups and toggles with custom Tunnl preference rows.
 
 ## Progress
 
@@ -47,5 +46,9 @@ The reference in `.design/` is a React prototype for "Tunnl", a WireGuard tunnel
 - [x] Implement native animated tunnel signal strip.
 - [x] Bind tunnel cards to config/statistics for PSK, route, transfer, and handshake details.
 - [x] Rework add/import sheet, log viewer, detail/editor surfaces, and settings background into the dark azure system.
+- [x] Add detail-screen native throughput/schematic hero.
+- [x] Add real per-second RX/TX rate calculation from statistics deltas.
+- [x] Add log level filters.
+- [x] Add custom Tunnl preference row layout for settings.
 - [x] XML-validate changed resources.
 - [ ] Build-check UI resources; blocked by local Gradle daemon/cache lock and subsequent no-output hang.

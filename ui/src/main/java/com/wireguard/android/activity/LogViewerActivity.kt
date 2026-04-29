@@ -31,7 +31,6 @@ import androidx.collection.CircularArray
 import androidx.core.app.ShareCompat
 import androidx.core.content.res.ResourcesCompat
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.snackbar.Snackbar
@@ -102,7 +101,16 @@ class LogViewerActivity : AppCompatActivity() {
             recyclerView = this
             layoutManager = LinearLayoutManager(context)
             adapter = logAdapter
-            addItemDecoration(DividerItemDecoration(context, LinearLayoutManager.VERTICAL))
+        }
+        binding.filterGroup.setOnCheckedStateChangeListener { _, checkedIds ->
+            val levelFilter = when (checkedIds.firstOrNull()) {
+                R.id.filter_debug -> setOf("V", "D")
+                R.id.filter_info -> setOf("I")
+                R.id.filter_warn -> setOf("W")
+                R.id.filter_error -> setOf("E")
+                else -> null
+            }
+            logAdapter.setLevelFilter(levelFilter)
         }
 
         lifecycleScope.launch(Dispatchers.IO) { streamingLog() }
@@ -237,7 +245,7 @@ class LogViewerActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main.immediate) {
                     val isScrolledToBottomAlready = recyclerView?.canScrollVertically(1) == false
                     if (priorModified) {
-                        logAdapter.notifyItemChanged(posStart - 1)
+                        logAdapter.onLineChanged(posStart - 1)
                         priorModified = false
                     }
                     val fullLen = logLines.size() + bufferedLogLines.size
@@ -252,11 +260,11 @@ class LogViewerActivity : AppCompatActivity() {
                         logLines.addLast(bufferedLine)
                     }
                     bufferedLogLines.clear()
-                    logAdapter.notifyItemRangeInserted(posStart, logLines.size() - posStart)
+                    logAdapter.onLinesInserted(posStart, logLines.size() - posStart)
                     posStart = logLines.size()
 
-                    if (isScrolledToBottomAlready) {
-                        recyclerView?.scrollToPosition(logLines.size() - 1)
+                    if (isScrolledToBottomAlready && logAdapter.itemCount > 0) {
+                        recyclerView?.scrollToPosition(logAdapter.itemCount - 1)
                     }
                 }
             }
@@ -298,6 +306,8 @@ class LogViewerActivity : AppCompatActivity() {
     }
 
     private inner class LogEntryAdapter : RecyclerView.Adapter<LogEntryAdapter.ViewHolder>() {
+        private var levelFilter: Set<String>? = null
+        private val visiblePositions = ArrayList<Int>()
 
         private inner class ViewHolder(val layout: View, var isSingleLine: Boolean = true) : RecyclerView.ViewHolder(layout)
 
@@ -311,7 +321,41 @@ class LogViewerActivity : AppCompatActivity() {
             }
         }
 
-        override fun getItemCount() = logLines.size()
+        override fun getItemCount() = if (levelFilter == null) logLines.size() else visiblePositions.size
+
+        fun setLevelFilter(levelFilter: Set<String>?) {
+            this.levelFilter = levelFilter
+            rebuildVisiblePositions()
+            notifyDataSetChanged()
+        }
+
+        fun onLinesInserted(positionStart: Int, itemCount: Int) {
+            if (levelFilter == null) {
+                notifyItemRangeInserted(positionStart, itemCount)
+            } else {
+                rebuildVisiblePositions()
+                notifyDataSetChanged()
+            }
+        }
+
+        fun onLineChanged(sourcePosition: Int) {
+            if (sourcePosition < 0) return
+            if (levelFilter == null) {
+                notifyItemChanged(sourcePosition)
+            } else {
+                rebuildVisiblePositions()
+                notifyDataSetChanged()
+            }
+        }
+
+        private fun rebuildVisiblePositions() {
+            visiblePositions.clear()
+            val filter = levelFilter ?: return
+            for (i in 0 until logLines.size()) {
+                if (logLines[i].level in filter)
+                    visiblePositions.add(i)
+            }
+        }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
             val view = LayoutInflater.from(parent.context)
@@ -320,8 +364,10 @@ class LogViewerActivity : AppCompatActivity() {
         }
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-            val line = logLines[position]
-            val spannable = if (position > 0 && logLines[position - 1].tag == line.tag)
+            val sourcePosition = if (levelFilter == null) position else visiblePositions[position]
+            val line = logLines[sourcePosition]
+            val previousSourcePosition = if (levelFilter == null) sourcePosition - 1 else visiblePositions.getOrNull(position - 1) ?: -1
+            val spannable = if (previousSourcePosition >= 0 && logLines[previousSourcePosition].tag == line.tag)
                 SpannableString(line.msg)
             else
                 SpannableString("${line.tag}: ${line.msg}").apply {

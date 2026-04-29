@@ -180,7 +180,7 @@
                     style="@style/TunnlMonoSubText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@{BindingAdapters.tunnelRxSub(item.statistics)}"
+                    android:text="@{BindingAdapters.tunnelRxRate(item, item.statistics)}"
                     tools:text="343 KB/s" />
             </LinearLayout>
 
@@ -207,7 +207,7 @@
                     style="@style/TunnlMonoSubText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@{BindingAdapters.tunnelTxSub(item.statistics)}"
+                    android:text="@{BindingAdapters.tunnelTxRate(item, item.statistics)}"
                     tools:text="29 KB/s" />
             </LinearLayout>
 

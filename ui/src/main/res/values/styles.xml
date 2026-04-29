@@ -76,6 +76,16 @@
         <item name="android:textSize">10sp</item>
     </style>
 
+    <style name="TunnlFilterChip" parent="Widget.Material3.Chip.Filter">
+        <item name="chipBackgroundColor">@color/tunnl_paper</item>
+        <item name="chipStrokeColor">@color/tunnl_rule_strong</item>
+        <item name="chipStrokeWidth">1dp</item>
+        <item name="android:fontFamily">@font/jetbrains_mono_medium</item>
+        <item name="android:textColor">@color/tunnl_ink_2</item>
+        <item name="checkedIconVisible">false</item>
+        <item name="rippleColor">@color/tunnl_paper_3</item>
+    </style>
+
     <style name="WireGuardTheme.BottomSheetDialog" parent="ThemeOverlay.Material3.BottomSheetDialog">
         <item name="android:windowIsFloating">false</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>

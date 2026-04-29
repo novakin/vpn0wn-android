@@ -10,6 +10,8 @@
 
         <import type="com.wireguard.android.backend.Tunnel.State" />
 
+        <import type="com.wireguard.android.databinding.BindingAdapters" />
+
         <import type="com.wireguard.android.util.ClipboardUtils" />
 
         <variable
@@ -37,15 +39,72 @@
             android:layout_height="wrap_content">
 
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/tunnel_detail_card"
+                android:id="@+id/tunnel_schematic_card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:layout_marginTop="16dp"
                 android:layout_marginEnd="8dp"
-                android:layout_marginBottom="8dp"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <TextView
+                        style="@style/TunnlLabelText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@{tunnel.state == State.UP ? `LINK ESTABLISHED` : `LINK STANDBY`}"
+                        android:textColor="@{tunnel.state == State.UP ? @color/tunnl_signal_deep : @color/tunnl_ink_3}"
+                        tools:text="LINK ESTABLISHED" />
+
+                    <com.wireguard.android.widget.TunnelThroughputView
+                        android:id="@+id/throughput_view"
+                        android:layout_width="match_parent"
+                        android:layout_height="148dp"
+                        android:layout_marginTop="8dp"
+                        app:isUp="@{tunnel.state == State.UP}"
+                        app:trafficStatistics="@{tunnel.statistics}"
+                        app:trafficTunnel="@{tunnel}" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            style="@style/TunnlMonoSubText"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="@{BindingAdapters.tunnelRoute(config)}"
+                            tools:text="172.20.4.18/24 -> gw.example.ro:51820" />
+
+                        <TextView
+                            style="@style/TunnlLabelText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@{BindingAdapters.tunnelPeerBadge(config)}"
+                            android:textColor="@color/tunnl_signal_deep"
+                            tools:text="PSK" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/tunnel_detail_card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginEnd="8dp"
+                android:layout_marginBottom="8dp"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toBottomOf="@id/tunnel_schematic_card">
 
                 <androidx.constraintlayout.widget.ConstraintLayout
                     android:layout_width="match_parent"
