@@ -23,7 +23,10 @@ import com.wireguard.crypto.Key;
 import com.wireguard.crypto.KeyFormatException;
 import com.wireguard.util.NonNullForAll;
 
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -42,6 +45,8 @@ import androidx.collection.ArraySet;
 public final class GoBackend implements Backend {
     private static final int DNS_RESOLUTION_RETRIES = 10;
     private static final String TAG = "WireGuard/GoBackend";
+    private static final int UDP_PREFLIGHT_RETRIES = 5;
+    private static final long UDP_PREFLIGHT_RETRY_DELAY_MS = 200;
     @Nullable private static AlwaysOnCallback alwaysOnCallback;
     private static CompletableFuture<VpnService> vpnService = new CompletableFuture<>();
     private final Context context;
@@ -240,6 +245,61 @@ public final class GoBackend implements Backend {
         return getState(tunnel);
     }
 
+    private boolean sendUdpPreflight(final VpnService service, final int listenPort,
+                                     final InetAddress addr, final int port,
+                                     final InetEndpoint resolved) throws Exception {
+        try (final DatagramSocket socket = new DatagramSocket(null)) {
+            socket.setReuseAddress(true);
+            service.protect(socket);
+            socket.bind(new InetSocketAddress(listenPort));
+            final byte[] payload = {0x00};
+            socket.send(new DatagramPacket(payload, payload.length, addr, port));
+            Log.d(TAG, "UDP preflight sent to " + resolved);
+            return true;
+        }
+    }
+
+    private void sendUdpPreflight(final Config config, final VpnService service) {
+        final int listenPort = config.getInterface().getListenPort().orElse(0);
+        if (listenPort == 0)
+            return;
+        for (final Peer peer : config.getPeers()) {
+            final InetEndpoint ep = peer.getEndpoint().orElse(null);
+            if (ep == null)
+                continue;
+            final InetEndpoint resolved = ep.getResolved().orElse(null);
+            if (resolved == null)
+                continue;
+            try {
+                final InetAddress addr = InetAddress.getByName(resolved.getHost());
+                Exception lastException = null;
+                for (int attempt = 1; attempt <= UDP_PREFLIGHT_RETRIES; ++attempt) {
+                    try {
+                        if (sendUdpPreflight(service, listenPort, addr, resolved.getPort(), resolved)) {
+                            lastException = null;
+                            break;
+                        }
+                    } catch (final Exception e) {
+                        lastException = e;
+                        if (attempt == UDP_PREFLIGHT_RETRIES)
+                            break;
+                        Log.d(TAG, "UDP preflight attempt " + attempt + " failed for " + resolved
+                                + "; retrying: " + e.getMessage());
+                        Thread.sleep(UDP_PREFLIGHT_RETRY_DELAY_MS);
+                    }
+                }
+                if (lastException != null)
+                    Log.w(TAG, "UDP preflight failed for " + resolved + " after "
+                            + UDP_PREFLIGHT_RETRIES + " attempts: " + lastException.getMessage());
+            } catch (final InterruptedException e) {
+                Thread.currentThread().interrupt();
+                Log.w(TAG, "UDP preflight interrupted for " + ep.getHost());
+            } catch (final Exception e) {
+                Log.w(TAG, "UDP preflight failed for " + ep.getHost() + ": " + e.getMessage());
+            }
+        }
+    }
+
     private void setStateInternal(final Tunnel tunnel, @Nullable final Config config, final State state)
             throws Exception {
         Log.i(TAG, "Bringing tunnel " + tunnel.getName() + ' ' + state);
@@ -289,6 +349,8 @@ public final class GoBackend implements Backend {
                 }
                 break;
             }
+
+            sendUdpPreflight(config, service);
 
             // Build config
             final String goConfig = config.toWgUserspaceString();

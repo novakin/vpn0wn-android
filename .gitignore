@@ -1,4 +1,7 @@
 /.gradle/
+/.kotlin/
+/.claude/
+/.design/
 /.idea/*.xml
 /.idea/caches/
 /.idea/dictionaries/
