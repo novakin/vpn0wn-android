@@ -89,6 +89,20 @@
         <item name="android:textSize">13sp</item>
     </style>
 
+    <style name="TunnlConfigRowLabel" parent="TunnlLabelText">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+    </style>
+
+    <style name="TunnlConfigRowValue" parent="TunnlMonoValueText">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_marginTop">2dp</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:textSize">13sp</item>
+    </style>
+
     <style name="TunnlFilterChip" parent="Widget.Material3.Chip.Filter">
         <item name="chipBackgroundColor">@color/tunnl_paper</item>
         <item name="chipStrokeColor">@color/tunnl_rule_strong</item>

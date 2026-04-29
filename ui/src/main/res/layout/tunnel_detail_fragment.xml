@@ -287,45 +287,89 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical">
 
-                    <TextView
-                        android:id="@+id/interface_name_text"
+                    <LinearLayout
                         style="@style/TunnlDetailRow"
-                        android:onClick="@{ClipboardUtils::copyTextView}"
-                        android:text="@{`NAME\n` + tunnel.name}"
-                        tools:text="NAME&#10;office-ro" />
+                        android:orientation="vertical">
 
-                    <TextView
-                        android:id="@+id/public_key_text"
-                        style="@style/TunnlDetailRow"
-                        android:ellipsize="end"
-                        android:maxLines="2"
-                        android:onClick="@{ClipboardUtils::copyTextView}"
-                        android:text="@{`PUBLIC KEY\n` + config.interface.keyPair.publicKey.toBase64}"
-                        tools:text="PUBLIC KEY&#10;wOs2eguFEohqIZxlSJ1CAT9584tc6ejj9hfGFsoBVkA=" />
+                        <TextView
+                            style="@style/TunnlConfigRowLabel"
+                            android:text="NAME" />
 
-                    <TextView
-                        android:id="@+id/addresses_text"
-                        style="@style/TunnlDetailRow"
-                        android:onClick="@{ClipboardUtils::copyTextView}"
-                        android:text="@{`ADDRESSES\n` + config.interface.addresses}"
-                        android:visibility="@{config.interface.addresses.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                        tools:text="ADDRESSES&#10;172.20.4.18/24" />
+                        <TextView
+                            android:id="@+id/interface_name_text"
+                            style="@style/TunnlConfigRowValue"
+                            android:onClick="@{ClipboardUtils::copyTextView}"
+                            android:text="@{tunnel.name}"
+                            tools:text="office-ro" />
+                    </LinearLayout>
 
-                    <TextView
-                        android:id="@+id/dns_servers_text"
+                    <LinearLayout
                         style="@style/TunnlDetailRow"
-                        android:onClick="@{ClipboardUtils::copyTextView}"
-                        android:text="@{`DNS SERVERS\n` + config.interface.dnsServers}"
-                        android:visibility="@{config.interface.dnsServers.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                        tools:text="DNS SERVERS&#10;1.1.1.1" />
+                        android:orientation="vertical">
 
-                    <TextView
-                        android:id="@+id/dns_search_domains_text"
+                        <TextView
+                            style="@style/TunnlConfigRowLabel"
+                            android:text="PUBLIC KEY" />
+
+                        <TextView
+                            android:id="@+id/public_key_text"
+                            style="@style/TunnlConfigRowValue"
+                            android:maxLines="1"
+                            android:onClick="@{ClipboardUtils::copyTextView}"
+                            android:text="@{config.interface.keyPair.publicKey.toBase64}"
+                            tools:text="wOs2eguFEohqIZxlSJ1CAT9584tc6ejj9hfGFsoBVkA=" />
+                    </LinearLayout>
+
+                    <LinearLayout
                         style="@style/TunnlDetailRow"
-                        android:onClick="@{ClipboardUtils::copyTextView}"
-                        android:text="@{`DNS SEARCH DOMAINS\n` + config.interface.dnsSearchDomains}"
-                        android:visibility="@{config.interface.dnsSearchDomains.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                        tools:text="DNS SEARCH DOMAINS&#10;corp.example" />
+                        android:orientation="vertical"
+                        android:visibility="@{config.interface.addresses.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}">
+
+                        <TextView
+                            style="@style/TunnlConfigRowLabel"
+                            android:text="ADDRESSES" />
+
+                        <TextView
+                            android:id="@+id/addresses_text"
+                            style="@style/TunnlConfigRowValue"
+                            android:onClick="@{ClipboardUtils::copyTextView}"
+                            android:text="@{config.interface.addresses}"
+                            tools:text="172.20.4.18/24" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        style="@style/TunnlDetailRow"
+                        android:orientation="vertical"
+                        android:visibility="@{config.interface.dnsServers.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}">
+
+                        <TextView
+                            style="@style/TunnlConfigRowLabel"
+                            android:text="DNS SERVERS" />
+
+                        <TextView
+                            android:id="@+id/dns_servers_text"
+                            style="@style/TunnlConfigRowValue"
+                            android:onClick="@{ClipboardUtils::copyTextView}"
+                            android:text="@{config.interface.dnsServers}"
+                            tools:text="1.1.1.1" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        style="@style/TunnlDetailRow"
+                        android:orientation="vertical"
+                        android:visibility="@{config.interface.dnsSearchDomains.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}">
+
+                        <TextView
+                            style="@style/TunnlConfigRowLabel"
+                            android:text="DNS SEARCH DOMAINS" />
+
+                        <TextView
+                            android:id="@+id/dns_search_domains_text"
+                            style="@style/TunnlConfigRowValue"
+                            android:onClick="@{ClipboardUtils::copyTextView}"
+                            android:text="@{config.interface.dnsSearchDomains}"
+                            tools:text="corp.example" />
+                    </LinearLayout>
 
                     <LinearLayout
                         android:id="@+id/listen_port_mtu_barrier"
@@ -334,34 +378,64 @@
                         android:baselineAligned="false"
                         android:orientation="horizontal">
 
-                        <TextView
-                            android:id="@+id/listen_port_text"
+                        <LinearLayout
                             style="@style/TunnlDetailRow"
                             android:layout_width="0dp"
                             android:layout_weight="1"
-                            android:onClick="@{ClipboardUtils::copyTextView}"
-                            android:text="@{`LISTEN PORT\n` + config.interface.listenPort}"
+                            android:orientation="vertical"
                             android:visibility="@{!config.interface.listenPort.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                            tools:text="LISTEN PORT&#10;51820" />
+                            tools:visibility="visible">
 
-                        <TextView
-                            android:id="@+id/mtu_text"
+                            <TextView
+                                style="@style/TunnlConfigRowLabel"
+                                android:text="LISTEN PORT" />
+
+                            <TextView
+                                android:id="@+id/listen_port_text"
+                                style="@style/TunnlConfigRowValue"
+                                android:onClick="@{ClipboardUtils::copyTextView}"
+                                android:text="@{config.interface.listenPort}"
+                                tools:text="51820" />
+                        </LinearLayout>
+
+                        <LinearLayout
                             style="@style/TunnlDetailRow"
                             android:layout_width="0dp"
                             android:layout_weight="1"
-                            android:onClick="@{ClipboardUtils::copyTextView}"
-                            android:text="@{`MTU\n` + config.interface.mtu}"
+                            android:orientation="vertical"
                             android:visibility="@{!config.interface.mtu.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                            tools:text="MTU&#10;1420" />
+                            tools:visibility="visible">
+
+                            <TextView
+                                style="@style/TunnlConfigRowLabel"
+                                android:text="MTU" />
+
+                            <TextView
+                                android:id="@+id/mtu_text"
+                                style="@style/TunnlConfigRowValue"
+                                android:onClick="@{ClipboardUtils::copyTextView}"
+                                android:text="@{config.interface.mtu}"
+                                tools:text="1420" />
+                        </LinearLayout>
                     </LinearLayout>
 
-                    <TextView
-                        android:id="@+id/applications_text"
+                    <LinearLayout
                         style="@style/TunnlDetailRow"
-                        android:onClick="@{ClipboardUtils::copyTextView}"
-                        android:text="@{config.interface.includedApplications.isEmpty() ? `APPLICATIONS\n` + @plurals/n_excluded_applications(config.interface.excludedApplications.size(), config.interface.excludedApplications.size()) : `APPLICATIONS\n` + @plurals/n_included_applications(config.interface.includedApplications.size(), config.interface.includedApplications.size())}"
+                        android:orientation="vertical"
                         android:visibility="@{config.interface.includedApplications.isEmpty() &amp;&amp; config.interface.excludedApplications.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                        tools:text="APPLICATIONS&#10;8 excluded" />
+                        tools:visibility="visible">
+
+                        <TextView
+                            style="@style/TunnlConfigRowLabel"
+                            android:text="APPLICATIONS" />
+
+                        <TextView
+                            android:id="@+id/applications_text"
+                            style="@style/TunnlConfigRowValue"
+                            android:onClick="@{ClipboardUtils::copyTextView}"
+                            android:text="@{config.interface.includedApplications.isEmpty() ? @plurals/n_excluded_applications(config.interface.excludedApplications.size(), config.interface.excludedApplications.size()) : @plurals/n_included_applications(config.interface.includedApplications.size(), config.interface.includedApplications.size())}"
+                            tools:text="8 excluded" />
+                    </LinearLayout>
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 

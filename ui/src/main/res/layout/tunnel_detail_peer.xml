@@ -52,45 +52,88 @@
                     android:visibility="@{item.preSharedKey.isPresent() ? android.view.View.VISIBLE : android.view.View.GONE}" />
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/public_key_text"
+            <LinearLayout
                 style="@style/TunnlDetailRow"
-                android:ellipsize="end"
-                android:maxLines="2"
-                android:onClick="@{ClipboardUtils::copyTextView}"
-                android:text="@{`PUBLIC KEY\n` + item.publicKey.toBase64}"
-                tools:text="PUBLIC KEY&#10;wOs2eguFEohqIZxlSJ1CAT9584tc6ejj9hfGFsoBVkA=" />
+                android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/pre_shared_key_text"
-                style="@style/TunnlDetailRow"
-                android:text="@string/pre_shared_key_enabled"
-                android:visibility="@{!item.preSharedKey.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                tools:text="PRE-SHARED KEY&#10;enabled" />
+                <TextView
+                    style="@style/TunnlConfigRowLabel"
+                    android:text="PUBLIC KEY" />
 
-            <TextView
-                android:id="@+id/endpoint_text"
-                style="@style/TunnlDetailRow"
-                android:onClick="@{ClipboardUtils::copyTextView}"
-                android:text="@{`ENDPOINT\n` + item.endpoint}"
-                android:visibility="@{!item.endpoint.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                tools:text="ENDPOINT&#10;192.168.0.1:51820" />
+                <TextView
+                    android:id="@+id/public_key_text"
+                    style="@style/TunnlConfigRowValue"
+                    android:onClick="@{ClipboardUtils::copyTextView}"
+                    android:text="@{item.publicKey.toBase64}"
+                    tools:text="wOs2eguFEohqIZxlSJ1CAT9584tc6ejj9hfGFsoBVkA=" />
+            </LinearLayout>
 
-            <TextView
-                android:id="@+id/allowed_ips_text"
+            <LinearLayout
                 style="@style/TunnlDetailRow"
-                android:onClick="@{ClipboardUtils::copyTextView}"
-                android:text="@{`ALLOWED IPS\n` + item.allowedIps}"
-                android:visibility="@{item.allowedIps.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                tools:text="ALLOWED IPS&#10;0.0.0.0/0, ::/0" />
+                android:orientation="vertical"
+                android:visibility="@{!item.preSharedKey.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}">
 
-            <TextView
-                android:id="@+id/persistent_keepalive_text"
+                <TextView
+                    style="@style/TunnlConfigRowLabel"
+                    android:text="PRE-SHARED KEY" />
+
+                <TextView
+                    android:id="@+id/pre_shared_key_text"
+                    style="@style/TunnlConfigRowValue"
+                    android:text="@string/pre_shared_key_enabled"
+                    tools:text="enabled" />
+            </LinearLayout>
+
+            <LinearLayout
                 style="@style/TunnlDetailRow"
-                android:onClick="@{ClipboardUtils::copyTextView}"
-                android:text="@{`KEEPALIVE\n` + @plurals/persistent_keepalive_seconds_unit(item.persistentKeepalive.orElse(0), item.persistentKeepalive.orElse(0))}"
-                android:visibility="@{!item.persistentKeepalive.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                tools:text="KEEPALIVE&#10;every 25 seconds" />
+                android:orientation="vertical"
+                android:visibility="@{!item.endpoint.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}">
+
+                <TextView
+                    style="@style/TunnlConfigRowLabel"
+                    android:text="ENDPOINT" />
+
+                <TextView
+                    android:id="@+id/endpoint_text"
+                    style="@style/TunnlConfigRowValue"
+                    android:onClick="@{ClipboardUtils::copyTextView}"
+                    android:text="@{item.endpoint}"
+                    tools:text="192.168.0.1:51820" />
+            </LinearLayout>
+
+            <LinearLayout
+                style="@style/TunnlDetailRow"
+                android:orientation="vertical"
+                android:visibility="@{item.allowedIps.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}">
+
+                <TextView
+                    style="@style/TunnlConfigRowLabel"
+                    android:text="ALLOWED IPS" />
+
+                <TextView
+                    android:id="@+id/allowed_ips_text"
+                    style="@style/TunnlConfigRowValue"
+                    android:onClick="@{ClipboardUtils::copyTextView}"
+                    android:text="@{item.allowedIps}"
+                    tools:text="0.0.0.0/0, ::/0" />
+            </LinearLayout>
+
+            <LinearLayout
+                style="@style/TunnlDetailRow"
+                android:orientation="vertical"
+                android:visibility="@{!item.persistentKeepalive.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}">
+
+                <TextView
+                    style="@style/TunnlConfigRowLabel"
+                    android:text="KEEPALIVE" />
+
+                <TextView
+                    android:id="@+id/persistent_keepalive_text"
+                    style="@style/TunnlConfigRowValue"
+                    android:onClick="@{ClipboardUtils::copyTextView}"
+                    android:text="@{@plurals/persistent_keepalive_seconds_unit(item.persistentKeepalive.orElse(0), item.persistentKeepalive.orElse(0))}"
+                    tools:text="every 25 seconds" />
+            </LinearLayout>
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -106,7 +149,7 @@
 
                     <TextView
                         android:id="@+id/transfer_label"
-                        style="@style/TunnlLabelText"
+                        style="@style/TunnlConfigRowLabel"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:background="@color/tunnl_paper_2"
@@ -140,7 +183,7 @@
 
                     <TextView
                         android:id="@+id/latest_handshake_label"
-                        style="@style/TunnlLabelText"
+                        style="@style/TunnlConfigRowLabel"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:background="@color/tunnl_paper_2"

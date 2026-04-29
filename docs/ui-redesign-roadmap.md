@@ -51,4 +51,6 @@ The reference in `.design/` is a React prototype for "Tunnl", a WireGuard tunnel
 - [x] Add log level filters.
 - [x] Add custom Tunnl preference row layout for settings.
 - [x] XML-validate changed resources.
-- [ ] Build-check UI resources; blocked by local Gradle daemon/cache lock and subsequent no-output hang.
+- [x] Build-check UI resources in WSL with `./gradlew :ui:assembleDebug`.
+- [x] Replace detail hero graph with the `.design/schematic.jsx` wire-topology animation.
+- [x] Rework interface and peer detail cards into JSX-style `ConfigRow` label/value blocks.
