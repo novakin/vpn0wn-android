@@ -76,6 +76,19 @@
         <item name="android:textSize">10sp</item>
     </style>
 
+    <style name="TunnlDetailRow">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">@color/tunnl_paper_2</item>
+        <item name="android:fontFamily">@font/jetbrains_mono_regular</item>
+        <item name="android:paddingStart">14dp</item>
+        <item name="android:paddingTop">10dp</item>
+        <item name="android:paddingEnd">14dp</item>
+        <item name="android:paddingBottom">10dp</item>
+        <item name="android:textColor">@color/tunnl_ink</item>
+        <item name="android:textSize">13sp</item>
+    </style>
+
     <style name="TunnlFilterChip" parent="Widget.Material3.Chip.Filter">
         <item name="chipBackgroundColor">@color/tunnl_paper</item>
         <item name="chipStrokeColor">@color/tunnl_rule_strong</item>

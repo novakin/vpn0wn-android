@@ -31,40 +31,55 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:background="@color/tunnl_paper"
-        android:clickable="true"
-        android:focusable="true">
+        android:clipToPadding="false"
+        android:paddingBottom="18dp">
 
-        <androidx.constraintlayout.widget.ConstraintLayout
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="12dp"
+            android:paddingTop="14dp"
+            android:paddingEnd="12dp"
+            android:paddingBottom="96dp">
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/tunnel_schematic_card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_marginTop="16dp"
-                android:layout_marginEnd="8dp"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent">
+                app:strokeColor="@color/tunnl_rule">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical">
 
-                    <TextView
-                        style="@style/TunnlLabelText"
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="@{tunnel.state == State.UP ? `LINK ESTABLISHED` : `LINK STANDBY`}"
-                        android:textColor="@{tunnel.state == State.UP ? @color/tunnl_signal_deep : @color/tunnl_ink_3}"
-                        tools:text="LINK ESTABLISHED" />
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            style="@style/TunnlLabelText"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="FIG.01 - TUNNEL TOPOLOGY" />
+
+                        <TextView
+                            style="@style/TunnlLabelText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@{tunnel.state == State.UP ? `UP` : `DOWN`}"
+                            android:textColor="@{tunnel.state == State.UP ? @color/tunnl_signal_deep : @color/tunnl_ink_3}"
+                            tools:text="UP" />
+                    </LinearLayout>
 
                     <com.wireguard.android.widget.TunnelThroughputView
                         android:id="@+id/throughput_view"
                         android:layout_width="match_parent"
-                        android:layout_height="148dp"
+                        android:layout_height="206dp"
                         android:layout_marginTop="8dp"
                         app:isUp="@{tunnel.state == State.UP}"
                         app:trafficStatistics="@{tunnel.statistics}"
@@ -74,6 +89,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
+                        android:gravity="center_vertical"
                         android:orientation="horizontal">
 
                         <TextView
@@ -81,6 +97,8 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
+                            android:ellipsize="end"
+                            android:maxLines="1"
                             android:text="@{BindingAdapters.tunnelRoute(config)}"
                             tools:text="172.20.4.18/24 -> gw.example.ro:51820" />
 
@@ -88,6 +106,7 @@
                             style="@style/TunnlLabelText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:layout_marginStart="10dp"
                             android:text="@{BindingAdapters.tunnelPeerBadge(config)}"
                             android:textColor="@color/tunnl_signal_deep"
                             tools:text="PSK" />
@@ -96,275 +115,292 @@
             </com.google.android.material.card.MaterialCardView>
 
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/tunnel_detail_card"
+                android:id="@+id/tunnel_status_card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="8dp"
-                android:layout_marginTop="8dp"
-                android:layout_marginEnd="8dp"
-                android:layout_marginBottom="8dp"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/tunnel_schematic_card">
+                android:layout_marginTop="12dp"
+                app:strokeColor="@{tunnel.state == State.UP ? @color/tunnl_signal_deep : @color/tunnl_rule}">
 
-                <androidx.constraintlayout.widget.ConstraintLayout
+                <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content">
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
 
-                    <com.google.android.material.textview.MaterialTextView
-                        android:id="@+id/interface_title"
-                        android:layout_width="wrap_content"
+                    <View
+                        android:layout_width="9dp"
+                        android:layout_height="9dp"
+                        android:layout_marginEnd="12dp"
+                        android:background="@drawable/tunnl_active_rail" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:text="@string/interface_title"
-                        android:textAppearance="?attr/textAppearanceTitleMedium"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent" />
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/TunnlLabelText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@{tunnel.state == State.UP ? `TUNNEL UP` : `TUNNEL DOWN`}"
+                            android:textColor="@{tunnel.state == State.UP ? @color/tunnl_signal_deep : @color/tunnl_ink_3}"
+                            tools:text="TUNNEL UP" />
+
+                        <TextView
+                            style="@style/TunnlMonoSubText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:text="@{tunnel.state == State.UP ? BindingAdapters.tunnelHandshake(tunnel.statistics) : `tap to bring up`}"
+                            tools:text="2m 32s ago" />
+                    </LinearLayout>
 
                     <com.wireguard.android.widget.ToggleSwitch
                         android:id="@+id/tunnel_switch"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="16dp"
-                        android:nextFocusDown="@id/interface_name_text"
-                        android:nextFocusForward="@id/interface_name_text"
                         app:checked="@{tunnel.state == State.UP}"
-                        app:layout_constraintBaseline_toBottomOf="@+id/interface_title"
-                        app:layout_constraintEnd_toEndOf="parent"
                         app:onBeforeCheckedChanged="@{fragment::setTunnelState}" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
 
-                    <TextView
-                        android:id="@+id/interface_name_label"
-                        android:layout_width="wrap_content"
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:baselineAligned="false"
+                android:orientation="horizontal"
+                android:visibility="@{tunnel.state == State.UP ? android.view.View.VISIBLE : android.view.View.GONE}">
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginEnd="4dp"
+                    android:layout_weight="1"
+                    app:strokeColor="@color/tunnl_signal_deep">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:labelFor="@+id/interface_name_text"
-                        android:text="@string/name"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@+id/interface_title" />
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/TunnlLabelText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="↓ DOWNLOAD" />
+
+                        <TextView
+                            style="@style/TunnlMonoValueText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="5dp"
+                            android:text="@{BindingAdapters.tunnelRx(tunnel.statistics)}"
+                            android:textSize="20sp"
+                            tools:text="19.8 MB" />
+
+                        <TextView
+                            style="@style/TunnlMonoSubText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@{BindingAdapters.tunnelRxRate(tunnel, tunnel.statistics)}"
+                            android:textColor="@color/tunnl_signal_deep"
+                            tools:text="343 KB/S" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+
+                <com.google.android.material.card.MaterialCardView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/TunnlLabelText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="↑ UPLOAD" />
+
+                        <TextView
+                            style="@style/TunnlMonoValueText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="5dp"
+                            android:text="@{BindingAdapters.tunnelTx(tunnel.statistics)}"
+                            android:textSize="20sp"
+                            tools:text="973 KB" />
+
+                        <TextView
+                            style="@style/TunnlMonoSubText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@{BindingAdapters.tunnelTxRate(tunnel, tunnel.statistics)}"
+                            tools:text="29 KB/S" />
+                    </LinearLayout>
+                </com.google.android.material.card.MaterialCardView>
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    style="@style/TunnlLabelText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="§01"
+                    android:textColor="@color/tunnl_rule_strong" />
+
+                <TextView
+                    style="@style/TunnlMonoValueText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:text="@string/interface_title"
+                    android:textSize="13sp" />
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_marginStart="10dp"
+                    android:layout_weight="1"
+                    android:background="@color/tunnl_rule" />
+            </LinearLayout>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/tunnel_detail_card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
 
                     <TextView
                         android:id="@+id/interface_name_text"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:contentDescription="@string/name"
-                        android:nextFocusUp="@id/tunnel_switch"
-                        android:nextFocusDown="@id/public_key_text"
-                        android:nextFocusForward="@id/public_key_text"
+                        style="@style/TunnlDetailRow"
                         android:onClick="@{ClipboardUtils::copyTextView}"
-                        android:text="@{tunnel.name}"
-                        android:textAppearance="?attr/textAppearanceBodyLarge"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@+id/interface_name_label"
-                        tools:text="wg0" />
-
-                    <TextView
-                        android:id="@+id/public_key_label"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:labelFor="@+id/public_key_text"
-                        android:text="@string/public_key"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@id/interface_name_text" />
+                        android:text="@{`NAME\n` + tunnel.name}"
+                        tools:text="NAME&#10;office-ro" />
 
                     <TextView
                         android:id="@+id/public_key_text"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:contentDescription="@string/public_key"
+                        style="@style/TunnlDetailRow"
                         android:ellipsize="end"
-                        android:maxLines="1"
-                        android:nextFocusUp="@id/interface_name_text"
-                        android:nextFocusDown="@id/addresses_text"
-                        android:nextFocusForward="@id/addresses_text"
+                        android:maxLines="2"
                         android:onClick="@{ClipboardUtils::copyTextView}"
-                        android:singleLine="true"
-                        android:text="@{config.interface.keyPair.publicKey.toBase64}"
-                        android:textAppearance="?attr/textAppearanceBodyLarge"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@+id/public_key_label"
-                        tools:text="wOs2eguFEohqIZxlSJ1CAT9584tc6ejj9hfGFsoBVkA=" />
-
-                    <TextView
-                        android:id="@+id/addresses_label"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:labelFor="@+id/addresses_text"
-                        android:text="@string/addresses"
-                        android:visibility="@{config.interface.addresses.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@id/public_key_text" />
+                        android:text="@{`PUBLIC KEY\n` + config.interface.keyPair.publicKey.toBase64}"
+                        tools:text="PUBLIC KEY&#10;wOs2eguFEohqIZxlSJ1CAT9584tc6ejj9hfGFsoBVkA=" />
 
                     <TextView
                         android:id="@+id/addresses_text"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:contentDescription="@string/addresses"
-                        android:nextFocusUp="@id/public_key_text"
-                        android:nextFocusDown="@id/dns_servers_text"
-                        android:nextFocusForward="@id/dns_servers_text"
+                        style="@style/TunnlDetailRow"
                         android:onClick="@{ClipboardUtils::copyTextView}"
-                        android:text="@{config.interface.addresses}"
-                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:text="@{`ADDRESSES\n` + config.interface.addresses}"
                         android:visibility="@{config.interface.addresses.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@+id/addresses_label"
-                        tools:text="fc00:bbbb:bbbb:bb11::3:368b/128" />
-
-                    <TextView
-                        android:id="@+id/dns_servers_label"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:labelFor="@+id/dns_servers_text"
-                        android:text="@string/dns_servers"
-                        android:visibility="@{config.interface.dnsServers.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@id/addresses_text" />
+                        tools:text="ADDRESSES&#10;172.20.4.18/24" />
 
                     <TextView
                         android:id="@+id/dns_servers_text"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:contentDescription="@string/dns_servers"
-                        android:nextFocusUp="@id/addresses_text"
-                        android:nextFocusDown="@id/dns_search_domains_text"
-                        android:nextFocusForward="@id/dns_search_domains_text"
+                        style="@style/TunnlDetailRow"
                         android:onClick="@{ClipboardUtils::copyTextView}"
-                        android:text="@{config.interface.dnsServers}"
-                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:text="@{`DNS SERVERS\n` + config.interface.dnsServers}"
                         android:visibility="@{config.interface.dnsServers.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@+id/dns_servers_label"
-                        tools:text="8.8.8.8, 8.8.4.4" />
-
-                    <TextView
-                        android:id="@+id/dns_search_domains_label"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:labelFor="@+id/dns_search_domain_text"
-                        android:text="@string/dns_search_domains"
-                        android:visibility="@{config.interface.dnsSearchDomains.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@id/dns_servers_text" />
+                        tools:text="DNS SERVERS&#10;1.1.1.1" />
 
                     <TextView
                         android:id="@+id/dns_search_domains_text"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:contentDescription="@string/dns_search_domains"
-                        android:nextFocusUp="@id/dns_servers_text"
-                        android:nextFocusDown="@id/listen_port_text"
-                        android:nextFocusForward="@id/listen_port_text"
+                        style="@style/TunnlDetailRow"
                         android:onClick="@{ClipboardUtils::copyTextView}"
-                        android:text="@{config.interface.dnsSearchDomains}"
-                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:text="@{`DNS SEARCH DOMAINS\n` + config.interface.dnsSearchDomains}"
                         android:visibility="@{config.interface.dnsSearchDomains.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@+id/dns_search_domains_label"
-                        tools:text="zx2c4.com" />
+                        tools:text="DNS SEARCH DOMAINS&#10;corp.example" />
 
-                    <TextView
-                        android:id="@+id/listen_port_label"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:labelFor="@+id/listen_port_text"
-                        android:text="@string/listen_port"
-                        android:visibility="@{!config.interface.listenPort.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                        app:layout_constraintEnd_toStartOf="@id/mtu_label"
-                        app:layout_constraintHorizontal_weight="0.5"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@id/dns_search_domains_text" />
-
-                    <TextView
-                        android:id="@+id/listen_port_text"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:contentDescription="@string/listen_port"
-                        android:nextFocusRight="@id/mtu_text"
-                        android:nextFocusUp="@id/dns_search_domains_text"
-                        android:nextFocusDown="@id/applications_text"
-                        android:nextFocusForward="@id/mtu_text"
-                        android:onClick="@{ClipboardUtils::copyTextView}"
-                        android:text="@{config.interface.listenPort}"
-                        android:textAppearance="?attr/textAppearanceBodyLarge"
-                        android:visibility="@{!config.interface.listenPort.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                        app:layout_constraintEnd_toStartOf="@id/mtu_label"
-                        app:layout_constraintHorizontal_weight="0.5"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@+id/listen_port_label"
-                        tools:text="51820" />
-
-                    <TextView
-                        android:id="@+id/mtu_label"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:labelFor="@+id/mtu_text"
-                        android:text="@string/mtu"
-                        android:visibility="@{!config.interface.mtu.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintHorizontal_weight="0.5"
-                        app:layout_constraintLeft_toRightOf="@id/listen_port_label"
-                        app:layout_constraintStart_toEndOf="@id/listen_port_label"
-                        app:layout_constraintTop_toBottomOf="@id/dns_search_domains_text" />
-
-                    <TextView
-                        android:id="@+id/mtu_text"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:contentDescription="@string/mtu"
-                        android:nextFocusLeft="@id/listen_port_text"
-                        android:nextFocusUp="@id/dns_servers_text"
-                        android:nextFocusForward="@id/applications_text"
-                        android:onClick="@{ClipboardUtils::copyTextView}"
-                        android:text="@{config.interface.mtu}"
-                        android:textAppearance="?attr/textAppearanceBodyLarge"
-                        android:visibility="@{!config.interface.mtu.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintHorizontal_weight="0.5"
-                        app:layout_constraintStart_toEndOf="@id/listen_port_label"
-                        app:layout_constraintStart_toStartOf="@+id/mtu_label"
-                        app:layout_constraintTop_toBottomOf="@+id/mtu_label"
-                        tools:text="1500" />
-
-                    <androidx.constraintlayout.widget.Barrier
+                    <LinearLayout
                         android:id="@+id/listen_port_mtu_barrier"
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        app:barrierDirection="bottom"
-                        app:constraint_referenced_ids="listen_port_text,mtu_text" />
+                        android:baselineAligned="false"
+                        android:orientation="horizontal">
 
-                    <TextView
-                        android:id="@+id/applications_label"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:labelFor="@+id/applications_text"
-                        android:text="@string/applications"
-                        android:visibility="@{config.interface.includedApplications.isEmpty() &amp;&amp; config.interface.excludedApplications.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@+id/listen_port_mtu_barrier" />
+                        <TextView
+                            android:id="@+id/listen_port_text"
+                            style="@style/TunnlDetailRow"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:onClick="@{ClipboardUtils::copyTextView}"
+                            android:text="@{`LISTEN PORT\n` + config.interface.listenPort}"
+                            android:visibility="@{!config.interface.listenPort.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}"
+                            tools:text="LISTEN PORT&#10;51820" />
+
+                        <TextView
+                            android:id="@+id/mtu_text"
+                            style="@style/TunnlDetailRow"
+                            android:layout_width="0dp"
+                            android:layout_weight="1"
+                            android:onClick="@{ClipboardUtils::copyTextView}"
+                            android:text="@{`MTU\n` + config.interface.mtu}"
+                            android:visibility="@{!config.interface.mtu.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}"
+                            tools:text="MTU&#10;1420" />
+                    </LinearLayout>
 
                     <TextView
                         android:id="@+id/applications_text"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:contentDescription="@string/applications"
-                        android:nextFocusUp="@id/mtu_text"
-                        android:nextFocusDown="@id/peers_layout"
-                        android:nextFocusForward="@id/peers_layout"
+                        style="@style/TunnlDetailRow"
                         android:onClick="@{ClipboardUtils::copyTextView}"
-                        android:text="@{config.interface.includedApplications.isEmpty() ? @plurals/n_excluded_applications(config.interface.excludedApplications.size(), config.interface.excludedApplications.size()) : @plurals/n_included_applications(config.interface.includedApplications.size(), config.interface.includedApplications.size())}"
-                        android:textAppearance="?attr/textAppearanceBodyLarge"
+                        android:text="@{config.interface.includedApplications.isEmpty() ? `APPLICATIONS\n` + @plurals/n_excluded_applications(config.interface.excludedApplications.size(), config.interface.excludedApplications.size()) : `APPLICATIONS\n` + @plurals/n_included_applications(config.interface.includedApplications.size(), config.interface.includedApplications.size())}"
                         android:visibility="@{config.interface.includedApplications.isEmpty() &amp;&amp; config.interface.excludedApplications.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toBottomOf="@+id/applications_label"
-                        tools:text="8 excluded" />
-                </androidx.constraintlayout.widget.ConstraintLayout>
+                        tools:text="APPLICATIONS&#10;8 excluded" />
+                </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    style="@style/TunnlLabelText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="§02"
+                    android:textColor="@color/tunnl_rule_strong" />
+
+                <TextView
+                    style="@style/TunnlMonoValueText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:text="@string/peers"
+                    android:textSize="13sp" />
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_marginStart="10dp"
+                    android:layout_weight="1"
+                    android:background="@color/tunnl_rule" />
+
+                <TextView
+                    style="@style/TunnlLabelText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:text="@{@plurals/n_peers(config.peers.size(), config.peers.size())}" />
+            </LinearLayout>
 
             <LinearLayout
                 android:id="@+id/peers_layout"
@@ -375,9 +411,7 @@
                 android:orientation="vertical"
                 app:items="@{config.peers}"
                 app:layout="@{@layout/tunnel_detail_peer}"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/tunnel_detail_card"
                 tools:ignore="UselessLeaf" />
-        </androidx.constraintlayout.widget.ConstraintLayout>
+        </LinearLayout>
     </ScrollView>
 </layout>

@@ -184,6 +184,11 @@
     <string name="parse_error_integer">number</string>
     <string name="parse_error_reason">Cannot parse %1$s “%2$s”</string>
     <string name="peer">Peer</string>
+    <string name="peers">peers</string>
+    <plurals name="n_peers">
+        <item quantity="one">%d CONFIGURED</item>
+        <item quantity="other">%d CONFIGURED</item>
+    </plurals>
     <string name="permission_description">control WireGuard tunnels, enabling and disabling tunnels at will, potentially misdirecting Internet traffic</string>
     <string name="permission_label">control WireGuard tunnels</string>
     <string name="persistent_keepalive">Persistent keepalive</string>
