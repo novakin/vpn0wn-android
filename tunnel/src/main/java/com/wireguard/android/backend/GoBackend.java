@@ -33,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
 
 import androidx.annotation.Nullable;
 import androidx.collection.ArraySet;
@@ -48,7 +49,8 @@ public final class GoBackend implements Backend {
     private static final int UDP_PREFLIGHT_RETRIES = 5;
     private static final long UDP_PREFLIGHT_RETRY_DELAY_MS = 200;
     @Nullable private static AlwaysOnCallback alwaysOnCallback;
-    private static CompletableFuture<VpnService> vpnService = new CompletableFuture<>();
+    private static final AtomicReference<CompletableFuture<VpnService>> vpnServiceRef =
+            new AtomicReference<>(new CompletableFuture<>());
     private final Context context;
     @Nullable private Config currentConfig;
     @Nullable private Tunnel currentTunnel;
@@ -197,7 +199,7 @@ public final class GoBackend implements Backend {
      */
     @Override
     public boolean isAlwaysOn() throws ExecutionException, InterruptedException, TimeoutException {
-        return vpnService.get(0, TimeUnit.NANOSECONDS).isAlwaysOn();
+        return vpnServiceRef.get().get(0, TimeUnit.NANOSECONDS).isAlwaysOn();
     }
 
     /**
@@ -206,7 +208,7 @@ public final class GoBackend implements Backend {
      */
     @Override
     public boolean isLockdownEnabled() throws ExecutionException, InterruptedException, TimeoutException {
-        return vpnService.get(0, TimeUnit.NANOSECONDS).isLockdownEnabled();
+        return vpnServiceRef.get().get(0, TimeUnit.NANOSECONDS).isLockdownEnabled();
     }
 
     /**
@@ -312,13 +314,13 @@ public final class GoBackend implements Backend {
                 throw new BackendException(Reason.VPN_NOT_AUTHORIZED);
 
             final VpnService service;
-            if (!vpnService.isDone()) {
+            if (!vpnServiceRef.get().isDone()) {
                 Log.d(TAG, "Requesting to start VpnService");
                 context.startService(new Intent(context, VpnService.class));
             }
 
             try {
-                service = vpnService.get(2, TimeUnit.SECONDS);
+                service = vpnServiceRef.get().get(2, TimeUnit.SECONDS);
             } catch (final TimeoutException e) {
                 final Exception be = new BackendException(Reason.UNABLE_TO_START_VPN);
                 be.initCause(e);
@@ -421,7 +423,7 @@ public final class GoBackend implements Backend {
             currentConfig = null;
             wgTurnOff(handleToClose);
             try {
-                vpnService.get(0, TimeUnit.NANOSECONDS).stopSelf();
+                vpnServiceRef.get().get(0, TimeUnit.NANOSECONDS).stopSelf();
             } catch (final TimeoutException ignored) { }
         }
 
@@ -448,7 +450,7 @@ public final class GoBackend implements Backend {
 
         @Override
         public void onCreate() {
-            vpnService.complete(this);
+            vpnServiceRef.get().complete(this);
             super.onCreate();
         }
 
@@ -466,15 +468,15 @@ public final class GoBackend implements Backend {
                 }
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
-                vpnService = vpnService.newIncompleteFuture();
+                vpnServiceRef.set(vpnServiceRef.get().newIncompleteFuture());
             else
-                vpnService = new CompletableFuture<>();
+                vpnServiceRef.set(new CompletableFuture<>());
             super.onDestroy();
         }
 
         @Override
         public int onStartCommand(@Nullable final Intent intent, final int flags, final int startId) {
-            vpnService.complete(this);
+            vpnServiceRef.get().complete(this);
             if (intent == null || intent.getComponent() == null || !intent.getComponent().getPackageName().equals(getPackageName())) {
                 Log.d(TAG, "Service started by Always-on VPN feature");
                 if (alwaysOnCallback != null)

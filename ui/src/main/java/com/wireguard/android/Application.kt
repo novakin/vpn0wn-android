@@ -110,10 +110,11 @@ class Application : android.app.Application() {
         tunnelManager.onCreate()
         coroutineScope.launch(Dispatchers.IO) {
             try {
-                backend = determineBackend()
-                futureBackend.complete(backend!!)
+                val b = determineBackend()
+                backend = b
+                futureBackend.complete(b)
             } catch (e: Throwable) {
-                Log.e(TAG, Log.getStackTraceString(e))
+                Log.e(TAG, "Failed to determine and initialize backend", e)
             }
         }
         Updater.monitorForUpdates()

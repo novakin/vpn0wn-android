@@ -112,7 +112,7 @@ class MainActivity : BaseActivity(), FragmentManager.OnBackStackChangedListener 
             fragmentManager.popBackStackImmediate(0, FragmentManager.POP_BACK_STACK_INCLUSIVE)
             return true
         }
-        if (backStackEntries == 2) {
+        if (backStackEntries == BACK_STACK_DETAIL_AND_EDITOR) {
             // Pop the editor off the back stack to reveal the detail fragment. Use the immediate
             // method to avoid the editor picking up the new tunnel while it is still visible.
             fragmentManager.popBackStackImmediate()
@@ -125,5 +125,9 @@ class MainActivity : BaseActivity(), FragmentManager.OnBackStackChangedListener 
             }
         }
         return true
+    }
+
+    companion object {
+        private const val BACK_STACK_DETAIL_AND_EDITOR = 2
     }
 }

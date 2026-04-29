@@ -5,6 +5,7 @@
 package com.wireguard.android.fragment
 
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.Menu
 import android.view.MenuInflater
@@ -21,16 +22,18 @@ import com.wireguard.android.databinding.TunnelDetailFragmentBinding
 import com.wireguard.android.databinding.TunnelDetailPeerBinding
 import com.wireguard.android.model.ObservableTunnel
 import com.wireguard.android.util.QuantityFormatter
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-/**
- * Fragment that shows details about a specific tunnel.
- */
 class TunnelDetailFragment : BaseFragment(), MenuProvider {
+
+    companion object {
+        private const val TAG = "WireGuard/TunnelDetailFragment"
+    }
     private var binding: TunnelDetailFragmentBinding? = null
-    private var lastState = Tunnel.State.TOGGLE
-    private var timerActive = true
+    private var lastState: Tunnel.State? = null
+    private var statsJob: Job? = null
 
     override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
         return false
@@ -62,9 +65,8 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
 
     override fun onResume() {
         super.onResume()
-        timerActive = true
-        lifecycleScope.launch {
-            while (timerActive) {
+        statsJob = lifecycleScope.launch {
+            while (true) {
                 updateStats()
                 delay(1000)
             }
@@ -80,17 +82,18 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
             lifecycleScope.launch {
                 try {
                     binding.config = newTunnel.getConfigAsync()
-                } catch (_: Throwable) {
+                } catch (_: Exception) {
                     binding.config = null
                 }
             }
         }
-        lastState = Tunnel.State.TOGGLE
+        lastState = null
         lifecycleScope.launch { updateStats() }
     }
 
     override fun onStop() {
-        timerActive = false
+        statsJob?.cancel()
+        statsJob = null
         super.onStop()
     }
 
@@ -106,7 +109,7 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
         val tunnel = binding.tunnel ?: return
         if (!isResumed) return
         val state = tunnel.state
-        if (state != Tunnel.State.UP && lastState == state) return
+        if (state != Tunnel.State.UP && lastState != null && lastState == state) return
         lastState = state
         try {
             val statistics = tunnel.getStatisticsAsync()
@@ -137,6 +140,7 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
                 }
             }
         } catch (e: Throwable) {
+            Log.w(TAG, "Failed to update tunnel statistics", e)
             for (i in 0 until binding.peersLayout.childCount) {
                 val peer: TunnelDetailPeerBinding = DataBindingUtil.getBinding(binding.peersLayout.getChildAt(i))
                     ?: continue

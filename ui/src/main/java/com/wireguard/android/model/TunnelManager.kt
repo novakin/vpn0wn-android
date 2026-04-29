@@ -51,12 +51,12 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
 
     suspend fun getTunnels(): ObservableSortedKeyedArrayList<String, ObservableTunnel> = tunnels.await()
 
-    suspend fun create(name: String, config: Config?): ObservableTunnel = withContext(Dispatchers.Main.immediate) {
+    suspend fun create(name: String, config: Config): ObservableTunnel = withContext(Dispatchers.Main.immediate) {
         if (Tunnel.isNameInvalid(name))
             throw IllegalArgumentException(context.getString(R.string.tunnel_error_invalid_name))
         if (tunnelMap.containsKey(name))
             throw IllegalArgumentException(context.getString(R.string.tunnel_error_already_exists, name))
-        addToList(name, withContext(Dispatchers.IO) { configStore.create(name, config!!) }, Tunnel.State.DOWN)
+        addToList(name, withContext(Dispatchers.IO) { configStore.create(name, config) }, Tunnel.State.DOWN)
     }
 
     suspend fun delete(tunnel: ObservableTunnel) = withContext(Dispatchers.Main.immediate) {
@@ -103,7 +103,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
             try {
                 onTunnelsLoaded(withContext(Dispatchers.IO) { configStore.enumerate() }, withContext(Dispatchers.IO) { getBackend().runningTunnelNames })
             } catch (e: Throwable) {
-                Log.e(TAG, Log.getStackTraceString(e))
+                Log.e(TAG, "Failed to load tunnels on create", e)
             }
         }
     }
@@ -128,7 +128,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
                 for (tunnel in tunnelMap)
                     tunnel.onStateChanged(if (running.contains(tunnel.name)) Tunnel.State.UP else Tunnel.State.DOWN)
             } catch (e: Throwable) {
-                Log.e(TAG, Log.getStackTraceString(e))
+                Log.e(TAG, "Failed to refresh tunnel states", e)
             }
         }
     }
@@ -139,12 +139,15 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         val previouslyRunning = UserKnobs.runningTunnels.first()
         if (previouslyRunning.isEmpty()) return
         withContext(Dispatchers.IO) {
-            try {
-                tunnelMap.filter { previouslyRunning.contains(it.name) }.map { async(Dispatchers.IO + SupervisorJob()) { setTunnelState(it, Tunnel.State.UP) } }
-                    .awaitAll()
-            } catch (e: Throwable) {
-                Log.e(TAG, Log.getStackTraceString(e))
-            }
+            tunnelMap.filter { previouslyRunning.contains(it.name) }.map { tunnel ->
+                async(Dispatchers.IO + SupervisorJob()) {
+                    try {
+                        setTunnelState(tunnel, Tunnel.State.UP)
+                    } catch (e: Throwable) {
+                        Log.e(TAG, "Failed to restore tunnel ${tunnel.name}", e)
+                    }
+                }
+            }.awaitAll()
         }
     }
 
@@ -191,7 +194,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
             lastUsedTunnel = tunnel
         if (throwable != null)
             throw throwable
-        newName!!
+        checkNotNull(newName) { "newName must be set when no throwable was thrown" }
     }
 
     suspend fun setTunnelState(tunnel: ObservableTunnel, state: Tunnel.State): Tunnel.State = withContext(Dispatchers.Main.immediate) {

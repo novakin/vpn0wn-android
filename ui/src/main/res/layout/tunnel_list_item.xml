@@ -39,7 +39,6 @@
         android:background="@drawable/tunnl_list_item_background"
         android:descendantFocusability="beforeDescendants"
         android:focusable="true"
-        android:minHeight="176dp"
         android:nextFocusRight="@+id/tunnel_switch"
         android:padding="0dp">
 
@@ -122,6 +121,7 @@
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:text="@{key}"
+                android:textSize="16sp"
                 tools:text="@sample/interface_names.json/names/names/name" />
 
             <TextView
@@ -132,6 +132,7 @@
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:text="@{BindingAdapters.tunnelRoute(item.config)}"
+                android:textSize="11sp"
                 tools:text="172.20.4.18/24 -> gw.example.ro:51820" />
         </LinearLayout>
 
@@ -150,92 +151,130 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_below="@id/tunnel_signal"
-            android:layout_marginStart="16dp"
             android:layout_marginTop="8dp"
-            android:layout_marginEnd="16dp"
-            android:layout_marginBottom="14dp"
-            android:baselineAligned="false"
-            android:orientation="horizontal">
+            android:background="@color/tunnl_paper"
+            android:orientation="vertical"
+            android:visibility="@{item.state == State.UP ? android.view.View.VISIBLE : android.view.View.GONE}">
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/tunnl_rule" />
 
             <LinearLayout
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
+                android:baselineAligned="false"
+                android:orientation="horizontal">
 
-                <TextView
-                    style="@style/TunnlLabelText"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="@string/tunnl_in" />
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:paddingStart="12dp"
+                    android:paddingTop="8dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="8dp">
 
-                <TextView
-                    style="@style/TunnlMonoValueText"
-                    android:layout_width="wrap_content"
+                    <TextView
+                        style="@style/TunnlLabelText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/tunnl_in" />
+
+                    <TextView
+                        style="@style/TunnlMonoValueText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:textSize="13sp"
+                        android:text="@{BindingAdapters.tunnelRx(item.statistics)}"
+                        tools:text="19.8 MB" />
+
+                    <TextView
+                        style="@style/TunnlMonoSubText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@{BindingAdapters.tunnelRxRate(item, item.statistics)}"
+                        tools:text="343 KB/s" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="match_parent"
+                    android:background="@color/tunnl_rule" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="@{BindingAdapters.tunnelRx(item.statistics)}"
-                    tools:text="19.8 MB" />
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:paddingStart="12dp"
+                    android:paddingTop="8dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="8dp">
 
-                <TextView
-                    style="@style/TunnlMonoSubText"
-                    android:layout_width="wrap_content"
+                    <TextView
+                        style="@style/TunnlLabelText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/tunnl_out" />
+
+                    <TextView
+                        style="@style/TunnlMonoValueText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:textSize="13sp"
+                        android:text="@{BindingAdapters.tunnelTx(item.statistics)}"
+                        tools:text="973 KB" />
+
+                    <TextView
+                        style="@style/TunnlMonoSubText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@{BindingAdapters.tunnelTxRate(item, item.statistics)}"
+                        tools:text="29 KB/s" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="1dp"
+                    android:layout_height="match_parent"
+                    android:background="@color/tunnl_rule" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="@{BindingAdapters.tunnelRxRate(item, item.statistics)}"
-                    tools:text="343 KB/s" />
-            </LinearLayout>
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:paddingStart="12dp"
+                    android:paddingTop="8dp"
+                    android:paddingEnd="12dp"
+                    android:paddingBottom="8dp">
 
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
+                    <TextView
+                        style="@style/TunnlLabelText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/tunnl_handshake" />
 
-                <TextView
-                    style="@style/TunnlLabelText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/tunnl_out" />
+                    <TextView
+                        style="@style/TunnlMonoValueText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:textSize="13sp"
+                        android:text="@{BindingAdapters.tunnelHandshake(item.statistics)}"
+                        tools:text="2m 32s ago" />
 
-                <TextView
-                    style="@style/TunnlMonoValueText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@{BindingAdapters.tunnelTx(item.statistics)}"
-                    tools:text="973 KB" />
-
-                <TextView
-                    style="@style/TunnlMonoSubText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@{BindingAdapters.tunnelTxRate(item, item.statistics)}"
-                    tools:text="29 KB/s" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    style="@style/TunnlLabelText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/tunnl_handshake" />
-
-                <TextView
-                    style="@style/TunnlMonoValueText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@{BindingAdapters.tunnelHandshake(item.statistics)}"
-                    tools:text="2m 32s ago" />
-
-                <TextView
-                    style="@style/TunnlMonoSubText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@{BindingAdapters.tunnelCipher(item.config)}"
-                    tools:text="ChaCha20" />
+                    <TextView
+                        style="@style/TunnlMonoSubText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@{BindingAdapters.tunnelCipher(item.config)}"
+                        tools:text="ChaCha20" />
+                </LinearLayout>
             </LinearLayout>
         </LinearLayout>
     </com.wireguard.android.widget.MultiselectableRelativeLayout>

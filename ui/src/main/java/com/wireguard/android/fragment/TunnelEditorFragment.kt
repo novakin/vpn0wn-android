@@ -78,7 +78,7 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
         binding = TunnelEditorFragmentBinding.inflate(inflater, container, false)
         binding?.apply {
             executePendingBindings()
-            privateKeyTextLayout.setEndIconOnClickListener { config?.`interface`?.generateKeyPair() }
+            privateKeyRegenButton.setOnClickListener { config?.`interface`?.generateKeyPair() }
         }
         return binding?.root
     }
@@ -114,47 +114,53 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
 
     override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
         if (menuItem.itemId == R.id.menu_action_save) {
-            binding ?: return false
+            val binding = binding ?: return false
+            val config = binding.config ?: return false
             val newConfig = try {
-                binding!!.config!!.resolve()
-            } catch (e: Throwable) {
+                config.resolve()
+            } catch (e: Exception) {
                 val error = ErrorMessages[e]
-                val tunnelName = if (tunnel == null) binding!!.name else tunnel!!.name
+                val tunnelName = if (tunnel == null) binding.name else tunnel!!.name
                 val message = getString(R.string.config_save_error, tunnelName, error)
                 Log.e(TAG, message, e)
-                Snackbar.make(binding!!.mainContainer, error, Snackbar.LENGTH_LONG).show()
+                Snackbar.make(binding.mainContainer, error, Snackbar.LENGTH_LONG).show()
+                return false
+            }
+            val name = binding.name?.takeIf { it.isNotBlank() } ?: run {
+                Snackbar.make(binding.mainContainer, getString(R.string.tunnel_error_invalid_name), Snackbar.LENGTH_LONG).show()
                 return false
             }
             val activity = requireActivity()
+            val t = tunnel
             activity.lifecycleScope.launch {
                 when {
-                    tunnel == null -> {
-                        Log.d(TAG, "Attempting to create new tunnel " + binding!!.name)
+                    t == null -> {
+                        Log.d(TAG, "Attempting to create new tunnel $name")
                         val manager = Application.getTunnelManager()
                         try {
-                            onTunnelCreated(manager.create(binding!!.name!!, newConfig), null)
+                            onTunnelCreated(manager.create(name, newConfig), null)
                         } catch (e: Throwable) {
                             onTunnelCreated(null, e)
                         }
                     }
 
-                    tunnel!!.name != binding!!.name -> {
-                        Log.d(TAG, "Attempting to rename tunnel to " + binding!!.name)
+                    t.name != name -> {
+                        Log.d(TAG, "Attempting to rename tunnel to $name")
                         try {
-                            tunnel!!.setNameAsync(binding!!.name!!)
-                            onTunnelRenamed(tunnel!!, newConfig, null)
+                            t.setNameAsync(name)
+                            onTunnelRenamed(t, newConfig, null)
                         } catch (e: Throwable) {
-                            onTunnelRenamed(tunnel!!, newConfig, e)
+                            onTunnelRenamed(t, newConfig, e)
                         }
                     }
 
                     else -> {
-                        Log.d(TAG, "Attempting to save config of " + tunnel!!.name)
+                        Log.d(TAG, "Attempting to save config of " + t.name)
                         try {
-                            tunnel!!.setConfigAsync(newConfig)
-                            onConfigSaved(tunnel!!, null)
+                            t.setConfigAsync(newConfig)
+                            onConfigSaved(t, null)
                         } catch (e: Throwable) {
-                            onConfigSaved(tunnel!!, e)
+                            onConfigSaved(t, e)
                         }
                     }
                 }
@@ -166,40 +172,41 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
 
     @Suppress("UNUSED_PARAMETER")
     fun onRequestSetExcludedIncludedApplications(view: View?) {
-        if (binding != null) {
-            var isExcluded = true
-            var selectedApps = ArrayList(binding!!.config!!.`interface`.excludedApplications)
-            if (selectedApps.isEmpty()) {
-                selectedApps = ArrayList(binding!!.config!!.`interface`.includedApplications)
-                if (selectedApps.isNotEmpty())
-                    isExcluded = false
-            }
-            val fragment = AppListDialogFragment.newInstance(selectedApps, isExcluded)
-            childFragmentManager.setFragmentResultListener(AppListDialogFragment.REQUEST_SELECTION, viewLifecycleOwner) { _, bundle ->
-                requireNotNull(binding) { "Tried to set excluded/included apps while no view was loaded" }
-                val newSelections = requireNotNull(bundle.getStringArray(AppListDialogFragment.KEY_SELECTED_APPS))
-                val excluded = requireNotNull(bundle.getBoolean(AppListDialogFragment.KEY_IS_EXCLUDED))
-                if (excluded) {
-                    binding!!.config!!.`interface`.includedApplications.clear()
-                    binding!!.config!!.`interface`.excludedApplications.apply {
-                        clear()
-                        addAll(newSelections)
-                    }
-                } else {
-                    binding!!.config!!.`interface`.excludedApplications.clear()
-                    binding!!.config!!.`interface`.includedApplications.apply {
-                        clear()
-                        addAll(newSelections)
-                    }
+        val binding = binding ?: return
+        val config = binding.config ?: return
+        var isExcluded = true
+        var selectedApps = ArrayList(config.`interface`.excludedApplications)
+        if (selectedApps.isEmpty()) {
+            selectedApps = ArrayList(config.`interface`.includedApplications)
+            if (selectedApps.isNotEmpty())
+                isExcluded = false
+        }
+        val fragment = AppListDialogFragment.newInstance(selectedApps, isExcluded)
+        childFragmentManager.setFragmentResultListener(AppListDialogFragment.REQUEST_SELECTION, viewLifecycleOwner) { _, bundle ->
+            val b = this.binding ?: return@setFragmentResultListener
+            val c = b.config ?: return@setFragmentResultListener
+            val newSelections = requireNotNull(bundle.getStringArray(AppListDialogFragment.KEY_SELECTED_APPS))
+            val excluded = requireNotNull(bundle.getBoolean(AppListDialogFragment.KEY_IS_EXCLUDED))
+            if (excluded) {
+                c.`interface`.includedApplications.clear()
+                c.`interface`.excludedApplications.apply {
+                    clear()
+                    addAll(newSelections)
+                }
+            } else {
+                c.`interface`.excludedApplications.clear()
+                c.`interface`.includedApplications.apply {
+                    clear()
+                    addAll(newSelections)
                 }
             }
-            fragment.show(childFragmentManager, null)
         }
+        fragment.show(childFragmentManager, null)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
-        if (binding != null) outState.putParcelable(KEY_LOCAL_CONFIG, binding!!.config)
-        outState.putString(KEY_ORIGINAL_NAME, if (tunnel == null) null else tunnel!!.name)
+        binding?.let { outState.putParcelable(KEY_LOCAL_CONFIG, it.config) }
+        outState.putString(KEY_ORIGINAL_NAME, tunnel?.name)
         super.onSaveInstanceState(outState)
     }
 
@@ -215,7 +222,7 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
             lifecycleScope.launch {
                 try {
                     onConfigLoaded(tunnel!!.getConfigAsync())
-                } catch (_: Throwable) {
+                } catch (_: Exception) {
                 }
             }
         } else {
@@ -272,15 +279,17 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
     }
 
     override fun onViewStateRestored(savedInstanceState: Bundle?) {
-        binding ?: return
-        binding!!.fragment = this
+        val binding = binding ?: return
+        binding.fragment = this
         if (savedInstanceState == null) {
             onSelectedTunnelChanged(null, selectedTunnel)
         } else {
             tunnel = selectedTunnel
-            val config = BundleCompat.getParcelable(savedInstanceState, KEY_LOCAL_CONFIG, ConfigProxy::class.java)!!
+            val config = BundleCompat.getParcelable(savedInstanceState, KEY_LOCAL_CONFIG, ConfigProxy::class.java)
+                ?: return
             val originalName = savedInstanceState.getString(KEY_ORIGINAL_NAME)
-            if (tunnel != null && tunnel!!.name != originalName) onSelectedTunnelChanged(null, tunnel) else binding!!.config = config
+            val t = tunnel
+            if (t != null && t.name != originalName) onSelectedTunnelChanged(null, t) else binding.config = config
         }
         super.onViewStateRestored(savedInstanceState)
     }
@@ -305,11 +314,9 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
                     }
 
                     is BiometricAuthenticator.Result.Failure -> {
-                        Snackbar.make(
-                            binding!!.mainContainer,
-                            it.message,
-                            Snackbar.LENGTH_SHORT
-                        ).show()
+                        binding?.let { b ->
+                            Snackbar.make(b.mainContainer, it.message, Snackbar.LENGTH_SHORT).show()
+                        }
                     }
 
                     is BiometricAuthenticator.Result.Cancelled -> {}

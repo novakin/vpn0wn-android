@@ -302,4 +302,25 @@ object BindingAdapters {
     fun setIsDeleting(card: TvCardView, deleting: Boolean) {
         card.isDeleting = deleting
     }
+
+    @JvmStatic
+    fun shortKey(key: String?): String {
+        if (key.isNullOrEmpty()) return "—"
+        return if (key.length > 12) key.take(6) + "…" + key.takeLast(6) else key
+    }
+
+    @JvmStatic
+    @BindingAdapter("topologyConfig")
+    fun setTopologyConfig(view: TunnelThroughputView, config: Config?) {
+        val address  = config?.`interface`?.addresses?.firstOrNull()?.toString() ?: "—"
+        val endpoint = config?.peers?.firstOrNull()?.endpoint?.map { it.toString() }?.orElse("—") ?: "—"
+        view.setAddress(address)
+        view.setEndpoint(endpoint)
+    }
+
+    @JvmStatic
+    @BindingAdapter("isConnecting")
+    fun setIsConnecting(view: TunnelThroughputView, connecting: Boolean) {
+        view.connecting = connecting
+    }
 }

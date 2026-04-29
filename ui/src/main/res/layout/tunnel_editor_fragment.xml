@@ -40,99 +40,150 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical">
+                android:orientation="vertical"
+                android:paddingStart="12dp"
+                android:paddingTop="14dp"
+                android:paddingEnd="12dp"
+                android:paddingBottom="96dp">
 
+                <!-- §01 Interface section header -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="8dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        style="@style/TunnlLabelText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="§01"
+                        android:textColor="@color/tunnl_rule_strong" />
+
+                    <TextView
+                        style="@style/TunnlMonoValueText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:text="@string/interface_title"
+                        android:textSize="13sp" />
+
+                    <View
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_marginStart="10dp"
+                        android:layout_weight="1"
+                        android:background="@color/tunnl_rule" />
+
+                    <TextView
+                        style="@style/TunnlLabelText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:text="LOCAL SIDE" />
+                </LinearLayout>
+
+                <!-- Interface FieldGroup card -->
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:layout_marginTop="16dp"
-                    android:layout_marginEnd="8dp"
-                    android:layout_marginBottom="16dp">
+                    app:cardElevation="0dp"
+                    app:contentPadding="0dp"
+                    app:strokeColor="@color/tunnl_rule"
+                    app:strokeWidth="1dp">
 
-                    <androidx.constraintlayout.widget.ConstraintLayout
+                    <LinearLayout
                         android:layout_width="match_parent"
-                        android:layout_height="wrap_content">
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical">
 
-                        <com.google.android.material.textview.MaterialTextView
-                            android:id="@+id/interface_title"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_margin="8dp"
-                            android:layout_marginTop="32dp"
-                            android:text="@string/interface_title"
-                            android:textAppearance="?attr/textAppearanceTitleMedium"
-                            app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintTop_toTopOf="parent" />
+                        <!-- NAME -->
+                        <LinearLayout
+                            style="@style/TunnlDetailRow"
+                            android:orientation="vertical">
 
-                        <com.google.android.material.textfield.TextInputLayout
-                            android:id="@+id/interface_name_layout"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_margin="4dp"
-                            android:hint="@string/name"
-                            app:layout_constraintEnd_toEndOf="parent"
-                            app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintTop_toBottomOf="@+id/interface_title">
+                            <TextView
+                                style="@style/TunnlConfigRowLabel"
+                                android:text="NAME" />
 
-                            <com.google.android.material.textfield.TextInputEditText
+                            <EditText
                                 android:id="@+id/interface_name_text"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
+                                style="@style/TunnlEditorField"
                                 android:imeOptions="actionNext"
                                 android:inputType="textNoSuggestions|textVisiblePassword"
                                 android:nextFocusDown="@id/private_key_text"
                                 android:nextFocusForward="@id/private_key_text"
                                 android:text="@={name}"
                                 app:filter="@{NameInputFilter.newInstance()}" />
-                        </com.google.android.material.textfield.TextInputLayout>
+                        </LinearLayout>
 
-                        <com.google.android.material.textfield.TextInputLayout
-                            android:id="@+id/private_key_text_layout"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_margin="4dp"
-                            android:hint="@string/private_key"
-                            app:endIconContentDescription="@string/generate_new_private_key"
-                            app:endIconDrawable="@drawable/ic_action_generate"
-                            app:endIconMode="custom"
-                            app:layout_constraintEnd_toEndOf="parent"
-                            app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintTop_toBottomOf="@+id/interface_name_layout">
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/tunnl_rule" />
 
-                            <com.google.android.material.textfield.TextInputEditText
-                                android:id="@+id/private_key_text"
+                        <!-- PRIVATE KEY -->
+                        <LinearLayout
+                            style="@style/TunnlDetailRow"
+                            android:orientation="vertical">
+
+                            <TextView
+                                style="@style/TunnlConfigRowLabel"
+                                android:text="PRIVATE KEY" />
+
+                            <LinearLayout
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:imeOptions="actionNext"
-                                android:inputType="textNoSuggestions|textPassword"
-                                android:nextFocusUp="@id/interface_name_text"
-                                android:nextFocusDown="@id/public_key_text"
-                                android:nextFocusForward="@id/public_key_text"
-                                android:onClick="@{fragment::onKeyClick}"
-                                android:text="@={config.interface.privateKey}"
-                                app:filter="@{KeyInputFilter.newInstance()}"
-                                app:onFocusChange="@{fragment::onKeyFocusChange}" />
-                        </com.google.android.material.textfield.TextInputLayout>
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal"
+                                android:paddingTop="4dp">
 
-                        <com.google.android.material.textfield.TextInputLayout
-                            android:id="@+id/public_key_label_layout"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_margin="4dp"
-                            android:hint="@string/public_key"
-                            app:expandedHintEnabled="false"
-                            app:layout_constraintEnd_toEndOf="parent"
-                            app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintTop_toBottomOf="@+id/private_key_text_layout">
+                                <EditText
+                                    android:id="@+id/private_key_text"
+                                    style="@style/TunnlEditorField"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:imeOptions="actionNext"
+                                    android:inputType="textNoSuggestions|textPassword"
+                                    android:nextFocusUp="@id/interface_name_text"
+                                    android:nextFocusDown="@id/public_key_text"
+                                    android:nextFocusForward="@id/public_key_text"
+                                    android:onClick="@{fragment::onKeyClick}"
+                                    android:text="@={config.interface.privateKey}"
+                                    app:filter="@{KeyInputFilter.newInstance()}"
+                                    app:onFocusChange="@{fragment::onKeyFocusChange}" />
 
-                            <com.google.android.material.textfield.TextInputEditText
+                                <com.google.android.material.button.MaterialButton
+                                    android:id="@+id/private_key_regen_button"
+                                    style="@style/Widget.Material3.Button.TextButton"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="REGEN"
+                                    android:textSize="10sp"
+                                    app:strokeColor="@color/tunnl_rule_strong"
+                                    app:strokeWidth="1dp" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/tunnl_rule" />
+
+                        <!-- PUBLIC KEY (read-only) -->
+                        <LinearLayout
+                            style="@style/TunnlDetailRow"
+                            android:orientation="vertical">
+
+                            <TextView
+                                style="@style/TunnlConfigRowLabel"
+                                android:text="PUBLIC KEY" />
+
+                            <EditText
                                 android:id="@+id/public_key_text"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:editable="false"
-                                android:ellipsize="end"
-                                android:focusable="false"
+                                style="@style/TunnlEditorFieldReadOnly"
                                 android:hint="@string/hint_generated"
                                 android:imeOptions="actionNext"
                                 android:nextFocusUp="@id/private_key_text"
@@ -141,130 +192,200 @@
                                 android:onClick="@{ClipboardUtils::copyTextView}"
                                 android:singleLine="true"
                                 android:text="@{config.interface.publicKey}" />
-                        </com.google.android.material.textfield.TextInputLayout>
+                        </LinearLayout>
 
-                        <com.google.android.material.textfield.TextInputLayout
-                            android:id="@+id/addresses_label_layout"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_margin="4dp"
-                            android:hint="@string/addresses"
-                            app:layout_constraintEnd_toStartOf="@id/listen_port_label_layout"
-                            app:layout_constraintHorizontal_chainStyle="spread"
-                            app:layout_constraintHorizontal_weight="0.7"
-                            app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintTop_toBottomOf="@+id/public_key_label_layout">
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/tunnl_rule" />
 
-                            <com.google.android.material.textfield.TextInputEditText
+                        <!-- ADDRESSES -->
+                        <LinearLayout
+                            style="@style/TunnlDetailRow"
+                            android:orientation="vertical">
+
+                            <TextView
+                                style="@style/TunnlConfigRowLabel"
+                                android:text="ADDRESSES" />
+
+                            <EditText
                                 android:id="@+id/addresses_label_text"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
+                                style="@style/TunnlEditorField"
                                 android:imeOptions="actionNext"
                                 android:inputType="textNoSuggestions|textVisiblePassword"
                                 android:nextFocusUp="@id/public_key_text"
                                 android:nextFocusDown="@id/dns_servers_text"
                                 android:nextFocusForward="@id/listen_port_text"
                                 android:text="@={config.interface.addresses}" />
-                        </com.google.android.material.textfield.TextInputLayout>
+                        </LinearLayout>
 
-                        <com.google.android.material.textfield.TextInputLayout
-                            android:id="@+id/listen_port_label_layout"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_margin="4dp"
-                            android:hint="@string/listen_port"
-                            app:expandedHintEnabled="false"
-                            app:layout_constraintEnd_toEndOf="parent"
-                            app:layout_constraintHorizontal_weight="0.3"
-                            app:layout_constraintStart_toEndOf="@id/addresses_label_layout"
-                            app:layout_constraintTop_toBottomOf="@id/public_key_label_layout">
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/tunnl_rule" />
 
-                            <com.google.android.material.textfield.TextInputEditText
-                                android:id="@+id/listen_port_text"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:hint="@string/hint_random"
-                                android:imeOptions="actionNext"
-                                android:inputType="number"
-                                android:nextFocusUp="@id/public_key_text"
-                                android:nextFocusDown="@id/mtu_text"
-                                android:nextFocusForward="@id/dns_servers_text"
-                                android:text="@={config.interface.listenPort}"
-                                android:textAlignment="center" />
-                        </com.google.android.material.textfield.TextInputLayout>
+                        <!-- DNS SERVERS -->
+                        <LinearLayout
+                            style="@style/TunnlDetailRow"
+                            android:orientation="vertical">
 
+                            <TextView
+                                style="@style/TunnlConfigRowLabel"
+                                android:text="DNS SERVERS" />
 
-                        <com.google.android.material.textfield.TextInputLayout
-                            android:id="@+id/dns_servers_label_layout"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_margin="4dp"
-                            android:hint="@string/dns_servers"
-                            app:layout_constraintEnd_toStartOf="@id/mtu_label_layout"
-                            app:layout_constraintHorizontal_chainStyle="spread"
-                            app:layout_constraintHorizontal_weight="0.7"
-                            app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintTop_toBottomOf="@+id/addresses_label_layout">
-
-                            <com.google.android.material.textfield.TextInputEditText
+                            <EditText
                                 android:id="@+id/dns_servers_text"
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
+                                style="@style/TunnlEditorField"
                                 android:imeOptions="actionNext"
                                 android:inputType="textNoSuggestions|textVisiblePassword"
                                 android:nextFocusUp="@id/addresses_label_text"
                                 android:nextFocusDown="@id/set_excluded_applications"
                                 android:nextFocusForward="@id/mtu_text"
                                 android:text="@={config.interface.dnsServers}" />
-                        </com.google.android.material.textfield.TextInputLayout>
+                        </LinearLayout>
 
-                        <com.google.android.material.textfield.TextInputLayout
-                            android:id="@+id/mtu_label_layout"
-                            android:layout_width="0dp"
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/tunnl_rule" />
+
+                        <!-- LISTEN PORT + MTU side-by-side -->
+                        <LinearLayout
+                            android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:layout_margin="4dp"
-                            android:hint="@string/mtu"
-                            app:expandedHintEnabled="false"
-                            app:layout_constraintEnd_toEndOf="parent"
-                            app:layout_constraintHorizontal_weight="0.3"
-                            app:layout_constraintStart_toEndOf="@id/dns_servers_label_layout"
-                            app:layout_constraintTop_toBottomOf="@id/addresses_label_layout">
+                            android:baselineAligned="false"
+                            android:orientation="horizontal">
 
-                            <com.google.android.material.textfield.TextInputEditText
-                                android:id="@+id/mtu_text"
-                                android:layout_width="match_parent"
+                            <LinearLayout
+                                style="@style/TunnlDetailRow"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/TunnlConfigRowLabel"
+                                    android:text="LISTEN PORT" />
+
+                                <EditText
+                                    android:id="@+id/listen_port_text"
+                                    style="@style/TunnlEditorField"
+                                    android:hint="@string/hint_random"
+                                    android:imeOptions="actionNext"
+                                    android:inputType="number"
+                                    android:nextFocusUp="@id/public_key_text"
+                                    android:nextFocusDown="@id/mtu_text"
+                                    android:nextFocusForward="@id/dns_servers_text"
+                                    android:text="@={config.interface.listenPort}" />
+                            </LinearLayout>
+
+                            <View
+                                android:layout_width="1dp"
+                                android:layout_height="match_parent"
+                                android:background="@color/tunnl_rule" />
+
+                            <LinearLayout
+                                style="@style/TunnlDetailRow"
+                                android:layout_width="0dp"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    style="@style/TunnlConfigRowLabel"
+                                    android:text="MTU" />
+
+                                <EditText
+                                    android:id="@+id/mtu_text"
+                                    style="@style/TunnlEditorField"
+                                    android:hint="@string/hint_automatic"
+                                    android:imeOptions="actionDone"
+                                    android:inputType="number"
+                                    android:nextFocusUp="@id/listen_port_text"
+                                    android:nextFocusDown="@id/set_excluded_applications"
+                                    android:nextFocusForward="@id/set_excluded_applications"
+                                    android:text="@={config.interface.mtu}" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/tunnl_rule" />
+
+                        <!-- EXCLUDED APPS -->
+                        <LinearLayout
+                            style="@style/TunnlDetailRow"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
                                 android:layout_height="wrap_content"
-                                android:hint="@string/hint_automatic"
-                                android:imeOptions="actionDone"
-                                android:inputType="number"
-                                android:nextFocusUp="@id/listen_port_text"
-                                android:nextFocusDown="@id/set_excluded_applications"
-                                android:nextFocusForward="@id/set_excluded_applications"
-                                android:text="@={config.interface.mtu}"
-                                android:textAlignment="center" />
-                        </com.google.android.material.textfield.TextInputLayout>
+                                android:layout_weight="1"
+                                android:orientation="vertical">
 
-                        <com.google.android.material.button.MaterialButton
-                            android:id="@+id/set_excluded_applications"
-                            style="@style/Widget.Material3.Button.TextButton"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_margin="4dp"
-                            android:nextFocusUp="@id/dns_servers_text"
-                            android:nextFocusDown="@id/peers_layout"
-                            android:nextFocusForward="@id/peers_layout"
-                            android:onClick="@{fragment::onRequestSetExcludedIncludedApplications}"
-                            android:text="@{config.interface.includedApplications.size > 0 ? @plurals/set_included_applications(config.interface.includedApplications.size, config.interface.includedApplications.size) : config.interface.excludedApplications.size > 0 ? @plurals/set_excluded_applications(config.interface.excludedApplications.size, config.interface.excludedApplications.size) : @string/all_applications}"
-                            android:textColor="?attr/colorSecondary"
-                            app:layout_constraintBottom_toBottomOf="parent"
-                            app:layout_constraintEnd_toEndOf="parent"
-                            app:layout_constraintStart_toStartOf="parent"
-                            app:layout_constraintTop_toBottomOf="@id/mtu_label_layout"
-                            app:rippleColor="?attr/colorSecondary"
-                            tools:text="4 excluded applications" />
-                    </androidx.constraintlayout.widget.ConstraintLayout>
+                                <TextView
+                                    style="@style/TunnlConfigRowLabel"
+                                    android:text="EXCLUDED APPS" />
+
+                                <TextView
+                                    style="@style/TunnlMonoSubText"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginTop="4dp"
+                                    android:text="@{config.interface.includedApplications.size > 0 ? @plurals/set_included_applications(config.interface.includedApplications.size, config.interface.includedApplications.size) : config.interface.excludedApplications.size > 0 ? @plurals/set_excluded_applications(config.interface.excludedApplications.size, config.interface.excludedApplications.size) : @string/all_applications}"
+                                    tools:text="none" />
+                            </LinearLayout>
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/set_excluded_applications"
+                                style="@style/Widget.Material3.Button.TextButton"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:nextFocusUp="@id/dns_servers_text"
+                                android:nextFocusDown="@id/peers_layout"
+                                android:nextFocusForward="@id/peers_layout"
+                                android:onClick="@{fragment::onRequestSetExcludedIncludedApplications}"
+                                android:text="configure"
+                                android:textSize="10sp"
+                                app:strokeColor="@color/tunnl_rule_strong"
+                                app:strokeWidth="1dp" />
+                        </LinearLayout>
+                    </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
+                <!-- §02 Peers section header -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="22dp"
+                    android:layout_marginBottom="8dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        style="@style/TunnlLabelText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="§02"
+                        android:textColor="@color/tunnl_rule_strong" />
+
+                    <TextView
+                        style="@style/TunnlMonoValueText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:text="@string/peers"
+                        android:textSize="13sp" />
+
+                    <View
+                        android:layout_width="0dp"
+                        android:layout_height="1dp"
+                        android:layout_marginStart="10dp"
+                        android:layout_weight="1"
+                        android:background="@color/tunnl_rule" />
+                </LinearLayout>
+
+                <!-- Peers list -->
                 <LinearLayout
                     android:id="@+id/peers_layout"
                     android:layout_width="match_parent"
@@ -276,19 +397,24 @@
                     app:layout="@{@layout/tunnel_editor_peer}"
                     tools:ignore="UselessLeaf" />
 
+                <!-- Dashed + ADD PEER button -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/add_peer_button"
                     style="@style/Widget.Material3.Button.TextButton"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="bottom"
-                    android:background="?attr/colorPrimaryDark"
+                    android:layout_marginTop="10dp"
+                    android:background="@null"
                     android:gravity="center"
                     android:onClick="@{() -> config.addPeer()}"
+                    android:paddingTop="14dp"
+                    android:paddingBottom="14dp"
                     android:text="@string/add_peer"
-                    android:textColor="?attr/colorSecondary"
-                    app:layout_anchorGravity="bottom"
-                    app:rippleColor="?attr/colorSecondary" />
+                    android:textColor="@color/tunnl_ink_3"
+                    android:textSize="11sp"
+                    app:strokeColor="@color/tunnl_rule_strong"
+                    app:strokeWidth="1dp" />
+
             </LinearLayout>
         </ScrollView>
     </androidx.coordinatorlayout.widget.CoordinatorLayout>

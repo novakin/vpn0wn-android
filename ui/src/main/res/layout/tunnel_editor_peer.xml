@@ -26,58 +26,69 @@
             type="com.wireguard.android.fragment.TunnelEditorFragment" />
     </data>
 
+    <!-- Peer FieldGroup card -->
     <com.google.android.material.card.MaterialCardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginStart="8dp"
-        android:layout_marginTop="4dp"
-        android:layout_marginEnd="8dp"
-        android:layout_marginBottom="4dp">
+        android:layout_marginBottom="10dp"
+        app:cardElevation="0dp"
+        app:contentPadding="0dp"
+        app:strokeColor="@color/tunnl_rule"
+        app:strokeWidth="1dp">
 
-        <androidx.constraintlayout.widget.ConstraintLayout
+        <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
 
-            <com.google.android.material.textview.MaterialTextView
-                android:id="@+id/peer_title"
-                android:layout_width="0dp"
+            <!-- Peer header: PEER #01 + remove button -->
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_margin="8dp"
-                android:text="@string/peer"
-                android:textAppearance="?attr/textAppearanceTitleMedium"
-                app:layout_constraintBottom_toTopOf="@+id/public_key_label_layout"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
+                android:background="@color/tunnl_paper_3"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="14dp"
+                android:paddingTop="10dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="10dp">
 
-            <androidx.appcompat.widget.AppCompatImageButton
-                android:id="@+id/delete"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:background="@null"
-                android:nextFocusDown="@id/public_key_text"
-                android:nextFocusForward="@id/public_key_text"
-                android:onClick="@{() -> item.unbind()}"
-                android:padding="8dp"
-                android:src="@drawable/ic_action_delete"
-                app:layout_constraintBaseline_toBaselineOf="@id/peer_title"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="@id/peer_title" />
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/public_key_label_layout"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_margin="4dp"
-                android:hint="@string/public_key"
-                app:layout_constraintBottom_toTopOf="@+id/pre_shared_key_label_layout"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/peer_title">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/public_key_text"
-                    android:layout_width="match_parent"
+                <TextView
+                    android:id="@+id/peer_title"
+                    style="@style/TunnlLabelText"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/peer" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/delete"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:nextFocusDown="@id/public_key_text"
+                    android:nextFocusForward="@id/public_key_text"
+                    android:onClick="@{() -> item.unbind()}"
+                    android:text="remove"
+                    android:textColor="@color/tunnl_error"
+                    android:textSize="10sp"
+                    app:strokeColor="@color/tunnl_rule_strong"
+                    app:strokeWidth="1dp" />
+            </LinearLayout>
+
+            <!-- PUBLIC KEY -->
+            <LinearLayout
+                style="@style/TunnlDetailRow"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/TunnlConfigRowLabel"
+                    android:text="PUBLIC KEY" />
+
+                <EditText
+                    android:id="@+id/public_key_text"
+                    style="@style/TunnlEditorField"
+                    android:hint="paste base64 key"
                     android:imeOptions="actionNext"
                     android:inputType="textNoSuggestions|textVisiblePassword"
                     android:nextFocusUp="@id/delete"
@@ -85,119 +96,128 @@
                     android:nextFocusForward="@id/pre_shared_key_text"
                     android:text="@={item.publicKey}"
                     app:filter="@{KeyInputFilter.newInstance()}" />
-            </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
 
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/pre_shared_key_label_layout"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_margin="4dp"
-                android:hint="@string/pre_shared_key"
-                app:expandedHintEnabled="false"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@+id/public_key_label_layout">
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/tunnl_rule" />
 
-                <com.google.android.material.textfield.TextInputEditText
+            <!-- PRESHARED KEY -->
+            <LinearLayout
+                style="@style/TunnlDetailRow"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/TunnlConfigRowLabel"
+                    android:text="PRESHARED KEY" />
+
+                <EditText
                     android:id="@+id/pre_shared_key_text"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    style="@style/TunnlEditorField"
                     android:hint="@string/hint_optional"
                     android:imeOptions="actionNext"
                     android:inputType="textNoSuggestions|textPassword"
                     android:nextFocusUp="@id/public_key_text"
-                    android:nextFocusDown="@id/persistent_keepalive_text"
-                    android:nextFocusForward="@id/persistent_keepalive_text"
+                    android:nextFocusDown="@id/endpoint_text"
+                    android:nextFocusForward="@id/endpoint_text"
                     android:onClick="@{fragment::onKeyClick}"
                     android:text="@={item.preSharedKey}"
                     app:filter="@{KeyInputFilter.newInstance()}"
                     app:onFocusChange="@{fragment::onKeyFocusChange}" />
-            </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
 
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/persistent_keepalive_label_layout"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_margin="4dp"
-                android:hint="@string/persistent_keepalive"
-                app:expandedHintEnabled="false"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/pre_shared_key_label_layout"
-                app:suffixText="@{@plurals/persistent_keepalive_seconds_suffix(BindingAdapters.tryParseInt(item.persistentKeepalive))}">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/persistent_keepalive_text"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:hint="@string/hint_optional_discouraged"
-                    android:imeOptions="actionNext"
-                    android:inputType="number"
-                    android:nextFocusUp="@id/persistent_keepalive_text"
-                    android:nextFocusDown="@id/endpoint_text"
-                    android:nextFocusForward="@id/endpoint_text"
-                    android:text="@={item.persistentKeepalive}" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/endpoint_label_layout"
+            <View
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_margin="4dp"
-                android:hint="@string/endpoint"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/persistent_keepalive_label_layout">
+                android:layout_height="1dp"
+                android:background="@color/tunnl_rule" />
 
-                <com.google.android.material.textfield.TextInputEditText
+            <!-- ENDPOINT -->
+            <LinearLayout
+                style="@style/TunnlDetailRow"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/TunnlConfigRowLabel"
+                    android:text="ENDPOINT" />
+
+                <EditText
                     android:id="@+id/endpoint_text"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_alignParentStart="true"
+                    style="@style/TunnlEditorField"
+                    android:hint="host:port"
                     android:imeOptions="actionNext"
                     android:inputType="textNoSuggestions|textVisiblePassword"
-                    android:nextFocusUp="@id/persistent_keepalive_text"
+                    android:nextFocusUp="@id/pre_shared_key_text"
                     android:nextFocusDown="@id/allowed_ips_text"
                     android:nextFocusForward="@id/allowed_ips_text"
                     android:text="@={item.endpoint}" />
-            </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
 
-            <com.google.android.material.textfield.TextInputLayout
-                android:id="@+id/allowed_ips_label_layout"
+            <View
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_margin="4dp"
-                android:hint="@string/allowed_ips"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/endpoint_label_layout">
+                android:layout_height="1dp"
+                android:background="@color/tunnl_rule" />
 
-                <com.google.android.material.textfield.TextInputEditText
+            <!-- ALLOWED IPs -->
+            <LinearLayout
+                style="@style/TunnlDetailRow"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/TunnlConfigRowLabel"
+                    android:text="ALLOWED IPs" />
+
+                <EditText
                     android:id="@+id/allowed_ips_text"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_alignParentStart="true"
+                    style="@style/TunnlEditorField"
                     android:imeOptions="actionDone"
                     android:inputType="textNoSuggestions|textVisiblePassword"
                     android:nextFocusUp="@id/endpoint_text"
                     android:nextFocusDown="@id/selected_checkbox"
                     android:nextFocusForward="@id/selected_checkbox"
                     android:text="@={item.allowedIps}" />
-            </com.google.android.material.textfield.TextInputLayout>
 
-            <CheckBox
-                android:id="@+id/selected_checkbox"
-                android:layout_width="wrap_content"
-                android:layout_height="match_parent"
-                android:layout_marginStart="4dp"
-                android:layout_marginTop="0dp"
-                android:checked="@={item.excludingPrivateIps}"
-                android:nextFocusDown="@id/add_peer_button"
-                android:nextFocusForward="@id/add_peer_button"
-                android:text="@string/exclude_private_ips"
-                android:visibility="@{item.ableToExcludePrivateIps ? View.VISIBLE : View.GONE}"
-                app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toBottomOf="@id/allowed_ips_label_layout" />
+                <!-- Exclude private IPs toggle — keep as-is -->
+                <CheckBox
+                    android:id="@+id/selected_checkbox"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:checked="@={item.excludingPrivateIps}"
+                    android:nextFocusDown="@id/persistent_keepalive_text"
+                    android:nextFocusForward="@id/persistent_keepalive_text"
+                    android:text="@string/exclude_private_ips"
+                    android:textColor="@color/tunnl_ink_3"
+                    android:textSize="12sp"
+                    android:visibility="@{item.ableToExcludePrivateIps ? View.VISIBLE : View.GONE}" />
+            </LinearLayout>
 
-        </androidx.constraintlayout.widget.ConstraintLayout>
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/tunnl_rule" />
+
+            <!-- PERSISTENT KEEPALIVE -->
+            <LinearLayout
+                style="@style/TunnlDetailRow"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/TunnlConfigRowLabel"
+                    android:text="PERSISTENT KEEPALIVE" />
+
+                <EditText
+                    android:id="@+id/persistent_keepalive_text"
+                    style="@style/TunnlEditorField"
+                    android:hint="@string/hint_optional_discouraged"
+                    android:imeOptions="actionNext"
+                    android:inputType="number"
+                    android:nextFocusUp="@id/selected_checkbox"
+                    android:nextFocusDown="@id/endpoint_text"
+                    android:nextFocusForward="@id/endpoint_text"
+                    android:text="@={item.persistentKeepalive}" />
+            </LinearLayout>
+
+        </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 </layout>

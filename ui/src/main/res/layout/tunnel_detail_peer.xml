@@ -7,6 +7,8 @@
 
     <data>
 
+        <import type="com.wireguard.android.databinding.BindingAdapters" />
+
         <import type="com.wireguard.android.util.ClipboardUtils" />
 
         <variable
@@ -64,24 +66,8 @@
                     android:id="@+id/public_key_text"
                     style="@style/TunnlConfigRowValue"
                     android:onClick="@{ClipboardUtils::copyTextView}"
-                    android:text="@{item.publicKey.toBase64}"
-                    tools:text="wOs2eguFEohqIZxlSJ1CAT9584tc6ejj9hfGFsoBVkA=" />
-            </LinearLayout>
-
-            <LinearLayout
-                style="@style/TunnlDetailRow"
-                android:orientation="vertical"
-                android:visibility="@{!item.preSharedKey.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}">
-
-                <TextView
-                    style="@style/TunnlConfigRowLabel"
-                    android:text="PRE-SHARED KEY" />
-
-                <TextView
-                    android:id="@+id/pre_shared_key_text"
-                    style="@style/TunnlConfigRowValue"
-                    android:text="@string/pre_shared_key_enabled"
-                    tools:text="enabled" />
+                    android:text="@{BindingAdapters.shortKey(item.publicKey.toBase64)}"
+                    tools:text="kLn9iJ…Nx5UI=" />
             </LinearLayout>
 
             <LinearLayout
@@ -170,6 +156,7 @@
                         android:paddingStart="14dp"
                         android:paddingEnd="14dp"
                         android:paddingBottom="10dp"
+                        android:textSize="13sp"
                         android:visibility="gone"
                         tools:text="rx: 19.8 MB, tx: 973 KB"
                         tools:visibility="visible" />
@@ -204,6 +191,7 @@
                         android:paddingStart="14dp"
                         android:paddingEnd="14dp"
                         android:paddingBottom="10dp"
+                        android:textSize="13sp"
                         android:visibility="gone"
                         tools:text="4 minutes ago"
                         tools:visibility="visible" />

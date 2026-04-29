@@ -28,6 +28,7 @@ import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.wireguard.android.Application
 import com.wireguard.android.R
+import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.activity.TunnelCreatorActivity
 import com.wireguard.android.databinding.ObservableKeyedRecyclerViewAdapter.RowConfigurationHandler
 import com.wireguard.android.databinding.TunnelListFragmentBinding
@@ -38,9 +39,11 @@ import com.wireguard.android.util.ErrorMessages
 import com.wireguard.android.util.QrCodeFromFileScanner
 import com.wireguard.android.util.TunnelImporter
 import com.wireguard.android.widget.MultiselectableRelativeLayout
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -51,6 +54,7 @@ class TunnelListFragment : BaseFragment() {
     private var actionMode: ActionMode? = null
     private var backPressedCallback: OnBackPressedCallback? = null
     private var binding: TunnelListFragmentBinding? = null
+    private var statsJob: Job? = null
     private val tunnelFileImportResultLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { data ->
         if (data == null) return@registerForActivityResult
         val activity = activity ?: return@registerForActivityResult
@@ -63,7 +67,7 @@ class TunnelListFragment : BaseFragment() {
                     TunnelImporter.importTunnel(parentFragmentManager, result.text) { showSnackbar(it) }
                 } catch (e: Exception) {
                     val error = ErrorMessages[e]
-                    val message = Application.get().resources.getString(R.string.import_error, error)
+                    val message = activity.resources.getString(R.string.import_error, error)
                     Log.e(TAG, message, e)
                     showSnackbar(message)
                 }
@@ -133,6 +137,29 @@ class TunnelListFragment : BaseFragment() {
         backPressedCallback?.isEnabled = false
 
         return binding?.root
+    }
+
+    override fun onResume() {
+        super.onResume()
+        statsJob = lifecycleScope.launch {
+            while (true) {
+                try {
+                    val tunnels = Application.getTunnelManager().getTunnels()
+                    for (tunnel in tunnels) {
+                        if (tunnel.state == Tunnel.State.UP) {
+                            tunnel.getStatisticsAsync()
+                        }
+                    }
+                } catch (_: Throwable) {}
+                delay(1000)
+            }
+        }
+    }
+
+    override fun onStop() {
+        statsJob?.cancel()
+        statsJob = null
+        super.onStop()
     }
 
     override fun onDestroyView() {
@@ -264,7 +291,7 @@ class TunnelListFragment : BaseFragment() {
             }
             animateFab(binding?.createFab, false)
             mode.menuInflater.inflate(R.menu.tunnel_list_action_mode, menu)
-            binding?.tunnelList?.adapter?.notifyDataSetChanged()
+            binding?.tunnelList?.adapter?.let { it.notifyItemRangeChanged(0, it.itemCount) }
             return true
         }
 
@@ -274,7 +301,7 @@ class TunnelListFragment : BaseFragment() {
             resources = null
             animateFab(binding?.createFab, true)
             checkedItems.clear()
-            binding?.tunnelList?.adapter?.notifyDataSetChanged()
+            binding?.tunnelList?.adapter?.let { it.notifyItemRangeChanged(0, it.itemCount) }
         }
 
         override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean {
@@ -310,7 +337,7 @@ class TunnelListFragment : BaseFragment() {
             if (count == 0) {
                 mode.title = ""
             } else {
-                mode.title = resources!!.getQuantityString(R.plurals.delete_title, count, count)
+                mode.title = resources?.getQuantityString(R.plurals.delete_title, count, count) ?: return
             }
         }
 

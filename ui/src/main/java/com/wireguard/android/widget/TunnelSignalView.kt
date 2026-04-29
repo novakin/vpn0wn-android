@@ -7,7 +7,6 @@ package com.wireguard.android.widget
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
-import android.graphics.Color
 import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.util.AttributeSet
@@ -20,22 +19,31 @@ class TunnelSignalView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null
 ) : View(context, attrs) {
+
+    // Main line: solid when live, dashed when down
     private val railPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = dp(1f)
-        pathEffect = DashPathEffect(floatArrayOf(dp(2f), dp(3f)), 0f)
     }
-    private val nodePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+    // Encrypted segment rect overlay: always dashed, thinner
+    private val segmentPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = dp(0.5f)
+        pathEffect = DashPathEffect(floatArrayOf(dp(2f), dp(2f)), 0f)
+    }
+    private val nodeFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
     }
-    private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.FILL
+    private val nodeStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = dp(1f)
     }
     private val packetPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
     }
+
     private val animator = ValueAnimator.ofFloat(0f, 1f).apply {
-        duration = 1600L
+        duration = 1500L
         repeatCount = ValueAnimator.INFINITE
         interpolator = LinearInterpolator()
         addUpdateListener {
@@ -55,7 +63,6 @@ class TunnelSignalView @JvmOverloads constructor(
 
     init {
         setWillNotDraw(false)
-        syncColors()
     }
 
     override fun onAttachedToWindow() {
@@ -71,28 +78,35 @@ class TunnelSignalView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         syncColors()
-        val cy = height / 2f
-        val start = paddingStart + dp(3f)
-        val end = width - paddingEnd - dp(3f)
-        val midStart = start + (end - start) * 0.32f
-        val midEnd = start + (end - start) * 0.70f
 
+        val cy = height / 2f
+        val start = paddingStart + dp(4f)
+        val end = width - paddingEnd - dp(4f)
+
+        // Encrypted segment: ~31%–69% of width, matching JSX rect x=100 w=120 on 320 wide
+        val midStart = start + (end - start) * 0.31f
+        val midEnd   = start + (end - start) * 0.69f
+
+        // Main line
         canvas.drawLine(start, cy, end, cy, railPaint)
-        canvas.drawLine(midStart, cy + dp(5f), midEnd, cy + dp(5f), railPaint)
+
+        // Encrypted segment dashed rect overlay
+        canvas.drawRect(midStart, cy - dp(6f), midEnd, cy + dp(6f), segmentPaint)
+
+        // Two endpoint nodes (left and right only — matches JSX: cx=6 and cx=314)
         drawNode(canvas, start, cy)
-        drawNode(canvas, midStart, cy)
-        drawNode(canvas, midEnd, cy)
         drawNode(canvas, end, cy)
 
+        // Single packet when live
         if (live) {
             val x = start + (end - start) * packetProgress
             canvas.drawCircle(x, cy, dp(2.5f), packetPaint)
-            canvas.drawCircle(x, cy, dp(7f), glowPaint)
         }
     }
 
     private fun drawNode(canvas: Canvas, x: Float, y: Float) {
-        canvas.drawCircle(x, y, dp(if (live) 3f else 2.5f), nodePaint)
+        canvas.drawCircle(x, y, dp(3f), nodeFillPaint)
+        canvas.drawCircle(x, y, dp(3f), nodeStrokePaint)
     }
 
     private fun syncAnimator() {
@@ -106,13 +120,18 @@ class TunnelSignalView @JvmOverloads constructor(
     }
 
     private fun syncColors() {
-        val signal = ContextCompat.getColor(context, R.color.tunnl_signal)
+        val signal     = ContextCompat.getColor(context, R.color.tunnl_signal)
         val signalDeep = ContextCompat.getColor(context, R.color.tunnl_signal_deep)
-        val idle = ContextCompat.getColor(context, R.color.tunnl_ink_3)
-        railPaint.color = if (live) signalDeep else idle
-        nodePaint.color = if (live) signal else ContextCompat.getColor(context, R.color.tunnl_paper_3)
-        packetPaint.color = signalDeep
-        glowPaint.color = Color.argb(52, Color.red(signal), Color.green(signal), Color.blue(signal))
+        val idle       = ContextCompat.getColor(context, R.color.tunnl_ink_3)
+        val ruleStrong = ContextCompat.getColor(context, R.color.tunnl_rule_strong)
+        val paper3     = ContextCompat.getColor(context, R.color.tunnl_paper_3)
+
+        railPaint.color    = if (live) signalDeep else idle
+        railPaint.pathEffect = if (live) null else DashPathEffect(floatArrayOf(dp(3f), dp(3f)), 0f)
+        segmentPaint.color = if (live) signalDeep else idle
+        nodeFillPaint.color   = if (live) signal else paper3
+        nodeStrokePaint.color = if (live) signalDeep else ruleStrong
+        packetPaint.color  = signalDeep
     }
 
     private fun dp(value: Float): Float = value * resources.displayMetrics.density

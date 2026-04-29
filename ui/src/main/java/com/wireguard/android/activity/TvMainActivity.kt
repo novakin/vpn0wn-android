@@ -326,7 +326,7 @@ class TvMainActivity : AppCompatActivity() {
                         else a.file.compareTo(b.file)
                     }
                 } catch (e: Throwable) {
-                    Log.e(TAG, Log.getStackTraceString(e))
+                    Log.e(TAG, "Failed to list files", e)
                 }
                 newFiles
             }

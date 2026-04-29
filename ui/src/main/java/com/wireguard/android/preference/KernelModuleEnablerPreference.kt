@@ -61,7 +61,7 @@ class KernelModuleEnablerPreference(context: Context, attrs: AttributeSet?) : Pr
                     exitProcess(0)
                 }
             } catch (e: Throwable) {
-                Log.e(TAG, Log.getStackTraceString(e))
+                Log.e(TAG, "Failed to enable kernel module", e)
             }
         }
     }

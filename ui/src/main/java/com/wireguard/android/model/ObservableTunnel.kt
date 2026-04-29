@@ -78,7 +78,7 @@ class ObservableTunnel internal constructor(
                     try {
                         manager.getTunnelConfig(this@ObservableTunnel)
                     } catch (e: Throwable) {
-                        Log.e(TAG, Log.getStackTraceString(e))
+                        Log.e(TAG, "Failed to fetch tunnel config", e)
                     }
                 }
             return field
@@ -114,7 +114,7 @@ class ObservableTunnel internal constructor(
                     try {
                         manager.getTunnelStatistics(this@ObservableTunnel)
                     } catch (e: Throwable) {
-                        Log.e(TAG, Log.getStackTraceString(e))
+                        Log.e(TAG, "Failed to fetch tunnel statistics", e)
                     }
                 }
             return field

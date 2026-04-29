@@ -5,6 +5,7 @@ val pkg: String = providers.gradleProperty("wireguardPackageName").get()
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.legacy.kapt)
+    alias(libs.plugins.detekt)
 }
 
 android {
@@ -81,4 +82,9 @@ dependencies {
 tasks.withType<JavaCompile>().configureEach {
     options.compilerArgs.add("-Xlint:unchecked")
     options.isDeprecation = true
+}
+
+detekt {
+    config.setFrom("$rootDir/config/detekt/detekt.yml")
+    buildUponDefaultConfig = true
 }

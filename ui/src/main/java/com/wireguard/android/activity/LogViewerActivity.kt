@@ -11,14 +11,10 @@ import android.content.ContentValues
 import android.content.Intent
 import android.database.Cursor
 import android.database.MatrixCursor
-import android.graphics.Typeface.BOLD
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.os.ParcelFileDescriptor
-import android.text.Spannable
-import android.text.SpannableString
-import android.text.style.ForegroundColorSpan
-import android.text.style.StyleSpan
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.Menu
@@ -33,14 +29,10 @@ import androidx.core.content.res.ResourcesCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textview.MaterialTextView
 import com.wireguard.android.BuildConfig
 import com.wireguard.android.R
 import com.wireguard.android.databinding.LogViewerActivityBinding
-import com.wireguard.android.util.DownloadsFileSaver
-import com.wireguard.android.util.ErrorMessages
-import com.wireguard.android.util.resolveAttribute
 import com.wireguard.crypto.KeyPair
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -65,23 +57,26 @@ class LogViewerActivity : AppCompatActivity() {
     private var logLines = CircularArray<LogLine>()
     private var rawLogLines = CircularArray<String>()
     private var recyclerView: RecyclerView? = null
-    private var saveButton: MenuItem? = null
+    private var autoScroll = true
+    private var lastUri: Uri? = null
+
     private val year by lazy {
         val yearFormatter: DateFormat = SimpleDateFormat("yyyy", Locale.US)
         yearFormatter.format(Date())
     }
 
-    private val defaultColor by lazy { resolveAttribute(com.google.android.material.R.attr.colorOnSurface) }
+    private val timeFormatter by lazy { SimpleDateFormat("HH:mm:ss.SSS", Locale.US) }
 
-    private val debugColor by lazy { ResourcesCompat.getColor(resources, R.color.debug_tag_color, theme) }
+    private val colorInk by lazy { ResourcesCompat.getColor(resources, R.color.tunnl_ink, theme) }
+    private val colorInk2 by lazy { ResourcesCompat.getColor(resources, R.color.tunnl_ink_2, theme) }
+    private val colorInk3 by lazy { ResourcesCompat.getColor(resources, R.color.tunnl_ink_3, theme) }
+    private val colorWarn by lazy { ResourcesCompat.getColor(resources, R.color.tunnl_warn, theme) }
+    private val colorError by lazy { ResourcesCompat.getColor(resources, R.color.tunnl_error, theme) }
+    private val colorSignalDeep by lazy { ResourcesCompat.getColor(resources, R.color.tunnl_signal_deep, theme) }
 
-    private val errorColor by lazy { ResourcesCompat.getColor(resources, R.color.error_tag_color, theme) }
-
-    private val infoColor by lazy { ResourcesCompat.getColor(resources, R.color.info_tag_color, theme) }
-
-    private val warningColor by lazy { ResourcesCompat.getColor(resources, R.color.warning_tag_color, theme) }
-
-    private var lastUri: Uri? = null
+    private val revokeLastActivityResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+        revokeLastUri()
+    }
 
     private fun revokeLastUri() {
         lastUri?.let {
@@ -96,51 +91,39 @@ class LogViewerActivity : AppCompatActivity() {
         binding = LogViewerActivityBinding.inflate(layoutInflater)
         setContentView(binding.root)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
+
         logAdapter = LogEntryAdapter()
         binding.recyclerView.apply {
             recyclerView = this
             layoutManager = LinearLayoutManager(context)
             adapter = logAdapter
         }
+
         binding.filterGroup.setOnCheckedStateChangeListener { _, checkedIds ->
             val levelFilter = when (checkedIds.firstOrNull()) {
-                R.id.filter_debug -> setOf("V", "D")
-                R.id.filter_info -> setOf("I")
-                R.id.filter_warn -> setOf("W")
-                R.id.filter_error -> setOf("E")
+                R.id.filter_verbose -> setOf("V")
+                R.id.filter_debug   -> setOf("D")
+                R.id.filter_info    -> setOf("I")
+                R.id.filter_warn    -> setOf("W")
+                R.id.filter_error   -> setOf("E")
+                R.id.filter_fatal   -> setOf("F")
                 else -> null
             }
             logAdapter.setLevelFilter(levelFilter)
         }
 
+        binding.liveToggle.setOnClickListener {
+            autoScroll = !autoScroll
+            updateLiveToggle()
+            if (autoScroll && logAdapter.itemCount > 0)
+                recyclerView?.scrollToPosition(logAdapter.itemCount - 1)
+        }
+
         lifecycleScope.launch(Dispatchers.IO) { streamingLog() }
-
-        val revokeLastActivityResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            revokeLastUri()
-        }
-
-        binding.shareFab.setOnClickListener {
-            lifecycleScope.launch {
-                revokeLastUri()
-                val key = KeyPair().privateKey.toHex()
-                LOGS[key] = rawLogBytes()
-                lastUri = Uri.parse("content://${BuildConfig.APPLICATION_ID}.exported-log/$key")
-                val shareIntent = ShareCompat.IntentBuilder(this@LogViewerActivity)
-                    .setType("text/plain")
-                    .setSubject(getString(R.string.log_export_subject))
-                    .setStream(lastUri)
-                    .setChooserTitle(R.string.log_export_title)
-                    .createChooserIntent()
-                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                grantUriPermission("android", lastUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                revokeLastActivityResultLauncher.launch(shareIntent)
-            }
-        }
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menuInflater.inflate(R.menu.log_viewer, menu)
-        saveButton = menu.findItem(R.id.save_log)
         return true
     }
 
@@ -150,18 +133,23 @@ class LogViewerActivity : AppCompatActivity() {
                 finish()
                 true
             }
-
-            R.id.save_log -> {
-                saveButton?.isEnabled = false
-                lifecycleScope.launch { saveLog() }
+            R.id.share_log -> {
+                lifecycleScope.launch { shareLog() }
                 true
             }
-
             else -> super.onOptionsItemSelected(item)
         }
     }
 
-    private val downloadsFileSaver = DownloadsFileSaver(this)
+    private fun updateLiveToggle() {
+        if (autoScroll) {
+            binding.liveToggle.text = "◆ LIVE"
+            binding.liveToggle.setTextColor(colorSignalDeep)
+        } else {
+            binding.liveToggle.text = "○ PAUSED"
+            binding.liveToggle.setTextColor(colorInk3)
+        }
+    }
 
     private suspend fun rawLogBytes(): ByteArray {
         val builder = StringBuilder()
@@ -174,29 +162,20 @@ class LogViewerActivity : AppCompatActivity() {
         return builder.toString().toByteArray(Charsets.UTF_8)
     }
 
-    private suspend fun saveLog() {
-        var exception: Throwable? = null
-        var outputFile: DownloadsFileSaver.DownloadsFile? = null
-        withContext(Dispatchers.IO) {
-            try {
-                outputFile = downloadsFileSaver.save("wireguard-log.txt", "text/plain", true)
-                outputFile?.outputStream?.write(rawLogBytes())
-            } catch (e: Throwable) {
-                outputFile?.delete()
-                exception = e
-            }
-        }
-        saveButton?.isEnabled = true
-        if (outputFile == null)
-            return
-        Snackbar.make(
-            findViewById(android.R.id.content),
-            if (exception == null) getString(R.string.log_export_success, outputFile.fileName)
-            else getString(R.string.log_export_error, ErrorMessages[exception]),
-            if (exception == null) Snackbar.LENGTH_SHORT else Snackbar.LENGTH_LONG
-        )
-            .setAnchorView(binding.shareFab)
-            .show()
+    private suspend fun shareLog() {
+        revokeLastUri()
+        val key = KeyPair().privateKey.toHex()
+        LOGS[key] = rawLogBytes()
+        lastUri = Uri.parse("content://${BuildConfig.APPLICATION_ID}.exported-log/$key")
+        val shareIntent = ShareCompat.IntentBuilder(this)
+            .setType("text/plain")
+            .setSubject(getString(R.string.log_export_subject))
+            .setStream(lastUri)
+            .setChooserTitle(R.string.log_export_title)
+            .createChooserIntent()
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        grantUriPermission("android", lastUri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        revokeLastActivityResultLauncher.launch(shareIntent)
     }
 
     private suspend fun streamingLog() = withContext(Dispatchers.IO) {
@@ -207,7 +186,7 @@ class LogViewerActivity : AppCompatActivity() {
             process = try {
                 builder.start()
             } catch (e: IOException) {
-                Log.e(TAG, Log.getStackTraceString(e))
+                Log.e(TAG, "Failed to start log process", e)
                 return@withContext
             }
             val stdout = BufferedReader(InputStreamReader(process!!.inputStream, StandardCharsets.UTF_8))
@@ -216,7 +195,7 @@ class LogViewerActivity : AppCompatActivity() {
             var timeLastNotify = System.nanoTime()
             var priorModified = false
             val bufferedLogLines = arrayListOf<LogLine>()
-            var timeout = 1000000000L / 2 // The timeout is initially small so that the view gets populated immediately.
+            var timeout = 1000000000L / 2
             val MAX_LINES = (1 shl 16) - 1
             val MAX_BUFFERED_LINES = (1 shl 14) - 1
 
@@ -239,11 +218,10 @@ class LogViewerActivity : AppCompatActivity() {
                 val timeNow = System.nanoTime()
                 if (bufferedLogLines.size < MAX_BUFFERED_LINES && (timeNow - timeLastNotify) < timeout && stdout.ready())
                     continue
-                timeout = 1000000000L * 5 / 2 // Increase the timeout after the initial view has something in it.
+                timeout = 1000000000L * 5 / 2
                 timeLastNotify = timeNow
 
                 withContext(Dispatchers.Main.immediate) {
-                    val isScrolledToBottomAlready = recyclerView?.canScrollVertically(1) == false
                     if (priorModified) {
                         logAdapter.onLineChanged(posStart - 1)
                         priorModified = false
@@ -254,7 +232,6 @@ class LogViewerActivity : AppCompatActivity() {
                         logLines.removeFromStart(numToRemove)
                         logAdapter.notifyItemRangeRemoved(0, numToRemove)
                         posStart -= numToRemove
-
                     }
                     for (bufferedLine in bufferedLogLines) {
                         logLines.addLast(bufferedLine)
@@ -263,7 +240,7 @@ class LogViewerActivity : AppCompatActivity() {
                     logAdapter.onLinesInserted(posStart, logLines.size() - posStart)
                     posStart = logLines.size()
 
-                    if (isScrolledToBottomAlready && logAdapter.itemCount > 0) {
+                    if (autoScroll && logAdapter.itemCount > 0) {
                         recyclerView?.scrollToPosition(logAdapter.itemCount - 1)
                     }
                 }
@@ -291,14 +268,23 @@ class LogViewerActivity : AppCompatActivity() {
         }
     }
 
+    private fun levelToColor(level: String) = when (level) {
+        "V", "D" -> colorInk3
+        "I"      -> colorInk2
+        "W"      -> colorWarn
+        "E", "F" -> colorError
+        else     -> colorInk3
+    }
+
+    private fun borderColor(level: String) = when (level) {
+        "W"      -> colorWarn
+        "E", "F" -> colorError
+        else     -> Color.TRANSPARENT
+    }
+
     private data class LogLine(val pid: Int, val tid: Int, val time: Date?, val level: String, val tag: String, var msg: String)
 
     companion object {
-        /**
-         * Match a single line of `logcat -v threadtime`, such as:
-         *
-         * <pre>05-26 11:02:36.886 5689 5689 D AndroidRuntime: CheckJNI is OFF.</pre>
-         */
         private val THREADTIME_LINE: Pattern =
             Pattern.compile("^(\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}.\\d{3})(?:\\s+[0-9A-Za-z]+)?\\s+(\\d+)\\s+(\\d+)\\s+([A-Z])\\s+(.+?)\\s*: (.*)$")
         private val LOGS: MutableMap<String, ByteArray> = ConcurrentHashMap()
@@ -309,17 +295,15 @@ class LogViewerActivity : AppCompatActivity() {
         private var levelFilter: Set<String>? = null
         private val visiblePositions = ArrayList<Int>()
 
-        private inner class ViewHolder(val layout: View, var isSingleLine: Boolean = true) : RecyclerView.ViewHolder(layout)
-
-        private fun levelToColor(level: String): Int {
-            return when (level) {
-                "V", "D" -> debugColor
-                "E" -> errorColor
-                "I" -> infoColor
-                "W" -> warningColor
-                else -> defaultColor
-            }
-        }
+        private inner class ViewHolder(
+            layout: View,
+            val levelBorder: View,
+            val logTime: MaterialTextView,
+            val logLevel: MaterialTextView,
+            val logTag: MaterialTextView,
+            val logMsg: MaterialTextView,
+            var isSingleLine: Boolean = true
+        ) : RecyclerView.ViewHolder(layout)
 
         override fun getItemCount() = if (levelFilter == null) logLines.size() else visiblePositions.size
 
@@ -358,34 +342,34 @@ class LogViewerActivity : AppCompatActivity() {
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-            val view = LayoutInflater.from(parent.context)
-                .inflate(R.layout.log_viewer_entry, parent, false)
-            return ViewHolder(view)
+            val view = LayoutInflater.from(parent.context).inflate(R.layout.log_viewer_entry, parent, false)
+            return ViewHolder(
+                layout = view,
+                levelBorder = view.findViewById(R.id.level_border),
+                logTime = view.findViewById(R.id.log_time),
+                logLevel = view.findViewById(R.id.log_level),
+                logTag = view.findViewById(R.id.log_tag),
+                logMsg = view.findViewById(R.id.log_msg),
+            )
         }
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val sourcePosition = if (levelFilter == null) position else visiblePositions[position]
             val line = logLines[sourcePosition]
-            val previousSourcePosition = if (levelFilter == null) sourcePosition - 1 else visiblePositions.getOrNull(position - 1) ?: -1
-            val spannable = if (previousSourcePosition >= 0 && logLines[previousSourcePosition].tag == line.tag)
-                SpannableString(line.msg)
-            else
-                SpannableString("${line.tag}: ${line.msg}").apply {
-                    setSpan(StyleSpan(BOLD), 0, "${line.tag}:".length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
-                    setSpan(
-                        ForegroundColorSpan(levelToColor(line.level)),
-                        0, "${line.tag}:".length, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
-                    )
-                }
-            holder.layout.apply {
-                findViewById<MaterialTextView>(R.id.log_date).text = line.time.toString()
-                findViewById<MaterialTextView>(R.id.log_msg).apply {
-                    setSingleLine()
-                    text = spannable
-                    setOnClickListener {
-                        isSingleLine = !holder.isSingleLine
-                        holder.isSingleLine = !holder.isSingleLine
-                    }
+
+            holder.levelBorder.setBackgroundColor(borderColor(line.level))
+            holder.logTime.text = line.time?.let { timeFormatter.format(it) } ?: "--:--:--.---"
+            holder.logLevel.apply {
+                text = line.level
+                setTextColor(levelToColor(line.level))
+            }
+            holder.logTag.text = line.tag
+            holder.logMsg.apply {
+                if (holder.isSingleLine) setSingleLine() else isSingleLine = false
+                text = line.msg
+                setOnClickListener {
+                    holder.isSingleLine = !holder.isSingleLine
+                    isSingleLine = holder.isSingleLine
                 }
             }
         }

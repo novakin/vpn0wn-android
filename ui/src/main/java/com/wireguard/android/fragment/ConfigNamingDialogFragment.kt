@@ -22,7 +22,7 @@ import java.nio.charset.StandardCharsets
 
 class ConfigNamingDialogFragment : DialogFragment() {
     private var binding: ConfigNamingDialogFragmentBinding? = null
-    private var config: Config? = null
+    private lateinit var config: Config
 
     private fun createTunnelAndDismiss() {
         val binding = binding ?: return
