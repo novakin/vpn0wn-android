@@ -114,6 +114,7 @@ Key design files: `screens-home.jsx` (home + tunnel card), `screens-detail.jsx` 
 - [x] Home inactive card `minHeight="176dp"` removed — cards now wrap content naturally (inactive card no longer forced to same height as active).
 - [x] Home stats layout reworked: vertical wrapper adds 1dp top border + `tunnl_paper` background; columns span full card width (no side margins); 1dp `tunnl_rule` dividers between OUT and HANDSHAKE columns; each column padding `8dp` vertical `12dp` horizontal — matches JSX `Stat` grid spec exactly.
 - [x] Font audit pass — all screens corrected to match JSX spec: tunnel name 16sp (was 15sp), tunnel sub-text 11sp (was 10sp), detail stat rate 11sp (was 10sp), peer transfer/handshake values 13sp (was 15sp), log entry rows 11sp explicit (replaced `textAppearanceBodySmall` ~12sp).
+- [x] Log viewer redesigned to JSX layout: four-column mono entries (`HH:MM:SS.mmm`, level, tag, message), severity left rail + per-level text colors, dark paper row background, LIVE/PAUSED toggle, top-bar share action, and full Android verbosity filters (`VERBOSE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, `FATAL`).
 
 ### Fidelity Gaps — Remaining
 - [~] Add tunnel bottom sheet: structure done — **gaps:** button order is file→QR→empty (should be QR first as accent, then file, then manual); no subtitle text under each option; no `ADD TUNNEL · CHOOSE SOURCE` header label; no drag handle.
@@ -142,15 +143,6 @@ Key design files: `screens-home.jsx` (home + tunnel card), `screens-detail.jsx` 
 **Editor:**
 - [ ] Custom TopBar with explicit × Close button (left) and SAVE pill button (right); hide ActionBar.
 - [ ] ADD PEER button: MaterialButton stroke is solid — true dashed border requires custom drawable background (minor gap).
-
-**Logs:**
-- [ ] Rework entry row to 4-column layout (compact `HH:MM:SS.mmm` · level · tag · message).
-- [ ] Add 2dp left severity border (warn/error) and per-level text coloring.
-- [ ] Dark ink entry background (currently `tunnl_paper_2`).
-- [ ] Add LIVE/PAUSED toggle button alongside filter chips.
-- [ ] Move share to TopBar icon (`ic_action_share_white`); remove share FAB.
-- [ ] Add Refresh icon to TopBar — `IconRefresh` (circular arrow) — no drawable exists yet.
-- [ ] Change log_viewer menu from `ic_action_save` to `ic_action_share_white` for the export action.
 
 **Settings:**
 - [ ] Rebuild as 5 `SettingsGroup` sections with `§` section headers (see §7 in Roadmap above).
