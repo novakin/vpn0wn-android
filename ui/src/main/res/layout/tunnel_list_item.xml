@@ -10,6 +10,8 @@
 
         <import type="com.wireguard.android.model.ObservableTunnel" />
 
+        <import type="com.wireguard.android.databinding.BindingAdapters" />
+
         <import type="com.wireguard.android.backend.Tunnel.State" />
 
         <variable
@@ -33,34 +35,208 @@
         android:id="@+id/tunnel_list_item"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@drawable/list_item_background"
+        android:layout_marginBottom="10dp"
+        android:background="@drawable/tunnl_list_item_background"
         android:descendantFocusability="beforeDescendants"
         android:focusable="true"
+        android:minHeight="176dp"
         android:nextFocusRight="@+id/tunnel_switch"
-        android:paddingHorizontal="16dp"
-        android:paddingVertical="8dp">
+        android:padding="0dp">
 
-        <TextView
-            android:id="@+id/tunnel_name"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+        <View
+            android:id="@+id/active_rail"
+            android:layout_width="4dp"
+            android:layout_height="match_parent"
             android:layout_alignParentStart="true"
-            android:layout_centerVertical="true"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:text="@{key}"
-            android:textAppearance="?attr/textAppearanceBodyLarge"
-            tools:text="@sample/interface_names.json/names/names/name" />
+            android:background="@drawable/tunnl_active_rail"
+            android:visibility="@{item.state == State.UP ? android.view.View.VISIBLE : android.view.View.INVISIBLE}" />
 
         <com.wireguard.android.widget.ToggleSwitch
             android:id="@+id/tunnel_switch"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_alignParentEnd="true"
-            android:layout_centerVertical="true"
+            android:layout_marginTop="18dp"
+            android:layout_marginEnd="14dp"
             android:nextFocusLeft="@+id/tunnel_list_item"
             app:checked="@{item.state == State.UP}"
             app:onBeforeCheckedChanged="@{fragment::setTunnelState}"
             tools:checked="@sample/interface_names.json/names/checked/checked" />
+
+        <LinearLayout
+            android:id="@+id/tunnel_header"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="14dp"
+            android:layout_marginTop="13dp"
+            android:layout_toStartOf="@id/tunnel_switch"
+            android:orientation="vertical"
+            android:paddingStart="14dp"
+            android:paddingEnd="12dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/tunnel_status_active"
+                    style="@style/TunnlLabelText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/tunnl_active"
+                    android:textColor="@color/tunnl_signal_deep"
+                    android:visibility="@{item.state == State.UP ? android.view.View.VISIBLE : android.view.View.GONE}" />
+
+                <TextView
+                    android:id="@+id/tunnel_status_inactive"
+                    style="@style/TunnlLabelText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/tunnl_inactive"
+                    android:visibility="@{item.state == State.UP ? android.view.View.GONE : android.view.View.VISIBLE}" />
+
+                <TextView
+                    style="@style/TunnlLabelText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="·" />
+
+                <TextView
+                    style="@style/TunnlLabelText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:text="@{BindingAdapters.tunnelPeerBadge(item.config)}"
+                    tools:text="PSK" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/tunnel_name"
+                style="@style/TunnlMonoValueText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="@{key}"
+                tools:text="@sample/interface_names.json/names/names/name" />
+
+            <TextView
+                style="@style/TunnlMonoSubText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="@{BindingAdapters.tunnelRoute(item.config)}"
+                tools:text="172.20.4.18/24 -> gw.example.ro:51820" />
+        </LinearLayout>
+
+        <com.wireguard.android.widget.TunnelSignalView
+            android:id="@+id/tunnel_signal"
+            android:layout_width="match_parent"
+            android:layout_height="32dp"
+            android:layout_below="@id/tunnel_header"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="16dp"
+            app:isUp="@{item.state == State.UP}" />
+
+        <LinearLayout
+            android:id="@+id/tunnel_stats"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_below="@id/tunnel_signal"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="8dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="14dp"
+            android:baselineAligned="false"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/TunnlLabelText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/tunnl_in" />
+
+                <TextView
+                    style="@style/TunnlMonoValueText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@{BindingAdapters.tunnelRx(item.statistics)}"
+                    tools:text="19.8 MB" />
+
+                <TextView
+                    style="@style/TunnlMonoSubText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@{BindingAdapters.tunnelRxSub(item.statistics)}"
+                    tools:text="343 KB/s" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/TunnlLabelText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/tunnl_out" />
+
+                <TextView
+                    style="@style/TunnlMonoValueText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@{BindingAdapters.tunnelTx(item.statistics)}"
+                    tools:text="973 KB" />
+
+                <TextView
+                    style="@style/TunnlMonoSubText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@{BindingAdapters.tunnelTxSub(item.statistics)}"
+                    tools:text="29 KB/s" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/TunnlLabelText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/tunnl_handshake" />
+
+                <TextView
+                    style="@style/TunnlMonoValueText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@{BindingAdapters.tunnelHandshake(item.statistics)}"
+                    tools:text="2m 32s ago" />
+
+                <TextView
+                    style="@style/TunnlMonoSubText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@{BindingAdapters.tunnelCipher(item.config)}"
+                    tools:text="ChaCha20" />
+            </LinearLayout>
+        </LinearLayout>
     </com.wireguard.android.widget.MultiselectableRelativeLayout>
 </layout>

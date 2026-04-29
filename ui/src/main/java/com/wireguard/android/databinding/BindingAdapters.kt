@@ -20,12 +20,18 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.wireguard.android.BR
 import com.wireguard.android.R
+import com.wireguard.android.backend.Statistics
 import com.wireguard.android.databinding.ObservableKeyedRecyclerViewAdapter.RowConfigurationHandler
+import com.wireguard.android.model.ObservableTunnel
+import com.wireguard.android.util.QuantityFormatter
+import com.wireguard.android.widget.TunnelSignalView
 import com.wireguard.android.widget.ToggleSwitch
 import com.wireguard.android.widget.ToggleSwitch.OnBeforeCheckedChangeListener
 import com.wireguard.android.widget.TvCardView
 import com.wireguard.config.Attribute
+import com.wireguard.config.Config
 import com.wireguard.config.InetNetwork
+import java.util.Locale
 import java.net.InetAddress
 import java.util.Optional
 
@@ -181,9 +187,67 @@ object BindingAdapters {
     }
 
     @JvmStatic
+    fun activeTunnelCount(tunnels: Iterable<ObservableTunnel>?): Int =
+        tunnels?.count { it.state == com.wireguard.android.backend.Tunnel.State.UP } ?: 0
+
+    @JvmStatic
+    fun tunnelPeerBadge(config: Config?): String {
+        val peer = config?.peers?.firstOrNull() ?: return "NO PEER"
+        return if (peer.preSharedKey.isPresent) "PSK" else "NO PSK"
+    }
+
+    @JvmStatic
+    fun tunnelRoute(config: Config?): String {
+        val address = config?.`interface`?.addresses?.firstOrNull()?.toString() ?: "address pending"
+        val endpoint = config?.peers?.firstOrNull()?.endpoint?.map { it.toString() }?.orElse("endpoint pending") ?: "endpoint pending"
+        return "$address -> $endpoint"
+    }
+
+    @JvmStatic
+    fun tunnelRx(statistics: Statistics?): String = formatBytesValue(statistics?.totalRx() ?: 0L)
+
+    @JvmStatic
+    fun tunnelTx(statistics: Statistics?): String = formatBytesValue(statistics?.totalTx() ?: 0L)
+
+    @JvmStatic
+    fun tunnelRxSub(statistics: Statistics?): String =
+        if (statistics == null) "--" else "total in"
+
+    @JvmStatic
+    fun tunnelTxSub(statistics: Statistics?): String =
+        if (statistics == null) "--" else "total out"
+
+    @JvmStatic
+    fun tunnelHandshake(statistics: Statistics?): String {
+        val latest = statistics
+            ?.peers()
+            ?.mapNotNull { statistics.peer(it)?.latestHandshakeEpochMillis() }
+            ?.filter { it > 0L }
+            ?.maxOrNull()
+        return if (latest == null) "--" else QuantityFormatter.formatEpochAgo(latest)
+    }
+
+    @JvmStatic
+    fun tunnelCipher(config: Config?): String {
+        val peer = config?.peers?.firstOrNull() ?: return "unbound"
+        return if (peer.preSharedKey.isPresent) "ChaCha20 + PSK" else "ChaCha20"
+    }
+
+    private fun formatBytesValue(bytes: Long): String {
+        val raw = QuantityFormatter.formatBytes(bytes)
+        return raw.uppercase(Locale.getDefault()).replace("I", "")
+    }
+
+    @JvmStatic
     @BindingAdapter("isUp")
     fun setIsUp(card: TvCardView, up: Boolean) {
         card.isUp = up
+    }
+
+    @JvmStatic
+    @BindingAdapter("isUp")
+    fun setIsUp(signalView: TunnelSignalView, up: Boolean) {
+        signalView.live = up
     }
 
     @JvmStatic

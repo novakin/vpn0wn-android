@@ -58,6 +58,10 @@
         <item quantity="one">second</item>
         <item quantity="other">seconds</item>
     </plurals>
+    <plurals name="n_tunnels">
+        <item quantity="one">%1$d CONFIGURED · %2$d ACTIVE</item>
+        <item quantity="other">%1$d CONFIGURED · %2$d ACTIVE</item>
+    </plurals>
     <string name="use_all_applications">Use all apps</string>
     <string name="add_peer">Add peer</string>
     <string name="addresses">Addresses</string>
@@ -260,4 +264,13 @@
     <string name="biometric_prompt_private_key_title">Authenticate to view private key</string>
     <string name="biometric_auth_error">Authentication failure</string>
     <string name="biometric_auth_error_reason">Authentication failure: %s</string>
+    <string name="tunnl_active">ACTIVE</string>
+    <string name="tunnl_inactive">INACTIVE</string>
+    <string name="tunnl_in">↓ IN</string>
+    <string name="tunnl_out">↑ OUT</string>
+    <string name="tunnl_handshake">HANDSHAKE</string>
+    <string name="tunnl_configured_tunnel">CONFIGURED TUNNEL</string>
+    <string name="tunnl_list_title">tunnels</string>
+    <string name="tunnl_list_subtitle">TUNNL · LOCAL CONFIGURATION</string>
+    <string name="tunnl_add_tunnel">+ ADD TUNNEL</string>
 </resources>

@@ -31,7 +31,7 @@
         android:id="@+id/main_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="?attr/colorSurface">
+        android:background="@color/tunnl_paper">
 
         <ScrollView
             android:layout_width="match_parent"
