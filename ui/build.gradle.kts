@@ -53,10 +53,21 @@ android {
     androidResources {
         generateLocaleConfig = true
     }
+    sourceSets {
+        getByName("main") {
+            assets.srcDir("../third_party/wireguard-install/tunnl")
+        }
+    }
     lint {
         disable += "LongLogTag"
         warning += "MissingTranslation"
         warning += "ImpliedQuantity"
+    }
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            isReturnDefaultValues = true
+        }
     }
 }
 
@@ -77,6 +88,11 @@ dependencies {
     implementation(libs.zxing.android.embedded)
     implementation(libs.kotlinx.coroutines.android)
     coreLibraryDesugaring(libs.desugarJdkLibs)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.json)
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
 }
 
 tasks.withType<JavaCompile>().configureEach {

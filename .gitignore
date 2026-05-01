@@ -8,6 +8,7 @@
 /.idea/libraries/
 /captures/
 /local.properties
+/.tunnl-vps-test.env
 .DS_Store
 .cxx/
 Thumbs.db
