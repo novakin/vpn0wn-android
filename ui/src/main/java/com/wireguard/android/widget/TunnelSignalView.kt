@@ -78,6 +78,7 @@ class TunnelSignalView @JvmOverloads constructor(
         }
 
     init {
+        syncColors()
         setWillNotDraw(false)
     }
 

@@ -115,6 +115,7 @@ class Application : android.app.Application() {
                 futureBackend.complete(b)
             } catch (e: Throwable) {
                 Log.e(TAG, "Failed to determine and initialize backend", e)
+                futureBackend.completeExceptionally(e)
             }
         }
         Updater.monitorForUpdates()

@@ -52,6 +52,7 @@ public final class GoBackend implements Backend {
     private static final AtomicReference<CompletableFuture<VpnService>> vpnServiceRef =
             new AtomicReference<>(new CompletableFuture<>());
     private final Context context;
+    private final Object stateLock = new Object();
     @Nullable private Config currentConfig;
     @Nullable private Tunnel currentTunnel;
     private int currentTunnelHandle = -1;
@@ -111,10 +112,12 @@ public final class GoBackend implements Backend {
      */
     @Override
     public Set<String> getRunningTunnelNames() {
-        if (currentTunnel != null) {
-            final Set<String> runningTunnels = new ArraySet<>();
-            runningTunnels.add(currentTunnel.getName());
-            return runningTunnels;
+        synchronized (stateLock) {
+            if (currentTunnel != null) {
+                final Set<String> runningTunnels = new ArraySet<>();
+                runningTunnels.add(currentTunnel.getName());
+                return runningTunnels;
+            }
         }
         return Collections.emptySet();
     }
@@ -127,7 +130,9 @@ public final class GoBackend implements Backend {
      */
     @Override
     public State getState(final Tunnel tunnel) {
-        return currentTunnel == tunnel ? State.UP : State.DOWN;
+        synchronized (stateLock) {
+            return currentTunnel == tunnel ? State.UP : State.DOWN;
+        }
     }
 
     /**
@@ -139,9 +144,12 @@ public final class GoBackend implements Backend {
     @Override
     public Statistics getStatistics(final Tunnel tunnel) {
         final Statistics stats = new Statistics();
-        if (tunnel != currentTunnel || currentTunnelHandle == -1)
-            return stats;
-        final String config = wgGetConfig(currentTunnelHandle);
+        final String config;
+        synchronized (stateLock) {
+            if (tunnel != currentTunnel || currentTunnelHandle == -1)
+                return stats;
+            config = wgGetConfig(currentTunnelHandle);
+        }
         if (config == null)
             return stats;
         Key key = null;
@@ -239,28 +247,30 @@ public final class GoBackend implements Backend {
      */
     @Override
     public State setState(final Tunnel tunnel, State state, @Nullable final Config config) throws Exception {
-        final State originalState = getState(tunnel);
+        synchronized (stateLock) {
+            final State originalState = currentTunnel == tunnel ? State.UP : State.DOWN;
 
-        if (state == State.TOGGLE)
-            state = originalState == State.UP ? State.DOWN : State.UP;
-        if (state == originalState && tunnel == currentTunnel && config == currentConfig)
-            return originalState;
-        if (state == State.UP) {
-            final Config originalConfig = currentConfig;
-            final Tunnel originalTunnel = currentTunnel;
-            if (currentTunnel != null)
-                setStateInternal(currentTunnel, null, State.DOWN);
-            try {
-                setStateInternal(tunnel, config, state);
-            } catch (final Exception e) {
-                if (originalTunnel != null)
-                    setStateInternal(originalTunnel, originalConfig, State.UP);
-                throw e;
+            if (state == State.TOGGLE)
+                state = originalState == State.UP ? State.DOWN : State.UP;
+            if (state == originalState && tunnel == currentTunnel && config == currentConfig)
+                return originalState;
+            if (state == State.UP) {
+                final Config originalConfig = currentConfig;
+                final Tunnel originalTunnel = currentTunnel;
+                if (currentTunnel != null)
+                    setStateInternal(currentTunnel, null, State.DOWN);
+                try {
+                    setStateInternal(tunnel, config, state);
+                } catch (final Exception e) {
+                    if (originalTunnel != null)
+                        setStateInternal(originalTunnel, originalConfig, State.UP);
+                    throw e;
+                }
+            } else if (state == State.DOWN && tunnel == currentTunnel) {
+                setStateInternal(tunnel, null, State.DOWN);
             }
-        } else if (state == State.DOWN && tunnel == currentTunnel) {
-            setStateInternal(tunnel, null, State.DOWN);
+            return currentTunnel == tunnel ? State.UP : State.DOWN;
         }
-        return getState(tunnel);
     }
 
     private boolean sendUdpPreflight(final VpnService service, final int listenPort,
@@ -426,10 +436,11 @@ public final class GoBackend implements Backend {
                     throw new BackendException(Reason.TUN_CREATION_ERROR);
                 }
                 Log.d(TAG, "Go backend " + wgVersion());
-                currentTunnelHandle = wgTurnOn(tunnel.getName(), tun.detachFd(), goConfig);
+                final int tunnelHandle = wgTurnOn(tunnel.getName(), tun.detachFd(), goConfig);
+                if (tunnelHandle < 0)
+                    throw new BackendException(Reason.GO_ACTIVATION_ERROR_CODE, tunnelHandle);
+                currentTunnelHandle = tunnelHandle;
             }
-            if (currentTunnelHandle < 0)
-                throw new BackendException(Reason.GO_ACTIVATION_ERROR_CODE, currentTunnelHandle);
 
             currentTunnel = tunnel;
             currentConfig = config;
@@ -454,6 +465,24 @@ public final class GoBackend implements Backend {
         tunnel.onStateChange(state);
     }
 
+    private void handleServiceDestroyed(final VpnService service) {
+        final Tunnel tunnel;
+        synchronized (stateLock) {
+            Log.i(TAG, "VpnService.onDestroy(); tunnel active=" + (currentTunnelHandle != -1));
+            tunnel = currentTunnel;
+            if (tunnel != null) {
+                if (currentTunnelHandle != -1)
+                    wgTurnOff(currentTunnelHandle);
+                currentTunnel = null;
+                currentTunnelHandle = -1;
+                currentConfig = null;
+            }
+        }
+        if (tunnel != null)
+            tunnel.onStateChange(State.DOWN);
+        resetVpnServiceFutureForService(service);
+    }
+
     /**
      * Callback for {@link GoBackend} that is invoked when {@link VpnService} is started by the
      * system's Always-On VPN mode.
@@ -466,7 +495,7 @@ public final class GoBackend implements Backend {
      * {@link android.net.VpnService} implementation for {@link GoBackend}
      */
     public static class VpnService extends android.net.VpnService {
-        @Nullable private GoBackend owner;
+        @Nullable private volatile GoBackend owner;
 
         public Builder getBuilder() {
             return new Builder();
@@ -480,19 +509,11 @@ public final class GoBackend implements Backend {
 
         @Override
         public void onDestroy() {
-            Log.i(TAG, "VpnService.onDestroy(); tunnel active=" + (owner != null && owner.currentTunnelHandle != -1));
-            if (owner != null) {
-                final Tunnel tunnel = owner.currentTunnel;
-                if (tunnel != null) {
-                    if (owner.currentTunnelHandle != -1)
-                        wgTurnOff(owner.currentTunnelHandle);
-                    owner.currentTunnel = null;
-                    owner.currentTunnelHandle = -1;
-                    owner.currentConfig = null;
-                    tunnel.onStateChange(State.DOWN);
-                }
-            }
-            resetVpnServiceFutureForService(this);
+            final GoBackend currentOwner = owner;
+            if (currentOwner != null)
+                currentOwner.handleServiceDestroyed(this);
+            else
+                resetVpnServiceFutureForService(this);
             super.onDestroy();
         }
 

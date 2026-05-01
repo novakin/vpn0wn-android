@@ -112,6 +112,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 - **Kernel-backend connect responsiveness**
   `TunnelManager.setTunnelState()` now moves tunnels into `TOGGLE` before the blocking backend transition starts, `ObservableTunnel.onStateChange()` marshals backend callbacks back to the main dispatcher, and home/detail stats refreshes pause while a tunnel is toggling. Home header aggregation now reads cached config/stat snapshots instead of triggering extra opportunistic backend reads during binding.
 
+- **Backend initialization and GoBackend state locking**
+  `Application` now completes `futureBackend` exceptionally if backend initialization fails, so callers of `Application.getBackend()` receive the startup error instead of suspending forever. `GoBackend` now serializes `currentTunnel`, `currentConfig`, and `currentTunnelHandle` access across normal state transitions, statistics reads, and `VpnService.onDestroy()` so service teardown cannot race the active tunnel handle.
+
 - **`LogViewerActivity` — restart race guard**
   `stopLogStream()` now advances the generation token before destroying the active logcat process, and the streaming reader rechecks the token immediately after `readLine()` before mutating log buffers. Manual refresh can clear and restart the stream without stale lines from the previous process leaking into the new buffer.
 
