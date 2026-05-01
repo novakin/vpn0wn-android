@@ -63,12 +63,13 @@ class TunnelListFragment : BaseFragment() {
     private var actionMode: ActionMode? = null
     private var backPressedCallback: OnBackPressedCallback? = null
     private var binding: TunnelListFragmentBinding? = null
+    private var bindingInvalidatePending = false
     private var observedTunnels: ObservableList<ObservableTunnel>? = null
     private var statsJob: Job? = null
     private val tunnelStateCallback = object : Observable.OnPropertyChangedCallback() {
         override fun onPropertyChanged(sender: Observable?, propertyId: Int) {
             if (propertyId == BR.state || propertyId == BR.config || propertyId == BR.statistics) {
-                binding?.invalidateAll()
+                invalidateBindingSoon()
             }
             if (propertyId == BR.state && sender is ObservableTunnel && sender.state == Tunnel.State.UP) {
                 refreshTunnelStats(sender)
@@ -89,7 +90,7 @@ class TunnelListFragment : BaseFragment() {
         }
 
         override fun onItemRangeMoved(sender: ObservableList<ObservableTunnel>, fromPosition: Int, toPosition: Int, itemCount: Int) {
-            binding?.invalidateAll()
+            invalidateBindingSoon()
         }
 
         override fun onItemRangeRemoved(sender: ObservableList<ObservableTunnel>, positionStart: Int, itemCount: Int) {
@@ -288,13 +289,25 @@ class TunnelListFragment : BaseFragment() {
         }
     }
 
+    private fun invalidateBindingSoon() {
+        val currentBinding = binding ?: return
+        if (bindingInvalidatePending) return
+        bindingInvalidatePending = true
+        currentBinding.root.post {
+            bindingInvalidatePending = false
+            if (binding === currentBinding) currentBinding.invalidateAll()
+        }
+    }
+
     private fun startStatsRefresh() {
         if (statsJob?.isActive == true) return
         statsJob = lifecycleScope.launch {
             while (true) {
                 val tunnels = observedTunnels?.toList().orEmpty()
-                for (tunnel in tunnels) {
-                    refreshTunnelStatsNow(tunnel)
+                if (tunnels.none { it.state == Tunnel.State.TOGGLE }) {
+                    for (tunnel in tunnels) {
+                        refreshTunnelStatsNow(tunnel)
+                    }
                 }
                 delay(1000)
             }

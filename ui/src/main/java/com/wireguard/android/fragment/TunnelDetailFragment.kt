@@ -12,13 +12,18 @@ import android.view.MenuInflater
 import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
+import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.MenuProvider
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.databinding.DataBindingUtil
 import androidx.databinding.Observable
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import com.wireguard.android.BR
 import com.wireguard.android.R
+import com.wireguard.android.activity.MainActivity
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.databinding.TunnelDetailFragmentBinding
 import com.wireguard.android.databinding.TunnelDetailPeerBinding
@@ -39,11 +44,11 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
     private var statsJob: Job? = null
     private val tunnelCallback = object : Observable.OnPropertyChangedCallback() {
         override fun onPropertyChanged(sender: Observable?, propertyId: Int) {
-            if (propertyId == BR.statistics || propertyId == BR.state) {
+            if (propertyId == BR.state) {
                 lifecycleScope.launch { updateStats() }
-            }
-            if (propertyId == BR.state && sender is ObservableTunnel && sender.state == Tunnel.State.UP) {
-                refreshSelectedStats()
+                if (sender is ObservableTunnel && sender.state == Tunnel.State.UP) {
+                    refreshSelectedStats()
+                }
             }
         }
     }
@@ -68,6 +73,18 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        (requireActivity() as? AppCompatActivity)?.supportActionBar?.hide()
+        binding?.apply {
+            val showBackButton = (activity as? MainActivity)?.shouldShowDetailBackButton() != false
+            detailBackButton.visibility = if (showBackButton) View.VISIBLE else View.INVISIBLE
+            val baseHeaderTopPadding = detailHeaderContainer.paddingTop
+            ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
+                val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+                detailHeaderContainer.updatePadding(top = baseHeaderTopPadding + systemBars.top)
+                insets
+            }
+            ViewCompat.requestApplyInsets(root)
+        }
         requireActivity().addMenuProvider(this, viewLifecycleOwner, Lifecycle.State.RESUMED)
     }
 
@@ -80,7 +97,17 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
 
     override fun onResume() {
         super.onResume()
+        (requireActivity() as? AppCompatActivity)?.supportActionBar?.hide()
         startStatsRefresh()
+    }
+
+    fun onBackPressed(@Suppress("UNUSED_PARAMETER") view: View) {
+        (activity as? MainActivity)?.onDetailBackPressed()
+            ?: requireActivity().onBackPressedDispatcher.onBackPressed()
+    }
+
+    fun onEditPressed(@Suppress("UNUSED_PARAMETER") view: View) {
+        (requireActivity() as? MainActivity)?.openTunnelEditor()
     }
 
     override fun onSelectedTunnelChanged(oldTunnel: ObservableTunnel?, newTunnel: ObservableTunnel?) {
@@ -122,6 +149,10 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
         val tunnel = binding.tunnel ?: return
         if (!isResumed) return
         val state = tunnel.state
+        if (state == Tunnel.State.TOGGLE) {
+            lastState = state
+            return
+        }
         if (state != Tunnel.State.UP && lastState != null && lastState == state) return
         lastState = state
         try {

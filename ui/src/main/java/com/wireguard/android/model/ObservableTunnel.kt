@@ -4,6 +4,7 @@
  */
 package com.wireguard.android.model
 
+import android.os.Looper
 import android.util.Log
 import androidx.databinding.BaseObservable
 import androidx.databinding.Bindable
@@ -51,28 +52,39 @@ class ObservableTunnel internal constructor(
         private set
 
     override fun onStateChange(newState: Tunnel.State) {
-        onStateChanged(newState)
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            onStateChanged(newState)
+        } else {
+            applicationScope.launch(Dispatchers.Main.immediate) {
+                onStateChanged(newState)
+            }
+        }
     }
 
     fun onStateChanged(state: Tunnel.State): Tunnel.State {
         if (state != Tunnel.State.UP) onStatisticsChanged(null)
+        if (state == this.state) return state
         this.state = state
         notifyPropertyChanged(BR.state)
         return state
     }
 
     suspend fun setStateAsync(state: Tunnel.State): Tunnel.State = withContext(Dispatchers.Main.immediate) {
-        if (state != this@ObservableTunnel.state)
+        if (this@ObservableTunnel.state == Tunnel.State.TOGGLE)
+            this@ObservableTunnel.state
+        else if (state != this@ObservableTunnel.state)
             manager.setTunnelState(this@ObservableTunnel, state)
         else
             this@ObservableTunnel.state
     }
 
 
+    private var cachedConfig = config
+
     @get:Bindable
-    var config = config
+    var config: Config?
         get() {
-            if (field == null)
+            if (cachedConfig == null)
             // Opportunistically fetch this if we don't have a cached one, and rely on data bindings to update it eventually
                 applicationScope.launch {
                     try {
@@ -81,16 +93,18 @@ class ObservableTunnel internal constructor(
                         Log.e(TAG, "Failed to fetch tunnel config", e)
                     }
                 }
-            return field
+            return cachedConfig
         }
-        private set
+        private set(value) {
+            cachedConfig = value
+        }
 
     suspend fun getConfigAsync(): Config = withContext(Dispatchers.Main.immediate) {
-        config ?: manager.getTunnelConfig(this@ObservableTunnel)
+        cachedConfig ?: manager.getTunnelConfig(this@ObservableTunnel)
     }
 
     suspend fun setConfigAsync(config: Config): Config = withContext(Dispatchers.Main.immediate) {
-        this@ObservableTunnel.config.let {
+        cachedConfig.let {
             if (config != it)
                 manager.setTunnelConfig(this@ObservableTunnel, config)
             else
@@ -99,16 +113,21 @@ class ObservableTunnel internal constructor(
     }
 
     fun onConfigChanged(config: Config?): Config? {
+        if (config === cachedConfig) return config
         this.config = config
         notifyPropertyChanged(BR.config)
         return config
     }
 
+    fun peekConfig(): Config? = cachedConfig
+
+
+    private var cachedStatistics: Statistics? = null
 
     @get:Bindable
-    var statistics: Statistics? = null
+    var statistics: Statistics?
         get() {
-            if (field == null || field?.isStale != false)
+            if (state == Tunnel.State.UP && (cachedStatistics == null || cachedStatistics?.isStale != false))
             // Opportunistically fetch this if we don't have a cached one, and rely on data bindings to update it eventually
                 applicationScope.launch {
                     try {
@@ -117,12 +136,14 @@ class ObservableTunnel internal constructor(
                         Log.e(TAG, "Failed to fetch tunnel statistics", e)
                     }
                 }
-            return field
+            return cachedStatistics
         }
-        private set
+        private set(value) {
+            cachedStatistics = value
+        }
 
     suspend fun getStatisticsAsync(): Statistics = withContext(Dispatchers.Main.immediate) {
-        statistics.let {
+        cachedStatistics.let {
             if (it == null || it.isStale)
                 manager.getTunnelStatistics(this@ObservableTunnel)
             else
@@ -131,10 +152,13 @@ class ObservableTunnel internal constructor(
     }
 
     fun onStatisticsChanged(statistics: Statistics?): Statistics? {
+        if (statistics === cachedStatistics) return statistics
         this.statistics = statistics
         notifyPropertyChanged(BR.statistics)
         return statistics
     }
+
+    fun peekStatistics(): Statistics? = cachedStatistics
 
 
     suspend fun deleteAsync() = manager.delete(this)

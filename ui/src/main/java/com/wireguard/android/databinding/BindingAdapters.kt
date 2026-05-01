@@ -74,7 +74,7 @@ object BindingAdapters {
 
     private fun tunnelMode(tunnel: ObservableTunnel?): TunnelSignalView.TunnelMode {
         val state = tunnel?.state
-        val statistics = tunnel?.statistics
+        val statistics = tunnel?.peekStatistics()
         return tunnelMode(tunnel, state, statistics)
     }
 
@@ -107,6 +107,13 @@ object BindingAdapters {
     @BindingAdapter("checked")
     fun setChecked(view: ToggleSwitch, checked: Boolean) {
         view.setCheckedInternal(checked)
+    }
+
+    @JvmStatic
+    @BindingAdapter("tunnelCheckedState")
+    fun setTunnelCheckedState(view: ToggleSwitch, state: Tunnel.State?) {
+        view.setCheckedInternal(state == Tunnel.State.UP || state == Tunnel.State.TOGGLE)
+        view.isEnabled = state != Tunnel.State.TOGGLE
     }
 
     @JvmStatic
@@ -292,7 +299,7 @@ object BindingAdapters {
     fun homeExitIpLabel(tunnels: Iterable<ObservableTunnel>?): String {
         val activeTunnel = tunnels?.firstOrNull { tunnelMode(it) == TunnelSignalView.TunnelMode.UP }
         val host = activeTunnel
-            ?.config
+            ?.peekConfig()
             ?.peers
             ?.firstOrNull()
             ?.endpoint
@@ -373,6 +380,15 @@ object BindingAdapters {
         val mode = tunnelMode(tunnel, state, statistics)
         view.text = topologyModeLabel(view.context, mode)
         view.setTextColor(ContextCompat.getColor(view.context, modeColor(mode)))
+    }
+
+    @JvmStatic
+    @BindingAdapter("detailTopBarSubtitleTunnel")
+    fun setDetailTopBarSubtitleTunnel(view: TextView, tunnel: ObservableTunnel?) {
+        view.text = tunnel?.name
+            ?.uppercase(Locale.ROOT)
+            ?.let { view.context.getString(R.string.tunnl_detail_subtitle, it) }
+            ?: ""
     }
 
     @JvmStatic

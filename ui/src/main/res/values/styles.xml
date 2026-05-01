@@ -57,8 +57,9 @@
     </style>
 
     <style name="TunnlLabelText">
-        <item name="android:fontFamily">@font/jetbrains_mono_medium</item>
+        <item name="android:fontFamily">@font/jetbrains_mono_regular</item>
         <item name="android:fontFeatureSettings">ss01, zero, tnum</item>
+        <item name="android:includeFontPadding">false</item>
         <item name="android:textAllCaps">true</item>
         <item name="android:textColor">@color/tunnl_ink_3</item>
         <item name="android:textSize">10sp</item>
@@ -68,6 +69,7 @@
     <style name="TunnlMonoValueText">
         <item name="android:fontFamily">@font/jetbrains_mono_medium</item>
         <item name="android:fontFeatureSettings">ss01, zero, tnum</item>
+        <item name="android:includeFontPadding">false</item>
         <item name="android:textColor">@color/tunnl_ink</item>
         <item name="android:textSize">15sp</item>
     </style>
@@ -75,8 +77,26 @@
     <style name="TunnlMonoSubText">
         <item name="android:fontFamily">@font/jetbrains_mono_regular</item>
         <item name="android:fontFeatureSettings">ss01, zero, tnum</item>
+        <item name="android:includeFontPadding">false</item>
         <item name="android:textColor">@color/tunnl_ink_3</item>
         <item name="android:textSize">10sp</item>
+    </style>
+
+    <style name="TunnlTopBarTitleText" parent="TunnlMonoValueText">
+        <item name="android:textSize">18sp</item>
+    </style>
+
+    <style name="TunnlHomeTopBarTitleText" parent="TunnlTopBarTitleText">
+        <item name="android:textSize">26sp</item>
+    </style>
+
+    <style name="TunnlStatusStripText" parent="TunnlMonoSubText">
+        <item name="android:textSize">11sp</item>
+    </style>
+
+    <style name="TunnlEmptyStateText" parent="TunnlMonoValueText">
+        <item name="android:textColor">@color/tunnl_ink_2</item>
+        <item name="android:textSize">20sp</item>
     </style>
 
     <style name="TunnlDetailRow">

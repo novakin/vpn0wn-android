@@ -200,8 +200,12 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     suspend fun setTunnelState(tunnel: ObservableTunnel, state: Tunnel.State): Tunnel.State = withContext(Dispatchers.Main.immediate) {
         var newState = tunnel.state
         var throwable: Throwable? = null
+        if (newState == Tunnel.State.TOGGLE)
+            return@withContext newState
+        tunnel.onStateChanged(Tunnel.State.TOGGLE)
         try {
-            newState = withContext(Dispatchers.IO) { getBackend().setState(tunnel, state, tunnel.getConfigAsync()) }
+            val config = tunnel.getConfigAsync()
+            newState = withContext(Dispatchers.IO) { getBackend().setState(tunnel, state, config) }
             if (newState == Tunnel.State.UP)
                 lastUsedTunnel = tunnel
         } catch (e: Throwable) {

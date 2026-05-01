@@ -109,8 +109,14 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 - **Tunnel stats refresh lifecycle hardening**
   `TunnelListFragment` and `TunnelDetailFragment` now combine `ObservableTunnel` state/list observer wiring with lifecycle-bound 1 s refresh jobs. Visible/selected UP tunnels keep receiving fresh snapshots for live rates and handshake state, newly inserted tunnels are picked up through the list callback, and stats refresh failures are logged instead of swallowed.
 
+- **Kernel-backend connect responsiveness**
+  `TunnelManager.setTunnelState()` now moves tunnels into `TOGGLE` before the blocking backend transition starts, `ObservableTunnel.onStateChange()` marshals backend callbacks back to the main dispatcher, and home/detail stats refreshes pause while a tunnel is toggling. Home header aggregation now reads cached config/stat snapshots instead of triggering extra opportunistic backend reads during binding.
+
 - **`LogViewerActivity` — restart race guard**
   `stopLogStream()` now advances the generation token before destroying the active logcat process, and the streaming reader rechecks the token immediately after `readLine()` before mutating log buffers. Manual refresh can clear and restart the stream without stale lines from the previous process leaking into the new buffer.
+
+- **`LogViewerActivity` — live stream recovery**
+  The log viewer now flushes pending buffered lines when `logcat` ends and automatically restarts the stream with a 50-line tail window, so new log entries keep appearing without leaving and reopening the screen.
 
 - **`BindingAdapters` — resource-backed home summary**
   The home header summary now formats through `R.string.tunnl_home_header_summary` instead of embedding the brand/count/status string directly in the binding helper.

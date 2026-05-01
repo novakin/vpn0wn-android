@@ -286,6 +286,7 @@
     <string name="tunnl_detail_status_waiting">waiting for handshake</string>
     <string name="tunnl_detail_status_unreachable">peer unreachable</string>
     <string name="tunnl_detail_status_tap_up">tap to bring up</string>
+    <string name="tunnl_detail_subtitle">TUNNEL · %1$s</string>
     <string name="tunnl_tunnel_status_active">◆ ACTIVE</string>
     <string name="tunnl_tunnel_status_connecting">◑ CONNECTING</string>
     <string name="tunnl_tunnel_status_no_signal">✕ NO SIGNAL</string>

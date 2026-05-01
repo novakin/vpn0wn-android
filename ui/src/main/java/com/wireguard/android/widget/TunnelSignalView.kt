@@ -7,6 +7,7 @@ package com.wireguard.android.widget
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.util.AttributeSet
@@ -30,11 +31,13 @@ class TunnelSignalView @JvmOverloads constructor(
     private var idle = 0
     private var ruleStrong = 0
     private var paper3 = 0
+    private var signalFill = 0
     private val railIdlePathEffect = DashPathEffect(floatArrayOf(dp(3f), dp(3f)), 0f)
 
     private val railPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = dp(1f)
+        strokeCap = Paint.Cap.ROUND
     }
     private val segmentPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -42,6 +45,9 @@ class TunnelSignalView @JvmOverloads constructor(
         pathEffect = DashPathEffect(floatArrayOf(dp(2f), dp(2f)), 0f)
     }
     private val nodeFillPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+    }
+    private val nodeGlowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.FILL
     }
     private val nodeStrokePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
@@ -102,18 +108,29 @@ class TunnelSignalView @JvmOverloads constructor(
         drawNode(canvas, start, cy)
         drawNode(canvas, end, cy)
 
-        if (mode == TunnelMode.UP || mode == TunnelMode.CONNECTING) {
-            // Connecting: packet travels only to midpoint (trying to reach peer)
-            // UP: full path bidirectional handled by progress 0→1 on full range
-            val rangeEnd = if (mode == TunnelMode.CONNECTING) start + (end - start) * 0.5f else end
+        if (mode == TunnelMode.UP) {
+            drawPacket(canvas, start, end, cy, packetProgress, dp(2.7f), 255, signalDeep)
+            drawPacket(canvas, end, start, cy, (packetProgress + 0.66f) % 1f, dp(2.1f), 190, signal)
+            drawPacket(canvas, start, end, cy, (packetProgress + 0.33f) % 1f, dp(1.7f), 135, signalDeep)
+        } else if (mode == TunnelMode.CONNECTING) {
+            val rangeEnd = start + (end - start) * 0.5f
             val x = start + (rangeEnd - start) * packetProgress
             canvas.drawCircle(x, cy, dp(2.5f), packetPaint)
         }
     }
 
     private fun drawNode(canvas: Canvas, x: Float, y: Float) {
+        if (mode == TunnelMode.UP)
+            canvas.drawCircle(x, y, dp(6.5f), nodeGlowPaint)
         canvas.drawCircle(x, y, dp(3f), nodeFillPaint)
         canvas.drawCircle(x, y, dp(3f), nodeStrokePaint)
+    }
+
+    private fun drawPacket(canvas: Canvas, from: Float, to: Float, y: Float, progress: Float, radius: Float, alpha: Int, color: Int) {
+        val x = from + (to - from) * progress
+        packetPaint.color = color
+        packetPaint.alpha = alpha
+        canvas.drawCircle(x, y, radius, packetPaint)
     }
 
     private fun syncAnimator() {
@@ -142,6 +159,7 @@ class TunnelSignalView @JvmOverloads constructor(
         idle       = ContextCompat.getColor(context, R.color.tunnl_ink_3)
         ruleStrong = ContextCompat.getColor(context, R.color.tunnl_rule_strong)
         paper3     = ContextCompat.getColor(context, R.color.tunnl_paper_3)
+        signalFill = Color.argb(36, Color.red(signal), Color.green(signal), Color.blue(signal))
     }
 
     private fun syncPaints() {
@@ -166,6 +184,7 @@ class TunnelSignalView @JvmOverloads constructor(
             TunnelMode.ERROR      -> error
             TunnelMode.DOWN       -> paper3
         }
+        nodeGlowPaint.color = signalFill
         nodeStrokePaint.color = when (mode) {
             TunnelMode.UP         -> signalDeep
             TunnelMode.CONNECTING -> warn
@@ -173,6 +192,7 @@ class TunnelSignalView @JvmOverloads constructor(
             TunnelMode.DOWN       -> ruleStrong
         }
         packetPaint.color = if (mode == TunnelMode.CONNECTING) warn else signalDeep
+        packetPaint.alpha = 255
     }
 
     private fun dp(value: Float): Float = value * density

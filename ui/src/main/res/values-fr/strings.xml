@@ -271,6 +271,7 @@
     <string name="tunnl_detail_status_waiting">en attente de handshake</string>
     <string name="tunnl_detail_status_unreachable">pair injoignable</string>
     <string name="tunnl_detail_status_tap_up">touchez pour activer</string>
+    <string name="tunnl_detail_subtitle">TUNNEL · %1$s</string>
     <string name="tunnl_tunnel_status_active">◆ ACTIF</string>
     <string name="tunnl_tunnel_status_connecting">◑ CONNEXION</string>
     <string name="tunnl_tunnel_status_no_signal">✕ AUCUN SIGNAL</string>

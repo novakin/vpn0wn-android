@@ -34,6 +34,7 @@ import com.wireguard.android.databinding.LogViewerActivityBinding
 import com.wireguard.crypto.KeyPair
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
@@ -196,7 +197,26 @@ class LogViewerActivity : AppCompatActivity() {
     }
 
     private suspend fun streamingLog(generation: Int) = withContext(Dispatchers.IO) {
-        val builder = ProcessBuilder().command("logcat", "-b", "all", "-v", "threadtime", "*:V")
+        var useRestartTail = false
+        while (generation == logGeneration) {
+            streamLogcatProcess(generation, useRestartTail)
+            if (generation != logGeneration)
+                break
+            useRestartTail = true
+            Log.w(TAG, "Log stream ended; restarting")
+            delay(LOG_RESTART_DELAY_MS)
+        }
+    }
+
+    private suspend fun streamLogcatProcess(generation: Int, useRestartTail: Boolean) {
+        val command = mutableListOf("logcat", "-b", "all", "-v", "threadtime")
+        if (useRestartTail) {
+            command.add("-T")
+            command.add(LOG_RESTART_TAIL_LINES.toString())
+        }
+        command.add("*:V")
+
+        val builder = ProcessBuilder().command(command)
         builder.environment()["LC_ALL"] = "C"
         var process: Process? = null
         try {
@@ -204,12 +224,12 @@ class LogViewerActivity : AppCompatActivity() {
                 builder.start()
             } catch (e: IOException) {
                 Log.e(TAG, "Failed to start log process", e)
-                return@withContext
+                return
             }
             logProcess = process
             val stdout = BufferedReader(InputStreamReader(process!!.inputStream, StandardCharsets.UTF_8))
 
-            var posStart = 0
+            var posStart = withContext(Dispatchers.Main.immediate) { logLines.size() }
             var timeLastNotify = System.nanoTime()
             var priorModified = false
             val bufferedLogLines = arrayListOf<LogLine>()
@@ -217,8 +237,43 @@ class LogViewerActivity : AppCompatActivity() {
             val MAX_LINES = (1 shl 16) - 1
             val MAX_BUFFERED_LINES = (1 shl 14) - 1
 
+            suspend fun flushBufferedLogLines() {
+                withContext(Dispatchers.Main.immediate) {
+                    if (generation != logGeneration)
+                        return@withContext
+                    val hasInsertedLines = bufferedLogLines.isNotEmpty()
+                    val hasChanges = priorModified || hasInsertedLines
+                    if (priorModified) {
+                        logAdapter.onLineChanged(posStart - 1)
+                        priorModified = false
+                    }
+                    val fullLen = logLines.size() + bufferedLogLines.size
+                    if (fullLen >= MAX_LINES) {
+                        val numToRemove = fullLen - MAX_LINES + 1
+                        logLines.removeFromStart(numToRemove)
+                        logAdapter.onLinesRemovedFromStart(numToRemove)
+                        posStart -= numToRemove
+                    }
+                    for (bufferedLine in bufferedLogLines) {
+                        logLines.addLast(bufferedLine)
+                    }
+                    bufferedLogLines.clear()
+                    val insertedCount = logLines.size() - posStart
+                    if (insertedCount > 0)
+                        logAdapter.onLinesInserted(posStart, insertedCount)
+                    posStart = logLines.size()
+
+                    if (hasChanges && autoScroll)
+                        scrollLogToBottom()
+                }
+            }
+
             while (generation == logGeneration) {
-                val line = stdout.readLine() ?: break
+                val line = stdout.readLine()
+                if (line == null) {
+                    flushBufferedLogLines()
+                    break
+                }
                 if (generation != logGeneration)
                     break
                 if (rawLogLines.size() >= MAX_LINES)
@@ -241,31 +296,9 @@ class LogViewerActivity : AppCompatActivity() {
                 timeout = 1000000000L * 5 / 2
                 timeLastNotify = timeNow
 
-                withContext(Dispatchers.Main.immediate) {
-                    if (generation != logGeneration)
-                        return@withContext
-                    if (priorModified) {
-                        logAdapter.onLineChanged(posStart - 1)
-                        priorModified = false
-                    }
-                    val fullLen = logLines.size() + bufferedLogLines.size
-                    if (fullLen >= MAX_LINES) {
-                        val numToRemove = fullLen - MAX_LINES + 1
-                        logLines.removeFromStart(numToRemove)
-                        logAdapter.onLinesRemovedFromStart(numToRemove)
-                        posStart -= numToRemove
-                    }
-                    for (bufferedLine in bufferedLogLines) {
-                        logLines.addLast(bufferedLine)
-                    }
-                    bufferedLogLines.clear()
-                    logAdapter.onLinesInserted(posStart, logLines.size() - posStart)
-                    posStart = logLines.size()
-
-                    if (autoScroll)
-                        scrollLogToBottom()
-                }
+                flushBufferedLogLines()
             }
+            flushBufferedLogLines()
         } catch (e: IOException) {
             if (generation == logGeneration)
                 Log.e(TAG, "Log stream failed", e)
@@ -319,6 +352,8 @@ class LogViewerActivity : AppCompatActivity() {
         private val THREADTIME_LINE: Pattern =
             Pattern.compile("^(\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}.\\d{3})(?:\\s+[0-9A-Za-z]+)?\\s+(\\d+)\\s+(\\d+)\\s+([A-Z])\\s+(.+?)\\s*: (.*)$")
         private val LOGS: MutableMap<String, ByteArray> = ConcurrentHashMap()
+        private const val LOG_RESTART_DELAY_MS = 1000L
+        private const val LOG_RESTART_TAIL_LINES = 50
         private const val TAG = "WireGuard/LogViewerActivity"
     }
 

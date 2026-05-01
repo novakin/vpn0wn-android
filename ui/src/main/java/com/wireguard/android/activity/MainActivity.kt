@@ -50,7 +50,7 @@ class MainActivity : BaseActivity(), FragmentManager.OnBackStackChangedListener 
         val backStackEntries = supportFragmentManager.backStackEntryCount
         backPressedCallback?.isEnabled = backStackEntries >= 1
         if (actionBar == null) return
-        if (backStackEntries == 0) {
+        if (backStackEntries <= 1) {
             actionBar!!.hide()
         } else {
             actionBar!!.show()
@@ -75,6 +75,22 @@ class MainActivity : BaseActivity(), FragmentManager.OnBackStackChangedListener 
         return true
     }
 
+    fun openTunnelEditor() {
+        supportFragmentManager.commit {
+            replace(if (isTwoPaneLayout) R.id.detail_container else R.id.list_detail_container, TunnelEditorFragment())
+            setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE)
+            addToBackStack(null)
+        }
+    }
+
+    fun shouldShowDetailBackButton(): Boolean =
+        !isTwoPaneLayout || supportFragmentManager.backStackEntryCount > 1
+
+    fun onDetailBackPressed() {
+        if (shouldShowDetailBackButton())
+            onBackPressedDispatcher.onBackPressed()
+    }
+
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         return when (item.itemId) {
             android.R.id.home -> {
@@ -84,11 +100,7 @@ class MainActivity : BaseActivity(), FragmentManager.OnBackStackChangedListener 
             }
 
             R.id.menu_action_edit -> {
-                supportFragmentManager.commit {
-                    replace(if (isTwoPaneLayout) R.id.detail_container else R.id.list_detail_container, TunnelEditorFragment())
-                    setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE)
-                    addToBackStack(null)
-                }
+                openTunnelEditor()
                 true
             }
             // This menu item is handled by the editor fragment.
