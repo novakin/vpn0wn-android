@@ -643,10 +643,10 @@ object BindingAdapters {
             TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_rule_strong
         }
         val thumb = when (mode) {
-            TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_signal
-            TunnelSignalView.TunnelMode.CONNECTING -> R.color.tunnl_warn
-            TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_error
-            TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_ink_3
+            TunnelSignalView.TunnelMode.UP,
+            TunnelSignalView.TunnelMode.CONNECTING,
+            TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_paper
+            TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_ink_2
         }
         view.trackTintList = ColorStateList.valueOf(ContextCompat.getColor(view.context, track))
         view.thumbTintList = ColorStateList.valueOf(ContextCompat.getColor(view.context, thumb))

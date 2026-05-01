@@ -131,24 +131,31 @@ class LogViewerActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
-        logJob?.cancel()
-        logProcess?.destroy()
+        stopLogStream()
         revokeLastUri()
         super.onDestroy()
     }
 
     private fun startLogStream() {
-        logJob?.cancel()
-        logProcess?.destroy()
-        val generation = ++logGeneration
+        stopLogStream()
+        val generation = logGeneration
         logJob = lifecycleScope.launch(Dispatchers.IO) { streamingLog(generation) }
     }
 
+    private fun stopLogStream() {
+        ++logGeneration
+        logJob?.cancel()
+        logJob = null
+        logProcess?.destroy()
+    }
+
     private fun restartLogStream() {
+        stopLogStream()
         logLines = CircularArray()
         rawLogLines = CircularArray()
         logAdapter.reset()
-        startLogStream()
+        val generation = logGeneration
+        logJob = lifecycleScope.launch(Dispatchers.IO) { streamingLog(generation) }
     }
 
     private fun updateLiveToggle() {
@@ -212,6 +219,8 @@ class LogViewerActivity : AppCompatActivity() {
 
             while (generation == logGeneration) {
                 val line = stdout.readLine() ?: break
+                if (generation != logGeneration)
+                    break
                 if (rawLogLines.size() >= MAX_LINES)
                     rawLogLines.popFirst()
                 rawLogLines.addLast(line)

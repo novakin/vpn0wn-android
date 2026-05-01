@@ -106,14 +106,20 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 - **Formatter and binding cleanup**
   `QuantityFormatter.formatBytes()` now uses integer scaling before formatting instead of chained floating-point division. `QuantityFormatter.formatEpochAgo()` now pads day counts consistently. Tunnel status/detail label mappings are centralized in `BindingAdapters`, and the single-tunnel mode helper snapshots state/statistics before computing status.
 
-- **Tunnel stats refresh without app-owned polling loops**
-  `TunnelListFragment` and `TunnelDetailFragment` now observe `ObservableTunnel` state/statistics changes and request a fresh stats snapshot only when an UP tunnel is visible/selected, instead of running fragment-owned `while(true) { delay(1000) }` polling jobs.
+- **Tunnel stats refresh lifecycle hardening**
+  `TunnelListFragment` and `TunnelDetailFragment` now combine `ObservableTunnel` state/list observer wiring with lifecycle-bound 1 s refresh jobs. Visible/selected UP tunnels keep receiving fresh snapshots for live rates and handshake state, newly inserted tunnels are picked up through the list callback, and stats refresh failures are logged instead of swallowed.
+
+- **`LogViewerActivity` — restart race guard**
+  `stopLogStream()` now advances the generation token before destroying the active logcat process, and the streaming reader rechecks the token immediately after `readLine()` before mutating log buffers. Manual refresh can clear and restart the stream without stale lines from the previous process leaking into the new buffer.
 
 - **`BindingAdapters` — resource-backed home summary**
   The home header summary now formats through `R.string.tunnl_home_header_summary` instead of embedding the brand/count/status string directly in the binding helper.
 
 - **Gradle configuration cache**
   Enabled `org.gradle.configuration-cache=true` in `gradle.properties` so supported Gradle task graphs can reuse configuration between local runs.
+
+- **Gradle worker cap**
+  Added `org.gradle.workers.max=24` and raised the Gradle daemon heap to `-Xmx4g` in `gradle.properties` so local Android builds can use WSL's available CPU parallelism on 64 GB RAM machines without trying to occupy all 32 logical CPUs.
 
 ## Pending
 

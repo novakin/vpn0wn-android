@@ -24,6 +24,8 @@ import com.wireguard.android.databinding.TunnelDetailFragmentBinding
 import com.wireguard.android.databinding.TunnelDetailPeerBinding
 import com.wireguard.android.model.ObservableTunnel
 import com.wireguard.android.util.QuantityFormatter
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class TunnelDetailFragment : BaseFragment(), MenuProvider {
@@ -34,6 +36,7 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
     private var binding: TunnelDetailFragmentBinding? = null
     private var lastState: Tunnel.State? = null
     private var observedTunnel: ObservableTunnel? = null
+    private var statsJob: Job? = null
     private val tunnelCallback = object : Observable.OnPropertyChangedCallback() {
         override fun onPropertyChanged(sender: Observable?, propertyId: Int) {
             if (propertyId == BR.statistics || propertyId == BR.state) {
@@ -77,8 +80,7 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
 
     override fun onResume() {
         super.onResume()
-        refreshSelectedStats()
-        lifecycleScope.launch { updateStats() }
+        startStatsRefresh()
     }
 
     override fun onSelectedTunnelChanged(oldTunnel: ObservableTunnel?, newTunnel: ObservableTunnel?) {
@@ -104,6 +106,7 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
     }
 
     override fun onStop() {
+        stopStatsRefresh()
         super.onStop()
     }
 
@@ -173,5 +176,20 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
                 Log.w(TAG, "Failed to refresh tunnel statistics", e)
             }
         }
+    }
+
+    private fun startStatsRefresh() {
+        if (statsJob?.isActive == true) return
+        statsJob = lifecycleScope.launch {
+            while (true) {
+                updateStats()
+                delay(1000)
+            }
+        }
+    }
+
+    private fun stopStatsRefresh() {
+        statsJob?.cancel()
+        statsJob = null
     }
 }

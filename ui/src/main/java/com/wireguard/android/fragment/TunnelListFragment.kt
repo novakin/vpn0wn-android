@@ -48,9 +48,11 @@ import com.wireguard.android.util.QrCodeFromFileScanner
 import com.wireguard.android.util.TunnelImporter
 import com.wireguard.android.util.tunnlStyle
 import com.wireguard.android.widget.MultiselectableRelativeLayout
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -62,6 +64,7 @@ class TunnelListFragment : BaseFragment() {
     private var backPressedCallback: OnBackPressedCallback? = null
     private var binding: TunnelListFragmentBinding? = null
     private var observedTunnels: ObservableList<ObservableTunnel>? = null
+    private var statsJob: Job? = null
     private val tunnelStateCallback = object : Observable.OnPropertyChangedCallback() {
         override fun onPropertyChanged(sender: Observable?, propertyId: Int) {
             if (propertyId == BR.state || propertyId == BR.config || propertyId == BR.statistics) {
@@ -186,10 +189,11 @@ class TunnelListFragment : BaseFragment() {
 
     override fun onResume() {
         super.onResume()
-        observedTunnels?.forEach { refreshTunnelStats(it) }
+        startStatsRefresh()
     }
 
     override fun onStop() {
+        stopStatsRefresh()
         super.onStop()
     }
 
@@ -280,10 +284,34 @@ class TunnelListFragment : BaseFragment() {
     private fun refreshTunnelStats(tunnel: ObservableTunnel) {
         if (!isResumed || tunnel.state != Tunnel.State.UP) return
         lifecycleScope.launch {
-            try {
-                tunnel.getStatisticsAsync()
-            } catch (_: Throwable) {
+            refreshTunnelStatsNow(tunnel)
+        }
+    }
+
+    private fun startStatsRefresh() {
+        if (statsJob?.isActive == true) return
+        statsJob = lifecycleScope.launch {
+            while (true) {
+                val tunnels = observedTunnels?.toList().orEmpty()
+                for (tunnel in tunnels) {
+                    refreshTunnelStatsNow(tunnel)
+                }
+                delay(1000)
             }
+        }
+    }
+
+    private fun stopStatsRefresh() {
+        statsJob?.cancel()
+        statsJob = null
+    }
+
+    private suspend fun refreshTunnelStatsNow(tunnel: ObservableTunnel) {
+        if (!isResumed || tunnel.state != Tunnel.State.UP) return
+        try {
+            tunnel.getStatisticsAsync()
+        } catch (e: Throwable) {
+            Log.w(TAG, "Stats refresh failed", e)
         }
     }
 
