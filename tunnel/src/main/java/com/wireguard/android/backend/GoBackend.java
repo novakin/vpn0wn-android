@@ -88,6 +88,22 @@ public final class GoBackend implements Backend {
 
     private static native String wgVersion();
 
+    private static CompletableFuture<VpnService> newVpnServiceFuture(final CompletableFuture<VpnService> previous) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+            return previous.newIncompleteFuture();
+        return new CompletableFuture<>();
+    }
+
+    private static void resetVpnServiceFuture(final CompletableFuture<VpnService> staleFuture) {
+        vpnServiceRef.compareAndSet(staleFuture, newVpnServiceFuture(staleFuture));
+    }
+
+    private static void resetVpnServiceFutureForService(final VpnService staleService) {
+        final CompletableFuture<VpnService> currentFuture = vpnServiceRef.get();
+        if (currentFuture.isDone() && !currentFuture.isCompletedExceptionally() && currentFuture.getNow(null) == staleService)
+            resetVpnServiceFuture(currentFuture);
+    }
+
     /**
      * Method to get the names of running tunnels.
      *
@@ -252,7 +268,8 @@ public final class GoBackend implements Backend {
                                      final InetEndpoint resolved) throws Exception {
         try (final DatagramSocket socket = new DatagramSocket(null)) {
             socket.setReuseAddress(true);
-            service.protect(socket);
+            if (!service.protect(socket))
+                Log.w(TAG, "UDP preflight: protect() returned false — VpnService may be dead");
             socket.bind(new InetSocketAddress(listenPort));
             final byte[] payload = {0x00};
             socket.send(new DatagramPacket(payload, payload.length, addr, port));
@@ -314,13 +331,16 @@ public final class GoBackend implements Backend {
                 throw new BackendException(Reason.VPN_NOT_AUTHORIZED);
 
             final VpnService service;
-            if (!vpnServiceRef.get().isDone()) {
+            final CompletableFuture<VpnService> serviceFuture = vpnServiceRef.get();
+            if (!serviceFuture.isDone()) {
                 Log.d(TAG, "Requesting to start VpnService");
                 context.startService(new Intent(context, VpnService.class));
+            } else {
+                Log.d(TAG, "VpnService future already complete; reusing existing service reference");
             }
 
             try {
-                service = vpnServiceRef.get().get(2, TimeUnit.SECONDS);
+                service = serviceFuture.get(2, TimeUnit.SECONDS);
             } catch (final TimeoutException e) {
                 final Exception be = new BackendException(Reason.UNABLE_TO_START_VPN);
                 be.initCause(e);
@@ -399,8 +419,12 @@ public final class GoBackend implements Backend {
 
             builder.setBlocking(true);
             try (final ParcelFileDescriptor tun = builder.establish()) {
-                if (tun == null)
+                if (tun == null) {
+                    Log.e(TAG, "establish() returned null; resetting stale VpnService reference");
+                    resetVpnServiceFuture(serviceFuture);
+                    context.startService(new Intent(context, VpnService.class));
                     throw new BackendException(Reason.TUN_CREATION_ERROR);
+                }
                 Log.d(TAG, "Go backend " + wgVersion());
                 currentTunnelHandle = wgTurnOn(tunnel.getName(), tun.detachFd(), goConfig);
             }
@@ -456,6 +480,7 @@ public final class GoBackend implements Backend {
 
         @Override
         public void onDestroy() {
+            Log.i(TAG, "VpnService.onDestroy(); tunnel active=" + (owner != null && owner.currentTunnelHandle != -1));
             if (owner != null) {
                 final Tunnel tunnel = owner.currentTunnel;
                 if (tunnel != null) {
@@ -467,10 +492,7 @@ public final class GoBackend implements Backend {
                     tunnel.onStateChange(State.DOWN);
                 }
             }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
-                vpnServiceRef.set(vpnServiceRef.get().newIncompleteFuture());
-            else
-                vpnServiceRef.set(new CompletableFuture<>());
+            resetVpnServiceFutureForService(this);
             super.onDestroy();
         }
 
