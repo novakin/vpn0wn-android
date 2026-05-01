@@ -6,9 +6,65 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## In Progress
 
-*(nothing active)*
+- **Android SSH provisioning integration**
+  Server-side Tunnl provisioning scripts now exist under `third_party/wireguard-install/tunnl/`, and the VPS fleet now reads persisted non-secret records from `VpsServerStore`. Remaining work: concrete Android SSH transport, SSH credential capture/storage, remote script upload/execution, progress parsing, live server status persistence, and user-management flow wiring.
+
+- **Provisioning backend QA blockers**
+  Concrete SSH transport must be selected before live provisioning is considered stable. The remote-shell boundary now has timeout, hung-command, cancellation, and unreachable-host guard coverage through `GuardedRemoteShellClient`, but the real SSH implementation still needs the same behavior verified against its library/session API. Disposable VPS integration testing must be opt-in and destructive-only: it may install WireGuard, change Tunnl-managed server config, remove peers, uninstall WireGuard, and reinstall it on the target VM. These tests must never run in the default unit-test or local-build path.
+
+- **Disposable VPS integration task**
+  Root Gradle task `vpsIntegrationTest` runs `scripts/vps_integration_test.py` through key-only SSH when `TUNNL_VPS_HOST`, `TUNNL_VPS_USER`, and `TUNNL_VPS_DESTRUCTIVE=1` are set. The task uploads the Tunnl provisioning scripts to a temporary directory, runs detect/plan/install/sync/add-peer/revoke/remove/backup/uninstall/reinstall/uninstall, and removes uploaded scripts plus Tunnl test artifacts. It is not wired into `check` or any default build.
+
+- **Disposable VPS integration use case**
+  `docs/qa-test-plan.md` documents when and how to run `vpsIntegrationTest`, including required environment variables, Windows-vs-WSL key handling, expected cleanup output, and credential-safety rules. The documented target is a disposable Ubuntu/Debian VPS only; production VPN hosts and hosts with user-managed WireGuard configuration are explicitly out of scope.
+
+- **Android SSH transport decision**
+  A concrete Android SSH transport is still not implemented because the app currently has no SSH client dependency. The next backend decision is to choose and review a maintained Android-compatible SSH library, then implement `RemoteShellClientFactory` on top of it with host-key pinning, password/private-key auth, per-command timeout, cancellation that closes the active channel/session, and no credential logging.
+
+### VPS provisioning implementation task list
+
+- [x] Create dedicated `vps-configuration` branch.
+- [x] Vendor pinned MIT upstream reference and Tunnl-owned server scripts.
+- [x] Package Tunnl provisioning scripts into Android assets.
+- [x] Add app-side provisioning domain models and JSON parsers.
+- [x] Add remote shell abstraction for future SSH implementation.
+- [x] Add provisioning client that uploads scripts, executes commands, and parses JSON results.
+- [ ] Add concrete Android SSH transport.
+- [x] Add timeout, hung-command, cancellation, and unreachable-host guard tests at the remote-shell boundary.
+- [ ] Add timeout, hung-command, cancellation, and unreachable-host tests for the concrete SSH transport library/session implementation.
+- [ ] Store SSH host fingerprints and encrypted private key/password material with Android Keystore.
+- [x] Persist non-secret server fleet records locally.
+- [x] Wire persisted non-secret server records into the server fleet UI.
+- [ ] Wire live provision/status/add-peer/remove-peer/revoke flows into the server fleet UI.
+- [x] Add native server fleet UI entry point and seeded UX flow.
+- [x] Move native VPS UI display strings into Android resources and add French translations.
+- [x] Extract VPS seed data and custom renderers out of the main fragment.
+- [x] Remove prototype VPS seed data from runtime code.
+- [ ] Import generated peer config into the existing tunnel manager.
+- [ ] Add progress streaming from remote command stderr/stdout to the provisioning terminal UI.
+- [x] Add opt-in destructive end-to-end test path against a disposable Ubuntu/Debian VPS.
 
 ## Done
+
+### VPS provisioning
+
+- **`third_party/wireguard-install` — vendored upstream reference**
+  Added `Nyr/wireguard-install` from commit `3b85b2702ffcb2ce670c29bd90c6cae4a5bcc753` with MIT license attribution. The upstream interactive script is stored unchanged under `original/wireguard-install.sh`; `UPSTREAM.md` documents source, license, pinning, and update process.
+
+- **`third_party/wireguard-install/tunnl` — non-interactive command surface**
+  Added Tunnl-owned Bash commands for `detect`, `plan`, `install`, `add-peer`, `remove-peer`, `revoke-peer`, `sync-status`, `backup`, and `uninstall`. The MVP supports Ubuntu/Debian, `wg0`, IPv4 `/24` pools, IPv4-only peer default routes, JSON stdout for app parsing, explicit non-interactive arguments, and iptables NAT. `uninstall.sh` removes Tunnl-managed config without disabling global IPv4 forwarding.
+
+- **`ui/build.gradle.kts` — package provisioning scripts as app assets**
+  Added `third_party/wireguard-install/tunnl` as a main asset source so the Android app can upload the exact Tunnl-owned script bundle to a VPS over SSH.
+
+- **`ui/src/main/java/com/wireguard/android/provisioning` — app-side provisioning core**
+  Added typed models, JSON parsing, script bundle loading, non-secret server fleet persistence, a remote shell interface, guarded execution wrappers, and a `TunnlProvisioningClient` that uploads scripts to a per-run remote temp directory before running `detect`, `plan`, `install`, `add-peer`, `remove-peer`, `revoke-peer`, `sync-status`, `backup`, and `uninstall`.
+
+- **`VpsProvisioningFragment` — native server fleet flow**
+  Added the Android server fleet entry point, persisted non-secret server rendering through `VpsDeployMapper`, the SSH wizard UI, translated VPS flow strings, and custom deploy widgets in `VpsDeployViews`. Runtime prototype seed data was removed from production code; the fleet now renders stored records and empty states until concrete SSH transport and live actions are connected.
+
+- **Provisioning safety hardening**
+  User-facing provisioning exceptions no longer include raw command stdout/stderr or malformed JSON snippets. `VpsServerStore` clamps corrupted SSH ports and drops stored server records missing required connection fields. `VpsCredential.Password` stores password material in a clearable `CharArray`, and the VPS provisioning form clears retained password buffers before reset/replacement. `GuardedRemoteShellClientFactory` rejects untrusted-host connections without a pinned host fingerprint and invalid auth-attempt limits.
 
 ### VpnService stale-reference mitigation
 
