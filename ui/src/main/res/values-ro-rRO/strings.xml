@@ -153,7 +153,6 @@
     <string name="key_length_explanation_binary">: Cheile WireGuard trebuie să aibă 32 de octeți</string>
     <string name="key_length_explanation_hex">: Cheile hex WireGuard trebuie să aibă 64 de caractere (32 de octeți)</string>
     <string name="latest_handshake">Cea mai recentă negociere</string>
-    <string name="latest_handshake_ago">%s în urmă</string>
     <string name="listen_port">Port de ascultare</string>
     <string name="log_export_error">Jurnalul nu poate fi exportat: %s</string>
     <string name="log_export_subject">Fișier de jurnal Android WireGuard</string>

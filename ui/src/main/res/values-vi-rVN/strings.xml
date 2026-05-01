@@ -127,7 +127,6 @@
     <string name="key_length_explanation_binary">: Khoá WireGuard phải đủ 32 bytes</string>
     <string name="key_length_explanation_hex">: Khoá WireGuard hex phải đủ 64 ký tự (32 bytes)</string>
     <string name="latest_handshake">Lần bắt tay cuối</string>
-    <string name="latest_handshake_ago">%s giây trước</string>
     <string name="listen_port">Cổng</string>
     <string name="log_export_error">Không thể xuất nhật ký: %s</string>
     <string name="log_export_subject">File nhật ký WireGuard Android</string>

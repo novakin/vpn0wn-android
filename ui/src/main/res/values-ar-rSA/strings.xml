@@ -192,7 +192,6 @@
     <string name="key_length_explanation_binary">: مفاتيح وايرجارد يجب أن تكون 32 بايت</string>
     <string name="key_length_explanation_hex">: مفاتيح وايرجارد في نظام عد ستة عشري (hexadecimal) يجب أن تكون 64 حرفاً (32 بايت)</string>
     <string name="latest_handshake">أحدث مصافحة</string>
-    <string name="latest_handshake_ago">منذ %s</string>
     <string name="listen_port">منفذ الاستماع</string>
     <string name="log_export_error">غير قادر على تصدير السجل: %s</string>
     <string name="log_export_subject">ملف سجل اندرويد وايرجارد</string>

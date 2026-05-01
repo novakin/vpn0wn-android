@@ -157,13 +157,11 @@
 
                                 <com.google.android.material.button.MaterialButton
                                     android:id="@+id/private_key_regen_button"
-                                    style="@style/Widget.Material3.Button.TextButton"
+                                    style="@style/TunnlPillButton"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:text="REGEN"
-                                    android:textSize="10sp"
-                                    app:strokeColor="@color/tunnl_rule_strong"
-                                    app:strokeWidth="1dp" />
+                                    android:text="regen"
+                                    android:textColor="@color/tunnl_ink_2" />
                             </LinearLayout>
                         </LinearLayout>
 
@@ -338,7 +336,7 @@
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/set_excluded_applications"
-                                style="@style/Widget.Material3.Button.TextButton"
+                                style="@style/TunnlPillButton"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:nextFocusUp="@id/dns_servers_text"
@@ -346,9 +344,7 @@
                                 android:nextFocusForward="@id/peers_layout"
                                 android:onClick="@{fragment::onRequestSetExcludedIncludedApplications}"
                                 android:text="configure"
-                                android:textSize="10sp"
-                                app:strokeColor="@color/tunnl_rule_strong"
-                                app:strokeWidth="1dp" />
+                                android:textColor="@color/tunnl_ink_2" />
                         </LinearLayout>
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
@@ -400,7 +396,7 @@
                 <!-- Dashed + ADD PEER button -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/add_peer_button"
-                    style="@style/Widget.Material3.Button.TextButton"
+                    style="@style/TunnlDashedActionButton"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="10dp"
@@ -409,11 +405,7 @@
                     android:onClick="@{() -> config.addPeer()}"
                     android:paddingTop="14dp"
                     android:paddingBottom="14dp"
-                    android:text="@string/add_peer"
-                    android:textColor="@color/tunnl_ink_3"
-                    android:textSize="11sp"
-                    app:strokeColor="@color/tunnl_rule_strong"
-                    app:strokeWidth="1dp" />
+                    android:text="@string/add_peer" />
 
             </LinearLayout>
         </ScrollView>

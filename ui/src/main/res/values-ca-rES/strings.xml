@@ -140,7 +140,6 @@
     <string name="key_length_explanation_binary">: Les claus WireGuard han de ser de 32 bytes</string>
     <string name="key_length_explanation_hex">: Les claus en hexadecimal a WireGuard han de tenir 64 caràcters (32 bytes)</string>
     <string name="latest_handshake">Últim handshake</string>
-    <string name="latest_handshake_ago">fa %s</string>
     <string name="listen_port">Port d\'escolta</string>
     <string name="log_export_error">No s\'ha estat capaç d\'exportar el registre: %s</string>
     <string name="log_export_subject">WireGuard Android Log File</string>

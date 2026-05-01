@@ -140,7 +140,6 @@
     <string name="key_length_explanation_binary">: WireGuard anahtarları 32 bayt olmalıdır</string>
     <string name="key_length_explanation_hex">: WireGuard on altılık anahtarları 64 karakter (32 bayt) olmalıdır</string>
     <string name="latest_handshake">En son el sıkışma</string>
-    <string name="latest_handshake_ago">%s önce</string>
     <string name="listen_port">Dinlenen port</string>
     <string name="log_export_error">Günlük dışa aktarılamadı: %s</string>
     <string name="log_export_subject">WireGuard Android Günlük Dosyası</string>

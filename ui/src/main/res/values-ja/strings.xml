@@ -127,7 +127,6 @@
     <string name="key_length_explanation_binary">: WireGuard 鍵は32バイトでなければなりません</string>
     <string name="key_length_explanation_hex">: WireGuard hex 鍵は64文字 (32バイト) でなければなりません</string>
     <string name="latest_handshake">直近のハンドシェイク</string>
-    <string name="latest_handshake_ago">%s 前</string>
     <string name="listen_port">Listen ポート</string>
     <string name="log_export_error">ログをエクスポートできません: %s</string>
     <string name="log_export_subject">WireGuard Android ログファイル</string>

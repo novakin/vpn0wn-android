@@ -140,7 +140,6 @@
     <string name="key_length_explanation_binary">: le chiavi di WireGuard devono essere di 32 byte</string>
     <string name="key_length_explanation_hex">: le chiavi esadecimali di WireGuard devono essere di 64 caratteri (32 byte)</string>
     <string name="latest_handshake">Ultima negoziazione</string>
-    <string name="latest_handshake_ago">%s fa</string>
     <string name="listen_port">Porta in ascolto</string>
     <string name="log_export_error">Impossibile esportare il log: %s</string>
     <string name="log_export_subject">File di log WireGuard Android</string>

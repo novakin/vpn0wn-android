@@ -17,8 +17,6 @@ import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import android.view.LayoutInflater
-import android.view.Menu
-import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import androidx.activity.result.contract.ActivityResultContracts
@@ -35,6 +33,7 @@ import com.wireguard.android.R
 import com.wireguard.android.databinding.LogViewerActivityBinding
 import com.wireguard.crypto.KeyPair
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.BufferedReader
@@ -59,6 +58,9 @@ class LogViewerActivity : AppCompatActivity() {
     private var recyclerView: RecyclerView? = null
     private var autoScroll = true
     private var lastUri: Uri? = null
+    private var logJob: Job? = null
+    @Volatile private var logProcess: Process? = null
+    @Volatile private var logGeneration = 0
 
     private val year by lazy {
         val yearFormatter: DateFormat = SimpleDateFormat("yyyy", Locale.US)
@@ -79,18 +81,19 @@ class LogViewerActivity : AppCompatActivity() {
     }
 
     private fun revokeLastUri() {
-        lastUri?.let {
-            LOGS.remove(it.pathSegments.lastOrNull())
-            revokeUriPermission(it, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            lastUri = null
-        }
+        val uri = lastUri ?: return
+        val key = uri.pathSegments.lastOrNull()
+        if (key != null)
+            LOGS.remove(key)
+        revokeUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        lastUri = null
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = LogViewerActivityBinding.inflate(layoutInflater)
         setContentView(binding.root)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        supportActionBar?.hide()
 
         logAdapter = LogEntryAdapter()
         binding.recyclerView.apply {
@@ -101,52 +104,59 @@ class LogViewerActivity : AppCompatActivity() {
 
         binding.filterGroup.setOnCheckedStateChangeListener { _, checkedIds ->
             val levelFilter = when (checkedIds.firstOrNull()) {
-                R.id.filter_verbose -> setOf("V")
-                R.id.filter_debug   -> setOf("D")
+                R.id.filter_debug   -> setOf("V", "D")
                 R.id.filter_info    -> setOf("I")
                 R.id.filter_warn    -> setOf("W")
-                R.id.filter_error   -> setOf("E")
-                R.id.filter_fatal   -> setOf("F")
+                R.id.filter_error   -> setOf("E", "A", "F")
                 else -> null
             }
             logAdapter.setLevelFilter(levelFilter)
+            scrollLogToBottom()
         }
 
+        binding.backButton.setOnClickListener { finish() }
+        binding.refreshButton.setOnClickListener { restartLogStream() }
+        binding.shareButton.setOnClickListener {
+            lifecycleScope.launch { shareLog() }
+        }
         binding.liveToggle.setOnClickListener {
             autoScroll = !autoScroll
             updateLiveToggle()
-            if (autoScroll && logAdapter.itemCount > 0)
-                recyclerView?.scrollToPosition(logAdapter.itemCount - 1)
+            if (autoScroll)
+                scrollLogToBottom()
         }
 
-        lifecycleScope.launch(Dispatchers.IO) { streamingLog() }
+        updateLiveToggle()
+        startLogStream()
     }
 
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.log_viewer, menu)
-        return true
+    override fun onDestroy() {
+        logJob?.cancel()
+        logProcess?.destroy()
+        revokeLastUri()
+        super.onDestroy()
     }
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        return when (item.itemId) {
-            android.R.id.home -> {
-                finish()
-                true
-            }
-            R.id.share_log -> {
-                lifecycleScope.launch { shareLog() }
-                true
-            }
-            else -> super.onOptionsItemSelected(item)
-        }
+    private fun startLogStream() {
+        logJob?.cancel()
+        logProcess?.destroy()
+        val generation = ++logGeneration
+        logJob = lifecycleScope.launch(Dispatchers.IO) { streamingLog(generation) }
+    }
+
+    private fun restartLogStream() {
+        logLines = CircularArray()
+        rawLogLines = CircularArray()
+        logAdapter.reset()
+        startLogStream()
     }
 
     private fun updateLiveToggle() {
         if (autoScroll) {
-            binding.liveToggle.text = "◆ LIVE"
+            binding.liveToggle.setText(R.string.tunnl_log_live)
             binding.liveToggle.setTextColor(colorSignalDeep)
         } else {
-            binding.liveToggle.text = "○ PAUSED"
+            binding.liveToggle.setText(R.string.tunnl_log_paused)
             binding.liveToggle.setTextColor(colorInk3)
         }
     }
@@ -178,7 +188,7 @@ class LogViewerActivity : AppCompatActivity() {
         revokeLastActivityResultLauncher.launch(shareIntent)
     }
 
-    private suspend fun streamingLog() = withContext(Dispatchers.IO) {
+    private suspend fun streamingLog(generation: Int) = withContext(Dispatchers.IO) {
         val builder = ProcessBuilder().command("logcat", "-b", "all", "-v", "threadtime", "*:V")
         builder.environment()["LC_ALL"] = "C"
         var process: Process? = null
@@ -189,6 +199,7 @@ class LogViewerActivity : AppCompatActivity() {
                 Log.e(TAG, "Failed to start log process", e)
                 return@withContext
             }
+            logProcess = process
             val stdout = BufferedReader(InputStreamReader(process!!.inputStream, StandardCharsets.UTF_8))
 
             var posStart = 0
@@ -199,7 +210,7 @@ class LogViewerActivity : AppCompatActivity() {
             val MAX_LINES = (1 shl 16) - 1
             val MAX_BUFFERED_LINES = (1 shl 14) - 1
 
-            while (true) {
+            while (generation == logGeneration) {
                 val line = stdout.readLine() ?: break
                 if (rawLogLines.size() >= MAX_LINES)
                     rawLogLines.popFirst()
@@ -222,6 +233,8 @@ class LogViewerActivity : AppCompatActivity() {
                 timeLastNotify = timeNow
 
                 withContext(Dispatchers.Main.immediate) {
+                    if (generation != logGeneration)
+                        return@withContext
                     if (priorModified) {
                         logAdapter.onLineChanged(posStart - 1)
                         priorModified = false
@@ -230,7 +243,7 @@ class LogViewerActivity : AppCompatActivity() {
                     if (fullLen >= MAX_LINES) {
                         val numToRemove = fullLen - MAX_LINES + 1
                         logLines.removeFromStart(numToRemove)
-                        logAdapter.notifyItemRangeRemoved(0, numToRemove)
+                        logAdapter.onLinesRemovedFromStart(numToRemove)
                         posStart -= numToRemove
                     }
                     for (bufferedLine in bufferedLogLines) {
@@ -240,13 +253,17 @@ class LogViewerActivity : AppCompatActivity() {
                     logAdapter.onLinesInserted(posStart, logLines.size() - posStart)
                     posStart = logLines.size()
 
-                    if (autoScroll && logAdapter.itemCount > 0) {
-                        recyclerView?.scrollToPosition(logAdapter.itemCount - 1)
-                    }
+                    if (autoScroll)
+                        scrollLogToBottom()
                 }
             }
+        } catch (e: IOException) {
+            if (generation == logGeneration)
+                Log.e(TAG, "Log stream failed", e)
         } finally {
             process?.destroy()
+            if (logProcess === process)
+                logProcess = null
         }
     }
 
@@ -272,14 +289,19 @@ class LogViewerActivity : AppCompatActivity() {
         "V", "D" -> colorInk3
         "I"      -> colorInk2
         "W"      -> colorWarn
-        "E", "F" -> colorError
+        "E", "A", "F" -> colorError
         else     -> colorInk3
     }
 
     private fun borderColor(level: String) = when (level) {
         "W"      -> colorWarn
-        "E", "F" -> colorError
+        "E", "A", "F" -> colorError
         else     -> Color.TRANSPARENT
+    }
+
+    private fun scrollLogToBottom() {
+        if (logAdapter.itemCount > 0)
+            recyclerView?.scrollToPosition(logAdapter.itemCount - 1)
     }
 
     private data class LogLine(val pid: Int, val tid: Int, val time: Date?, val level: String, val tag: String, var msg: String)
@@ -313,13 +335,41 @@ class LogViewerActivity : AppCompatActivity() {
             notifyDataSetChanged()
         }
 
+        fun reset() {
+            visiblePositions.clear()
+            notifyDataSetChanged()
+        }
+
         fun onLinesInserted(positionStart: Int, itemCount: Int) {
             if (levelFilter == null) {
                 notifyItemRangeInserted(positionStart, itemCount)
             } else {
-                rebuildVisiblePositions()
-                notifyDataSetChanged()
+                val filter = levelFilter ?: return
+                var visibleInsertStart = -1
+                var visibleInsertCount = 0
+                for (sourcePosition in positionStart until positionStart + itemCount) {
+                    if (logLines[sourcePosition].level !in filter) continue
+                    if (visibleInsertStart == -1)
+                        visibleInsertStart = visiblePositions.size
+                    visiblePositions.add(sourcePosition)
+                    visibleInsertCount++
+                }
+                if (visibleInsertCount > 0)
+                    notifyItemRangeInserted(visibleInsertStart, visibleInsertCount)
             }
+        }
+
+        fun onLinesRemovedFromStart(itemCount: Int) {
+            if (levelFilter == null) {
+                notifyItemRangeRemoved(0, itemCount)
+                return
+            }
+            val removedVisibleCount = visiblePositions.count { it < itemCount }
+            visiblePositions.removeAll { it < itemCount }
+            for (i in visiblePositions.indices)
+                visiblePositions[i] = visiblePositions[i] - itemCount
+            if (removedVisibleCount > 0)
+                notifyItemRangeRemoved(0, removedVisibleCount)
         }
 
         fun onLineChanged(sourcePosition: Int) {
@@ -327,8 +377,9 @@ class LogViewerActivity : AppCompatActivity() {
             if (levelFilter == null) {
                 notifyItemChanged(sourcePosition)
             } else {
-                rebuildVisiblePositions()
-                notifyDataSetChanged()
+                val visiblePosition = visiblePositions.indexOf(sourcePosition)
+                if (visiblePosition >= 0)
+                    notifyItemChanged(visiblePosition)
             }
         }
 

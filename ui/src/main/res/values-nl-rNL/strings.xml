@@ -140,7 +140,6 @@
     <string name="key_length_explanation_binary">: WireGuard sleutels moeten 32 bytes zijn</string>
     <string name="key_length_explanation_hex">: WireGuard hex sleutels moeten 64 tekens zijn (32 bytes)</string>
     <string name="latest_handshake">Recentste uitwisseling</string>
-    <string name="latest_handshake_ago">%s geleden</string>
     <string name="listen_port">Luister op poort</string>
     <string name="log_export_error">Kan logboek niet exporteren: %s</string>
     <string name="log_export_subject">WireGuard Android logbestand</string>

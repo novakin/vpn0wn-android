@@ -4,4 +4,6 @@
   -->
 <resources>
     <item name="item_change_listener" type="id" />
+    <item name="tunnl_dot_drawable" type="id" />
+    <item name="tunnl_rail_drawable" type="id" />
 </resources>

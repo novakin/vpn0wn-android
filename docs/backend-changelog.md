@@ -27,7 +27,7 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 ### Statistics
 
 - **`ObservableTunnel` — per-second RX/TX rate deltas**
-  Stats polling added to `TunnelListFragment` (`onResume`/`onStop` coroutine, 1 s interval, calls `getStatisticsAsync()` on all UP tunnels). Mirrors the existing `TunnelDetailFragment` polling pattern. Prior to this, home-screen stats only updated after visiting the detail screen.
+  Home and detail screens now refresh from `ObservableTunnel` state/statistics callbacks and request snapshots for visible UP tunnels. Prior to this redesign work, home-screen stats only updated after visiting the detail screen.
 
 - **`BindingAdapters` — stat formatters**
   Added: `tunnelRx`, `tunnelTx`, `tunnelRxRate`, `tunnelTxRate`, `tunnelHandshake`, `tunnelCipher`, `tunnelRoute`, `tunnelPeerBadge`, `shortKey`.
@@ -41,6 +41,23 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 - **`isConnecting` binding adapter** (`BindingAdapters.setIsConnecting`)
   Passes `tunnel.state == State.TOGGLE` to `TunnelThroughputView`; triggers warn-color connecting animation.
+
+### Runtime hardening
+
+- **Binding and log safety pass**
+  `BindingAdapters.tunnelMode()` now synchronizes all access to the `connectingSince` `WeakHashMap`, home header/protection adapters share a single-pass tunnel mode aggregate, home exit labels avoid `InetEndpoint.resolved` DNS lookups on the main thread, and frequently updated status dot/rail drawables are reused through view tags. `LogViewerActivity` now marks `logProcess` volatile and revokes shared-log byte buffers with an explicit URI key guard.
+
+- **Formatter and binding cleanup**
+  `QuantityFormatter.formatBytes()` now uses integer scaling before formatting instead of chained floating-point division. `QuantityFormatter.formatEpochAgo()` now pads day counts consistently. Tunnel status/detail label mappings are centralized in `BindingAdapters`, and the single-tunnel mode helper snapshots state/statistics before computing status.
+
+- **Tunnel stats refresh without app-owned polling loops**
+  `TunnelListFragment` and `TunnelDetailFragment` now observe `ObservableTunnel` state/statistics changes and request a fresh stats snapshot only when an UP tunnel is visible/selected, instead of running fragment-owned `while(true) { delay(1000) }` polling jobs.
+
+- **`BindingAdapters` — resource-backed home summary**
+  The home header summary now formats through `R.string.tunnl_home_header_summary` instead of embedding the brand/count/status string directly in the binding helper.
+
+- **Gradle configuration cache**
+  Enabled `org.gradle.configuration-cache=true` in `gradle.properties` so supported Gradle task graphs can reuse configuration between local runs.
 
 ## Pending
 

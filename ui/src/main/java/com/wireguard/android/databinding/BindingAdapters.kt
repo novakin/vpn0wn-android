@@ -4,13 +4,19 @@
  */
 package com.wireguard.android.databinding
 
-import android.text.InputFilter
+import android.content.Context
+import android.content.res.ColorStateList
+import android.graphics.drawable.Drawable
+import android.graphics.drawable.GradientDrawable
 import android.os.SystemClock
+import android.text.InputFilter
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.DrawableCompat
 import androidx.databinding.BindingAdapter
 import androidx.databinding.DataBindingUtil
 import androidx.databinding.ObservableList
@@ -19,9 +25,11 @@ import androidx.databinding.adapters.ListenerUtil
 import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.card.MaterialCardView
 import com.wireguard.android.BR
 import com.wireguard.android.R
 import com.wireguard.android.backend.Statistics
+import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.databinding.ObservableKeyedRecyclerViewAdapter.RowConfigurationHandler
 import com.wireguard.android.model.ObservableTunnel
 import com.wireguard.android.util.QuantityFormatter
@@ -42,8 +50,58 @@ import java.util.WeakHashMap
  * Static methods for use by generated code in the Android data binding library.
  */
 object BindingAdapters {
-    private data class RateSample(val rx: Long, val tx: Long, val timeMs: Long, val rxRate: Long = 0L, val txRate: Long = 0L)
+    private data class RateSample(
+        val rx: Long,
+        val tx: Long,
+        val timeMs: Long,
+        val rxRate: Long = 0L,
+        val txRate: Long = 0L,
+        val rxRateText: String = "--",
+        val txRateText: String = "--",
+    )
     private val rateSamples = WeakHashMap<ObservableTunnel, RateSample>()
+    private val connectingSince = WeakHashMap<ObservableTunnel, Long>()
+
+    private const val CONNECTING_GRACE_MS = 30_000L
+    private const val HANDSHAKE_STALE_MS = 180_000L
+
+    private fun Statistics.latestHandshakeMillis(): Long? {
+        return peers()
+            .mapNotNull { peer(it)?.latestHandshakeEpochMillis() }
+            .filter { it > 0L }
+            .maxOrNull()
+    }
+
+    private fun tunnelMode(tunnel: ObservableTunnel?): TunnelSignalView.TunnelMode {
+        val state = tunnel?.state
+        val statistics = tunnel?.statistics
+        return tunnelMode(tunnel, state, statistics)
+    }
+
+    private fun tunnelMode(tunnel: ObservableTunnel?, state: Tunnel.State?, statistics: Statistics?): TunnelSignalView.TunnelMode {
+        val now = System.currentTimeMillis()
+        if (state == Tunnel.State.TOGGLE) return TunnelSignalView.TunnelMode.CONNECTING
+        if (state != Tunnel.State.UP) {
+            tunnel?.let { synchronized(connectingSince) { connectingSince.remove(it) } }
+            return TunnelSignalView.TunnelMode.DOWN
+        }
+        val latest = statistics?.latestHandshakeMillis()
+        if (latest != null && now - latest < HANDSHAKE_STALE_MS) {
+            tunnel?.let { synchronized(connectingSince) { connectingSince.remove(it) } }
+            return TunnelSignalView.TunnelMode.UP
+        }
+        if (latest != null) return TunnelSignalView.TunnelMode.ERROR
+        val since = tunnel?.let {
+            synchronized(connectingSince) {
+                connectingSince.getOrPut(it) { now }
+            }
+        } ?: now
+        return if (now - since < CONNECTING_GRACE_MS) {
+            TunnelSignalView.TunnelMode.CONNECTING
+        } else {
+            TunnelSignalView.TunnelMode.ERROR
+        }
+    }
 
     @JvmStatic
     @BindingAdapter("checked")
@@ -194,7 +252,239 @@ object BindingAdapters {
 
     @JvmStatic
     fun activeTunnelCount(tunnels: Iterable<ObservableTunnel>?): Int =
-        tunnels?.count { it.state == com.wireguard.android.backend.Tunnel.State.UP } ?: 0
+        tunnels?.count { tunnelMode(it) == TunnelSignalView.TunnelMode.UP } ?: 0
+
+    @JvmStatic
+    fun hasConnectingTunnel(tunnels: Iterable<ObservableTunnel>?): Boolean =
+        tunnels?.any { tunnelMode(it) == TunnelSignalView.TunnelMode.CONNECTING } == true
+
+    @JvmStatic
+    fun hasErrorTunnel(tunnels: Iterable<ObservableTunnel>?): Boolean =
+        tunnels?.any { tunnelMode(it) == TunnelSignalView.TunnelMode.ERROR } == true
+
+    private fun aggregateMode(tunnels: Iterable<ObservableTunnel>?): TunnelSignalView.TunnelMode {
+        var best = TunnelSignalView.TunnelMode.DOWN
+        for (tunnel in tunnels ?: return best) {
+            when (tunnelMode(tunnel)) {
+                TunnelSignalView.TunnelMode.UP -> return TunnelSignalView.TunnelMode.UP
+                TunnelSignalView.TunnelMode.CONNECTING -> best = TunnelSignalView.TunnelMode.CONNECTING
+                TunnelSignalView.TunnelMode.ERROR -> if (best != TunnelSignalView.TunnelMode.CONNECTING) {
+                    best = TunnelSignalView.TunnelMode.ERROR
+                }
+                TunnelSignalView.TunnelMode.DOWN -> Unit
+            }
+        }
+        return best
+    }
+
+    @JvmStatic
+    fun homeHeaderSummary(context: Context, tunnels: Iterable<ObservableTunnel>?): String {
+        val list = tunnels?.toList().orEmpty()
+        val state = homeModeLabel(context, aggregateMode(list))
+        return context.getString(R.string.tunnl_home_header_summary, list.size, state)
+    }
+
+    @JvmStatic
+    fun homeProtectionLabel(context: Context, tunnels: Iterable<ObservableTunnel>?): String =
+        context.getString(protectionLabelRes(aggregateMode(tunnels)))
+
+    @JvmStatic
+    fun homeExitIpLabel(tunnels: Iterable<ObservableTunnel>?): String {
+        val activeTunnel = tunnels?.firstOrNull { tunnelMode(it) == TunnelSignalView.TunnelMode.UP }
+        val host = activeTunnel
+            ?.config
+            ?.peers
+            ?.firstOrNull()
+            ?.endpoint
+            ?.map { endpoint -> endpoint.host }
+            ?.orElse("—")
+            ?: "—"
+        return "EXIT IP · $host"
+    }
+
+    @JvmStatic
+    @BindingAdapter("homeHeaderTunnels")
+    fun setHomeHeaderTunnels(view: TextView, tunnels: Iterable<ObservableTunnel>?) {
+        val mode = aggregateMode(tunnels)
+        view.text = homeHeaderSummary(view.context, tunnels)
+        view.setTextColor(ContextCompat.getColor(view.context, modeColor(mode)))
+    }
+
+    @JvmStatic
+    @BindingAdapter("homeProtectionTunnels")
+    fun setHomeProtectionTunnels(view: TextView, tunnels: Iterable<ObservableTunnel>?) {
+        val mode = aggregateMode(tunnels)
+        view.text = homeProtectionLabel(view.context, tunnels)
+        view.setTextColor(ContextCompat.getColor(view.context, when (mode) {
+            TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_signal_deep
+            TunnelSignalView.TunnelMode.CONNECTING -> R.color.tunnl_warn
+            TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_error
+            TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_ink_2
+        }))
+    }
+
+    @JvmStatic
+    @BindingAdapter("homeProtectionDotTunnels")
+    fun setHomeProtectionDotTunnels(view: View, tunnels: Iterable<ObservableTunnel>?) {
+        val mode = aggregateMode(tunnels)
+        val fill = ContextCompat.getColor(view.context, when (mode) {
+            TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_signal
+            TunnelSignalView.TunnelMode.CONNECTING -> R.color.tunnl_warn
+            TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_error
+            TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_paper_3
+        })
+        val stroke = ContextCompat.getColor(view.context, when (mode) {
+            TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_signal_deep
+            TunnelSignalView.TunnelMode.CONNECTING -> R.color.tunnl_warn
+            TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_error
+            TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_rule_strong
+        })
+        val dot = view.getTag(R.id.tunnl_dot_drawable) as? GradientDrawable ?: GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            view.setTag(R.id.tunnl_dot_drawable, this)
+            view.background = this
+        }
+        dot.setColor(fill)
+        dot.setStroke((view.resources.displayMetrics.density + 0.5f).toInt(), stroke)
+    }
+
+    @JvmStatic
+    fun tunnelStatsVisible(tunnel: ObservableTunnel?): Boolean =
+        tunnelStatsVisible(tunnel, tunnel?.state, tunnel?.statistics)
+
+    @JvmStatic
+    fun tunnelStatsVisible(tunnel: ObservableTunnel?, state: Tunnel.State?, statistics: Statistics?): Boolean =
+        tunnelMode(tunnel, state, statistics) == TunnelSignalView.TunnelMode.UP
+
+    @JvmStatic
+    @BindingAdapter(requireAll = false, value = ["detailStatusStrokeTunnel", "detailStatusStrokeState", "detailStatusStrokeStatistics"])
+    fun setDetailStatusStrokeTunnel(view: MaterialCardView, tunnel: ObservableTunnel?, state: Tunnel.State?, statistics: Statistics?) {
+        view.strokeColor = ContextCompat.getColor(view.context, when (tunnelMode(tunnel, state, statistics)) {
+            TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_signal_deep
+            TunnelSignalView.TunnelMode.CONNECTING -> R.color.tunnl_warn
+            TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_error
+            TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_rule
+        })
+    }
+
+    @JvmStatic
+    @BindingAdapter(requireAll = false, value = ["detailTopologyStatusTunnel", "detailTopologyStatusState", "detailTopologyStatusStatistics"])
+    fun setDetailTopologyStatusTunnel(view: TextView, tunnel: ObservableTunnel?, state: Tunnel.State?, statistics: Statistics?) {
+        val mode = tunnelMode(tunnel, state, statistics)
+        view.text = topologyModeLabel(view.context, mode)
+        view.setTextColor(ContextCompat.getColor(view.context, modeColor(mode)))
+    }
+
+    @JvmStatic
+    @BindingAdapter(requireAll = false, value = ["detailStatusTitleTunnel", "detailStatusTitleState", "detailStatusTitleStatistics"])
+    fun setDetailStatusTitleTunnel(view: TextView, tunnel: ObservableTunnel?, state: Tunnel.State?, statistics: Statistics?) {
+        val mode = tunnelMode(tunnel, state, statistics)
+        view.text = detailModeLabel(view.context, mode)
+        view.setTextColor(ContextCompat.getColor(view.context, modeColor(mode)))
+    }
+
+    @JvmStatic
+    @BindingAdapter(requireAll = false, value = ["detailStatusSubtitleTunnel", "detailStatusSubtitleState", "detailStatusSubtitleStatistics"])
+    fun setDetailStatusSubtitleTunnel(view: TextView, tunnel: ObservableTunnel?, state: Tunnel.State?, statistics: Statistics?) {
+        val mode = tunnelMode(tunnel, state, statistics)
+        view.text = when (mode) {
+            TunnelSignalView.TunnelMode.UP ->
+                tunnelHandshake(statistics)
+            TunnelSignalView.TunnelMode.CONNECTING ->
+                view.context.getString(R.string.tunnl_detail_status_waiting)
+            TunnelSignalView.TunnelMode.ERROR ->
+                view.context.getString(R.string.tunnl_detail_status_unreachable)
+            TunnelSignalView.TunnelMode.DOWN ->
+                view.context.getString(R.string.tunnl_detail_status_tap_up)
+        }
+    }
+
+    @JvmStatic
+    @BindingAdapter(requireAll = false, value = ["detailStatusDotTunnel", "detailStatusDotState", "detailStatusDotStatistics"])
+    fun setDetailStatusDotTunnel(view: View, tunnel: ObservableTunnel?, state: Tunnel.State?, statistics: Statistics?) {
+        val mode = tunnelMode(tunnel, state, statistics)
+        val color = ContextCompat.getColor(view.context, modeColor(mode))
+        val dot = view.getTag(R.id.tunnl_dot_drawable) as? GradientDrawable ?: GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            view.setTag(R.id.tunnl_dot_drawable, this)
+            view.background = this
+        }
+        dot.setColor(color)
+        dot.setStroke((view.resources.displayMetrics.density + 0.5f).toInt(), color)
+    }
+
+    @JvmStatic
+    @BindingAdapter(requireAll = false, value = ["throughputModeTunnel", "throughputModeState", "throughputModeStatistics"])
+    fun setThroughputModeTunnel(view: TunnelThroughputView, tunnel: ObservableTunnel?, state: Tunnel.State?, statistics: Statistics?) {
+        when (tunnelMode(tunnel, state, statistics)) {
+            TunnelSignalView.TunnelMode.UP -> {
+                view.live = true
+                view.connecting = false
+            }
+            TunnelSignalView.TunnelMode.CONNECTING -> {
+                view.live = false
+                view.connecting = true
+            }
+            else -> {
+                view.live = false
+                view.connecting = false
+            }
+        }
+    }
+
+    private fun modeColor(mode: TunnelSignalView.TunnelMode): Int = when (mode) {
+        TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_signal_deep
+        TunnelSignalView.TunnelMode.CONNECTING -> R.color.tunnl_warn
+        TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_error
+        TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_ink_3
+    }
+
+    private fun topologyModeLabel(context: Context, mode: TunnelSignalView.TunnelMode): String =
+        context.getString(topologyModeLabelRes(mode))
+
+    private fun detailModeLabel(context: Context, mode: TunnelSignalView.TunnelMode): String =
+        context.getString(detailModeLabelRes(mode))
+
+    private fun statusModeLabel(context: Context, mode: TunnelSignalView.TunnelMode): String =
+        context.getString(statusModeLabelRes(mode))
+
+    private fun homeModeLabel(context: Context, mode: TunnelSignalView.TunnelMode): String =
+        context.getString(homeModeLabelRes(mode))
+
+    private fun topologyModeLabelRes(mode: TunnelSignalView.TunnelMode): Int = when (mode) {
+        TunnelSignalView.TunnelMode.UP         -> R.string.tunnl_mode_up
+        TunnelSignalView.TunnelMode.CONNECTING -> R.string.tunnl_mode_connecting
+        TunnelSignalView.TunnelMode.ERROR      -> R.string.tunnl_mode_no_signal
+        TunnelSignalView.TunnelMode.DOWN       -> R.string.tunnl_mode_down
+    }
+
+    private fun detailModeLabelRes(mode: TunnelSignalView.TunnelMode): Int = when (mode) {
+        TunnelSignalView.TunnelMode.UP         -> R.string.tunnl_detail_status_up
+        TunnelSignalView.TunnelMode.CONNECTING -> R.string.tunnl_handshake
+        TunnelSignalView.TunnelMode.ERROR      -> R.string.tunnl_mode_no_signal
+        TunnelSignalView.TunnelMode.DOWN       -> R.string.tunnl_detail_status_down
+    }
+
+    private fun statusModeLabelRes(mode: TunnelSignalView.TunnelMode): Int = when (mode) {
+        TunnelSignalView.TunnelMode.UP         -> R.string.tunnl_tunnel_status_active
+        TunnelSignalView.TunnelMode.CONNECTING -> R.string.tunnl_tunnel_status_connecting
+        TunnelSignalView.TunnelMode.ERROR      -> R.string.tunnl_tunnel_status_no_signal
+        TunnelSignalView.TunnelMode.DOWN       -> R.string.tunnl_tunnel_status_inactive
+    }
+
+    private fun homeModeLabelRes(mode: TunnelSignalView.TunnelMode): Int = when (mode) {
+        TunnelSignalView.TunnelMode.UP         -> R.string.tunnl_home_mode_active
+        TunnelSignalView.TunnelMode.CONNECTING -> R.string.tunnl_mode_connecting
+        TunnelSignalView.TunnelMode.ERROR      -> R.string.tunnl_mode_no_signal
+        TunnelSignalView.TunnelMode.DOWN       -> R.string.tunnl_home_mode_inactive
+    }
+
+    private fun protectionLabelRes(mode: TunnelSignalView.TunnelMode): Int = when (mode) {
+        TunnelSignalView.TunnelMode.UP         -> R.string.tunnl_protected
+        TunnelSignalView.TunnelMode.CONNECTING -> R.string.tunnl_mode_connecting
+        TunnelSignalView.TunnelMode.ERROR      -> R.string.tunnl_mode_no_signal
+        TunnelSignalView.TunnelMode.DOWN       -> R.string.tunnl_unprotected
+    }
 
     @JvmStatic
     fun tunnelPeerBadge(config: Config?): String {
@@ -216,10 +506,10 @@ object BindingAdapters {
     fun tunnelTx(statistics: Statistics?): String = formatBytesValue(statistics?.totalTx() ?: 0L)
 
     @JvmStatic
-    fun tunnelRxRate(tunnel: ObservableTunnel?, @Suppress("UNUSED_PARAMETER") statistics: Statistics?): String = tunnelRate(tunnel).first
+    fun tunnelRxRate(tunnel: ObservableTunnel?, statistics: Statistics?): String = tunnelRate(tunnel, statistics).first
 
     @JvmStatic
-    fun tunnelTxRate(tunnel: ObservableTunnel?, @Suppress("UNUSED_PARAMETER") statistics: Statistics?): String = tunnelRate(tunnel).second
+    fun tunnelTxRate(tunnel: ObservableTunnel?, statistics: Statistics?): String = tunnelRate(tunnel, statistics).second
 
     @JvmStatic
     fun tunnelHandshake(statistics: Statistics?): String {
@@ -239,37 +529,47 @@ object BindingAdapters {
 
     private fun formatBytesValue(bytes: Long): String {
         val raw = QuantityFormatter.formatBytes(bytes)
-        return raw.uppercase(Locale.getDefault()).replace("I", "")
+        return raw.uppercase(Locale.getDefault())
+            .replace("KIB", "KB")
+            .replace("MIB", "MB")
+            .replace("GIB", "GB")
+            .replace("TIB", "TB")
     }
 
-    private fun tunnelRate(tunnel: ObservableTunnel?): Pair<String, String> {
+    private fun tunnelRate(tunnel: ObservableTunnel?, statistics: Statistics? = tunnel?.statistics): Pair<String, String> {
         tunnel ?: return "--" to "--"
-        val stats = tunnel.statistics ?: return "--" to "--"
+        val stats = statistics ?: return "--" to "--"
         val now = SystemClock.elapsedRealtime()
         val rx = stats.totalRx()
         val tx = stats.totalTx()
         val sample = synchronized(rateSamples) {
             val previous = rateSamples[tunnel]
-            val updated = if (previous == null || now <= previous.timeMs || rx < previous.rx || tx < previous.tx) {
+            val updated = if (previous != null && previous.rx == rx && previous.tx == tx) {
+                previous
+            } else if (previous == null || now <= previous.timeMs || rx < previous.rx || tx < previous.tx) {
                 RateSample(rx, tx, now)
             } else {
                 val elapsed = now - previous.timeMs
                 if (elapsed < 250L) {
                     previous
                 } else {
+                    val rxRate = ((rx - previous.rx) * 1000L) / elapsed
+                    val txRate = ((tx - previous.tx) * 1000L) / elapsed
                     RateSample(
                         rx,
                         tx,
                         now,
-                        ((rx - previous.rx) * 1000L) / elapsed,
-                        ((tx - previous.tx) * 1000L) / elapsed
+                        rxRate,
+                        txRate,
+                        "${formatBytesValue(rxRate)}/S",
+                        "${formatBytesValue(txRate)}/S",
                     )
                 }
             }
             rateSamples[tunnel] = updated
             updated
         }
-        return "${formatBytesValue(sample.rxRate)}/S" to "${formatBytesValue(sample.txRate)}/S"
+        return sample.rxRateText to sample.txRateText
     }
 
     @JvmStatic
@@ -281,7 +581,7 @@ object BindingAdapters {
     @JvmStatic
     @BindingAdapter("isUp")
     fun setIsUp(signalView: TunnelSignalView, up: Boolean) {
-        signalView.live = up
+        signalView.mode = if (up) TunnelSignalView.TunnelMode.UP else TunnelSignalView.TunnelMode.DOWN
     }
 
     @JvmStatic
@@ -291,9 +591,71 @@ object BindingAdapters {
     }
 
     @JvmStatic
+    @BindingAdapter(requireAll = false, value = ["tunnelSignalTunnel", "tunnelSignalState", "tunnelSignalStatistics"])
+    fun setTunnelSignalTunnel(view: TunnelSignalView, tunnel: ObservableTunnel?, state: Tunnel.State?, statistics: Statistics?) {
+        view.mode = tunnelMode(tunnel, state, statistics)
+    }
+
+    @JvmStatic
+    @BindingAdapter(requireAll = false, value = ["tunnelStatusTunnel", "tunnelStatusState", "tunnelStatusStatistics"])
+    fun setTunnelStatusTunnel(view: TextView, tunnel: ObservableTunnel?, state: Tunnel.State?, statistics: Statistics?) {
+        val mode = tunnelMode(tunnel, state, statistics)
+        view.text = statusModeLabel(view.context, mode)
+        view.setTextColor(ContextCompat.getColor(view.context, when (mode) {
+            TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_signal_deep
+            TunnelSignalView.TunnelMode.CONNECTING -> R.color.tunnl_warn
+            TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_error
+            TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_ink_3
+        }))
+    }
+
+    @JvmStatic
+    @BindingAdapter(requireAll = false, value = ["tunnelRailTunnel", "tunnelRailState", "tunnelRailStatistics"])
+    fun setTunnelRailTunnel(view: View, tunnel: ObservableTunnel?, state: Tunnel.State?, statistics: Statistics?) {
+        val mode = tunnelMode(tunnel, state, statistics)
+        if (mode == TunnelSignalView.TunnelMode.DOWN) {
+            view.visibility = View.INVISIBLE
+            return
+        }
+        view.visibility = View.VISIBLE
+        val color = ContextCompat.getColor(view.context, when (mode) {
+            TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_signal
+            TunnelSignalView.TunnelMode.CONNECTING -> R.color.tunnl_warn
+            TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_error
+            TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_signal
+        })
+        val drawable = view.getTag(R.id.tunnl_rail_drawable) as? android.graphics.drawable.Drawable
+            ?: ContextCompat.getDrawable(view.context, R.drawable.tunnl_active_rail)!!.mutate().also {
+                view.setTag(R.id.tunnl_rail_drawable, it)
+                view.background = it
+            }
+        DrawableCompat.setTint(drawable, color)
+    }
+
+    @JvmStatic
+    @BindingAdapter(requireAll = false, value = ["tunnelSwitchModeTunnel", "tunnelSwitchModeState", "tunnelSwitchModeStatistics"])
+    fun setTunnelSwitchModeTunnel(view: ToggleSwitch, tunnel: ObservableTunnel?, state: Tunnel.State?, statistics: Statistics?) {
+        val mode = tunnelMode(tunnel, state, statistics)
+        val track = when (mode) {
+            TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_signal_deep
+            TunnelSignalView.TunnelMode.CONNECTING -> R.color.tunnl_warn
+            TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_error
+            TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_rule_strong
+        }
+        val thumb = when (mode) {
+            TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_signal
+            TunnelSignalView.TunnelMode.CONNECTING -> R.color.tunnl_warn
+            TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_error
+            TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_ink_3
+        }
+        view.trackTintList = ColorStateList.valueOf(ContextCompat.getColor(view.context, track))
+        view.thumbTintList = ColorStateList.valueOf(ContextCompat.getColor(view.context, thumb))
+    }
+
+    @JvmStatic
     @BindingAdapter(requireAll = false, value = ["trafficTunnel", "trafficStatistics"])
     fun setTrafficTunnel(throughputView: TunnelThroughputView, tunnel: ObservableTunnel?, @Suppress("UNUSED_PARAMETER") statistics: Statistics?) {
-        val rates = tunnelRate(tunnel)
+        val rates = tunnelRate(tunnel, statistics)
         throughputView.setRates(rates.first, rates.second)
     }
 
@@ -323,4 +685,5 @@ object BindingAdapters {
     fun setIsConnecting(view: TunnelThroughputView, connecting: Boolean) {
         view.connecting = connecting
     }
+
 }

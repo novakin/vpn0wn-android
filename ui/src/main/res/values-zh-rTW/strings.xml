@@ -127,7 +127,6 @@
     <string name="key_length_explanation_binary">: WireGuard 密鑰必須是 32 個位元組</string>
     <string name="key_length_explanation_hex">: WireGuard 的16進位密鑰必須是 64 個字元 (32 個位元組)</string>
     <string name="latest_handshake">上次交握時間</string>
-    <string name="latest_handshake_ago">%s 之前</string>
     <string name="listen_port">監聽連接埠</string>
     <string name="log_export_error">無法匯出日誌: %s</string>
     <string name="log_export_subject">WireGuard Android 日誌檔</string>

@@ -127,7 +127,6 @@
     <string name="key_length_explanation_binary">: WireGuard의 키는 반드시 32 바이트임</string>
     <string name="key_length_explanation_hex">: WireGuard의 16진수 키는 반드시 64 글자(32 바이트)임</string>
     <string name="latest_handshake">마지막 정보교환</string>
-    <string name="latest_handshake_ago">%s 전에</string>
     <string name="listen_port">수신 대기 포트</string>
     <string name="log_export_error">로그를 내보낼 수 없음: %s</string>
     <string name="log_export_subject">WireGuard 안드로이드 로그 파일</string>

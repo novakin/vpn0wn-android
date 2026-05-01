@@ -14,16 +14,16 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.core.view.MenuProvider
 import androidx.databinding.DataBindingUtil
+import androidx.databinding.Observable
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import com.wireguard.android.BR
 import com.wireguard.android.R
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.databinding.TunnelDetailFragmentBinding
 import com.wireguard.android.databinding.TunnelDetailPeerBinding
 import com.wireguard.android.model.ObservableTunnel
 import com.wireguard.android.util.QuantityFormatter
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class TunnelDetailFragment : BaseFragment(), MenuProvider {
@@ -33,7 +33,17 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
     }
     private var binding: TunnelDetailFragmentBinding? = null
     private var lastState: Tunnel.State? = null
-    private var statsJob: Job? = null
+    private var observedTunnel: ObservableTunnel? = null
+    private val tunnelCallback = object : Observable.OnPropertyChangedCallback() {
+        override fun onPropertyChanged(sender: Observable?, propertyId: Int) {
+            if (propertyId == BR.statistics || propertyId == BR.state) {
+                lifecycleScope.launch { updateStats() }
+            }
+            if (propertyId == BR.state && sender is ObservableTunnel && sender.state == Tunnel.State.UP) {
+                refreshSelectedStats()
+            }
+        }
+    }
 
     override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
         return false
@@ -59,23 +69,24 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
     }
 
     override fun onDestroyView() {
+        observedTunnel?.removeOnPropertyChangedCallback(tunnelCallback)
+        observedTunnel = null
         binding = null
         super.onDestroyView()
     }
 
     override fun onResume() {
         super.onResume()
-        statsJob = lifecycleScope.launch {
-            while (true) {
-                updateStats()
-                delay(1000)
-            }
-        }
+        refreshSelectedStats()
+        lifecycleScope.launch { updateStats() }
     }
 
     override fun onSelectedTunnelChanged(oldTunnel: ObservableTunnel?, newTunnel: ObservableTunnel?) {
         val binding = binding ?: return
         binding.tunnel = newTunnel
+        observedTunnel?.removeOnPropertyChangedCallback(tunnelCallback)
+        observedTunnel = newTunnel
+        newTunnel?.addOnPropertyChangedCallback(tunnelCallback)
         if (newTunnel == null) {
             binding.config = null
         } else {
@@ -88,12 +99,11 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
             }
         }
         lastState = null
+        refreshSelectedStats()
         lifecycleScope.launch { updateStats() }
     }
 
     override fun onStop() {
-        statsJob?.cancel()
-        statsJob = null
         super.onStop()
     }
 
@@ -116,6 +126,7 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
             for (i in 0 until binding.peersLayout.childCount) {
                 val peer: TunnelDetailPeerBinding = DataBindingUtil.getBinding(binding.peersLayout.getChildAt(i))
                     ?: continue
+                peer.peerTitle.text = "PEER #${(i + 1).toString().padStart(2, '0')}"
                 val publicKey = peer.item!!.publicKey
                 val peerStats = statistics.peer(publicKey)
                 if (peerStats == null || (peerStats.rxBytes == 0L && peerStats.txBytes == 0L)) {
@@ -148,6 +159,18 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
                 peer.transferText.visibility = View.GONE
                 peer.latestHandshakeLabel.visibility = View.GONE
                 peer.latestHandshakeText.visibility = View.GONE
+            }
+        }
+    }
+
+    private fun refreshSelectedStats() {
+        val tunnel = binding?.tunnel ?: return
+        if (!isResumed || tunnel.state != Tunnel.State.UP) return
+        lifecycleScope.launch {
+            try {
+                tunnel.getStatisticsAsync()
+            } catch (e: Throwable) {
+                Log.w(TAG, "Failed to refresh tunnel statistics", e)
             }
         }
     }

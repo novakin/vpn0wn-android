@@ -140,7 +140,6 @@
     <string name="key_length_explanation_binary">: WireGuard ਕੁੰਜੀਆਂ 32 ਬਾਈਟ ਹੋਣੀਆਂ ਚਾਹੀਦੀਆਂ ਹਨ</string>
     <string name="key_length_explanation_hex">: WireGuard ਹੈਕਸਾ ਕੁੰਜੀਆਂ ਵਿੱਚ 64 ਅੱਖਰ ਹੋਣੇ ਚਾਹੀਦੇ ਹਨ (32 ਬਾਈਟ)</string>
     <string name="latest_handshake">ਆਖਰੀ ਹੈਂਡ-ਸ਼ੇਕ</string>
-    <string name="latest_handshake_ago">%s ਪਹਿਲਾਂ</string>
     <string name="listen_port">ਸੁਣਨ ਵਾਲੀ ਪੋਰਟ</string>
     <string name="log_export_error">ਲਾਗ ਐਕਸਪੋਰਟ ਕਰਨ ਲਈ ਅਸਮਰੱਥ: %s</string>
     <string name="log_export_subject">ਵਾਇਰਗਾਰਡ ਐਂਡਰਾਈਡ ਲਾਗ ਫ਼ਾਇਲ</string>

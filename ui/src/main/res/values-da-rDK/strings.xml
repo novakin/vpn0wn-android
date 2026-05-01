@@ -140,7 +140,6 @@
     <string name="key_length_explanation_binary">: WireGuard nøgler skal være 32 bytes</string>
     <string name="key_length_explanation_hex">: WireGuard hex-nøgler skal være 64 tegn (32 bytes)</string>
     <string name="latest_handshake">Seneste håndtryk</string>
-    <string name="latest_handshake_ago">%s siden</string>
     <string name="listen_port">Lytteport</string>
     <string name="log_export_error">Kunne ikke eksportere log: %s</string>
     <string name="log_export_subject">WireGuard Android Log-fil</string>

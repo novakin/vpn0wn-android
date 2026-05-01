@@ -30,7 +30,7 @@ import com.wireguard.android.util.applicationScope
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
@@ -42,7 +42,7 @@ import java.util.Locale
 
 class Application : android.app.Application() {
     private val futureBackend = CompletableDeferred<Backend>()
-    private val coroutineScope = CoroutineScope(Job() + Dispatchers.Main.immediate)
+    private val coroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var backend: Backend? = null
     private lateinit var rootShell: RootShell
     private lateinit var preferencesDataStore: DataStore<Preferences>

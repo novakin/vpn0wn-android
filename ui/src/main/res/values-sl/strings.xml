@@ -166,7 +166,6 @@
     <string name="key_length_explanation_binary">: WireGuardovi ključi morajo biti veliki 32 bajtov</string>
     <string name="key_length_explanation_hex">: WireGuardovi ključi hex morajo biti veliki 64 znakov (32 bajtov)</string>
     <string name="latest_handshake">Zadnje rokovanje</string>
-    <string name="latest_handshake_ago">%s nazaj</string>
     <string name="listen_port">Vrata poslušanja</string>
     <string name="log_export_error">Dnevnika ni bilo mogoče izvoziti: %s</string>
     <string name="log_export_subject">Dnevniška datoteka WireGuard za Android</string>

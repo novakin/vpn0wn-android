@@ -71,8 +71,9 @@
                             style="@style/TunnlLabelText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="@{tunnel.state == State.UP ? `UP` : `DOWN`}"
-                            android:textColor="@{tunnel.state == State.UP ? @color/tunnl_signal_deep : @color/tunnl_ink_3}"
+                            app:detailTopologyStatusTunnel="@{tunnel}"
+                            app:detailTopologyStatusState="@{tunnel.state}"
+                            app:detailTopologyStatusStatistics="@{tunnel.statistics}"
                             tools:text="UP" />
                     </LinearLayout>
 
@@ -81,11 +82,12 @@
                         android:layout_width="match_parent"
                         android:layout_height="206dp"
                         android:layout_marginTop="8dp"
-                        app:isUp="@{tunnel.state == State.UP}"
-                        app:isConnecting="@{tunnel.state == State.TOGGLE}"
                         app:topologyConfig="@{config}"
                         app:trafficStatistics="@{tunnel.statistics}"
-                        app:trafficTunnel="@{tunnel}" />
+                        app:trafficTunnel="@{tunnel}"
+                        app:throughputModeTunnel="@{tunnel}"
+                        app:throughputModeState="@{tunnel.state}"
+                        app:throughputModeStatistics="@{tunnel.statistics}" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -121,7 +123,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                app:strokeColor="@{tunnel.state == State.UP ? @color/tunnl_signal_deep : @color/tunnl_rule}">
+                app:detailStatusStrokeTunnel="@{tunnel}"
+                app:detailStatusStrokeState="@{tunnel.state}"
+                app:detailStatusStrokeStatistics="@{tunnel.statistics}">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -133,7 +137,9 @@
                         android:layout_width="9dp"
                         android:layout_height="9dp"
                         android:layout_marginEnd="12dp"
-                        android:background="@drawable/tunnl_active_rail" />
+                        app:detailStatusDotTunnel="@{tunnel}"
+                        app:detailStatusDotState="@{tunnel.state}"
+                        app:detailStatusDotStatistics="@{tunnel.statistics}" />
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -145,8 +151,9 @@
                             style="@style/TunnlLabelText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="@{tunnel.state == State.UP ? `TUNNEL UP` : `TUNNEL DOWN`}"
-                            android:textColor="@{tunnel.state == State.UP ? @color/tunnl_signal_deep : @color/tunnl_ink_3}"
+                            app:detailStatusTitleTunnel="@{tunnel}"
+                            app:detailStatusTitleState="@{tunnel.state}"
+                            app:detailStatusTitleStatistics="@{tunnel.statistics}"
                             tools:text="TUNNEL UP" />
 
                         <TextView
@@ -154,7 +161,9 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
-                            android:text="@{tunnel.state == State.UP ? BindingAdapters.tunnelHandshake(tunnel.statistics) : `tap to bring up`}"
+                            app:detailStatusSubtitleTunnel="@{tunnel}"
+                            app:detailStatusSubtitleState="@{tunnel.state}"
+                            app:detailStatusSubtitleStatistics="@{tunnel.statistics}"
                             tools:text="2m 32s ago" />
                     </LinearLayout>
 
@@ -162,8 +171,11 @@
                         android:id="@+id/tunnel_switch"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        app:checked="@{tunnel.state == State.UP}"
-                        app:onBeforeCheckedChanged="@{fragment::setTunnelState}" />
+                        app:checked="@{tunnel.state == State.UP || tunnel.state == State.TOGGLE}"
+                        app:onBeforeCheckedChanged="@{fragment::setTunnelState}"
+                        app:tunnelSwitchModeTunnel="@{tunnel}"
+                        app:tunnelSwitchModeState="@{tunnel.state}"
+                        app:tunnelSwitchModeStatistics="@{tunnel.statistics}" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
@@ -173,7 +185,7 @@
                 android:layout_marginTop="12dp"
                 android:baselineAligned="false"
                 android:orientation="horizontal"
-                android:visibility="@{tunnel.state == State.UP ? android.view.View.VISIBLE : android.view.View.GONE}">
+                android:visibility="@{BindingAdapters.tunnelStatsVisible(tunnel, tunnel.state, tunnel.statistics) ? android.view.View.VISIBLE : android.view.View.GONE}">
 
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="0dp"

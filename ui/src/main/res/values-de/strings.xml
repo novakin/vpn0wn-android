@@ -140,7 +140,6 @@
     <string name="key_length_explanation_binary">: WireGuard-Schlüssel müssen 32 Bytes groß sein</string>
     <string name="key_length_explanation_hex">: WireGuard Hex-Schlüssel müssen 64 Zeichen (32 Bytes) groß sein</string>
     <string name="latest_handshake">Letzter Handshake</string>
-    <string name="latest_handshake_ago">vor %s</string>
     <string name="listen_port">Eingangsport</string>
     <string name="log_export_error">Konnte Protokoll nicht exportieren: %s</string>
     <string name="log_export_subject">WireGuard Android Protokolldatei</string>

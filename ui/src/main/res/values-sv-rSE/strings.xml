@@ -140,7 +140,6 @@
     <string name="key_length_explanation_binary">: WireGuard nycklar måste vara 32 bytes</string>
     <string name="key_length_explanation_hex">: WireGuard hex nycklar måste vara 64 tecken (32 bytes)</string>
     <string name="latest_handshake">Senaste handskakning</string>
-    <string name="latest_handshake_ago">%s sedan</string>
     <string name="listen_port">Lyssningsport</string>
     <string name="log_export_error">Kan inte exportera loggen: %s</string>
     <string name="log_export_subject">WireGuard Android loggfil</string>
