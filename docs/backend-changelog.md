@@ -10,6 +10,20 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+### VpnService stale-reference mitigation
+
+- **`GoBackend.setStateInternal` — recover from VpnService killed without `onDestroy`**
+  When Android kills the `VpnService` during idle/memory pressure without firing `onDestroy`, `vpnServiceRef` can remain completed with a dead service reference. Subsequent `setState(UP)` calls then skip `startService` because the future is already done, obtain the dead service, and may see `builder.establish()` return `null`, causing repeated `TUN_CREATION_ERROR` until process/device restart. Mitigation: on `establish() == null`, reset the stale `vpnServiceRef` to a new incomplete future and call `startService` immediately, so the next connect attempt can obtain a fresh service.
+
+- **`GoBackend.resetVpnServiceFuture` — race-safe stale future reset**
+  The `establish() == null` recovery compares against the exact `CompletableFuture<VpnService>` used for the failed connection attempt before replacing it. This avoids overwriting a newer service future if Android restarts the `VpnService` concurrently. The failed attempt still throws `TUN_CREATION_ERROR`; the next attempt should use the refreshed service reference.
+
+- **`GoBackend.VpnService.onDestroy` — exact-service CAS reset**
+  `onDestroy()` now resets `vpnServiceRef` only when the current completed future resolves to the service instance being destroyed. This avoids replacing a newer service future if Android starts another `VpnService` while the old instance is tearing down.
+
+- **`GoBackend` — diagnostic logging for service lifecycle failures**
+  Added diagnostic log points for stale service recovery, failed `protect()` preflight, `establish() == null`, and `VpnService.onDestroy()` so this failure can be confirmed from the in-app log viewer.
+
 ### Statistics
 
 - **`ObservableTunnel` — per-second RX/TX rate deltas**
