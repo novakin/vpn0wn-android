@@ -166,7 +166,6 @@
     <string name="key_length_explanation_binary">: Klíče WireGuard musí mít 32 bajtů</string>
     <string name="key_length_explanation_hex">: Klíče WireGuard ve formátu hex musí mít 64 znaků (32 bajtů)</string>
     <string name="latest_handshake">Poslední handshake</string>
-    <string name="latest_handshake_ago">před %s</string>
     <string name="listen_port">Port pro naslouchání</string>
     <string name="log_export_error">Nelze exportovat protokol: %s</string>
     <string name="log_export_subject">Soubor protokolu Android WireGuard</string>

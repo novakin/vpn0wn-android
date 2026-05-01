@@ -127,7 +127,6 @@
     <string name="key_length_explanation_binary">: Kunci WireGuard harus terdiri dari 32 bit</string>
     <string name="key_length_explanation_hex">: Kunci hex WireGuard Harus terdiri dari 64 karakter (32 bit)</string>
     <string name="latest_handshake">Handshake terakhir</string>
-    <string name="latest_handshake_ago">%s yang lalu</string>
     <string name="listen_port">Isi port</string>
     <string name="log_export_error">Log tidak bisa diekspor: %s</string>
     <string name="log_export_subject">Berkas Log WireGuard Android</string>

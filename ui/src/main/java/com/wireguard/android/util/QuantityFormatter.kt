@@ -5,59 +5,56 @@
 
 package com.wireguard.android.util
 
-import android.icu.text.ListFormatter
-import android.icu.text.MeasureFormat
-import android.icu.text.RelativeDateTimeFormatter
-import android.icu.util.Measure
-import android.icu.util.MeasureUnit
-import android.os.Build
 import com.wireguard.android.Application
 import com.wireguard.android.R
 import java.util.Locale
-import kotlin.time.Duration.Companion.seconds
 
 object QuantityFormatter {
     fun formatBytes(bytes: Long): String {
         val context = Application.get().applicationContext
-        return when {
-            bytes < 1024 -> context.getString(R.string.transfer_bytes, bytes)
-            bytes < 1024 * 1024 -> context.getString(R.string.transfer_kibibytes, bytes / 1024.0)
-            bytes < 1024 * 1024 * 1024 -> context.getString(R.string.transfer_mibibytes, bytes / (1024.0 * 1024.0))
-            bytes < 1024 * 1024 * 1024 * 1024L -> context.getString(R.string.transfer_gibibytes, bytes / (1024.0 * 1024.0 * 1024.0))
-            else -> context.getString(R.string.transfer_tibibytes, bytes / (1024.0 * 1024.0 * 1024.0) / 1024.0)
+        val unit = when {
+            bytes < KIB -> return context.getString(R.string.transfer_bytes, bytes)
+            bytes < MIB -> ByteUnit(KIB, R.string.transfer_kibibytes)
+            bytes < GIB -> ByteUnit(MIB, R.string.transfer_mibibytes)
+            bytes < TIB -> ByteUnit(GIB, R.string.transfer_gibibytes)
+            else -> ByteUnit(TIB, R.string.transfer_tibibytes)
         }
+        return context.getString(unit.stringRes, scaledValue(bytes, unit.bytes))
     }
 
     fun formatEpochAgo(epochMillis: Long): String {
         var span = (System.currentTimeMillis() - epochMillis) / 1000
-
         if (span <= 0L)
-            return RelativeDateTimeFormatter.getInstance().format(RelativeDateTimeFormatter.Direction.PLAIN, RelativeDateTimeFormatter.AbsoluteUnit.NOW)
-        val measureFormat = MeasureFormat.getInstance(Locale.getDefault(), MeasureFormat.FormatWidth.WIDE)
-        val parts = ArrayList<CharSequence>(4)
-        if (span >= 24 * 60 * 60L) {
-            val v = span / (24 * 60 * 60L)
-            parts.add(measureFormat.format(Measure(v, MeasureUnit.DAY)))
-            span -= v * (24 * 60 * 60L)
+            return "0s"
+        val days = span / (24 * 60 * 60L)
+        span -= days * (24 * 60 * 60L)
+        val hours = span / (60 * 60L)
+        span -= hours * (60 * 60L)
+        val minutes = span / 60L
+        span -= minutes * 60L
+        val seconds = span
+        return when {
+            days > 0L -> String.format(Locale.US, "%02dd %02dh", days, hours)
+            hours > 0L -> String.format(Locale.US, "%02dh %02dm", hours, minutes)
+            minutes > 0L -> String.format(Locale.US, "%02dm %02ds", minutes, seconds)
+            else -> String.format(Locale.US, "%ds", seconds)
         }
-        if (span >= 60 * 60L) {
-            val v = span / (60 * 60L)
-            parts.add(measureFormat.format(Measure(v, MeasureUnit.HOUR)))
-            span -= v * (60 * 60L)
-        }
-        if (span >= 60L) {
-            val v = span / 60L
-            parts.add(measureFormat.format(Measure(v, MeasureUnit.MINUTE)))
-            span -= v * 60L
-        }
-        if (span > 0L)
-            parts.add(measureFormat.format(Measure(span, MeasureUnit.SECOND)))
-
-        val joined = if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU)
-            parts.joinToString()
-        else
-            ListFormatter.getInstance(Locale.getDefault(), ListFormatter.Type.UNITS, ListFormatter.Width.SHORT).format(parts)
-
-        return Application.get().applicationContext.getString(R.string.latest_handshake_ago, joined)
     }
+
+    private fun scaledValue(bytes: Long, unit: Long): Double {
+        var whole = bytes / unit
+        var cents = ((bytes % unit) * 100L + unit / 2L) / unit
+        if (cents == 100L) {
+            whole += 1L
+            cents = 0L
+        }
+        return whole.toDouble() + cents.toDouble() / 100.0
+    }
+
+    private data class ByteUnit(val bytes: Long, val stringRes: Int)
+
+    private const val KIB = 1024L
+    private const val MIB = KIB * 1024L
+    private const val GIB = MIB * 1024L
+    private const val TIB = GIB * 1024L
 }

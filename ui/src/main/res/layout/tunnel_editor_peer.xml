@@ -63,17 +63,14 @@
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/delete"
-                    style="@style/Widget.Material3.Button.TextButton"
+                    style="@style/TunnlPillButton"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:nextFocusDown="@id/public_key_text"
                     android:nextFocusForward="@id/public_key_text"
                     android:onClick="@{() -> item.unbind()}"
                     android:text="remove"
-                    android:textColor="@color/tunnl_error"
-                    android:textSize="10sp"
-                    app:strokeColor="@color/tunnl_rule_strong"
-                    app:strokeWidth="1dp" />
+                    android:textColor="@color/tunnl_error" />
             </LinearLayout>
 
             <!-- PUBLIC KEY -->
@@ -180,6 +177,7 @@
                 <!-- Exclude private IPs toggle — keep as-is -->
                 <CheckBox
                     android:id="@+id/selected_checkbox"
+                    style="@style/TunnlCheckboxText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="6dp"
@@ -187,8 +185,6 @@
                     android:nextFocusDown="@id/persistent_keepalive_text"
                     android:nextFocusForward="@id/persistent_keepalive_text"
                     android:text="@string/exclude_private_ips"
-                    android:textColor="@color/tunnl_ink_3"
-                    android:textSize="12sp"
                     android:visibility="@{item.ableToExcludePrivateIps ? View.VISIBLE : View.GONE}" />
             </LinearLayout>
 

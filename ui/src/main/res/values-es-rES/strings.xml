@@ -140,7 +140,6 @@
     <string name="key_length_explanation_binary">: Las claves WireGuard deben tener 32 bytes</string>
     <string name="key_length_explanation_hex">: Las claves hexadecimales de Wirex deben tener 64 caracteres (32 bytes)</string>
     <string name="latest_handshake">Última comunicación</string>
-    <string name="latest_handshake_ago">hace %s</string>
     <string name="listen_port">Puerto de escucha</string>
     <string name="log_export_error">No se pudo exportar el registro: %s</string>
     <string name="log_export_subject">Archivo de registro WireGuard Android</string>

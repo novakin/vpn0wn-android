@@ -11,99 +11,160 @@
     android:fitsSystemWindows="true"
     android:orientation="vertical">
 
-    <!-- Filter bar: scrollable chips + fixed LIVE/PAUSED toggle -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@color/tunnl_paper_2"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
+        android:orientation="vertical"
+        android:paddingStart="14dp"
+        android:paddingTop="10dp"
+        android:paddingEnd="14dp"
+        android:paddingBottom="12dp">
 
-        <HorizontalScrollView
-            android:id="@+id/filter_scroller"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:fillViewport="false"
-            android:overScrollMode="never"
-            android:scrollbars="none">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="32dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-            <com.google.android.material.chip.ChipGroup
-                android:id="@+id/filter_group"
+            <androidx.appcompat.widget.AppCompatImageButton
+                android:id="@+id/back_button"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@android:color/transparent"
+                android:contentDescription="@string/cancel"
+                android:padding="4dp"
+                app:srcCompat="@drawable/ic_tunnl_chevron_left"
+                app:tint="@color/tunnl_ink_2" />
+
+            <TextView
+                style="@style/TunnlLabelText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:paddingStart="10dp"
-                android:paddingTop="10dp"
-                android:paddingEnd="6dp"
-                android:paddingBottom="10dp"
-                app:checkedChip="@id/filter_all"
-                app:selectionRequired="true"
-                app:singleSelection="true">
+                android:layout_marginStart="8dp"
+                android:text="@string/tunnl_log_stream_subtitle"
+                android:textColor="@color/tunnl_ink_3" />
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/filter_all"
-                    style="@style/TunnlFilterChip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="ALL" />
+            <View
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/filter_verbose"
-                    style="@style/TunnlFilterChip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="VERBOSE" />
+            <androidx.appcompat.widget.AppCompatImageButton
+                android:id="@+id/refresh_button"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:background="@android:color/transparent"
+                android:contentDescription="@string/refresh"
+                android:padding="7dp"
+                app:srcCompat="@drawable/ic_tunnl_refresh"
+                app:tint="@color/tunnl_ink_2" />
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/filter_debug"
-                    style="@style/TunnlFilterChip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="DEBUG" />
+            <androidx.appcompat.widget.AppCompatImageButton
+                android:id="@+id/share_button"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_marginStart="8dp"
+                android:background="@android:color/transparent"
+                android:contentDescription="@string/log_export_title"
+                android:padding="7dp"
+                app:srcCompat="@drawable/ic_tunnl_share"
+                app:tint="@color/tunnl_ink_2" />
+        </LinearLayout>
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/filter_info"
-                    style="@style/TunnlFilterChip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="INFO" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/filter_warn"
-                    style="@style/TunnlFilterChip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="WARN" />
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:fontFamily="@font/jetbrains_mono_medium"
+                android:includeFontPadding="false"
+                android:text="@string/log_viewer_title"
+                android:textColor="@color/tunnl_ink"
+                android:textSize="18sp" />
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/filter_error"
-                    style="@style/TunnlFilterChip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="ERROR" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/live_toggle"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/jetbrains_mono_medium"
+                android:text="@string/tunnl_log_live"
+                android:textColor="@color/tunnl_signal_deep"
+                android:textSize="10sp"
+                app:strokeColor="@color/tunnl_rule_strong"
+                app:strokeWidth="1dp" />
+        </LinearLayout>
+    </LinearLayout>
 
-                <com.google.android.material.chip.Chip
-                    android:id="@+id/filter_fatal"
-                    style="@style/TunnlFilterChip"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="FATAL" />
-            </com.google.android.material.chip.ChipGroup>
-        </HorizontalScrollView>
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/tunnl_rule" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/live_toggle"
-            style="@style/Widget.Material3.Button.TextButton"
+    <HorizontalScrollView
+        android:id="@+id/filter_scroller"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@color/tunnl_paper_2"
+        android:fillViewport="false"
+        android:overScrollMode="never"
+        android:scrollbars="none">
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/filter_group"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="10dp"
-            android:fontFamily="@font/jetbrains_mono_medium"
-            android:text="◆ LIVE"
-            android:textColor="@color/tunnl_signal_deep"
-            android:textSize="10sp"
-            app:strokeColor="@color/tunnl_rule_strong"
-            app:strokeWidth="1dp" />
-    </LinearLayout>
+            android:paddingStart="10dp"
+            android:paddingTop="10dp"
+            android:paddingEnd="10dp"
+            android:paddingBottom="10dp"
+            app:checkedChip="@id/filter_all"
+            app:selectionRequired="true"
+            app:singleSelection="true">
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/filter_all"
+                style="@style/TunnlFilterChip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ALL" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/filter_debug"
+                style="@style/TunnlFilterChip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="DEBUG" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/filter_info"
+                style="@style/TunnlFilterChip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="INFO" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/filter_warn"
+                style="@style/TunnlFilterChip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="WARN" />
+
+            <com.google.android.material.chip.Chip
+                android:id="@+id/filter_error"
+                style="@style/TunnlFilterChip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ERROR" />
+        </com.google.android.material.chip.ChipGroup>
+    </HorizontalScrollView>
 
     <View
         android:layout_width="match_parent"

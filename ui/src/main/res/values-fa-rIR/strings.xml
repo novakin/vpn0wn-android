@@ -141,7 +141,6 @@
     <string name="key_length_explanation_binary">: کلیدهای WireGuard باید ۳۲ بایت باشند</string>
     <string name="key_length_explanation_hex">: کلیدهای هگز WireGuard باید دارای ۶۴ نویسه باشند ( ۳۲ بایت)</string>
     <string name="latest_handshake">آخرین handshake</string>
-    <string name="latest_handshake_ago">%s پیش</string>
     <string name="listen_port">شنود پورت</string>
     <string name="log_export_error">نمی‌توان گزارش رویداد را برون‌برد: %s</string>
     <string name="log_export_subject">پرونده گزارش رویداد WireGuard اندروید</string>

@@ -18,6 +18,7 @@ import com.google.android.material.snackbar.Snackbar
 import com.wireguard.android.R
 import com.wireguard.android.util.ErrorMessages
 import com.wireguard.android.util.QuantityFormatter
+import com.wireguard.android.util.tunnlStyle
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -40,6 +41,7 @@ class SnackbarUpdateShower(private val fragment: Fragment) {
             val snackbar = Snackbar.make(fragment.requireContext(), view, "", Snackbar.LENGTH_INDEFINITE)
             if (anchor != null)
                 snackbar.anchorView = anchor
+            snackbar.tunnlStyle()
             snackbar.setTextMaxLines(6)
             snackbar.behavior = object : BaseTransientBottomBar.Behavior() {
                 override fun canSwipeDismissView(child: View): Boolean {

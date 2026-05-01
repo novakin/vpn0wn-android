@@ -141,7 +141,6 @@ Aitäh veelkord sinu panuse eest.</string>
     <string name="key_length_explanation_binary">: WireGuard võtmed peavad olema 32 baiti</string>
     <string name="key_length_explanation_hex">: WireGuard hex võti peab olema 64 sümbolit (32 baiti) pikk</string>
     <string name="latest_handshake">Viimane kätlus</string>
-    <string name="latest_handshake_ago">%s tagasi</string>
     <string name="listen_port">Kuulamisport</string>
     <string name="log_export_error">Logifaili eksportimine ebaõnnestus: %s</string>
     <string name="log_export_subject">WireGuard Android logifail</string>

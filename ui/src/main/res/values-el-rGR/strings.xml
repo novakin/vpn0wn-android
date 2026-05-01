@@ -100,7 +100,6 @@
     <string name="key_contents_error">Μη έγκυροι χαρακτήρες στο κλειδί</string>
     <string name="key_length_error">Εσφαλμένο μήκος κλειδιού</string>
     <string name="key_length_explanation_binary">: Τα κλειδιά του WireGuard πρέπει να είναι 32 bytes</string>
-    <string name="latest_handshake_ago">πριν από %s</string>
     <string name="listen_port">Θύρα ακρόασης</string>
     <string name="log_export_title">Εξαγωγή αρχείου καταγραφής</string>
     <string name="log_saver_activity_label">Αποθήκευση αρχείου καταγραφής</string>

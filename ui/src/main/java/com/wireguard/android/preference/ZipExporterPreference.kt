@@ -17,6 +17,7 @@ import com.wireguard.android.util.DownloadsFileSaver
 import com.wireguard.android.util.ErrorMessages
 import com.wireguard.android.util.activity
 import com.wireguard.android.util.lifecycleScope
+import com.wireguard.android.util.tunnlStyle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
@@ -72,7 +73,7 @@ class ZipExporterPreference(context: Context, attrs: AttributeSet?) : Preference
                 Snackbar.make(
                     activity.findViewById(android.R.id.content),
                     message, Snackbar.LENGTH_LONG
-                ).show()
+                ).tunnlStyle().show()
                 isEnabled = true
             }
         }
@@ -99,7 +100,7 @@ class ZipExporterPreference(context: Context, attrs: AttributeSet?) : Preference
                         activity.findViewById(android.R.id.content),
                         it.message,
                         Snackbar.LENGTH_SHORT
-                    ).show()
+                    ).tunnlStyle().show()
                 }
 
                 is BiometricAuthenticator.Result.Cancelled -> {}

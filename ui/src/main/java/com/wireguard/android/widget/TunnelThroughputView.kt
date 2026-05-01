@@ -24,6 +24,18 @@ class TunnelThroughputView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null
 ) : View(context, attrs) {
+    private val density = resources.displayMetrics.density
+    private var signal = 0
+    private var signalDeep = 0
+    private var ink3 = 0
+    private var rule = 0
+    private var ruleStrong = 0
+    private var paper3 = 0
+    private var warn = 0
+    private var signalFill = 0
+    private var ruleStrongDim = 0
+    private val idleLinePathEffect = DashPathEffect(floatArrayOf(dp(4f), dp(3f)), 0f)
+    private val segmentRect = RectF()
 
     private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
@@ -58,6 +70,13 @@ class TunnelThroughputView @JvmOverloads constructor(
         style = Paint.Style.STROKE
         strokeWidth = dp(1.5f)
         strokeCap = Paint.Cap.SQUARE
+    }
+    private val dimPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = dp(0.6f)
+    }
+    private val packetPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
     }
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textSize = dp(10f)
@@ -128,6 +147,7 @@ class TunnelThroughputView @JvmOverloads constructor(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        syncColors()
         syncAnimators()
     }
 
@@ -140,23 +160,16 @@ class TunnelThroughputView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
-        val signal     = ContextCompat.getColor(context, R.color.tunnl_signal)
-        val signalDeep = ContextCompat.getColor(context, R.color.tunnl_signal_deep)
-        val ink3       = ContextCompat.getColor(context, R.color.tunnl_ink_3)
-        val rule       = ContextCompat.getColor(context, R.color.tunnl_rule)
-        val ruleStrong = ContextCompat.getColor(context, R.color.tunnl_rule_strong)
-        val paper3     = ContextCompat.getColor(context, R.color.tunnl_paper_3)
-        val warn       = ContextCompat.getColor(context, R.color.tunnl_warn)
-
         gridPaint.color       = rule
         linePaint.color       = if (live) signalDeep else ink3
-        linePaint.pathEffect  = if (live) null else DashPathEffect(floatArrayOf(dp(4f), dp(3f)), 0f)
+        linePaint.pathEffect  = if (live) null else idleLinePathEffect
         segmentPaint.color    = if (live) signalDeep else ink3
-        fillPaint.color       = Color.argb(36, Color.red(signal), Color.green(signal), Color.blue(signal))
+        fillPaint.color       = signalFill
         nodePaint.color       = if (live) signal else paper3
         nodeStrokePaint.color = if (live) signalDeep else ruleStrong
         warnPaint.color       = warn
         cornerPaint.color     = ruleStrong
+        dimPaint.color        = ruleStrongDim
         textPaint.color       = ink3
         labelPaint.color      = ink3
 
@@ -197,10 +210,6 @@ class TunnelThroughputView @JvmOverloads constructor(
         val segmentRight = contentLeft + usableW * 0.66f
 
         // Dimension lines (decorative)
-        val dimPaint = Paint(gridPaint).apply {
-            pathEffect = null
-            color = Color.argb(56, Color.red(ruleStrong), Color.green(ruleStrong), Color.blue(ruleStrong))
-        }
         canvas.drawLine(pathLeft, contentBottom - dp(20f), pathRight, contentBottom - dp(20f), dimPaint)
         canvas.drawLine(pathLeft, contentBottom - dp(22f), pathLeft, contentBottom - dp(18f), dimPaint)
         canvas.drawLine(pathRight, contentBottom - dp(22f), pathRight, contentBottom - dp(18f), dimPaint)
@@ -211,7 +220,7 @@ class TunnelThroughputView @JvmOverloads constructor(
         canvas.drawLine(segmentRight, midY, pathRight, midY, linePaint)
 
         // Encrypted segment rect overlay
-        val segmentRect = RectF(segmentLeft, midY - dp(9f), segmentRight, midY + dp(9f))
+        segmentRect.set(segmentLeft, midY - dp(9f), segmentRight, midY + dp(9f))
         canvas.drawRect(segmentRect, segmentPaint)
 
         // Endpoint nodes
@@ -253,12 +262,9 @@ class TunnelThroughputView @JvmOverloads constructor(
 
     private fun drawPacket(canvas: Canvas, from: Float, to: Float, y: Float, progress: Float, radius: Float, alpha: Int, color: Int) {
         val x = from + (to - from) * progress
-        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            style = Paint.Style.FILL
-            this.color = color
-            this.alpha = alpha
-        }
-        canvas.drawCircle(x, y, radius, paint)
+        packetPaint.color = color
+        packetPaint.alpha = alpha
+        canvas.drawCircle(x, y, radius, packetPaint)
     }
 
     private fun drawNodeLabel(canvas: Canvas, x: Float, y: Float, label: String, sub: String, align: Paint.Align) {
@@ -292,5 +298,17 @@ class TunnelThroughputView @JvmOverloads constructor(
         }
     }
 
-    private fun dp(value: Float): Float = value * resources.displayMetrics.density
+    private fun syncColors() {
+        signal     = ContextCompat.getColor(context, R.color.tunnl_signal)
+        signalDeep = ContextCompat.getColor(context, R.color.tunnl_signal_deep)
+        ink3       = ContextCompat.getColor(context, R.color.tunnl_ink_3)
+        rule       = ContextCompat.getColor(context, R.color.tunnl_rule)
+        ruleStrong = ContextCompat.getColor(context, R.color.tunnl_rule_strong)
+        paper3     = ContextCompat.getColor(context, R.color.tunnl_paper_3)
+        warn       = ContextCompat.getColor(context, R.color.tunnl_warn)
+        signalFill = Color.argb(36, Color.red(signal), Color.green(signal), Color.blue(signal))
+        ruleStrongDim = Color.argb(56, Color.red(ruleStrong), Color.green(ruleStrong), Color.blue(ruleStrong))
+    }
+
+    private fun dp(value: Float): Float = value * density
 }

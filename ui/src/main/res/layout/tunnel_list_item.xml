@@ -47,8 +47,10 @@
             android:layout_width="4dp"
             android:layout_height="match_parent"
             android:layout_alignParentStart="true"
-            android:background="@drawable/tunnl_active_rail"
-            android:visibility="@{item.state == State.UP ? android.view.View.VISIBLE : android.view.View.INVISIBLE}" />
+            android:layout_above="@id/tunnel_stats"
+            app:tunnelRailTunnel="@{item}"
+            app:tunnelRailState="@{item.state}"
+            app:tunnelRailStatistics="@{item.statistics}" />
 
         <com.wireguard.android.widget.ToggleSwitch
             android:id="@+id/tunnel_switch"
@@ -58,8 +60,11 @@
             android:layout_marginTop="18dp"
             android:layout_marginEnd="14dp"
             android:nextFocusLeft="@+id/tunnel_list_item"
-            app:checked="@{item.state == State.UP}"
+            app:checked="@{item.state == State.UP || item.state == State.TOGGLE}"
             app:onBeforeCheckedChanged="@{fragment::setTunnelState}"
+            app:tunnelSwitchModeTunnel="@{item}"
+            app:tunnelSwitchModeState="@{item.state}"
+            app:tunnelSwitchModeStatistics="@{item.statistics}"
             tools:checked="@sample/interface_names.json/names/checked/checked" />
 
         <LinearLayout
@@ -80,21 +85,12 @@
                 android:orientation="horizontal">
 
                 <TextView
-                    android:id="@+id/tunnel_status_active"
                     style="@style/TunnlLabelText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="@string/tunnl_active"
-                    android:textColor="@color/tunnl_signal_deep"
-                    android:visibility="@{item.state == State.UP ? android.view.View.VISIBLE : android.view.View.GONE}" />
-
-                <TextView
-                    android:id="@+id/tunnel_status_inactive"
-                    style="@style/TunnlLabelText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/tunnl_inactive"
-                    android:visibility="@{item.state == State.UP ? android.view.View.GONE : android.view.View.VISIBLE}" />
+                    app:tunnelStatusTunnel="@{item}"
+                    app:tunnelStatusState="@{item.state}"
+                    app:tunnelStatusStatistics="@{item.statistics}" />
 
                 <TextView
                     style="@style/TunnlLabelText"
@@ -139,22 +135,27 @@
         <com.wireguard.android.widget.TunnelSignalView
             android:id="@+id/tunnel_signal"
             android:layout_width="match_parent"
-            android:layout_height="32dp"
+            android:layout_height="24dp"
             android:layout_below="@id/tunnel_header"
             android:layout_marginStart="16dp"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             android:layout_marginEnd="16dp"
-            app:isUp="@{item.state == State.UP}" />
+            app:tunnelSignalTunnel="@{item}"
+            app:tunnelSignalState="@{item.state}"
+            app:tunnelSignalStatistics="@{item.statistics}" />
 
         <LinearLayout
             android:id="@+id/tunnel_stats"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_below="@id/tunnel_signal"
+            android:layout_marginStart="1dp"
             android:layout_marginTop="8dp"
-            android:background="@color/tunnl_paper"
+            android:layout_marginEnd="1dp"
+            android:layout_marginBottom="1dp"
+            android:background="@drawable/tunnl_list_item_stats_background"
             android:orientation="vertical"
-            android:visibility="@{item.state == State.UP ? android.view.View.VISIBLE : android.view.View.GONE}">
+            android:visibility="@{BindingAdapters.tunnelStatsVisible(item, item.state, item.statistics) ? android.view.View.VISIBLE : android.view.View.GONE}">
 
             <View
                 android:layout_width="match_parent"

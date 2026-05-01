@@ -24,6 +24,7 @@ import com.wireguard.android.databinding.TunnelDetailFragmentBinding
 import com.wireguard.android.databinding.TunnelListItemBinding
 import com.wireguard.android.model.ObservableTunnel
 import com.wireguard.android.util.ErrorMessages
+import com.wireguard.android.util.tunnlStyle
 import kotlinx.coroutines.launch
 
 /**
@@ -79,6 +80,7 @@ abstract class BaseFragment : Fragment(), OnSelectedTunnelChangedListener {
                     val message = activity.getString(R.string.error_prepare, ErrorMessages[e])
                     Snackbar.make(view, message, Snackbar.LENGTH_LONG)
                         .setAnchorView(view.findViewById(R.id.create_fab))
+                        .tunnlStyle()
                         .show()
                     Log.e(TAG, message, e)
                 }
@@ -100,6 +102,7 @@ abstract class BaseFragment : Fragment(), OnSelectedTunnelChangedListener {
                 if (view != null)
                     Snackbar.make(view, message, Snackbar.LENGTH_LONG)
                         .setAnchorView(view.findViewById(R.id.create_fab))
+                        .tunnlStyle()
                         .show()
                 else
                     Toast.makeText(activity, message, Toast.LENGTH_LONG).show()

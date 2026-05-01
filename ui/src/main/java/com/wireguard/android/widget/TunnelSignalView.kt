@@ -20,12 +20,22 @@ class TunnelSignalView @JvmOverloads constructor(
     attrs: AttributeSet? = null
 ) : View(context, attrs) {
 
-    // Main line: solid when live, dashed when down
+    enum class TunnelMode { UP, CONNECTING, ERROR, DOWN }
+
+    private val density = resources.displayMetrics.density
+    private var signal = 0
+    private var signalDeep = 0
+    private var warn = 0
+    private var error = 0
+    private var idle = 0
+    private var ruleStrong = 0
+    private var paper3 = 0
+    private val railIdlePathEffect = DashPathEffect(floatArrayOf(dp(3f), dp(3f)), 0f)
+
     private val railPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = dp(1f)
     }
-    // Encrypted segment rect overlay: always dashed, thinner
     private val segmentPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = dp(0.5f)
@@ -43,7 +53,6 @@ class TunnelSignalView @JvmOverloads constructor(
     }
 
     private val animator = ValueAnimator.ofFloat(0f, 1f).apply {
-        duration = 1500L
         repeatCount = ValueAnimator.INFINITE
         interpolator = LinearInterpolator()
         addUpdateListener {
@@ -53,10 +62,11 @@ class TunnelSignalView @JvmOverloads constructor(
     }
     private var packetProgress = 0f
 
-    var live = false
+    var mode: TunnelMode = TunnelMode.DOWN
         set(value) {
             if (field == value) return
             field = value
+            syncPaints()
             syncAnimator()
             invalidate()
         }
@@ -67,6 +77,8 @@ class TunnelSignalView @JvmOverloads constructor(
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        syncColors()
+        syncPaints()
         syncAnimator()
     }
 
@@ -77,29 +89,24 @@ class TunnelSignalView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
-        syncColors()
 
         val cy = height / 2f
         val start = paddingStart + dp(4f)
         val end = width - paddingEnd - dp(4f)
 
-        // Encrypted segment: ~31%–69% of width, matching JSX rect x=100 w=120 on 320 wide
         val midStart = start + (end - start) * 0.31f
         val midEnd   = start + (end - start) * 0.69f
 
-        // Main line
         canvas.drawLine(start, cy, end, cy, railPaint)
-
-        // Encrypted segment dashed rect overlay
         canvas.drawRect(midStart, cy - dp(6f), midEnd, cy + dp(6f), segmentPaint)
-
-        // Two endpoint nodes (left and right only — matches JSX: cx=6 and cx=314)
         drawNode(canvas, start, cy)
         drawNode(canvas, end, cy)
 
-        // Single packet when live
-        if (live) {
-            val x = start + (end - start) * packetProgress
+        if (mode == TunnelMode.UP || mode == TunnelMode.CONNECTING) {
+            // Connecting: packet travels only to midpoint (trying to reach peer)
+            // UP: full path bidirectional handled by progress 0→1 on full range
+            val rangeEnd = if (mode == TunnelMode.CONNECTING) start + (end - start) * 0.5f else end
+            val x = start + (rangeEnd - start) * packetProgress
             canvas.drawCircle(x, cy, dp(2.5f), packetPaint)
         }
     }
@@ -111,28 +118,62 @@ class TunnelSignalView @JvmOverloads constructor(
 
     private fun syncAnimator() {
         if (!isAttachedToWindow) return
-        if (live && !animator.isStarted) {
-            animator.start()
-        } else if (!live && animator.isStarted) {
+        val shouldAnimate = mode == TunnelMode.UP || mode == TunnelMode.CONNECTING
+        // Connecting animates 2× faster (0.9s) to signal urgency; UP uses relaxed 1.5s
+        val targetDuration = if (mode == TunnelMode.CONNECTING) 900L else 1500L
+        if (shouldAnimate) {
+            if (animator.duration != targetDuration) {
+                animator.cancel()
+                animator.duration = targetDuration
+                packetProgress = 0f
+            }
+            if (!animator.isStarted) animator.start()
+        } else {
             animator.cancel()
             packetProgress = 0f
         }
     }
 
     private fun syncColors() {
-        val signal     = ContextCompat.getColor(context, R.color.tunnl_signal)
-        val signalDeep = ContextCompat.getColor(context, R.color.tunnl_signal_deep)
-        val idle       = ContextCompat.getColor(context, R.color.tunnl_ink_3)
-        val ruleStrong = ContextCompat.getColor(context, R.color.tunnl_rule_strong)
-        val paper3     = ContextCompat.getColor(context, R.color.tunnl_paper_3)
-
-        railPaint.color    = if (live) signalDeep else idle
-        railPaint.pathEffect = if (live) null else DashPathEffect(floatArrayOf(dp(3f), dp(3f)), 0f)
-        segmentPaint.color = if (live) signalDeep else idle
-        nodeFillPaint.color   = if (live) signal else paper3
-        nodeStrokePaint.color = if (live) signalDeep else ruleStrong
-        packetPaint.color  = signalDeep
+        signal     = ContextCompat.getColor(context, R.color.tunnl_signal)
+        signalDeep = ContextCompat.getColor(context, R.color.tunnl_signal_deep)
+        warn       = ContextCompat.getColor(context, R.color.tunnl_warn)
+        error      = ContextCompat.getColor(context, R.color.tunnl_error)
+        idle       = ContextCompat.getColor(context, R.color.tunnl_ink_3)
+        ruleStrong = ContextCompat.getColor(context, R.color.tunnl_rule_strong)
+        paper3     = ContextCompat.getColor(context, R.color.tunnl_paper_3)
     }
 
-    private fun dp(value: Float): Float = value * resources.displayMetrics.density
+    private fun syncPaints() {
+        if (!isAttachedToWindow) return
+        railPaint.color = when (mode) {
+            TunnelMode.UP         -> signalDeep
+            TunnelMode.CONNECTING -> warn
+            TunnelMode.ERROR      -> error
+            TunnelMode.DOWN       -> idle
+        }
+        // Solid line only when fully UP and handshake confirmed; dashed otherwise
+        railPaint.pathEffect = if (mode == TunnelMode.UP) null
+                               else railIdlePathEffect
+        segmentPaint.color = when (mode) {
+            TunnelMode.UP    -> signalDeep
+            TunnelMode.ERROR -> error
+            else             -> idle
+        }
+        nodeFillPaint.color = when (mode) {
+            TunnelMode.UP         -> signal
+            TunnelMode.CONNECTING -> warn
+            TunnelMode.ERROR      -> error
+            TunnelMode.DOWN       -> paper3
+        }
+        nodeStrokePaint.color = when (mode) {
+            TunnelMode.UP         -> signalDeep
+            TunnelMode.CONNECTING -> warn
+            TunnelMode.ERROR      -> error
+            TunnelMode.DOWN       -> ruleStrong
+        }
+        packetPaint.color = if (mode == TunnelMode.CONNECTING) warn else signalDeep
+    }
+
+    private fun dp(value: Float): Float = value * density
 }

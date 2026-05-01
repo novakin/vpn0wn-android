@@ -21,13 +21,21 @@ import androidx.activity.addCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.view.ActionMode
+import androidx.databinding.Observable
+import androidx.databinding.ObservableList
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
 import com.google.zxing.qrcode.QRCodeReader
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.wireguard.android.Application
+import com.wireguard.android.BR
 import com.wireguard.android.R
+import com.wireguard.android.activity.LogViewerActivity
+import com.wireguard.android.activity.SettingsActivity
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.activity.TunnelCreatorActivity
 import com.wireguard.android.databinding.ObservableKeyedRecyclerViewAdapter.RowConfigurationHandler
@@ -38,12 +46,11 @@ import com.wireguard.android.updater.SnackbarUpdateShower
 import com.wireguard.android.util.ErrorMessages
 import com.wireguard.android.util.QrCodeFromFileScanner
 import com.wireguard.android.util.TunnelImporter
+import com.wireguard.android.util.tunnlStyle
 import com.wireguard.android.widget.MultiselectableRelativeLayout
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
@@ -54,7 +61,38 @@ class TunnelListFragment : BaseFragment() {
     private var actionMode: ActionMode? = null
     private var backPressedCallback: OnBackPressedCallback? = null
     private var binding: TunnelListFragmentBinding? = null
-    private var statsJob: Job? = null
+    private var observedTunnels: ObservableList<ObservableTunnel>? = null
+    private val tunnelStateCallback = object : Observable.OnPropertyChangedCallback() {
+        override fun onPropertyChanged(sender: Observable?, propertyId: Int) {
+            if (propertyId == BR.state || propertyId == BR.config || propertyId == BR.statistics) {
+                binding?.invalidateAll()
+            }
+            if (propertyId == BR.state && sender is ObservableTunnel && sender.state == Tunnel.State.UP) {
+                refreshTunnelStats(sender)
+            }
+        }
+    }
+    private val tunnelListCallback = object : ObservableList.OnListChangedCallback<ObservableList<ObservableTunnel>>() {
+        override fun onChanged(sender: ObservableList<ObservableTunnel>) {
+            reconnectTunnelObservers(sender)
+        }
+
+        override fun onItemRangeChanged(sender: ObservableList<ObservableTunnel>, positionStart: Int, itemCount: Int) {
+            reconnectTunnelObservers(sender)
+        }
+
+        override fun onItemRangeInserted(sender: ObservableList<ObservableTunnel>, positionStart: Int, itemCount: Int) {
+            reconnectTunnelObservers(sender)
+        }
+
+        override fun onItemRangeMoved(sender: ObservableList<ObservableTunnel>, fromPosition: Int, toPosition: Int, itemCount: Int) {
+            binding?.invalidateAll()
+        }
+
+        override fun onItemRangeRemoved(sender: ObservableList<ObservableTunnel>, positionStart: Int, itemCount: Int) {
+            reconnectTunnelObservers(sender)
+        }
+    }
     private val tunnelFileImportResultLauncher = registerForActivityResult(ActivityResultContracts.GetContent()) { data ->
         if (data == null) return@registerForActivityResult
         val activity = activity ?: return@registerForActivityResult
@@ -105,6 +143,13 @@ class TunnelListFragment : BaseFragment() {
         binding = TunnelListFragmentBinding.inflate(inflater, container, false)
         val bottomSheet = AddTunnelsSheet()
         binding?.apply {
+            val baseHeaderTopPadding = homeHeaderContainer.paddingTop
+            ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
+                val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+                homeHeaderContainer.updatePadding(top = baseHeaderTopPadding + systemBars.top)
+                insets
+            }
+            ViewCompat.requestApplyInsets(root)
             createFab.setOnClickListener {
                 if (childFragmentManager.findFragmentByTag("BOTTOM_SHEET") != null)
                     return@setOnClickListener
@@ -141,28 +186,15 @@ class TunnelListFragment : BaseFragment() {
 
     override fun onResume() {
         super.onResume()
-        statsJob = lifecycleScope.launch {
-            while (true) {
-                try {
-                    val tunnels = Application.getTunnelManager().getTunnels()
-                    for (tunnel in tunnels) {
-                        if (tunnel.state == Tunnel.State.UP) {
-                            tunnel.getStatisticsAsync()
-                        }
-                    }
-                } catch (_: Throwable) {}
-                delay(1000)
-            }
-        }
+        observedTunnels?.forEach { refreshTunnelStats(it) }
     }
 
     override fun onStop() {
-        statsJob?.cancel()
-        statsJob = null
         super.onStop()
     }
 
     override fun onDestroyView() {
+        disconnectTunnelObservers()
         binding = null
         super.onDestroyView()
     }
@@ -198,7 +230,12 @@ class TunnelListFragment : BaseFragment() {
         super.onViewStateRestored(savedInstanceState)
         binding ?: return
         binding!!.fragment = this
-        lifecycleScope.launch { binding!!.tunnels = Application.getTunnelManager().getTunnels() }
+        lifecycleScope.launch {
+            val tunnels = Application.getTunnelManager().getTunnels()
+            binding!!.tunnels = tunnels
+            reconnectTunnelObservers(tunnels)
+            binding?.invalidateAll()
+        }
         binding!!.rowConfigurationHandler = object : RowConfigurationHandler<TunnelListItemBinding, ObservableTunnel> {
             override fun onConfigureRow(binding: TunnelListItemBinding, item: ObservableTunnel, position: Int) {
                 binding.fragment = this@TunnelListFragment
@@ -221,14 +258,65 @@ class TunnelListFragment : BaseFragment() {
         }
     }
 
+    private fun reconnectTunnelObservers(tunnels: ObservableList<ObservableTunnel>) {
+        val previous = observedTunnels
+        if (previous != null) {
+            previous.removeOnListChangedCallback(tunnelListCallback)
+            for (tunnel in previous) {
+                tunnel.removeOnPropertyChangedCallback(tunnelStateCallback)
+            }
+        }
+        observedTunnels = tunnels
+        tunnels.removeOnListChangedCallback(tunnelListCallback)
+        tunnels.addOnListChangedCallback(tunnelListCallback)
+        for (tunnel in tunnels) {
+            tunnel.removeOnPropertyChangedCallback(tunnelStateCallback)
+            tunnel.addOnPropertyChangedCallback(tunnelStateCallback)
+            refreshTunnelStats(tunnel)
+        }
+        binding?.invalidateAll()
+    }
+
+    private fun refreshTunnelStats(tunnel: ObservableTunnel) {
+        if (!isResumed || tunnel.state != Tunnel.State.UP) return
+        lifecycleScope.launch {
+            try {
+                tunnel.getStatisticsAsync()
+            } catch (_: Throwable) {
+            }
+        }
+    }
+
+    private fun disconnectTunnelObservers() {
+        observedTunnels?.let { tunnels ->
+            tunnels.removeOnListChangedCallback(tunnelListCallback)
+            for (tunnel in tunnels) {
+                tunnel.removeOnPropertyChangedCallback(tunnelStateCallback)
+            }
+        }
+        observedTunnels = null
+    }
+
     private fun showSnackbar(message: CharSequence) {
         val binding = binding
         if (binding != null)
             Snackbar.make(binding.mainContainer, message, Snackbar.LENGTH_LONG)
                 .setAnchorView(binding.createFab)
+                .tunnlStyle()
                 .show()
         else
             Toast.makeText(activity ?: Application.get(), message, Toast.LENGTH_SHORT).show()
+    }
+
+    fun onOpenLogs(@Suppress("UNUSED_PARAMETER") view: View) {
+        startActivity(Intent(requireContext(), LogViewerActivity::class.java))
+    }
+
+    fun onOpenSettings(@Suppress("UNUSED_PARAMETER") view: View) {
+        startActivity(Intent(requireContext(), SettingsActivity::class.java))
+    }
+
+    fun onSearchPressed(@Suppress("UNUSED_PARAMETER") view: View) {
     }
 
     private fun viewForTunnel(tunnel: ObservableTunnel, tunnels: List<*>): MultiselectableRelativeLayout? {
