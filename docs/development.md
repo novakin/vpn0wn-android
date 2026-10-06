@@ -118,7 +118,7 @@ Invoke-CodexQuiet -Command 'wsl -- bash -c "cd /mnt/c/Users/Guillaume/Documents/
 | --- | --- |
 | `tunnel/src/test` config tests/fixtures | Valid and malformed WireGuard configuration and parser compatibility. |
 | `ui/src/test` provisioning tests | JSON/result contracts, command failures, request arguments, guarded timeout/cancellation, store transactions and mapper states. |
-| `ui/src/test` utility/binding tests | Formatting, log parsing and binding behavior; Robolectric adds Android resources, logs and lightweight view behavior. |
+| `ui/src/test` utility/binding tests | Formatting, empty binding summaries and secret-safe logging; Robolectric supplies resources/log capture. Log parser/filter, fragment and rendered-row regressions remain planned. |
 | Focused lifecycle/state tests | Affected transition, selection, initialization and recovery behavior; add regressions when repairing those owners. |
 | Existing Detekt configuration | Kotlin static checks; this is not runtime or device proof. |
 | Device/emulator checks | VPN permission/service behavior, native backend and actual UI/navigation at affected sizes, themes, font scales and RTL. |

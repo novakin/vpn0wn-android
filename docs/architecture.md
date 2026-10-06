@@ -52,9 +52,11 @@ The provisioning client and scripts exist, while concrete SSH, protected credent
 
 ## Boundaries and invariants
 
+These are required maintenance invariants, not guarantees that all current owners already meet them. `VpsServerStore` uses DataStore transactions; `FileConfigStore` currently writes files directly without atomic replacement or transaction serialization. Transition/cancellation, persistence and health repairs remain open in the improvement plan.
+
 - `.design/` supplies read-only visual intent; it does not establish runtime capability.
 - Config parsers and backends preserve supported WireGuard behavior. Do not invent another parser for generated/imported profiles.
-- Stores serialize mutations through their existing transaction mechanisms. Backend transitions settle on success/failure/cancellation.
+- Stores must preserve prior valid data and serialize conflicting mutations through the responsible persistence mechanism. Backend transitions must settle on success/failure/cancellation.
 - Transport owns its channels/sessions, real deadlines and cancellation. A coroutine wrapper alone cannot prove cancellation of blocking library calls.
 - Shell argument quoting protects shell construction; script/config validation and ownership checks protect privileged writes. Neither substitutes for the other.
 - Logs/errors expose useful categories and non-secret status, not raw private config/credential payloads. Internal results may legitimately carry a generated profile; they are not safe to stringify into diagnostics.

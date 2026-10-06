@@ -6,13 +6,15 @@ Last updated: 2026-10-06 (Europe/Paris).
 
 Reference: `.design/` — React/JSX prototype for **Tunnl**, a WireGuard tunnel manager with an engineering-console visual language. Read-only. Never modify.
 
+Prototype sections below describe visual targets, not implemented Android guarantees. Current-source reconciliation uses committed `11d4a9b1`; the Done ledger also retains superseded implementation history. Read the explicit gaps and [full documentation review](reviews/2026-10-06-full-documentation-review.md) for evidence limits.
+
 | File | Contents |
 |------|----------|
-| `screens-home.jsx` | Home screen, `TunnelCard`, `TunnlMiniDiagram` (3 variants), multi-select mode, `AddSheet`, status strip |
-| `screens-detail.jsx` | `DetailScreen`, `EditorScreen`, `LogsScreen`, `DiagnosticsScreen`, `OnDemandScreen`, `QRScanScreen`, `MoreSheet`, `ShareSheet` |
+| `screens-home.jsx` | Home screen, `TunnelCard`, `MiniDiagram` (3 variants), multi-select mode, status strip |
+| `screens-detail.jsx` | `DetailScreen`, `EditorScreen`, `AddSheet`/`AddOption`, `LogsScreen`, `DiagnosticsScreen`, `OnDemandScreen`, `QRScanScreen`, `MoreSheet`, `ShareSheet` |
 | `screens-settings.jsx` | `SettingsScreen` — 5 `SettingsGroup` sections |
 | `screens-deploy.jsx` | `ServerFleetScreen`, `ServerDetailScreen`, `ServerProvisionScreen`, `VpnUserScreen`, `QROverlay` |
-| `schematic.jsx` | `TunnelThroughputView` — animated SVG wire diagram used in detail hero |
+| `schematic.jsx` | `SchematicDiagram` / `WireDiagram` — SVG reference for Android `TunnelThroughputView` |
 | `data.jsx` | Seed tunnels + server data; `fmtBytes`, `fmtRate`, `fmtAgo` formatters |
 | `app.jsx` | App shell + full routing state machine |
 | `styles.css` | All design tokens, utility classes, CSS animations |
@@ -74,7 +76,7 @@ Reference: `.design/` — React/JSX prototype for **Tunnl**, a WireGuard tunnel 
 
 ### Color Tokens
 
-All colors use `oklch()` color space. Dark theme is the default for Tunnl Android.
+Prototype colors use `oklch()`. Android uses tuned hex resources with a dark-first palette in both Material theme buckets, not exact documented OKLCH conversions. `Application` follows system night mode on Android Q+ and the user preference before Q; TV forces night mode separately. DynamicColors is registered where available, so fixed Material azure output is not guaranteed. C10 requires actual output checks.
 
 #### Light theme (`styles.css` root)
 
@@ -126,20 +128,20 @@ All colors use `oklch()` color space. Dark theme is the default for Tunnl Androi
 
 #### Android color resources (`res/values/colors.xml`)
 
-| Resource | Mapped from |
-|----------|------------|
-| `tunnl_paper` | `--paper` dark |
-| `tunnl_paper_2` | `--paper-2` dark |
-| `tunnl_paper_3` | `--paper-3` dark |
-| `tunnl_ink` | `--ink` dark |
-| `tunnl_ink_2` | `--ink-2` dark |
-| `tunnl_ink_3` | `--ink-3` dark |
-| `tunnl_rule` | `--rule` dark |
-| `tunnl_rule_strong` | `--rule-strong` dark |
-| `tunnl_signal` | `--signal` |
-| `tunnl_signal_deep` | `--signal-deep` |
-| `tunnl_warn` | `--warn` |
-| `tunnl_error` | `--error` |
+| Resource | Prototype role | Android value |
+| --- | --- | --- |
+| `tunnl_paper` | `--paper` dark | `#08111E` |
+| `tunnl_paper_2` | `--paper-2` dark | `#0F1A28` |
+| `tunnl_paper_3` | `--paper-3` dark | `#162436` |
+| `tunnl_ink` | `--ink` dark | `#F3F8FF` |
+| `tunnl_ink_2` | `--ink-2` dark | `#C9D5E3` |
+| `tunnl_ink_3` | `--ink-3` dark | `#8EA1B8` |
+| `tunnl_rule` | `--rule` dark | `#26384D` |
+| `tunnl_rule_strong` | `--rule-strong` dark | `#3E5B78` |
+| `tunnl_signal` | `--signal` | `#44B3FF` |
+| `tunnl_signal_deep` | `--signal-deep` | `#8BD2FF` |
+| `tunnl_warn` | `--warn` | `#F2C46D` |
+| `tunnl_error` | `--error` | `#FF8B6E` |
 
 ---
 
@@ -185,7 +187,7 @@ All colors use `oklch()` color space. Dark theme is the default for Tunnl Androi
 
 | Name | Description | Used by |
 |------|-------------|---------|
-| `packet-flow` | `offset-distance` 0→100%, opacity fade in/out | `TunnelThroughputView` packets |
+| `packet-flow` | `offset-distance` 0→100%, opacity fade in/out | Prototype `WireDiagram` packets |
 | `pulse-ring` | Scale 0.9→1.6, opacity 0.7→0 | Status dot glow ring |
 | `blink` | 1s steps, 50% duty cycle | `.cursor` blinking caret |
 | `scan` | `translateX(-100%→100%)` | `.scanline` shimmer |
@@ -279,16 +281,20 @@ SVG topology diagram (`280×64` viewBox) on `.schematic-grid` background. Three 
 
 ---
 
-### Tunnel Status System
+### Current Android Tunnel Status System
+
+`BindingAdapters.tunnelMode` uses the newest peer handshake as a display heuristic. It does not prove routing, leak protection or every peer's health. The 30-second grace starts at the first no-handshake observation, not a persisted session-start timestamp.
 
 | Mode | Condition | Label | Color |
 |------|-----------|-------|-------|
-| `active` | `state === UP` + handshake < 180s | `◆ ACTIVE` | `--signal-deep` |
-| `connecting` | `state === UP` + no handshake OR first 30s | `◑ CONNECTING` | `--warn` |
-| `nosignal` | `state === UP` + handshake ≥ 180s | `✕ NO SIGNAL` | `--error` |
+| `active` | UP + newest handshake age < 180s | `◆ ACTIVE` | `--signal-deep` |
+| `connecting` | TOGGLE, or UP without handshake during first 30s of observation | `◑ CONNECTING` | `--warn` |
+| `nosignal` | UP + newest handshake age ≥ 180s, or no handshake after the grace | `✕ NO SIGNAL` | `--error` |
 | `inactive` | `state === DOWN` | `● INACTIVE` | `--ink-3` |
 
 ### Server Status System
+
+This table defines visual labels. Current persisted-fleet ONLINE classification uses sync freshness and can misrepresent stopped/unknown health (C4).
 
 | Status | Label | Color | Card border |
 |--------|-------|-------|-------------|
@@ -330,12 +336,12 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 ### 1. Foundation
 - Add Tunnl dark palette resources mapped onto the existing Material theme.
 - Update default card, toolbar, and status/nav bar styling to the dark/signal language.
-- Force the app onto the dark theme for the redesign branch; defer light mode.
+- Preserve the dark-first palette; actual night-mode/dynamic-color behavior follows the source policy described above. Complete light-mode fidelity remains deferred.
 - Keep the existing Android view/data-binding architecture.
 
 ### 2. Home / Tunnel List
 - Replace plain list rows with card-like tunnel rows.
-- Card: `◆ ACTIVE` / `◑ CONNECTING` / `◑ NO SIGNAL` / `● INACTIVE` status label, conditional PSK badge, mono tunnel name, address→endpoint sub-text, left signal rail.
+- Card: `◆ ACTIVE` / `◑ CONNECTING` / `✕ NO SIGNAL` / `● INACTIVE` status label, conditional PSK badge, mono tunnel name, address→endpoint sub-text, left signal rail.
 - Stats row (↓ IN / ↑ OUT / HANDSHAKE) visible only when tunnel is live.
 - Animated packet/signal strip (`TunnelSignalView`) — 2 endpoint nodes, dashed rect encrypted segment overlay.
 - Custom two-row top bar (no root ActionBar): row 1 = `Vpn0wn · {n} CONFIGURED · ACTIVE/INACTIVE` + Search / Logs / Settings icons; row 2 = large `tunnels` title.
@@ -351,7 +357,7 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### 4. Add Tunnel Sheet
 - Bottom sheet with drag handle and `ADD TUNNEL · CHOOSE SOURCE` label.
-- 3 `ImportTile` outlined buttons (icon + title + subtitle + chevron):
+- 3 `AddOption` outlined buttons (icon + title + subtitle + chevron):
   1. Scan QR code — accent tile (highlighted border) — "Camera · ~2s"
   2. Import .conf or .zip — "From files · multiple OK"
   3. Create from scratch — "Generate keypair · enter manually"
@@ -372,11 +378,9 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 - Refresh and Share actions as TopBar icon buttons (not FAB); share uses the JSX upload/share outline.
 
 ### 7. Settings Screen
-- §01 Connection: Restore on boot, Kernel module, Kill-switch, Always-on VPN, DNS leak protection, Allow LAN traffic, Pause on metered, Multi-hop.
-- §02 Trusted Networks: app-wide SSID list with add/remove; used by per-tunnel on-demand rules.
-- §03 Security: Biometric unlock, Default DNS, Excluded apps, Backup & export.
-- §04 System: Quick tile, Logs link, Notifications.
-- §05 About: Version, Engine, License, Source.
+- Current prototype groups: Connection, Security, Auto-connect exceptions, System and About.
+- The prototype contains connection/kernel controls, security controls and trusted-network exceptions. Those controls, including kernel-only expansion/UDP preflight, are visual/behavior targets rather than a claim of committed settings integration.
+- Existing Android preferences retain their current supported behavior until a scoped implementation changes them; inspect `screens-settings.jsx` and `res/xml/preferences.xml` before selecting controls to port.
 - Decide fate of Android-specific prefs not in JSX design: dark theme toggle, multiple tunnels, tools installer, remote control intents, donate.
 
 ### 8. Extended Screens & Sheets *(design complete in JSX, implementation pending)*
@@ -387,7 +391,7 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 - `MoreSheet` — tunnel overflow bottom sheet: Rename, Duplicate config, On-demand rules (→ OnDemandScreen), Diagnostics (→ DiagnosticsScreen), Delete (danger section).
 - `ShareSheet` — export bottom sheet: Show QR code, Export `.conf`, Copy public key to clipboard.
 
-### 9. Theming Extensions *(low priority — app stays dark azure)*
+### 9. Theming Extensions *(low priority — dark-first palette)*
 - Accent preset system (azure / cobalt / cyan / amber): prototype has 4 presets; Android wires azure only. Deferred.
 - Density mode (comfortable / compact): deferred.
 - Hero metaphor selector (wire / graph / minimal): deferred.
@@ -397,14 +401,16 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 ## Progress
 
 ### Done
+
+This is a historical implementation ledger, not newly executed build/device proof. Undated old build/XML/fidelity claims do not identify an independently reproducible revision/environment; retain that evidence limit rather than treating them as current validation.
 - [x] Created branch `ui-redesign`.
 - [x] Inspected all `.design/` files and mapped the visual system.
 - [x] Added tracked roadmap.
 - [x] Foundation: Tunnl color resources (paper, ink, signal, rule, warn, error tokens), MaterialCardView style (0dp elevation, 8dp corner, tunnl_rule stroke), AppThemeBase (dark M3, Inter Tight font, azure primary).
-- [x] Dark mode forced for redesign branch; azure primary accents wired.
+- [x] Dark-first palette and azure base accents added. Current Application follows system/pre-Q preference and registers DynamicColors; TV has its own night-mode policy.
 - [x] Inter Tight (UI) and JetBrains Mono (data/keys) font resources added.
 - [x] Home tunnel card: card structure, signal rail, Tunnl-styled background, mono tunnel name, address→endpoint sub-text, PSK badge row, stats (↓ IN / ↑ OUT / HANDSHAKE) with real data binding.
-- [x] Tunnel statistics binding: real per-second RX/TX rate deltas from `ObservableTunnel`.
+- [x] Tunnel statistics binding: `ObservableTunnel` supplies snapshots; `BindingAdapters.tunnelRate` owns delta samples. Idle-rate correction remains C7.
 - [x] `TunnelSignalView` implemented (home card mini-diagram): animated packet, state-driven colors.
 - [x] Add tunnel bottom sheet: 3 outlined `MaterialButton` tiles, Tunnl-styled (paper_2 background, signal icon tint, rule border).
 - [x] Log viewer: `ChipGroup` level filters (ALL / DEBUG / INFO / WARN / ERROR), dark background, JetBrains Mono entries.
@@ -416,9 +422,9 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 - [x] Custom Tunnl preference row layout (`tunnl_preference_item.xml`) applied to all settings items.
 - [x] XML-validated all changed resources.
 - [x] Build-checked with `./gradlew :ui:assembleDebug` in WSL.
-- [x] Home stats refresh wired: `TunnelListFragment` observes tunnel state/statistics changes and requests a fresh stats snapshot for visible UP tunnels without owning a repeating polling loop.
+- [x] Initial home stats refresh used observable callbacks. Superseded by the lifecycle-bound repeating refresh job recorded below.
 - [x] Home stats row hidden when tunnel is down (visibility binding on `tunnel_stats` LinearLayout).
-- [x] `TunnelSignalView` reworked to match JSX: 2 endpoint nodes, dashed rect overlay, solid/dashed rail, node stroke border, no glow halo.
+- [x] Initial `TunnelSignalView` pass added two nodes, dashed overlay and rail without a glow halo. Later connected-animation work added glow/multiple packets; see below.
 - [x] `TunnelThroughputView` reworked: real address/endpoint via `topologyConfig` binding, footer `↓`/`↑`, eng-corners brackets, connecting-state animation.
 - [x] `BindingAdapters.shortKey()` added — truncates base64 keys to `wOs2…BVkA` format.
 - [x] Detail §01 interface card: MTU hint in section header, truncated PUBLIC KEY, LISTEN PORT + MTU always visible with `—`, `EXCLUDED APPS · {n}` label.
@@ -441,19 +447,19 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 - [x] Launch/splash background aligned to Tunnl theme: the adaptive icon background color used on the launch screen now matches `tunnl_paper` instead of the old WireGuard red.
 - [x] Home top inset handling moved to code: the custom home header now applies status-bar padding internally via `WindowInsets`, instead of reserving a separate empty band above the header with `fitsSystemWindows`.
 - [x] Log header controls refined: refresh restart is generation-safe to avoid crashes when restarting `logcat`, and the share action now uses the JSX-style upload/share outline icon.
-- [x] **4-state tunnel status system** — implements the full design legend (`app.jsx` lines 319-323): `◆ ACTIVE` (blue, healthy handshake), `◑ CONNECTING` (amber, TOGGLE or first 30s of UP-without-handshake), `✕ NO SIGNAL` (error/rust after no initial handshake or stale handshake > 180s), `● INACTIVE` (ink-3, DOWN). Status label, active rail color, top status strip, detail status card, and `TunnelSignalView` animation all driven by the same `tunnelMode()` helper in `BindingAdapters`. `TunnelSignalView` gains `TunnelMode.ERROR`; connecting animation runs at 900ms and travels only half the path, while no-signal is static red.
+- [x] **4-state tunnel status system** — shared `BindingAdapters.tunnelMode()` drives labels, rails, status surfaces and animation: recent-handshake UP, TOGGLE/initial no-handshake grace, no-signal after grace or age ≥180s, and DOWN. These are display heuristics, not complete VPN-health proof. Connecting animation runs at 900ms and travels halfway; no-signal is static red.
 - [x] Tunnel list row state invalidation fixed: signal animation, rail, status label, stats visibility, and switch tint now explicitly bind to `item.state` and `item.statistics`, preventing recycled/stale rows from keeping the old tunnel's active animation or stats after switching servers.
 - [x] Home mini-diagram connected animation refined: `TunnelSignalView` now mirrors the detail topology motion language at card scale with endpoint glow plus multiple bidirectional packets for healthy tunnels.
 - [x] Mode-colored tunnel switch: `ToggleSwitch` now tints the active track from tunnel mode (`UP`, `CONNECTING`, `ERROR`) while keeping the checked thumb dark like JSX `.sw[data-on="true"]::after`; it stays visually on during `TOGGLE`/connecting state.
 - [x] Detail screen state invalidation fixed: topology mode, status card stroke/dot/title/subtitle, stats visibility, throughput animation, and detail switch tint now explicitly bind to `tunnel.state` and `tunnel.statistics` instead of relying on a single `tunnel` object reference.
-- [x] Home protection semantics fixed: `PROTECTED` and `ACTIVE` now require a healthy WireGuard handshake, not just `Tunnel.State.UP`; connecting/no-signal states color the top summary, status dot, and protection label amber/red.
+- [x] Home protection display now requires a recent newest-peer handshake rather than state UP alone; connecting/no-signal colors use amber/red. Aggregation accepts any qualifying tunnel and does not prove full traffic protection.
 - [x] Tunnl transient message styling added: app Snackbars now use the dark prototype toast treatment (`paper_2` surface, rule border, 8dp radius, mono text, signal dot, signal action text) via shared `TunnlSnackbar.tunnlStyle()`.
 - [x] Design prototype added for self-hosted VPN server fleet/deployment/user management: `.design/screens-deploy.jsx` plus standalone `.design/index-deploy.html` matching the `index-selection.html` presentation shell. Flow now starts at `ServerFleetScreen`, then drills into `ServerDetailScreen`, `ServerProvisionScreen`, and `VpnUserScreen`.
 - [x] Native Android self-hosted server fleet UI added: `VpsProvisioningFragment` implements the JSX server fleet, server detail, 5-step provisioning wizard, VPN user profile, animated topology view, streaming terminal output, filter tiles, action tiles, and QR overlay using Tunnl colors/fonts. Home TopBar now includes a server icon entry point.
 - [x] VPS UI strings moved to Android resources: new server fleet labels, wizard copy, action labels, snackbar messages, statuses, QR footer, and section titles are in `res/values/strings.xml`, with French coverage added in `res/values-fr/strings.xml`.
-- [x] VPS UI quality pass: server/user/status/action UI models moved into `VpsDeployUiModels`; animated topology, QR rendering, terminal stream, and switch glyph moved into `VpsDeployViews`. `TerminalStreamView` now removes pending callbacks on detach.
+- [x] VPS UI quality pass: models moved into `VpsDeployUiModels`; custom renderers moved into `VpsDeployViews`. `VpsTerminalStreamView` removes pending callbacks on detach.
 - [x] VPS demo data removed from runtime: `VpsProvisioningFragment` now starts with an empty live-data state instead of seeded providers, endpoints, users, keys, counters, and fixed dates.
-- [x] Mono font feature fidelity added app-wide: Tunnl mono text styles now enable `ss01`, slashed zero, and tabular-number OpenType features via `android:fontFeatureSettings` in `res/values/styles.xml`.
+- [x] Mono font features added to Tunnl text styles: `ss01`, slashed zero and tabular numbers. Canvas font/font-scale gaps remain below.
 - [x] Detail peer index labels fixed: `TunnelDetailFragment.updateStats()` now assigns `PEER #NN` per rendered peer instead of every card showing `PEER #01`.
 - [x] Animation draw-loop performance pass: `TunnelThroughputView` and `TunnelSignalView` now cache density, colors, path effects, packet/dimension paints, and reusable geometry instead of resolving resources or allocating `Paint`/`RectF` objects during `onDraw`.
 - [x] Home header summary moved to Android string resources and `TunnelThroughputView` derived alpha colors now refresh in `syncColors()` instead of being recomputed every animation frame.
@@ -465,6 +471,9 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 - [x] Binding status labels moved to resources: tunnel mode labels, detail status titles/subtitles, and home protection labels now use Android strings instead of hardcoded adapter text.
 
 ### Fidelity Gaps — Remaining
+
+- [~] **Canvas typography/static label gaps** — `TunnelThroughputView` still uses platform monospace, dp-based text sizes and hardcoded `MTU 1420`. Text-style features do not establish Canvas fidelity or large-font accessibility; C10 owns proof and correction.
+- [~] **Protection labels are heuristics** — home aggregation accepts any recent-handshake UP tunnel. It does not prove all peers, routes or multi-tunnel traffic are protected; C4/C10 and the multi-tunnel proposals retain this limit.
 
 - [~] **Backend-specific error reasons not surfaced** — the UI now has red `✕ NO SIGNAL` for unreachable/no-handshake, but `BackendException` is still thrown/caught without being stored on `ObservableTunnel`; there is no `State.ERROR` carrying causes like VPN authorization or tun creation failure.
 - [~] Add tunnel bottom sheet: structure done — **gaps:** button order is file→QR→empty (should be QR first as accent, then file, then manual); no subtitle text under each option; no `ADD TUNNEL · CHOOSE SOURCE` header label; no drag handle.
@@ -480,9 +489,9 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 **Home:**
 - [ ] Make PSK badge + separator conditional on peer having PSK.
-- [ ] **Multi-select / bulk delete** — long-press any tunnel card (600ms) enters selection mode: checkboxes appear on all cards with slide-in animation, toggle switch and FAB hidden, TopBar transforms to show selected count + `[ALL/NONE]` button + trash icon (trash only visible when count > 0), status strip shows `N OF M SELECTED`. Tap cards to toggle selection. Trash icon opens confirmation bottom sheet (drag handle, tunnel name list with error-color left rail, CANCEL + DELETE buttons). On confirm, deletes all selected tunnels and exits selection mode. Tap `✕` or backdrop exits selection mode. Implementation: add `selectionMode: Boolean` and `selectedTunnels: Set<ObservableTunnel>` state to `TunnelListFragment`; set `View.setOnLongClickListener` on card root in `tunnel_list_item.xml`; add `CheckBox` view to `tunnel_list_item.xml` (hidden by default, shown via `app:selectionMode` binding adapter); delete via `lifecycleScope.launch { tunnel.deleteAsync() }` (`ObservableTunnel.deleteAsync()` line 140) for each selected tunnel; confirmation via `MaterialAlertDialogBuilder` or custom `BottomSheetDialogFragment`; topbar selection state drives visibility of existing header views. Design reference: `.design/index-selection.html`.
-- [ ] **Multi-tunnel active count in header** — when kernel module is enabled, multiple tunnels can be UP simultaneously; header sub-text must show `N ACTIVE` (count) and `· M ERROR` if any tunnel is `TunnelMode.ERROR`, instead of binary `ACTIVE/INACTIVE`. When kernel module off, keep binary. Implementation: in `BindingAdapters.homeHeaderSummary()` (lines 252–261), read `UserKnobs.enableKernelModule` (`Flow<Boolean>`, `UserKnobs.kt` line 18) — if true, count tunnels in each mode instead of boolean check; collect the flow in `TunnelListFragment` and re-invalidate header binding on change. Design reference: `.design/index-selection.html`.
-- [ ] **DEGRADED status for multi-tunnel partial failure** — when kernel module is on and ≥1 tunnel is `TunnelMode.UP` but ≥1 other tunnel is `TunnelMode.ERROR` or `TunnelMode.CONNECTING`, status strip shows `DEGRADED` (amber `tunnl_warn` dot) instead of `PROTECTED`. Rationale: apps routed through the broken tunnel are not protected; `PROTECTED` would be semantically wrong. Single-tunnel mode unaffected. Implementation: add `DEGRADED` branch to the protection-status logic in `TunnelListFragment` header binding (same location as `PROTECTED`/`UNPROTECTED` currently set); guard behind `UserKnobs.enableKernelModule` check. Design reference: `.design/index-selection.html`.
+- [ ] **Multi-select / bulk-delete presentation** — reuse `TunnelListFragment.ActionModeListener.checkedItems`, selection restore/toggle and existing bulk-delete paths. Reshape the presentation to `.design/index-selection.html`: 600ms long-press intent, selected card/checkmark treatment, selected-count TopBar with trash/close controls, hidden per-row toggles/add affordance, and strip text `0 SELECTED` or `N OF M SELECTED`. Add the prototype confirmation sheet and preserve cancellation/recovery; C6 transition/delete safety remains a prerequisite. Keep current select-all capability where appropriate without claiming the prototype includes an ALL/NONE button. Do not add parallel Boolean/Set selection ownership.
+- [ ] **Multi-tunnel active count in header** — with kernel mode enabled, show `N ACTIVE` and `M ERROR` from the shared tunnel-mode aggregation; retain binary behavior in userspace mode. Extend `BindingAdapters.homeHeaderSummary` and existing aggregation; `TunnelListFragment` collects relevant `UserKnobs.enableKernelModule` changes and invalidates bindings. Reuse current owners instead of adding a second header state model. Design reference: `.design/index-selection.html`.
+- [ ] **DEGRADED status for multi-tunnel partial failure** — with kernel mode enabled, ≥1 UP tunnel plus ≥1 ERROR/CONNECTING tunnel should show DEGRADED with an amber dot. Extend the existing presentation owner in `BindingAdapters.homeProtectionLabel`, `setHomeProtectionTunnels` and `protectionLabelRes`; `TunnelListFragment` collects relevant preference/state changes and invalidates bindings. Preserve single-tunnel behavior and do not treat an aggregate label as complete traffic-protection proof. Design reference: `.design/index-selection.html`.
 
 **Detail:**
 - [ ] **Detail TopBar Share/More completion** — detail now uses a custom mono TopBar with back + edit actions. Remaining JSX parity: add Share + More icon buttons alongside Edit, then wire ShareSheet and MoreSheet behavior.
@@ -530,6 +539,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 ---
 
 ## Server Fleet Feature
+
+The following navigation, component and security details are prototype targets. Android renders corresponding surfaces with preview actions; remote completion, health checks and Keystore storage are not implemented guarantees. Android QR uses ZXing with placeholder endpoint/key data, unlike the prototype pseudo-QR, and is not an importable profile. C11–C12 own real integration.
 
 JSX source: `.design/screens-deploy.jsx`. Standalone prototype: `.design/index-deploy.html`. Integrated into main prototype via `index-selection.html` (tap server icon in home TopBar → `DeployControlPlane`).
 
@@ -674,7 +685,9 @@ Full-screen modal within `VpnUserScreen` container.
 
 ### Security Model (documented in prototype)
 
-- SSH credentials never leave device — stored in Android Keystore
+These are requirements to implement and verify under C11–C12. UI text alone does not prove credential protection, fingerprint persistence or mandatory live plan/apply behavior.
+
+- Keep private-key material local and protect persisted credentials with Keystore-backed storage. Password authentication sends the password only through the authenticated encrypted SSH channel; exclude credentials from logs, uploaded scripts/arguments, terminal previews and copied UI.
 - Password mode: one-session bootstrap only, not persisted
 - SSH firewall rules on the server are **never touched** (explicitly called out in dry-run output: `keep: existing ssh rules unchanged`)
 - Host fingerprint saved only if "Trust server key" toggle is on

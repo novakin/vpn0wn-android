@@ -12,7 +12,7 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
   Server-side Tunnl provisioning scripts now exist under `third_party/wireguard-install/tunnl/`, and the VPS fleet now reads persisted non-secret records from `VpsServerStore`. Remaining work: concrete Android SSH transport, SSH credential capture/storage, remote script upload/execution, progress parsing, live server status persistence, and user-management flow wiring.
 
 - **Provisioning backend QA blockers**
-  Concrete SSH transport must be selected before live provisioning is considered stable. The remote-shell boundary now has timeout, hung-command, cancellation, and unreachable-host guard coverage through `GuardedRemoteShellClient`, but the real SSH implementation still needs the same behavior verified against its library/session API. Disposable VPS integration testing must be opt-in and destructive-only: it may install WireGuard, change Tunnl-managed server config, remove peers, uninstall WireGuard, and reinstall it on the target VM. These tests must never run in the default unit-test or local-build path.
+  Concrete SSH transport must be selected before live provisioning is considered stable. `GuardedRemoteShellClientTest` covers fake execute timeout, I/O failure and cancellation propagation, not actual session closure or upload deadlines. Real-library proof remains required. Disposable integration is opt-in and destructive: force/uninstall can overwrite/remove unmanaged config too. It must never run in the default unit-test/local-build path; current harness assertions and failure redaction remain C9.
 
 - **Disposable VPS integration task**
   Root Gradle task `vpsIntegrationTest` runs `scripts/vps_integration_test.py` through key-only SSH when `TUNNL_VPS_HOST`, `TUNNL_VPS_USER`, and `TUNNL_VPS_DESTRUCTIVE=1` are set. The task uploads the Tunnl provisioning scripts to a temporary directory, runs detect/plan/install/sync/add-peer/revoke/remove/backup/uninstall/reinstall/uninstall, and removes uploaded scripts plus Tunnl test artifacts. It is not wired into `check` or any default build.
@@ -54,7 +54,7 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
   Added `Nyr/wireguard-install` from commit `3b85b2702ffcb2ce670c29bd90c6cae4a5bcc753` with MIT license attribution. The upstream interactive script is stored unchanged under `original/wireguard-install.sh`; `UPSTREAM.md` documents source, license, pinning, and update process.
 
 - **`third_party/wireguard-install/tunnl` — non-interactive command surface**
-  Added Tunnl-owned Bash commands for `detect`, `plan`, `install`, `add-peer`, `remove-peer`, `revoke-peer`, `sync-status`, `backup`, and `uninstall`. The MVP supports Ubuntu/Debian, `wg0`, IPv4 `/24` pools, IPv4-only peer default routes, JSON stdout for app parsing, explicit non-interactive arguments, and iptables NAT. `uninstall.sh` removes Tunnl-managed config without disabling global IPv4 forwarding.
+  Added Tunnl-owned Bash commands for `detect`, `plan`, `install`, `add-peer`, `remove-peer`, `revoke-peer`, `sync-status`, `backup`, and `uninstall`. The MVP targets Ubuntu/Debian, default `wg0`, IPv4 `/24` pools, IPv4-only peer default routes and iptables NAT. Normal responses use JSON, but not all failures do. Uninstall leaves global forwarding unchanged and lacks an ownership gate; it can remove unmanaged config. [Current script behavior](../third_party/wireguard-install/tunnl/README.md) and C2–C4 own those limits.
 
 - **`ui/build.gradle.kts` — package provisioning scripts as app assets**
   Added `third_party/wireguard-install/tunnl` as a main asset source so the Android app can upload the exact Tunnl-owned script bundle to a VPS over SSH.
@@ -66,12 +66,12 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
   Added the Android server fleet entry point, persisted non-secret server rendering through `VpsDeployMapper`, the SSH wizard UI, translated VPS flow strings, and custom deploy widgets in `VpsDeployViews`. Runtime prototype seed data was removed from production code; the fleet now renders stored records and empty states until concrete SSH transport and live actions are connected.
 
 - **Provisioning safety hardening**
-  User-facing provisioning exceptions no longer include raw command stdout/stderr or malformed JSON snippets. `VpsServerStore` clamps corrupted SSH ports and drops stored server records missing required connection fields. `VpsCredential.Password` stores password material in a clearable `CharArray`, and the VPS provisioning form clears retained password buffers before reset/replacement. `GuardedRemoteShellClientFactory` rejects untrusted-host connections without a pinned host fingerprint and invalid auth-attempt limits.
+  Command-exit failures and malformed outer JSON no longer include raw output/snippets. Nested response-shape errors and structured server error text still need C4 handling. `VpsServerStore` clamps corrupted SSH ports and drops records missing required connection fields. `VpsCredential.Password` uses a clearable `CharArray`; the form clears retained buffers before reset/replacement. Factory checks reject untrusted connections without a fingerprint and invalid auth-attempt limits; they do not establish actual transport verification.
 
 ### VpnService stale-reference mitigation
 
-- **`GoBackend.setStateInternal` — recover from VpnService killed without `onDestroy`**
-  When Android kills the `VpnService` during idle/memory pressure without firing `onDestroy`, `vpnServiceRef` can remain completed with a dead service reference. Subsequent `setState(UP)` calls then skip `startService` because the future is already done, obtain the dead service, and may see `builder.establish()` return `null`, causing repeated `TUN_CREATION_ERROR` until process/device restart. Mitigation: on `establish() == null`, reset the stale `vpnServiceRef` to a new incomplete future and call `startService` immediately, so the next connect attempt can obtain a fresh service.
+- **`GoBackend.setStateInternal` — null-establishment service-future mitigation**
+  On `establish() == null`, attempt to reset the service future and request service startup for a subsequent connection attempt. The failed attempt still throws `TUN_CREATION_ERROR`. Null establishment does not identify the underlying cause; stale-reference/memory-pressure diagnosis and device recovery were not established by this source audit.
 
 - **`GoBackend.resetVpnServiceFuture` — race-safe stale future reset**
   The `establish() == null` recovery compares against the exact `CompletableFuture<VpnService>` used for the failed connection attempt before replacing it. This avoids overwriting a newer service future if Android restarts the `VpnService` concurrently. The failed attempt still throws `TUN_CREATION_ERROR`; the next attempt should use the refreshed service reference.
@@ -84,13 +84,13 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ### Statistics
 
-- **`ObservableTunnel` — per-second RX/TX rate deltas**
-  Home and detail screens now refresh from `ObservableTunnel` state/statistics callbacks and request snapshots for visible UP tunnels. Prior to this redesign work, home-screen stats only updated after visiting the detail screen.
+- **`ObservableTunnel` snapshots and `BindingAdapters` rate samples**
+  Home/detail refresh from observable callbacks plus lifecycle-bound jobs. `ObservableTunnel` owns cached snapshots/notifications; `BindingAdapters` owns per-tunnel RX/TX/time samples in a `WeakHashMap` and derives rates from deltas. The idle-rate defect remains C7.
 
 - **`BindingAdapters` — stat formatters**
   Added: `tunnelRx`, `tunnelTx`, `tunnelRxRate`, `tunnelTxRate`, `tunnelHandshake`, `tunnelCipher`, `tunnelRoute`, `tunnelPeerBadge`, `shortKey`.
-  - `tunnelRxRate` / `tunnelTxRate`: compute per-second delta from previous snapshot stored on `ObservableTunnel`; display as `KB/s` / `MB/s`.
-  - `shortKey(key)`: truncates base64 keys to `wOs2…BVkA` (6 chars + ellipsis + 6 chars).
+  - `tunnelRxRate` / `tunnelTxRate`: use `BindingAdapters.tunnelRate` and its per-tunnel samples; display as `KB/s` / `MB/s`.
+  - `shortKey(key)`: displays the first six and last six characters separated by an ellipsis; copy/export still needs the full key.
 
 ### Binding Adapters
 
@@ -143,6 +143,8 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Notes
 
-- `GoBackend.java` — VPN tunnel backend. Wraps the Go WireGuard library. Modify with care: state transitions (`setUp`, `tearDown`) are called from coroutines in `TunnelManager`; blocking calls must not run on the main thread.
+2026-10-06 committed-source reconciliation (Europe/Paris): the [full documentation review](reviews/2026-10-06-full-documentation-review.md) corrects guarantees and ownership without rerunning historical tests. Remaining runtime repairs stay in the improvement plan and linked issues.
+
+- `GoBackend.java` — VPN tunnel backend wrapping Go WireGuard. Actual transitions use `setState`/`setStateInternal`; blocking work must stay off the main thread. Main-thread service destruction can still wait on the transition lock (C5).
 - `TunnelManager.kt` — owns the tunnel list, persists config to disk, manages backend lifecycle.
-- `ObservableTunnel.kt` — observable wrapper; `getStatisticsAsync()` hits the backend and fires `BR.statistics` notification; `getConfigAsync()` similarly for config.
+- `ObservableTunnel.kt` — observable wrapper; `getStatisticsAsync()` and `getConfigAsync()` can return cached values, otherwise request backend/store data and update notifications.

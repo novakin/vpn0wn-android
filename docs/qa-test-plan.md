@@ -4,6 +4,8 @@ Last updated: 2026-10-06 (Europe/Paris).
 
 This document tracks the automated and manual QA coverage required for the Tunnl Android redesign.
 
+The layer lists below are target requirements, not a passing coverage report. [Source-inspected coverage](#source-inspected-coverage) lists committed suites at `11d4a9b1`; [development evidence](development.md#recorded-verification) records actual historical executions. This audit ran no runtime suites. No committed fragment/row, instrumented navigation or screenshot suite exists yet.
+
 ## Test Layers
 
 ### JVM Unit Tests
@@ -17,7 +19,7 @@ Use for deterministic logic that does not require a device.
 - Provisioning command failures:
   - exit `0`
   - nonzero with stderr
-  - nonzero with stdout fallback
+  - nonzero with stdout present and no stderr; payload-free failure summary
   - nonzero with empty output
 - Remote shell execution boundaries:
   - command timeout when SSH connects but the process never exits
@@ -27,7 +29,7 @@ Use for deterministic logic that does not require a device.
   - `VpsInstallRequest.installArgs()`
   - optional `--force`
   - `VpsAddPeerRequest.args()` with and without DNS
-  - shell quoting is covered at the command-construction boundary, not deferred as "handled later"
+  - add shell-quoting regressions at the command-construction boundary; current request tests cover argument lists only
 - Store behavior:
   - empty store
   - upsert insert
@@ -86,7 +88,7 @@ Use for full navigation and Android framework integration.
 
 ### Screenshot Regression Tests
 
-Use Paparazzi, Shot, or an equivalent renderer once selected. Screenshots should use fixed data and fixed font scale.
+No screenshot framework is selected or installed. Reuse existing fixtures first; select Paparazzi, Shot or another renderer only when required coverage justifies it. Use fixed data/font scale for baselines and separate large-font variants.
 
 Baseline requirements:
 - dark mode goldens are mandatory because the redesign is dark-first
@@ -114,7 +116,7 @@ Baseline requirements:
 ### Security Regression Tests
 
 - Passwords are not included in snackbars, logs, exceptions, or copied text.
-- Private keys are not copied through generic copy handlers.
+- Generic copy handlers do not accidentally expose private keys; deliberate authorized profile export/import retains the full required credentials.
 - Password/session secret is cleared on cancel and view destruction.
 - `trustHost=false` does not persist fingerprints.
 - Uninstall, revoke, remove peer, and delete tunnel require confirmation.
@@ -132,16 +134,21 @@ Required before merging UI or backend provisioning work.
 - Delete a tunnel.
 - Exercise Android VPN permission flow on a clean install.
 
-## Initial Implemented Coverage
+## Source-inspected Coverage
+
+Committed source contains 12 test classes and 64 test methods: UI 10/54, tunnel 2/10. This is an inventory, not an execution total. Guard tests use fake execute calls for timeout, I/O failure and cancellation propagation; they do not prove an entered SSH command, upload timeout or actual channel/session closure. Existing Robolectric coverage supplies resources, formatters, empty summaries, mapper states and captured logs rather than fragment/navigation/rendered-row proof.
 
 - `ProvisioningJsonTest`
 - `ProvisioningCommandOutputTest`
+- `ProvisioningLoggingTest` — failed output, malformed outer JSON, cleanup redaction and valid-profile controls.
+- `RootShellLoggingTest` — synthetic root-shell framing, output and secret-safe logging.
 - `GuardedRemoteShellClientTest`
 - `VpsDeployMapperTest`
 - `VpsProvisioningRequestTest`
 - `VpsServerStoreTest`
 - `BindingAdaptersTest`
 - `QuantityFormatterTest`
+- `ConfigTest` and `BadConfigExceptionTest` — configuration/parser fixtures and error descriptions.
 
 ## Next Implementation Roadmap
 
@@ -156,9 +163,9 @@ This roadmap covers the whole app, not only the VPS fleet. Do not move items fro
 
 ### Phase 2 — Complete Missing Automated Coverage
 
-- Add timeout and hung-command tests for SSH sessions that connect but never complete.
-- Add cancellation tests that verify coroutine cancellation closes the remote command/session.
-- Add unreachable-server tests that map connection failure to a typed provisioning error and render the expected UI state.
+- Extend fake-wrapper proof to upload/deadline cases as needed; test hung execute/upload against the actual SSH library when C11 lands.
+- Prove entered-command cancellation closes owned real channels/sessions; the immediate-cancel fake test proves propagation only.
+- Test real unreachable-server mapping and the wired UI error state; fake execute I/O coverage proves neither.
 - Add broader `VpsServerStore` stress tests if future fields introduce multi-record invariants; current transaction coverage includes racing `upsert`, `remove`, and `updateStatus` operations.
 - Add empty peer-list coverage for server detail before any VPN users are added.
 - Add Robolectric coverage for VPS wizard state, password masking, back/apply behavior, lifecycle cancellation, and revoked-user actions.
@@ -176,14 +183,16 @@ This roadmap covers the whole app, not only the VPS fleet. Do not move items fro
 - `./gradlew vpsIntegrationTest` runs the disposable Ubuntu/Debian VPS integration path for install, sync, add peer, revoke peer, remove peer, backup, uninstall, reinstall, and final cleanup.
 - Gate the suite behind explicit environment variables and a destructive-test guard: `TUNNL_VPS_HOST`, `TUNNL_VPS_USER`, and `TUNNL_VPS_DESTRUCTIVE=1`.
 - Never run VM integration tests as part of default unit tests or default local builds.
-- Always document that the VM path may remove WireGuard and Tunnl-managed config from the target host.
+- Always document that the VM path can overwrite/remove unmanaged WireGuard config too; ownership gating remains C2.
 - Use key-only SSH. Do not put passwords or private keys in the repo; optional local settings belong in ignored `.tunnl-vps-test.env`.
 
 ## Disposable VPS Integration Use Case
 
 Use `vpsIntegrationTest` when provisioning scripts or app-side provisioning command contracts change and unit tests are not enough to prove the scripts still work on a real server.
 
-This test is for a disposable Ubuntu/Debian VPS only. It logs in as a privileged SSH user, uploads the local `third_party/wireguard-install/tunnl/` scripts, installs WireGuard, creates and removes test peers, backs up state, uninstalls WireGuard, reinstalls it, uninstalls it again, and removes Tunnl test artifacts. It may remove `/etc/wireguard` when only Tunnl test artifacts remain. Do not run it on a production VPN host or any server with user-managed WireGuard configuration.
+This harness is for an explicitly authorized disposable Ubuntu/Debian VPS only. It uses system OpenSSH/scp and requires an actual root session (`id -u`), not Android transport or sudo. It uploads scripts, forces installation, creates/revokes/removes peers, receives a secret-bearing backup response, uninstalls, repeats installation/uninstall and attempts cleanup. Force/uninstall can overwrite/remove unmanaged config; cleanup recursively removes `/etc/wireguard/tunnl` and removes `/etc/wireguard` only if empty. Do not run it on production or user-managed WireGuard hosts.
+
+Current `run_json` checks parseability and `ok:true`; it logs most outcome fields without asserting running health, exact peer removal, final config absence or requested package purge. Failure paths can print raw command/stdout/stderr or malformed JSON snippets despite success-payload redaction. C9 must repair postcondition assertions and failure diagnostics with synthetic failures before another live run. A successful exit does not currently prove those postconditions or Android integration.
 
 Required environment:
 
@@ -207,6 +216,8 @@ TUNNL_PYTHON=python3
 
 Run from a shell that has key-based SSH access to the VPS:
 
+The examples show operator commands, not authorization to execute them. `.tunnl-vps-test.env` is ignored but neither task nor harness loads it automatically; export settings explicitly. OpenSSH uses `StrictHostKeyChecking=accept-new`, accepting a first-seen key rather than checking an app-pinned fingerprint.
+
 ```sh
 TUNNL_VPS_HOST=203.0.113.10 \
 TUNNL_VPS_USER=root \
@@ -223,7 +234,7 @@ $env:TUNNL_VPS_DESTRUCTIVE = '1'
 python scripts/vps_integration_test.py
 ```
 
-Expected success output includes `detect-final` with `wireGuardInstalled=false` and `configExists=false`, followed by `cleanup-state` showing `wg-absent` and `etc-wireguard-absent`.
+With default `TUNNL_VPS_PURGE=1` on a clean disposable target, intended final observations are `wireGuardInstalled=false`, `configExists=false`, `wg-absent` and `etc-wireguard-absent`. With purge disabled, packages may remain. C9 must assert these postconditions; current printed output does not guarantee them.
 
 Security rules:
 
@@ -245,7 +256,7 @@ Security rules:
 - Choose screenshot test framework and add baseline fixtures.
 - Add Espresso smoke suite for navigation.
 - Add remote shell timeout/cancellation tests when the concrete SSH transport lands.
-- Add concrete SSH transport tests against the selected SSH library; current guard-level timeout/unreachable/cancellation behavior is covered by `GuardedRemoteShellClientTest`.
+- Add real-library SSH tests; `GuardedRemoteShellClientTest` covers fake-wrapper execute timeout/I/O/cancellation propagation only.
 - Add unreachable-server UI error tests when provisioning errors are wired to screen state.
 - Add additional concurrent `VpsServerStore` mutation tests only when new persisted fields or cross-record invariants are introduced.
 - Add dark-mode and RTL screenshot goldens.

@@ -52,6 +52,7 @@ Tunnl redesign and functional work are tracked in:
 - [Backend changelog](docs/backend-changelog.md): functional history and current integration gaps.
 - [QA test plan](docs/qa-test-plan.md): coverage requirements, verification layers and opt-in VPS validation.
 - [Agent/README review](docs/reviews/2026-10-06-agent-readme-review.md): bounded quality criteria, fixes, reused process and review evidence.
+- [Full documentation review](docs/reviews/2026-10-06-full-documentation-review.md): committed-source reconciliation, coverage limits and confirmed runtime handoff.
 - [Font attribution](docs/font-attribution.md) and [provisioning upstream reference](third_party/wireguard-install/UPSTREAM.md).
 
 ## Embedding
