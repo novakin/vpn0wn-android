@@ -133,7 +133,7 @@ Baseline requirements:
 
 ### Manual Smoke Tests
 
-Required before merging UI or backend provisioning work.
+Required before merging UI or backend provisioning work, except the explicitly authorized source-only recovery integration in G1 of the [active goal](improvement-plan.md#active-enhancement-and-performance-goal). That narrow exception requires meaningful local regression checks, native content inspection for affected UI and independent ultra review; physical/device-provider acceptance stays open and must pass in G4 before delivery or goal completion. It does not waive live provisioning acceptance or authorize APK/device operations.
 
 - Import a WireGuard config.
 - Toggle tunnel up/down.
@@ -143,6 +143,23 @@ Required before merging UI or backend provisioning work.
 - Background and foreground the app while a tunnel is up.
 - Delete a tunnel.
 - Exercise Android VPN permission flow on a clean install.
+
+## Transfer-speed and battery validation
+
+Planned for the [active enhancement/performance goal](improvement-plan.md#active-enhancement-and-performance-goal); no performance baseline or improvement is claimed. Issues own the selected device/endpoint, primary metric, numeric target and guardrails after baseline measurement. APK assembly/install and a real benchmark target need their own explicit authorization. Start with Wi-Fi; mobile-data and root/kernel coverage are conditional on the authorized environment.
+
+Record both baseline and candidate app revisions. Use the same phone, Android version, build type, test endpoint, network, backend and synthetic test profile for a paired comparison. Record signal/network quality, thermal state, charging state, foreground/screen state, MTU, routes, keepalive and background load. Keep private profiles/raw device reports local; commit only sanitized methodology and aggregates. Use existing Android profiling and benchmark tools rather than creating a performance framework.
+
+| Scenario | Measures and control |
+| --- | --- |
+| Transfer | Compare direct and VPN download/upload against the same authorized endpoint. Use fixed warm-up, duration and stream count; inspect sustained throughput, latency/loss and CPU cost. Run at least five paired A/B trials, varying A/B order to reduce thermal/time bias, and report median plus spread. Increase repetitions only when noise prevents a decision. A direct result is context, not an optimization comparison between app revisions. |
+| Idle/screen-off | Compare equal-duration idle-connected windows with the same network/profile/keepalive. Run at least three paired windows long enough to resolve the chosen energy measure; record wakeups, CPU activity and available energy evidence. Android modeled estimates, charge-counter deltas and battery percentage have different limits. A charging/USB-powered session does not prove reduced battery drain. |
+| Foreground UI | Profile list/detail polling, request overlap, drawing/animation, allocations and state refresh under equal conditions. Check hidden/stopped/foreground transitions. CPU/wakeup reductions are proxies; call them battery savings only when the corresponding controlled energy comparison establishes that result. |
+| Sustained traffic | Compare energy for the same amount of transferred data and a fixed-rate workload; report duration, thermal behavior and throughput separately. Do not interpret a faster run's lower total energy as an idle-power reduction. |
+
+Before each optimization, freeze its primary target and allowed regressions in the issue based on measured baseline variability. Require repeated paired benefit beyond the observed noise and all declared guardrails. Inconclusive results require more focused evidence or a no-change decision. JVM formatting/lifecycle tests and a successful APK build do not establish speed or energy gains.
+
+Preserve configuration parsing/persistence, activation/teardown and cancellation, DNS/routes, connectivity/NAT behavior, accurate statistics and UI/accessibility. MTU, endpoint or keepalive experiments must identify the specific path and restoration method; do not change global defaults from one phone/server result. Userspace is the baseline unless the authorized environment supports kernel testing. Keep device/native limitations and untested network/backend combinations explicit.
 
 ## Source-inspected Coverage
 
