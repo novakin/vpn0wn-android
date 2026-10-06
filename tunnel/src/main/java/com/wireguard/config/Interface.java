@@ -233,7 +233,7 @@ public final class Interface {
         final StringBuilder sb = new StringBuilder();
         if (!addresses.isEmpty())
             sb.append("Address = ").append(Attribute.join(addresses)).append('\n');
-        if (!dnsServers.isEmpty()) {
+        if (!dnsServers.isEmpty() || !dnsSearchDomains.isEmpty()) {
             final List<String> dnsServerStrings = dnsServers.stream().map(InetAddress::getHostAddress).collect(Collectors.toList());
             dnsServerStrings.addAll(dnsSearchDomains);
             sb.append("DNS = ").append(Attribute.join(dnsServerStrings)).append('\n');
