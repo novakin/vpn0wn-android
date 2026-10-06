@@ -181,6 +181,20 @@ Clean-source extensions: C6 also owns atomic replacement/failure recovery in [Fi
 
 The table distinguishes merged C2–C4, all five merged priority repairs, merged #22 source work and remaining source-confirmed gaps. [C4 evidence](development.md#c4-provisioning-contracts-and-observed-health--2026-10-06) and [Detekt evidence](development.md#detekt-configuration-repair--2026-10-06) record tests and limits. The requested #20/#14/#13/#16/#15 repair order is complete. PR #29 delivered #22 and its passing static gate. Debug APK assembly/install now has scoped phone evidence; planned APK CI remains separate work. No issue proves a live reproduction or authorizes operational mutation. C7 has [local follow-up evidence](development.md#phone-ui-and-throughput-follow-up--2026-10-06); broader device/traffic proof and C8/C10–C12 acceptance remain separate.
 
+## Preserved local work recovery
+
+The [2026-10-06 preservation review](reviews/2026-10-06-local-work-recovery.md) separates merged master from the original checkout's 77 dirty entries. A verified local snapshot preserves 355 files, both APKs, tracked deletion/patch data and repository history. None of the dirty entries exactly matches merged master; 15 files overlap merged repairs and need hunk-level reconciliation. Preservation and tracking are complete; source recovery is not implemented or verified by this record.
+
+| Recovery slice | Owner and status |
+| --- | --- |
+| Log parser, sparse stream batching and export cleanup | [#33](https://github.com/novakin/wireguard-android/issues/33), queued; first slice within preserved work. |
+| Settings header/sections and native preference preservation | [#34](https://github.com/novakin/wireguard-android/issues/34), queued. |
+| Add sheet and peer RX/TX presentation | [#35](https://github.com/novakin/wireguard-android/issues/35), queued. |
+| Home selection and safe delete presentation | [#36](https://github.com/novakin/wireguard-android/issues/36), queued. |
+| Local UDP warm-up variant | [#37](https://github.com/novakin/wireguard-android/issues/37), compatibility review required; retain merged endpoint-free/explicit-port behavior. |
+
+Recover each slice through a scoped PR on refreshed master, with focused proof and its owning guides. Keep the original checkout and both APKs until unique work is accounted for and any cleanup is authorized. `.vscode/settings.json` stays a local preference; port locale strings with their owning slice. Existing #28/#17 and APK CI priorities remain separate. Recovery of unmerged work does not justify copying old complete files over merged lifecycle, persistence, feedback or header repairs.
+
 ## Verification and definition of done
 
 Use existing repository checks appropriate to the touched owner:
