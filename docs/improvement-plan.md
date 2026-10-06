@@ -21,7 +21,7 @@ These are historical engineering judgments from the initial static review, not m
 
 2026-10-06 committed-source reconciliation (Europe/Paris): [issue #9](https://github.com/novakin/wireguard-android/issues/9) and the [full documentation review](reviews/2026-10-06-full-documentation-review.md) audit all maintained guides/templates against clean master `11d4a9b1dfdab834844c997e6ef2cc4f83c6bd43`. Mandatory/random-port preflight and its missing-locale finding describe the initial dirty worktree, not this committed baseline. Current committed preflight skips absent endpoints/ListenPort and preserves the configured port; C5 still owns teardown and failure/interruption policy. The clean-source audit also confirms file-replacement, kernel-transition and config serialization/validation gaps; these join their existing responsible owners below without claiming runtime fixes.
 
-The initial checkpoint documented the plan and linked it from README. Implementation is tracked in the delivery table and [development evidence](development.md#recorded-verification). PR #6 merged the first workflow/privacy slice and closed issue #5. [PR #8](https://github.com/novakin/wireguard-android/pull/8) merged the agent/README/process review and closed issue #7. Full-guide content remediation is issue #9; codebase actions C2–C12 remain planned.
+The initial checkpoint documented the plan and linked it from README. Implementation is tracked in the delivery table and [development evidence](development.md#recorded-verification). PR #6 merged the first workflow/privacy slice and closed issue #5. [PR #8](https://github.com/novakin/wireguard-android/pull/8) merged the agent/README/process review and closed issue #7. [PR #18](https://github.com/novakin/wireguard-android/pull/18) merged full-guide remediation as `7d981e8b9e5ca80003900d60c6665d6bd63829f4`; issue #9 closed. C2–C3 source repairs and offline regressions are implemented in the current change, pending merge; C4–C12 remain open.
 
 Preserve unrelated work, `.design/` as read-only reference, upstream attribution and existing architecture. APK builds run only when explicitly requested. Live/destructive VPS validation requires explicit authorization for a disposable environment and must remain outside default checks. A local change does not imply a commit, push, merge, release or deployment.
 
@@ -68,8 +68,8 @@ This file owns the improvement priorities and action states. The UI roadmap owns
 | Order | Actions | Status | Start condition | Acceptance boundary |
 | --- | --- | --- | --- | --- |
 | 0 | Document plan and README entry | Documented | Completed repository review. | Plan is discoverable, links resolve and unrelated work is preserved. |
-| 1 | A1, D1/D2 workflow | Process merged in PRs #6/#8; full content remediation in issue #9 | Requested implementation begun. | Sole AGENTS.md, owning guides, templates, metadata and revision-specific PR acceptance are established; full-guide claims are reconciled with source. |
-| 2 | C1–C3 privacy and provisioning safety | C1 merged in PR #6 with local proof; C2–C3 planned | Reproduce each defect with synthetic inputs or controlled failure injection. | Secrets stay out of the repaired logging paths; unmanaged state survives; mutations report honest outcomes and preserve recovery. |
+| 1 | A1, D1/D2 workflow | Process/content merged in PRs #6/#8/#18; issues #5/#7/#9 closed | Requested implementation begun. | Sole AGENTS.md, owning guides, templates, metadata and revision-specific PR acceptance are established; full-guide claims are reconciled with source. |
+| 2 | C1–C3 privacy and provisioning safety | C1 merged in PR #6; C2–C3 implemented/offline-tested in current change, pending merge | Reproduce each defect with synthetic inputs or controlled failure injection. | Secrets stay out of the repaired logging paths; unmanaged state survives; mutations report honest outcomes and preserve recovery. |
 | 3 | C4–C6 contracts and state/lifecycle | Planned | Affected behavior and compatibility requirements are traced. | Producer/consumer contracts agree; transitions settle; no orphaned VPN or main-thread shutdown wait. |
 | 4 | C7–C10 UI correctness and proof | Planned | Relevant behavior fixes and deterministic fixtures are available. | Focused regressions pass; affected output is checked at supported sizes and configurations. |
 | 5 | C11–C12 real SSH and feature wiring | Planned | Library decision recorded; provisioning safety/contracts repaired. | Real transport owns deadlines/cancellation; UI and QR/import use actual validated results. |
@@ -166,8 +166,8 @@ Clean-source extensions: C6 also owns atomic replacement/failure recovery in [Fi
 
 | Scope | Owning issue |
 | --- | --- |
-| C2 ownership/input safety; next runtime slice | [#10](https://github.com/novakin/wireguard-android/issues/10) |
-| C3 mutations/recovery; depends on C2 | [#11](https://github.com/novakin/wireguard-android/issues/11) |
+| C2 ownership/input safety; implemented/offline-tested, pending merge | [#10](https://github.com/novakin/wireguard-android/issues/10) |
+| C3 mutations/recovery; implemented/offline-tested with C2, pending merge | [#11](https://github.com/novakin/wireguard-android/issues/11) |
 | C4 responses, safe errors and observed health | [#12](https://github.com/novakin/wireguard-android/issues/12) |
 | C5–C6 transitions, teardown and view ownership | [#13](https://github.com/novakin/wireguard-android/issues/13) |
 | C6 atomic config replacement | [#14](https://github.com/novakin/wireguard-android/issues/14) |
@@ -175,7 +175,7 @@ Clean-source extensions: C6 also owns atomic replacement/failure recovery in [Fi
 | Config DNS round trips and negative-prefix rejection | [#16](https://github.com/novakin/wireguard-android/issues/16) |
 | C9 harness postconditions/failure redaction | [#17](https://github.com/novakin/wireguard-android/issues/17) |
 
-These issues track source-confirmed gaps, not implemented repairs or live reproductions. C7–C8 and C10–C12 retain their existing plan acceptance until a bounded implementation task needs an issue.
+The table distinguishes current C2–C3 delivery from remaining source-confirmed gaps. No issue proves a live reproduction or authorizes operational mutation. C7–C8 and C10–C12 retain their existing acceptance until a bounded implementation task needs an issue.
 
 ## Verification and definition of done
 
@@ -218,6 +218,6 @@ Do not claim full completion while required commands are running or relevant pro
 
 Planning verification on 2026-10-06: 50 local Markdown/source links resolved; both changed documents passed fence and trailing-whitespace checks; `git diff --check` passed. `CLAUDE.md` and `AGENTS.md` remained byte-for-byte identical. A before/after content inventory confirmed 327 pre-existing paths outside README and command artifacts were unchanged. Only README and this new plan were edited; runtime fixes remain planned.
 
-Current delivery: workflow/C1 merged in PR #6; sole-instruction ownership, agent/README/process review and dating rules merged in PR #8 as `11d4a9b1dfdab834844c997e6ef2cc4f83c6bd43`; issues #5/#7 closed. Issue #9 owns full-documentation remediation. Next runtime slice remains C2–C3 ownership/input and mutation safety with focused regressions and owning docs; broader wiring follows repaired contracts and the SSH decision.
+Current delivery: workflow/C1 merged in PR #6; sole-instruction ownership, agent/README/process review and dating rules merged in PR #8 as `11d4a9b1dfdab834844c997e6ef2cc4f83c6bd43`; full-documentation remediation merged in PR #18 as `7d981e8b9e5ca80003900d60c6665d6bd63829f4`. Issues #5/#7/#9 closed. C2–C3 source/tests/docs are implemented in the current change, pending merge, with [offline evidence](development.md#c2c3-offline-provisioning-safety--2026-10-06). Next runtime slice is C4 response/health alignment (#12); broader wiring follows repaired contracts and the SSH decision.
 
-C1 local evidence: six new synthetic logging regressions reproduced five baseline failures while the valid-profile control passed. After repair, all 21 focused logging/JSON/output tests passed with no failures, errors or skips. See [dated commands, environment and limits](development.md#c1-secret-safe-logging--2026-10-06). A1/D1/D2 workflow was committed as `7de79f82`; codebase actions C2–C12 remain open. These results do not change the initial static-review ratings into measured quality scores.
+C1 local evidence: six new synthetic logging regressions reproduced five baseline failures while the valid-profile control passed. After repair, all 21 focused logging/JSON/output tests passed with no failures, errors or skips. See [dated commands, environment and limits](development.md#c1-secret-safe-logging--2026-10-06). A1/D1/D2 workflow was committed as `7de79f82`; the C2–C3 issue boundary closes only on merge and remaining C4–C12 work stays open. These results do not change initial static-review ratings into measured quality scores.

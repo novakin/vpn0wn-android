@@ -122,7 +122,7 @@ Invoke-CodexQuiet -Command 'wsl -- bash -c "cd /mnt/c/Users/Guillaume/Documents/
 | Focused lifecycle/state tests | Affected transition, selection, initialization and recovery behavior; add regressions when repairing those owners. |
 | Existing Detekt configuration | Kotlin static checks; this is not runtime or device proof. |
 | Device/emulator checks | VPN permission/service behavior, native backend and actual UI/navigation at affected sizes, themes, font scales and RTL. |
-| Offline provisioning tests | Script syntax/contracts and failure injection without changing a host. |
+| [Offline provisioning tests](../scripts/tests/provisioning_safety_test.sh) | Real Bash script flow with synthetic keys, fake commands, private files and native locks inside an unprivileged Linux user namespace; no host root/network operations. |
 | `vpsIntegrationTest` | Explicitly authorized disposable Ubuntu/Debian host only; see [QA use case](qa-test-plan.md#disposable-vps-integration-use-case). |
 
 Broaden tests for shared state, public/script contracts or cross-cutting/high-risk changes. Use deterministic clocks, synthetic profiles, injected commands and temporary files where they answer the question. Do not introduce a framework, CI or release pipeline merely to record proof.
@@ -175,3 +175,25 @@ Synthetic root-shell streams exercise command framing, returned config/stdout an
 The baseline failure and repaired command logs remain under ignored `.artifacts/codex-command-logs` (`20261006-100618-779-362b25d93d07469e9eecda40458afe02.log` and `20261006-102200-351-eb832d8e95684eea8e05f84e02831ff9.log`). XML test reports confirm the four suite totals: 2, 4, 10 and 5. Gradle reported existing deprecation warnings; no APK assembly, device/native-root session, real SSH or live/destructive VPS check was run. Historical logs remain potentially sensitive, and this repair does not establish global sanitization of arbitrary server/transport messages.
 
 Final independent ultra reasoning review found no material findings in the C1 owning-doc additions or four filled issue/PR descriptions. It checked 15 documentation files plus those four drafts: 130 local links/fragments, fences, whitespace and the instruction mirror passed. Source and retained test evidence supported the stated baseline failures and repaired results. Eighteen external links were not fetched by that reviewer. This was a read-only documentation review, not a runtime rerun or formal GitHub approval.
+
+### C2–C3 offline provisioning safety — 2026-10-06
+
+Source/test work uses isolated `fix/provisioning-safety` from merged master `7d981e8b9e5ca80003900d60c6665d6bd63829f4`. It preserves the original dirty workspace and uses WSL Debian Bash with native `flock`/`unshare`. Namespace UID 0 maps to host UID 1000; the suite refuses actual host root. Privileged host tools are faked; real filesystem mutations stay inside private `/tmp` fixtures. No new dependency was installed.
+
+Run from the repository root in a Linux environment supporting unprivileged user namespaces:
+
+```bash
+unshare --user --map-root-user bash scripts/tests/provisioning_safety_test.sh
+```
+
+Windows/WSL example; use the intended checkout path:
+
+```powershell
+Invoke-CodexQuiet -Command 'wsl -d Debian -- unshare --user --map-root-user bash /mnt/c/Users/Guillaume/Documents/Projets/wireguard-android/scripts/tests/provisioning_safety_test.sh' -WorkingDirectory $PWD.Path
+```
+
+The repaired suite passed 55 cases with zero failures/skips. The same final suite against the merged baseline passed five controls and failed 50 cases. Baseline scripts were exported privately; only the legacy hardcoded forwarding-file path was mapped to the fixture path to prevent host filesystem effects. `TUNNL_TEST_SCRIPTS` selects that test-only baseline bundle. `bash -n` passed all ten Tunnl script files plus the test runner/fixture helper. Cases cover ownership and input controls, concurrent allocation/add/remove and shared host-state races, failed copy/rename/strip/apply/restart/recovery, runtime key/port/peer/route/PSK mismatches, stopped peers, malformed metadata preserving other peers, absent tools/units versus unknown observations, install/rollback hook ordering, secure unique backups/archives, partial/residual purge, cleanup after commit and TERM recovery.
+
+Retained command logs under ignored `.artifacts/codex-command-logs` include the repaired 55-case run `20261006-135810-929-61cdd5ac8a1445bebc9be5e0b8727734.log` and the final baseline comparison `20261006-140018-665-dd2c83ef7a264cc9a3e82060e0663696.log`. Earlier fixture/source failures remain retained; they are not successful proof. The PR acceptance record owns the final reviewed/tested revision and independent findings/resolution.
+
+No APK/Gradle, device, real WireGuard/systemd/apt, SSH or live/destructive VPS operation ran. Fake native observations prove Bash ordering/decisions rather than actual NAT, VPN traffic or real package rollback. SIGKILL/host loss and uncoordinated external tools remain outside transactional guarantees. C4 response/health/consumer alignment, C9 harness repairs and C11–C12 integration remain open.

@@ -12,23 +12,25 @@ dns="1.1.1.1, 1.0.0.1"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --endpoint) endpoint=${2-}; shift 2 ;;
-    --port) port=${2-}; shift 2 ;;
-    --cidr) cidr=${2-}; shift 2 ;;
-    --dns) dns=${2-}; shift 2 ;;
+    --endpoint) require_arg_value "$@"; endpoint=$2; shift 2 ;;
+    --port) require_arg_value "$@"; port=$2; shift 2 ;;
+    --cidr) require_arg_value "$@"; cidr=$2; shift 2 ;;
+    --dns) require_arg_value "$@"; dns=$2; shift 2 ;;
     *) fail_json "invalid_arg" "Unknown argument: $1" 64 ;;
   esac
 done
 
-[[ -n "$endpoint" ]] || fail_json "missing_endpoint" "--endpoint is required." 64
-[[ "$port" =~ ^[0-9]+$ && "$port" -ge 1 && "$port" -le 65535 ]] || fail_json "invalid_port" "Port must be between 1 and 65535." 64
+require_endpoint "$endpoint"
+require_port "$port"
+port=$((10#$port))
 require_ipv4_cidr_24 "$cidr"
+require_dns "$dns"
 require_supported_os
 
 steps=(
   "install wireguard iptables qrencode with apt"
   "create $WG_CONF with Tunnl management markers"
-  "enable IPv4 forwarding in /etc/sysctl.d/99-tunnl-wireguard-forward.conf"
+  "enable IPv4 forwarding in $FORWARD_CONF"
   "add NAT PostUp/PostDown rules for $cidr on $WG_IFACE"
   "enable and start wg-quick@$WG_IFACE"
 )

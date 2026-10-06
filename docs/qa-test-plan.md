@@ -138,6 +138,8 @@ Required before merging UI or backend provisioning work.
 
 Committed source contains 12 test classes and 64 test methods: UI 10/54, tunnel 2/10. This is an inventory, not an execution total. Guard tests use fake execute calls for timeout, I/O failure and cancellation propagation; they do not prove an entered SSH command, upload timeout or actual channel/session closure. Existing Robolectric coverage supplies resources, formatters, empty summaries, mapper states and captured logs rather than fragment/navigation/rendered-row proof.
 
+The separate [Bash provisioning safety suite](../scripts/tests/provisioning_safety_test.sh) exercises real scripts with fake commands and synthetic keys in private `/tmp` fixtures. It requires namespace UID 0 mapped to an unprivileged host UID and refuses host root. Coverage includes unmanaged/symlink preservation, input injection, interface/host lock races, staged write/apply/rollback faults, exact runtime key/port/peer/routes/PSKs, malformed peer metadata, forced reinstall ordering, private archives/backups, stopped-interface controls, partial purge, post-commit cleanup and TERM recovery. [Development evidence](development.md#c2c3-offline-provisioning-safety--2026-10-06) records executed totals and limits; these are separate from JUnit inventory. No installed WireGuard/systemd/apt command, SSH session or live network is exercised.
+
 - `ProvisioningJsonTest`
 - `ProvisioningCommandOutputTest`
 - `ProvisioningLoggingTest` — failed output, malformed outer JSON, cleanup redaction and valid-profile controls.
@@ -183,14 +185,14 @@ This roadmap covers the whole app, not only the VPS fleet. Do not move items fro
 - `./gradlew vpsIntegrationTest` runs the disposable Ubuntu/Debian VPS integration path for install, sync, add peer, revoke peer, remove peer, backup, uninstall, reinstall, and final cleanup.
 - Gate the suite behind explicit environment variables and a destructive-test guard: `TUNNL_VPS_HOST`, `TUNNL_VPS_USER`, and `TUNNL_VPS_DESTRUCTIVE=1`.
 - Never run VM integration tests as part of default unit tests or default local builds.
-- Always document that the VM path can overwrite/remove unmanaged WireGuard config too; ownership gating remains C2.
+- Repaired mutations reject unmanaged config, but harness cleanup remains broad and destructive; C9 still owns its safety/evidence limits.
 - Use key-only SSH. Do not put passwords or private keys in the repo; optional local settings belong in ignored `.tunnl-vps-test.env`.
 
 ## Disposable VPS Integration Use Case
 
 Use `vpsIntegrationTest` when provisioning scripts or app-side provisioning command contracts change and unit tests are not enough to prove the scripts still work on a real server.
 
-This harness is for an explicitly authorized disposable Ubuntu/Debian VPS only. It uses system OpenSSH/scp and requires an actual root session (`id -u`), not Android transport or sudo. It uploads scripts, forces installation, creates/revokes/removes peers, receives a secret-bearing backup response, uninstalls, repeats installation/uninstall and attempts cleanup. Force/uninstall can overwrite/remove unmanaged config; cleanup recursively removes `/etc/wireguard/tunnl` and removes `/etc/wireguard` only if empty. Do not run it on production or user-managed WireGuard hosts.
+This harness is for an explicitly authorized disposable Ubuntu/Debian VPS only. It uses system OpenSSH/scp and requires an actual root session (`id -u`), not Android transport or sudo. It uploads scripts, forces installation, creates/revokes/removes peers, receives a secret-bearing backup response, uninstalls, repeats installation/uninstall and attempts cleanup. C2–C3 script mutations reject unmanaged config, but harness cleanup still recursively removes `/etc/wireguard/tunnl` and removes `/etc/wireguard` only if empty. Do not run it on production or user-managed WireGuard hosts.
 
 Current `run_json` checks parseability and `ok:true`; it logs most outcome fields without asserting running health, exact peer removal, final config absence or requested package purge. Failure paths can print raw command/stdout/stderr or malformed JSON snippets despite success-payload redaction. C9 must repair postcondition assertions and failure diagnostics with synthetic failures before another live run. A successful exit does not currently prove those postconditions or Android integration.
 
