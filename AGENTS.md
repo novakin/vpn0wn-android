@@ -1,16 +1,10 @@
 # Tunnl — WireGuard Android
 
+Last updated: 2026-10-06 (Europe/Paris).
+
 ## Source of Truth — Prompt Instructions
 
-**`CLAUDE.md` is the single source of truth for agent instructions.**
-`AGENTS.md` is an exact mirror kept in sync for Codex compatibility.
-
-When instructions change:
-1. Edit `CLAUDE.md`
-2. Copy verbatim to `AGENTS.md`
-3. Never edit `AGENTS.md` directly — changes will be overwritten
-
-If they diverge, `CLAUDE.md` wins.
+**`AGENTS.md` is the single source of truth for project agent instructions.** Edit this file directly when instructions change. Keep detailed workflow and runtime facts in their owning guides and update affected references in the same change.
 
 ## Project Context
 
@@ -28,12 +22,14 @@ Tunnl ports the engineering-console UI in `.design/` onto WireGuard Android and 
 
 ## Before Starting Any Task
 
-1. Inspect Git branch, status, responsible source and relevant tests. Preserve unrelated tracked/untracked changes and retained evidence.
-2. Read README, the improvement plan and the owning guide. Read the UI roadmap for UI work and backend changelog for functional work; read both when the task spans both.
+1. Identify repository, active branch, revision and intended integration base. Inspect working/staged scope and refresh the authorized remote base before branching or reviewing a PR; do not assume a local reference is current. Preserve unrelated tracked/untracked changes and retained evidence.
+2. Read README, the improvement plan and the owning guide. Read the UI roadmap for UI work and backend changelog for functional work; read both when the task spans both. For tracked work, read the relevant live issue/PR discussion, acceptance, approval and dependencies; disclose unavailable GitHub state instead of inferring no work or permission.
 3. Define the smallest useful outcome, compatibility requirements and acceptance checks. Trace the failing layer before editing.
 4. For UI work, read the relevant `.design/*.jsx`, identify the exact component/prop and check existing `ui/src/main/res/values/colors.xml` and `styles.xml` tokens first.
 
 The JSX prototype owns visual intent, not runtime truth. Never treat demo data, rendered screens or planned actions as working integration.
+
+`.design/` is ignored and can be absent from a clean clone. A UI fidelity change needs the relevant prototype or another user-approved visual reference. If it is missing, request the reference and continue independent work; do not invent the design or block unrelated functional/documentation tasks.
 
 ## Ownership and Invariants
 
@@ -55,14 +51,25 @@ The JSX prototype owns visual intent, not runtime truth. Never treat demo data, 
 - Removed from scope → delete from `### Pending`
 
 **Backend/functional change → update `docs/backend-changelog.md`:**
-- New behavior or fix → add to `### Done` with file, method, and what changed
-- In-progress work → add to `### In Progress`, move to Done when complete
+- New behavior or fix → add to `## Done` with file, method, and what changed
+- In-progress work → add to `## In Progress`, move to Done when complete
 
-Both agents read both files to know the current state. Stale docs = duplicated work or regressions.
+Read the records relevant to the task. Keep completed, in-progress and deferred work distinct; record scope removals with their reason rather than hiding unresolved work as completed.
 
-Update the owning guide in the same change when behavior, setup, contracts or workflow changes. Link to detailed facts instead of duplicating them. Mechanical changes need no prose update.
+Assess documentation impact after every code, test, build, configuration, UI, workflow or documentation change. Update affected owning guidance in the same change and search related summaries, examples, agent rules and limitations for contradictions. Give a specific no-impact reason when no documentation update is needed; do not edit unaffected docs just to refresh dates. Links, dates and checked boxes do not replace review of meaning. Link to detailed facts instead of duplicating them.
 
-Record consequential decisions in `docs/architecture.md`: problem, decision/status, alternatives, consequences/limits and verification or migration impact. Routine edits need no decision record. Revisit decisions when requirements change; keep the superseded rationale.
+Date every maintained project Markdown guide, including README and AGENTS.md, with `Last updated: YYYY-MM-DD (Europe/Paris).` near the top. Update that date whenever the file is edited, including small corrections; same-day edits keep the same date. Templates use the equivalent hidden `Template last updated` comment in their source. A read-only review does not change the last-edit date. Follow `docs/development.md` for date scope and historical evidence; do not overwrite original event/test dates or date read-only design, generated or externally owned material.
+
+Record consequential architecture decisions in `docs/architecture.md` and operational policy in its owning guide: problem, decision/status, alternatives, consequences/limits and verification or migration impact. Record approval/date only when evidenced. Routine edits need no decision record. Revisit decisions when requirements change; keep the superseded rationale. Preserve historical event/test dates and revisions; date new substantive records in Europe/Paris and distinguish a scoped review from a new runtime run.
+
+## Work Tracking and Handoff
+
+- The improvement plan owns priorities and bounded action states; issues own actionable acceptance, approval and dependencies; PRs own current change-specific acceptance. Link them instead of creating a competing backlog.
+- During the authorized GitHub workflow, check for duplicates and create/update an issue for concrete unresolved work. Include observed/expected behavior, impact, bounded scope, approval/dependencies and observable acceptance. Do not create speculative work or a separate issue for each small fix completed within the current PR.
+- Default new issues/PRs to `novakin`; preserve deliberate existing assignments and unrelated labels. Use existing repository labels matching scope. Read current fields, prefer additive changes and verify the write/readback; metadata belongs in GitHub fields, not duplicated mutable prose. Report rejected/unverified fields.
+- Use a closing PR-description keyword only when merge into the default branch fulfils the issue's full acceptance boundary. Use a non-closing reference for partial work or separate operational proof. Verify the Development link and actual post-merge issue state, or disclose the access limit; a reference or closed unmerged PR is not delivery.
+- Keep substantive historical assessments in `docs/reviews/` with scope, revision, evidence, findings/resolution and limits. Routine self-review/CI acceptance stays in the PR. Never commit raw chat, private reasoning, credentials or host reports.
+- If GitHub is unavailable, disclose current action status as unverified and retain an explicitly unpublished handoff. Issue/template metadata and an earlier unrelated approval do not authorize new operations.
 
 ## Code Standards
 
@@ -81,11 +88,12 @@ Record consequential decisions in `docs/architecture.md`: problem, decision/stat
 - Follow `docs/development.md` and `docs/qa-test-plan.md`. Run focused meaningful tests first; broaden for shared state, contracts or cross-cutting/high-risk changes.
 - Prefer injected command responses and temporary files to real root/network operations. Exercise failure, cancellation, compatibility and redaction boundaries when affected.
 - For UI changes, inspect actual output at supported sizes/themes and relevant font-scale/RTL configurations. JVM/static proof does not establish device or live-server behavior.
-- For documentation-only changes, check local links, fences, examples, source claims and the instruction mirror. Do not run unrelated runtime operations merely to update prose.
+- For documentation-only changes, check local links, fences, examples, source claims and consistency with `AGENTS.md`. Do not run unrelated runtime operations merely to update prose.
 - Use `Invoke-CodexQuiet` for noisy commands. Retain current-task and failed-task logs under ignored `.artifacts/codex-command-logs`; inspect failures progressively. Report status or at most 40 relevant failure lines.
 - Follow contribution/merge instructions and templates in `docs/development.md`. Commit only intentional files; preserve the user's existing index. Do not amend, rebase, reset or force-push unless requested.
-- Every PR, including a draft, needs a meaningful description based on `.github/PULL_REQUEST_TEMPLATE.md`: problem/result, linked issue or action, scope/compatibility, actual verification and remaining limits. Update its title and description when scope changes.
-- Apply existing GitHub labels matching the issue/PR scope and assign the responsible maintainer, normally `novakin`. Set actual metadata; a name or label written in the description is insufficient. Review the filled template against the change before publishing or updating it.
+- Every PR, including drafts and API-created PRs, needs a meaningful description based on `.github/PULL_REQUEST_TEMPLATE.md`: problem/result, linked issue or action, scope/compatibility, actual verification and remaining limits. Review the complete final diff and filled description before publication; update title/body when scope changes and remove stale prompts.
+- Keep one current PR acceptance record: reviewed head, tested revision/environment and CI run when applicable, checks/results/skips, honest author self-review verdict, independent review findings/resolution, documentation impact and unresolved issue links. Reassess the affected delta after edits. Self-review is not independent approval or permission to merge; prior results retain their original scope. Do not commit prose merely to embed its own final SHA or newest routine CI count.
+- Set and verify actual GitHub metadata under the work-tracking rules. Before reporting publication complete, confirm published revision, changed-file scope, issue/PR state and applicable checks. Existing CI may run automatically; a workflow file does not prove execution or enforcement, and Server-Audit's CI is not part of this project.
 - Use an account-linked author/committer identity and verify published commits map to the intended GitHub account. Resolve historical email association without rewriting history when possible.
 - Cross-cutting agent/process changes need an independent review of the final instructions, owning docs and templates. Follow the user's requested reviewer effort; record findings and their resolution before marking the work verified.
 - Keep commit, issue and PR text free of connector attribution, generated-by footers and AI co-author trailers.
@@ -112,7 +120,7 @@ ui/src/main/java/com/wireguard/android/
   widget/           TunnelSignalView (home mini-diagram), TunnelThroughputView (detail hero)
   databinding/      BindingAdapters.kt — all @BindingAdapter + @JvmStatic formatters
   model/            ObservableTunnel.kt — state, config, statistics (BaseObservable)
-  activity/         MainActivity, LogViewerActivity
+  activity/         MainActivity, SettingsActivity, LogViewerActivity
   preference/       KernelModuleEnablerPreference (settings screen)
   provisioning/     models, RemoteShellClient, TunnlProvisioningClient, VpsServerStore, VpsDeployMapper
 
@@ -160,12 +168,13 @@ docs/               architecture, development, operations, backend contracts, pl
 
 | Screen | JSX file | Key components |
 |--------|----------|----------------|
-| Home / Tunnel list | `screens-home.jsx` | `TunnelCard`, `MiniDiagram`, `Stat`, `StatusStrip` |
-| Detail | `screens-detail.jsx` | `WireDiagram`, `ConfigRow`, `PeerCard` |
+| Home / Tunnel list | `screens-home.jsx` | `HomeScreen`, `TunnelCard`, `MiniDiagram`, `Stat` |
+| Detail | `screens-detail.jsx` | `DetailScreen`, `ConfigRow`, `PeerCard`; diagram uses `schematic.jsx` |
 | Editor | `screens-detail.jsx` | `FieldGroup`, `Field` |
-| Add sheet | `screens-detail.jsx` | `ImportTile` |
-| Log viewer | `screens-detail.jsx` | `LogEntry`, filter chips |
-| Settings | `screens-settings.jsx` | `SettingsGroup`, `SettingsRow` |
-| Wire animation | `schematic.jsx` | `TunnelThroughputView` source |
-| Data/formatters | `data.jsx` | `formatBytes`, `formatRate`, `formatAge` |
+| Add sheet | `screens-detail.jsx` | `AddSheet`, `AddOption` |
+| Log viewer | `screens-detail.jsx` | `LogsScreen`, inline rows and filter chips |
+| Settings | `screens-settings.jsx` | `SettingsGroup`, `SettingsToggleRow`, `SettingsActionRow` |
+| VPS fleet/detail/provision/user | `screens-deploy.jsx` | `ServerFleetScreen`, `ServerDetailScreen`, `ServerProvisionScreen`, `VpnUserScreen` |
+| Wire animation | `schematic.jsx` | `SchematicDiagram`, `WireDiagram`; Android `TunnelThroughputView` reference |
+| Data/formatters | `data.jsx` | `fmtBytes`, `fmtRate`, `fmtAgo`; verify Android units/contracts before reuse |
 | Palette/tokens | `styles.css` | CSS custom properties → Android color resources |

@@ -1,5 +1,7 @@
 # Operations and recovery
 
+Last updated: 2026-10-06 (Europe/Paris).
+
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
 This guide describes current Android handling and known limits. The [UI roadmap](ui-redesign-roadmap.md) lists visual gaps; the [improvement plan](improvement-plan.md) tracks reliability repairs. Do not treat a rendered screen or successful command as proof of a working VPN/deployment.

@@ -1,5 +1,7 @@
 # Tunnl QA Test Plan
 
+Last updated: 2026-10-06 (Europe/Paris).
+
 This document tracks the automated and manual QA coverage required for the Tunnl Android redesign.
 
 ## Test Layers

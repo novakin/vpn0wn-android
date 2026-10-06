@@ -1,6 +1,8 @@
 # Tunnl improvement plan
 
-[Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
+Last updated: 2026-10-06 (Europe/Paris).
+
+[Documentation index](../README.md#project-documentation) · Agent/process and delivery pointers updated 2026-10-06 (Europe/Paris); initial runtime assessment remains historical.
 
 ## Scope and baseline
 
@@ -15,9 +17,9 @@ The review covered Android UI/model/services, VPN/config/native integration, pro
 | Codebase | 5/10 | Useful architecture and reusable components, with privacy, provisioning, lifecycle and correctness defects. |
 | Overall | 6/10 | Foundations are worth preserving; confidence needs repairs and relevant verification. |
 
-These are engineering judgments from static review. They are not measured test scores or a security certification. Ratings remain unchanged until implementation has supporting evidence.
+These are historical engineering judgments from the initial static review, not measured test scores or a security certification. Preserve this baseline rather than silently re-rating unfinished runtime work. The subsequent [agent/README review](reviews/2026-10-06-agent-readme-review.md) defines a separate documentation-only rubric and evidence boundary.
 
-The initial checkpoint documented the plan and linked it from README. Implementation is now tracked in the delivery table and [development evidence](development.md#recorded-verification). [Issue #5](https://github.com/novakin/wireguard-android/issues/5) and [draft PR #6](https://github.com/novakin/wireguard-android/pull/6) cover the first workflow/privacy slice; other actions remain open.
+The initial checkpoint documented the plan and linked it from README. Implementation is tracked in the delivery table and [development evidence](development.md#recorded-verification). [PR #6](https://github.com/novakin/wireguard-android/pull/6) merged the first workflow/privacy slice and closed [issue #5](https://github.com/novakin/wireguard-android/issues/5). [Issue #7](https://github.com/novakin/wireguard-android/issues/7) tracks the subsequent agent/README review; codebase actions C2–C12 remain planned.
 
 Preserve unrelated work, `.design/` as read-only reference, upstream attribution and existing architecture. APK builds run only when explicitly requested. Live/destructive VPS validation requires explicit authorization for a disposable environment and must remain outside default checks. A local change does not imply a commit, push, merge, release or deployment.
 
@@ -42,8 +44,9 @@ Reference paths below identify sibling-repository material reviewed locally. The
 
 | Source | Reuse | Adapt or exclude |
 | --- | --- | --- |
-| `server-security-audit/AGENTS.md` | Ownership, responsible-layer changes, explicit failures, cancellation cleanup, privacy, compatibility, scoped verification and completion evidence. | Replace Python/scanner/report examples with Android/VPN/provisioning invariants. Do not import its read-only runtime policy or blanket dependency-approval gate. |
-| `server-security-audit/docs/development.md` | Test ownership, change checklist, dated environment/results/skips and explicit proof limits. | Separate JVM, device/native-backend and server evidence. |
+| `server-security-audit/AGENTS.md` | Ownership, explicit failures/cancellation/privacy/compatibility, scoped verification, documentation meaning and decision/history rules, live issue handoff and revision-specific PR acceptance. | Replace Python/scanner/report examples with Android/VPN/provisioning invariants. Use Europe/Paris for new records. Do not import its read-only runtime policy or blanket dependency-approval gate. |
+| `server-security-audit/docs/development.md` | Test ownership, environment/results/skips, additive metadata/readback, complete versus partial issue closure, current PR acceptance and missing-access disclosure. | Separate JVM, device/native-backend and server proof. Reuse existing WireGuard label names; do not copy Server-Audit CI, lab setup, branch enforcement or runtime policies. |
+| `server-security-audit/.github/pull_request_template.md` | Filled draft/API PR descriptions, owning/related documentation review, honest self-review and independent findings, approval/dependency and delivery limits. | Adapt the existing Tunnl template; do not add duplicate templates, bots or mutable metadata in prose. |
 | `server-security-audit/docs/architecture.md`, `docs/roadmap.md`, `docs/report-format.md` | Data flow, consequential decisions, scope/start/acceptance/evidence, and precise success semantics. | Keep existing Android domain states; do not copy audit status enums or collector architecture. |
 | `VPS_Migration/mkdocs-site/docs/blueprints/` | Change record, QA checklist, incident and rollback structure where provisioning/recovery needs them. | Omit VPS metadata, badges, Nginx sections, monitoring catalogs and MkDocs infrastructure. |
 | `VPS_Migration/verify-docs.ps1` and drift validator | Fence validation, accumulated failures and useful status/evidence consistency checks. | Port only checks justified by Tunnl's documentation contract. A standalone link checker was not found in the searched sources. |
@@ -52,7 +55,9 @@ Reference paths below identify sibling-repository material reviewed locally. The
 | `loft/docs/TESTING.md` | Accessibility/visual/fallback checklists and honest device-only proof limits. | Use Android sizes, font scales, RTL and supported themes. |
 | Other reviewed sibling guides | Staged validation before promotion, focused changes and version/changelog consistency. | These mostly overlap the selected sources; no extra process framework is needed. |
 
-No existing issue, PR/MR or CONTRIBUTING templates were found in the searched reference repositories. Contribution templates below must be authored from these conventions.
+Initial local search record: no existing issue, PR/MR or CONTRIBUTING templates were found in the reference snapshots then searched, so the first Tunnl templates were authored from the selected conventions.
+
+2026-10-06 clarification (Europe/Paris): that search used a stale local Server-Audit checkout. Its current main has issue/PR templates and a fuller contribution process. The subsequent agent/README review checked current source and adapted the reusable process above. This corrects the initial search limitation without presenting it as proof those assets never existed.
 
 ## Delivery order and action states
 
@@ -61,8 +66,8 @@ This file owns the improvement priorities and action states. The UI roadmap owns
 | Order | Actions | Status | Start condition | Acceptance boundary |
 | --- | --- | --- | --- | --- |
 | 0 | Document plan and README entry | Documented | Completed repository review. | Plan is discoverable, links resolve and unrelated work is preserved. |
-| 1 | A1, D1/D2 workflow | Implemented and locally verified | Requested implementation begun. | Canonical instructions, owning guides, contribution templates, labels/assignees and mandatory PR descriptions are established. |
-| 2 | C1–C3 privacy and provisioning safety | C1 implemented and locally verified; C2–C3 planned | Reproduce each defect with synthetic inputs or controlled failure injection. | Secrets stay out of the repaired logging paths; unmanaged state survives; mutations report honest outcomes and preserve recovery. |
+| 1 | A1, D1/D2 workflow | First slice merged in PR #6; follow-up tracked by issue #7 | Requested implementation begun. | Canonical instructions, owning guides, contribution templates, labels/assignees and meaningful revision-specific PR acceptance are established. |
+| 2 | C1–C3 privacy and provisioning safety | C1 merged in PR #6 with local proof; C2–C3 planned | Reproduce each defect with synthetic inputs or controlled failure injection. | Secrets stay out of the repaired logging paths; unmanaged state survives; mutations report honest outcomes and preserve recovery. |
 | 3 | C4–C6 contracts and state/lifecycle | Planned | Affected behavior and compatibility requirements are traced. | Producer/consumer contracts agree; transitions settle; no orphaned VPN or main-thread shutdown wait. |
 | 4 | C7–C10 UI correctness and proof | Planned | Relevant behavior fixes and deterministic fixtures are available. | Focused regressions pass; affected output is checked at supported sizes and configurations. |
 | 5 | C11–C12 real SSH and feature wiring | Planned | Library decision recorded; provisioning safety/contracts repaired. | Real transport owns deadlines/cancellation; UI and QR/import use actual validated results. |
@@ -72,7 +77,7 @@ Minimal process work comes first. Urgent safety fixes need not wait for the enti
 
 ## A1 — Agent instruction contract
 
-Edit [CLAUDE.md](../CLAUDE.md) first, then copy it verbatim to [AGENTS.md](../AGENTS.md). Preserve the design map and token guidance, but route UI-specific requirements to UI tasks.
+Edit [AGENTS.md](../AGENTS.md) directly; it is the sole project agent-instruction file. Preserve the design map and token guidance, but route UI-specific requirements to UI tasks. The user requested this consolidation on 2026-10-06 (Europe/Paris); historical mirror checks describe the earlier layout.
 
 The revised contract must:
 
@@ -94,7 +99,7 @@ The revised contract must:
 - Preserve dirty worktrees, explicit-build/live-system restrictions, bounded command output and `Invoke-CodexQuiet` evidence handling.
 - State changed behavior/files, verification and residual risk at completion. Distinguish local work, commits, merges and releases.
 
-Acceptance: instruction files are byte-for-byte identical; every named path/command is valid; UI tasks retain JSX/token checks; functional tasks have an explicit route; no copied Server-Audit rule contradicts Tunnl behavior or existing authorization.
+Acceptance: AGENTS.md is the sole project instruction file and active references/checks use it; every named path/command is valid; UI tasks retain JSX/token checks; functional tasks have an explicit route; no copied Server-Audit rule contradicts Tunnl behavior or existing authorization.
 
 ## D1 — Documentation ownership
 
@@ -110,9 +115,9 @@ Acceptance: instruction files are byte-for-byte identical; every named path/comm
 | [QA test plan](qa-test-plan.md) | Keep layer/coverage requirements and opt-in VPS use case. List implemented coverage only when tests exist; record execution evidence in development documentation. |
 | This plan | Own audit/remediation priorities, action status and acceptance. Link to source/tests and owning guides as actions land. |
 
-Write current facts from source. Label proposed behavior, known gaps and dated evidence separately. Do not invent supported versions, successful verification, release infrastructure or operational owners. Avoid dedicated ADR files until decision history needs them.
+Write current facts from source. Label proposed behavior, known gaps and dated evidence separately. Every maintained guide has a last-updated date; refresh it whenever that file is edited and preserve historical event/test/review dates. Check documentation impact after every change and update affected owners in the same change, or give a specific no-impact reason. Follow [date conventions](development.md#dates-and-decisions). Do not invent supported versions, successful verification, release infrastructure or operational owners. Avoid dedicated ADR files until decision history needs them.
 
-Acceptance: each detailed fact has one owner; README reaches every guide; examples agree with source; planned features are distinguishable from working behavior; local Markdown links/fences are valid; no real credentials are included.
+Acceptance: each detailed fact has one owner; README reaches every guide; examples agree with source; planned features are distinguishable from working behavior; maintained documents/templates are dated and edited dates are current without altering historical evidence; local Markdown links/fences are valid; no real credentials are included.
 
 ## D2 — Contribution templates, merge workflow and hygiene
 
@@ -128,7 +133,7 @@ Keep merge instructions in `docs/development.md`. The PR template supplies the m
 
 The workflow is: inspect baseline and dirty scope; define bounded acceptance; reproduce the affected behavior; fix the responsible layer; run proportionate checks; update owning docs; review final diff/staged scope; record evidence. Merge requires reviewable scope, relevant proof and disclosed gaps. Commits and external actions follow the user's task and existing project rules.
 
-Add `.artifacts/` to ignore rules when implementing this action. Retain current-task and failed-task logs; do not clean unrelated artifacts. Use existing tools before introducing lint dependencies. Adapt useful fence checks from the VPS verifier; add link/mirror checks only as needed for repeatable maintenance.
+Add `.artifacts/` to ignore rules when implementing this action. Retain current-task and failed-task logs; do not clean unrelated artifacts. Use existing tools before introducing lint dependencies. Adapt useful fence checks from the VPS verifier; add link/instruction-consistency checks only as needed for repeatable maintenance.
 
 Acceptance: all three templates render correctly and collect useful evidence without requesting secrets; merge instructions name the relevant checks and limits; no default workflow invokes APK builds or destructive VPS tests; evidence artifacts cannot enter the intended source change accidentally.
 
@@ -157,7 +162,7 @@ C1–C10 are repairs or proof for reviewed behavior. C11–C12 complete existing
 
 Use existing repository checks appropriate to the touched owner:
 
-- Documentation: validate links, balanced fences, examples/claims and instruction mirror when affected; run `git diff --check`.
+- Documentation: validate links, balanced fences, examples/claims and consistency with AGENTS.md when affected; run `git diff --check`.
 - UI logic: focused tests within `:ui:testDebugUnitTest`; use Robolectric or existing coroutine-test facilities for affected Android/lifecycle behavior.
 - Config/backend logic: focused tests within `:tunnel:testDebugUnitTest`; retain existing config fixtures and controls.
 - Kotlin static analysis: existing Detekt task/config when affected. Broaden tests for shared helpers, contracts or cross-cutting changes.
@@ -184,7 +189,7 @@ Do not claim full completion while required commands are running or relevant pro
 | Opportunity | Trigger | Smallest next decision |
 | --- | --- | --- |
 | Android CI | A requested need for repeatable PR checks. | Reuse native unit/static tasks in one appropriate environment; keep APK/live/destructive checks separately scoped. Vpn0wn's Windows/.NET workflow is an example, not a portable implementation. |
-| Repeatable documentation checker | Repeated link/mirror/fence drift makes manual checking unreliable. | A small native script or existing lint tool covering the actual contract; no documentation platform migration. |
+| Repeatable documentation checker | Repeated link/instruction/fence drift makes manual checking unreliable. | A small native script or existing lint tool covering the actual contract; no documentation platform migration. |
 | Focused refactor | Added behavior exposes duplicated ownership or an obstructive structure. | Consolidate the responsible code while preserving behavior; no automatic Compose/MVVM, DI framework or controller rewrite. |
 | Packaging/release process | A requested distribution or rollback need. | Explicit artifacts, version locations, attribution and validation; no inferred publication or deployment. |
 
@@ -194,6 +199,6 @@ Do not claim full completion while required commands are running or relevant pro
 
 Planning verification on 2026-10-06: 50 local Markdown/source links resolved; both changed documents passed fence and trailing-whitespace checks; `git diff --check` passed. `CLAUDE.md` and `AGENTS.md` remained byte-for-byte identical. A before/after content inventory confirmed 327 pre-existing paths outside README and command artifacts were unchanged. Only README and this new plan were edited; runtime fixes remain planned.
 
-Current delivery: A1/D1/D2 workflow plus C1 logging proof/fix in issue #5 and draft PR #6. Next after this slice: C2–C3 ownership/input and mutation safety repairs with focused regressions and owning documentation. Keep broader feature wiring behind repaired provisioning contracts and the recorded SSH transport decision.
+Current delivery: A1/D1/D2 workflow plus C1 logging proof/fix merged in PR #6 as `7e141dc39b256014cd5a8ce92a95ea5e4e2241a6`; issue #5 closed. The requested follow-up agent/README review is tracked by issue #7 and its [bounded assessment](reviews/2026-10-06-agent-readme-review.md). Next runtime slice: C2–C3 ownership/input and mutation safety with focused regressions and owning docs. Keep broader feature wiring behind repaired provisioning contracts and the recorded SSH transport decision.
 
 C1 local evidence: six new synthetic logging regressions reproduced five baseline failures while the valid-profile control passed. After repair, all 21 focused logging/JSON/output tests passed with no failures, errors or skips. See [dated commands, environment and limits](development.md#c1-secret-safe-logging--2026-10-06). A1/D1/D2 workflow was committed as `7de79f82`; codebase actions C2–C12 remain open. These results do not change the initial static-review ratings into measured quality scores.

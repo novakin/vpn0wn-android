@@ -1,5 +1,7 @@
 # Backend and provisioning contracts
 
+Last updated: 2026-10-06 (Europe/Paris).
+
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
 This guide distinguishes source-observed behavior from required repair boundaries. Update producer, consumer, tests and this guide together when a contract changes. [Architecture](architecture.md) owns module design; [the improvement plan](improvement-plan.md#codebase-actions) owns remaining repair status.
