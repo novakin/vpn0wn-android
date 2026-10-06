@@ -268,4 +268,18 @@
     <string name="tunnl_add_sheet_qr_subtitle">Kamera</string>
     <string name="tunnl_add_sheet_file_subtitle">Dosyalardan</string>
     <string name="tunnl_add_sheet_manual_subtitle">Anahtar çifti oluştur · elle gir</string>
+
+    <string name="tunnl_selection_delete">Seçili tünelleri sil</string>
+    <string name="tunnl_selection_exit">Seçimden çık</string>
+    <string name="tunnl_selection_mode">SEÇİM MODU</string>
+    <string name="tunnl_selection_status_empty">0 SEÇİLDİ</string>
+    <string name="tunnl_selection_status_count">%1$d/%2$d SEÇİLDİ</string>
+    <plurals name="tunnl_selection_title">
+        <item quantity="one">%d SEÇİLDİ</item>
+        <item quantity="other">%d SEÇİLDİ</item>
+    </plurals>
+    <plurals name="tunnl_delete_sheet_title">
+        <item quantity="one">%d tünel silinsin mi?</item>
+        <item quantity="other">%d tünel silinsin mi?</item>
+    </plurals>
 </resources>

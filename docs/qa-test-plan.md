@@ -1,6 +1,6 @@
 # Tunnl QA Test Plan
 
-Last updated: 2026-10-06 (Europe/Paris).
+Last updated: 2026-10-07 (Europe/Paris).
 
 This document tracks the automated and manual QA coverage required for the Tunnl Android redesign.
 
@@ -55,6 +55,8 @@ Use for deterministic logic that does not require a device.
   - no signal with stale handshake
 
 ### Robolectric View Tests
+
+`HomeSelectionTest` uses synthetic managed tunnels and actual Home row/header/dialog actions for sorted insertion/rename, zero-selected/select-all/Back, recreation, active confirmation cancellation, mixed-delete restoration/progress, complete deletion, admitted and pre-entry cancellation, view recreation during admitted deletion, inventory replacement, programming-defect attempt ordering and checkable row semantics/inset restoration. Native content previews cover six theme/size/large-text/RTL configurations, one-line status badges and scrolling confirmation actions. Physical provider, system-bar and TalkBack proof remains required under #36/G4. See [Home recovery evidence](development.md#home-selection-and-safe-delete-recovery--2026-10-07); native content previews are separate from device acceptance.
 
 Use for Android resources, data binding, programmatic fragment UI, and lightweight view behavior.
 
@@ -165,7 +167,7 @@ Preserve configuration parsing/persistence, activation/teardown and cancellation
 
 The phone presentation, Creator result and Snackbar tint suites are described under [JVM unit tests](#jvm-unit-tests); they are included in the inventory below.
 
-Source contains 34 test classes and 210 test methods: UI 31/194, tunnel 3/16, including merged #14/#13/#16/#15, the merged #22 suites, the phone follow-up, #33 log recovery, merged #34 Settings source and #35 Add/peer source. The shared TunnelTestEnvironment fixture is not a test suite. This is an inventory, not an execution total. Guard tests use fake execute calls for timeout, I/O failure and cancellation propagation; they do not prove an entered SSH command, upload timeout or actual channel/session closure. Robolectric also covers detail-fragment selection/destruction, kernel-preference failure recovery and bounded Settings/Add/peer navigation/rendering; whole-app/device proof remains separate.
+Source contains 35 test classes and 223 test methods: UI 32/207, tunnel 3/16, including merged #14/#13/#16/#15, the merged #22 suites, the phone follow-up, #33 log recovery, merged #34 Settings source, #35 Add/peer source and #36 Home source. The shared TunnelTestEnvironment fixture is not a test suite. This is an inventory, not an execution total. Guard tests use fake execute calls for timeout, I/O failure and cancellation propagation; they do not prove an entered SSH command, upload timeout or actual channel/session closure. Robolectric also covers detail-fragment selection/destruction, kernel-preference failure recovery and bounded Settings/Add/peer/Home navigation/rendering; whole-app/device proof remains separate.
 
 `TunnelManagerTest` covers admitted/queued transitions, deletion/config failure recovery, cancelled initialization, stale state snapshots/native notifications, restoration intent and backend-switch admission/rollback. `ApplicationBackendLifecycleTest` proves cancellation before initializer execution settles backend waiters. `TunnelDetailLifecycleTest` covers reversed/cleared config selections, delayed peer statistics after selection/destruction, disconnect clearing without waiting for an in-flight fetch and failure clearing. `KernelModuleEnablerPreferenceTest` checks failed shutdown restores its setting/control. `GoBackendLifecycleTest` covers prompt destruction while its lock is held, dead-service rejection/future replacement, cleanup identity/callback ordering and preflight compatibility/protection/interruption. Synthetic owner/native-call shadows exercise no successful native activation, real VPN traffic, process exit or device lifecycle. See [original lifecycle evidence](development.md#tunnel-lifecycle-and-transition-settlement--2026-10-06) and [peer follow-up](development.md#add-sheet-and-peer-presentation-recovery--2026-10-06).
 

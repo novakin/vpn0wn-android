@@ -229,4 +229,18 @@
     <string name="tunnl_add_sheet_qr_subtitle">कैमरा</string>
     <string name="tunnl_add_sheet_file_subtitle">फ़ाइलों से</string>
     <string name="tunnl_add_sheet_manual_subtitle">कुंजी जोड़ी बनाएँ · मैनुअल प्रविष्टि</string>
+
+    <string name="tunnl_selection_delete">चयनित टनल हटाएँ</string>
+    <string name="tunnl_selection_exit">चयन से बाहर निकलें</string>
+    <string name="tunnl_selection_mode">चयन मोड</string>
+    <string name="tunnl_selection_status_empty">0 चयनित</string>
+    <string name="tunnl_selection_status_count">%1$d में से %2$d चयनित</string>
+    <plurals name="tunnl_selection_title">
+        <item quantity="one">%d चयनित</item>
+        <item quantity="other">%d चयनित</item>
+    </plurals>
+    <plurals name="tunnl_delete_sheet_title">
+        <item quantity="one">%d टनल हटाएँ?</item>
+        <item quantity="other">%d टनल हटाएँ?</item>
+    </plurals>
 </resources>

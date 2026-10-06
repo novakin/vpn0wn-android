@@ -294,4 +294,18 @@
     <string name="tunnl_add_sheet_qr_subtitle">Kamera</string>
     <string name="tunnl_add_sheet_file_subtitle">Iz datotek</string>
     <string name="tunnl_add_sheet_manual_subtitle">Ustvari par ključev · vnesi ročno</string>
+
+    <string name="tunnl_selection_delete">Izbriši izbrane tunele</string>
+    <string name="tunnl_selection_exit">Zapusti izbiro</string>
+    <string name="tunnl_selection_mode">NAČIN IZBIRE</string>
+    <string name="tunnl_selection_status_empty">0 IZBRANIH</string>
+    <string name="tunnl_selection_status_count">%1$d OD %2$d IZBRANIH</string>
+    <plurals name="tunnl_selection_title">
+        <item quantity="one">%d IZBRANIH</item>
+        <item quantity="other">%d IZBRANIH</item>
+    </plurals>
+    <plurals name="tunnl_delete_sheet_title">
+        <item quantity="one">izbrisati %d tunel?</item>
+        <item quantity="other">izbrisati %d tunelov?</item>
+    </plurals>
 </resources>

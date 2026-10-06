@@ -294,4 +294,18 @@
     <string name="tunnl_add_sheet_qr_subtitle">Aparat</string>
     <string name="tunnl_add_sheet_file_subtitle">Z plików</string>
     <string name="tunnl_add_sheet_manual_subtitle">Wygeneruj parę kluczy · wpisz ręcznie</string>
+
+    <string name="tunnl_selection_delete">Usuń wybrane tunele</string>
+    <string name="tunnl_selection_exit">Opuść wybór</string>
+    <string name="tunnl_selection_mode">TRYB WYBORU</string>
+    <string name="tunnl_selection_status_empty">0 WYBRANYCH</string>
+    <string name="tunnl_selection_status_count">%1$d Z %2$d WYBRANYCH</string>
+    <plurals name="tunnl_selection_title">
+        <item quantity="one">%d WYBRANYCH</item>
+        <item quantity="other">%d WYBRANYCH</item>
+    </plurals>
+    <plurals name="tunnl_delete_sheet_title">
+        <item quantity="one">usunąć %d tunel?</item>
+        <item quantity="other">usunąć %d tuneli?</item>
+    </plurals>
 </resources>

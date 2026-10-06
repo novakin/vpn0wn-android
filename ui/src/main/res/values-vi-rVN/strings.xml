@@ -148,4 +148,18 @@
     <string name="tunnl_add_sheet_qr_subtitle">Camera</string>
     <string name="tunnl_add_sheet_file_subtitle">Từ tệp</string>
     <string name="tunnl_add_sheet_manual_subtitle">Tạo cặp khóa · nhập thủ công</string>
+
+    <string name="tunnl_selection_delete">Xóa đường hầm đã chọn</string>
+    <string name="tunnl_selection_exit">Thoát chọn</string>
+    <string name="tunnl_selection_mode">CHẾ ĐỘ CHỌN</string>
+    <string name="tunnl_selection_status_empty">0 ĐÃ CHỌN</string>
+    <string name="tunnl_selection_status_count">ĐÃ CHỌN %1$d/%2$d</string>
+    <plurals name="tunnl_selection_title">
+        <item quantity="one">%d ĐÃ CHỌN</item>
+        <item quantity="other">%d ĐÃ CHỌN</item>
+    </plurals>
+    <plurals name="tunnl_delete_sheet_title">
+        <item quantity="one">xóa %d đường hầm?</item>
+        <item quantity="other">xóa %d đường hầm?</item>
+    </plurals>
 </resources>

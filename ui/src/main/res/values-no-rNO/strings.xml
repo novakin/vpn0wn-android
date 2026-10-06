@@ -268,4 +268,18 @@
     <string name="tunnl_add_sheet_qr_subtitle">Kamera</string>
     <string name="tunnl_add_sheet_file_subtitle">Fra filer</string>
     <string name="tunnl_add_sheet_manual_subtitle">Generer nøkkelpar · skriv inn manuelt</string>
+
+    <string name="tunnl_selection_delete">Slett valgte tunneler</string>
+    <string name="tunnl_selection_exit">Avslutt valg</string>
+    <string name="tunnl_selection_mode">VALGMODUS</string>
+    <string name="tunnl_selection_status_empty">0 VALGT</string>
+    <string name="tunnl_selection_status_count">%1$d AV %2$d VALGT</string>
+    <plurals name="tunnl_selection_title">
+        <item quantity="one">%d VALGT</item>
+        <item quantity="other">%d VALGT</item>
+    </plurals>
+    <plurals name="tunnl_delete_sheet_title">
+        <item quantity="one">slette %d tunnel?</item>
+        <item quantity="other">slette %d tunneler?</item>
+    </plurals>
 </resources>

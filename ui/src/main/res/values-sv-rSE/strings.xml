@@ -268,4 +268,18 @@
     <string name="tunnl_add_sheet_qr_subtitle">Kamera</string>
     <string name="tunnl_add_sheet_file_subtitle">Från filer</string>
     <string name="tunnl_add_sheet_manual_subtitle">Generera nyckelpar · ange manuellt</string>
+
+    <string name="tunnl_selection_delete">Ta bort valda tunnlar</string>
+    <string name="tunnl_selection_exit">Avsluta val</string>
+    <string name="tunnl_selection_mode">VAL-LÄGE</string>
+    <string name="tunnl_selection_status_empty">0 VALDA</string>
+    <string name="tunnl_selection_status_count">%1$d AV %2$d VALDA</string>
+    <plurals name="tunnl_selection_title">
+        <item quantity="one">%d VALDA</item>
+        <item quantity="other">%d VALDA</item>
+    </plurals>
+    <plurals name="tunnl_delete_sheet_title">
+        <item quantity="one">ta bort %d tunnel?</item>
+        <item quantity="other">ta bort %d tunnlar?</item>
+    </plurals>
 </resources>

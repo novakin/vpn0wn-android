@@ -45,6 +45,8 @@ import kotlinx.coroutines.withContext
  * Maintains and mediates changes to the set of available WireGuard tunnels,
  */
 class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
+    internal class NotManagedException : IllegalStateException("Tunnel is no longer managed")
+
     private var tunnels = CompletableDeferred<ObservableSortedKeyedArrayList<String, ObservableTunnel>>()
     private var loadingJob: Job? = null
     private val operationLock = Mutex()
@@ -76,7 +78,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     }
 
     private fun requireManaged(tunnel: ObservableTunnel) {
-        check(tunnelMap[tunnel.name] === tunnel) { "Tunnel is no longer managed" }
+        if (tunnelMap[tunnel.name] !== tunnel) throw NotManagedException()
     }
 
     suspend fun create(name: String, config: Config): ObservableTunnel = mutate {
@@ -255,15 +257,15 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         val backend = getBackend()
         val originalState = withContext(Dispatchers.IO) { backend.getState(tunnel) }
         val wasLastUsed = tunnel == lastUsedTunnel
-        // Make sure nothing touches the tunnel.
         if (wasLastUsed)
             lastUsedTunnel = null
-        tunnelMap.remove(tunnel)
         try {
             if (originalState == Tunnel.State.UP)
                 withContext(Dispatchers.IO) { backend.setState(tunnel, Tunnel.State.DOWN, null) }
             withContext(Dispatchers.IO) { configStore.rename(tunnel.name, name) }
+            tunnelMap.remove(tunnel)
             tunnel.onNameChanged(name)
+            tunnelMap.add(tunnel)
             if (originalState == Tunnel.State.UP)
                 withContext(Dispatchers.IO) { backend.setState(tunnel, Tunnel.State.UP, tunnel.getConfigAsync()) }
         } catch (e: Exception) {

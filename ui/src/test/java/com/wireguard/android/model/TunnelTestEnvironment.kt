@@ -12,6 +12,7 @@ import com.wireguard.config.Config
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CompletableDeferred
@@ -107,8 +108,11 @@ internal class TunnelTestEnvironment(directory: File, scope: CoroutineScope) {
 
     class MemoryStore : ConfigStore {
         val configs = ConcurrentHashMap<String, Config>()
+        val deleteAttempts = CopyOnWriteArrayList<String>()
         var failEnumerate = false
         var failDelete = false
+        var deleteDefect = false
+        val failDeleteNames: MutableSet<String> = ConcurrentHashMap.newKeySet()
         var failSave = false
         val loadEntered = ConcurrentHashMap<String, CountDownLatch>()
         val releaseLoad = ConcurrentHashMap<String, CountDownLatch>()
@@ -117,7 +121,9 @@ internal class TunnelTestEnvironment(directory: File, scope: CoroutineScope) {
             return config
         }
         override fun delete(name: String) {
-            if (failDelete) throw IOException("Injected delete failure")
+            deleteAttempts += name
+            if (deleteDefect) throw ArithmeticException("Injected delete defect")
+            if (failDelete || name in failDeleteNames) throw IOException("Injected delete failure")
             checkNotNull(configs.remove(name))
         }
         override fun enumerate(): Set<String> {

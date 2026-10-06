@@ -266,4 +266,18 @@ Aitäh veelkord sinu panuse eest.</string>
     <string name="tunnl_add_sheet_qr_subtitle">Kaamera</string>
     <string name="tunnl_add_sheet_file_subtitle">Failidest</string>
     <string name="tunnl_add_sheet_manual_subtitle">Loo võtmepaar · sisesta käsitsi</string>
+
+    <string name="tunnl_selection_delete">Kustuta valitud tunnelid</string>
+    <string name="tunnl_selection_exit">Välju valikust</string>
+    <string name="tunnl_selection_mode">VALIKUREŽIIM</string>
+    <string name="tunnl_selection_status_empty">0 VALITUD</string>
+    <string name="tunnl_selection_status_count">%1$d/%2$d VALITUD</string>
+    <plurals name="tunnl_selection_title">
+        <item quantity="one">%d VALITUD</item>
+        <item quantity="other">%d VALITUD</item>
+    </plurals>
+    <plurals name="tunnl_delete_sheet_title">
+        <item quantity="one">kustutada %d tunnel?</item>
+        <item quantity="other">kustutada %d tunnelit?</item>
+    </plurals>
 </resources>

@@ -320,4 +320,18 @@
     <string name="tunnl_add_sheet_qr_subtitle">الكاميرا</string>
     <string name="tunnl_add_sheet_file_subtitle">من الملفات</string>
     <string name="tunnl_add_sheet_manual_subtitle">إنشاء زوج مفاتيح · إدخال يدوي</string>
+
+    <string name="tunnl_selection_delete">حذف الأنفاق المحددة</string>
+    <string name="tunnl_selection_exit">الخروج من التحديد</string>
+    <string name="tunnl_selection_mode">وضع التحديد</string>
+    <string name="tunnl_selection_status_empty">0 محدد</string>
+    <string name="tunnl_selection_status_count">%1$d من %2$d محدد</string>
+    <plurals name="tunnl_selection_title">
+        <item quantity="one">%d محدد</item>
+        <item quantity="other">%d محدد</item>
+    </plurals>
+    <plurals name="tunnl_delete_sheet_title">
+        <item quantity="one">حذف نفق %d؟</item>
+        <item quantity="other">حذف %d أنفاق؟</item>
+    </plurals>
 </resources>

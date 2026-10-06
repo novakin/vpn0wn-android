@@ -168,4 +168,18 @@
     <string name="tunnl_add_sheet_qr_subtitle">Kamera</string>
     <string name="tunnl_add_sheet_file_subtitle">Zo súborov</string>
     <string name="tunnl_add_sheet_manual_subtitle">Vygenerovať pár kľúčov · zadať ručne</string>
+
+    <string name="tunnl_selection_delete">Odstrániť vybrané tunely</string>
+    <string name="tunnl_selection_exit">Ukončiť výber</string>
+    <string name="tunnl_selection_mode">REŽIM VÝBERU</string>
+    <string name="tunnl_selection_status_empty">0 VYBRATÉ</string>
+    <string name="tunnl_selection_status_count">%1$d Z %2$d VYBRATÉ</string>
+    <plurals name="tunnl_selection_title">
+        <item quantity="one">%d VYBRATÉ</item>
+        <item quantity="other">%d VYBRATÉ</item>
+    </plurals>
+    <plurals name="tunnl_delete_sheet_title">
+        <item quantity="one">odstrániť %d tunel?</item>
+        <item quantity="other">odstrániť %d tunelov?</item>
+    </plurals>
 </resources>

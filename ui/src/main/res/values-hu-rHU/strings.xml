@@ -116,4 +116,18 @@
     <string name="tunnl_add_sheet_qr_subtitle">Kamera</string>
     <string name="tunnl_add_sheet_file_subtitle">Fájlokból</string>
     <string name="tunnl_add_sheet_manual_subtitle">Kulcspár létrehozása · kézi bevitel</string>
+
+    <string name="tunnl_selection_delete">Kijelölt alagutak törlése</string>
+    <string name="tunnl_selection_exit">Kilépés a kijelölésből</string>
+    <string name="tunnl_selection_mode">KIJELÖLÉSI MÓD</string>
+    <string name="tunnl_selection_status_empty">0 KIJELÖLVE</string>
+    <string name="tunnl_selection_status_count">%1$d/%2$d KIJELÖLVE</string>
+    <plurals name="tunnl_selection_title">
+        <item quantity="one">%d KIJELÖLVE</item>
+        <item quantity="other">%d KIJELÖLVE</item>
+    </plurals>
+    <plurals name="tunnl_delete_sheet_title">
+        <item quantity="one">%d alagút törlése?</item>
+        <item quantity="other">%d alagút törlése?</item>
+    </plurals>
 </resources>
