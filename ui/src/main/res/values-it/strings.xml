@@ -263,4 +263,9 @@
     <string name="tunnl_settings_section_data">§03 DATI · BACKUP</string>
     <string name="tunnl_settings_section_appearance">§04 ASPETTO · APP</string>
     <string name="tunnl_settings_section_about">§05 INFO · PROGETTO</string>
+
+    <string name="tunnl_add_sheet_title">AGGIUNGI TUNNEL · SCEGLI ORIGINE</string>
+    <string name="tunnl_add_sheet_qr_subtitle">Fotocamera</string>
+    <string name="tunnl_add_sheet_file_subtitle">Da file</string>
+    <string name="tunnl_add_sheet_manual_subtitle">Genera coppia di chiavi · inserisci manualmente</string>
 </resources>

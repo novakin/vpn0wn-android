@@ -2,86 +2,209 @@
   ~ Copyright © 2017-2025 WireGuard LLC. All Rights Reserved.
   ~ SPDX-License-Identifier: Apache-2.0
   -->
-<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/root"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@color/tunnl_paper"
-    android:paddingStart="12dp"
-    android:paddingTop="16dp"
-    android:paddingEnd="12dp"
+    android:paddingStart="14dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="14dp"
     android:paddingBottom="14dp">
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/create_from_file"
-        style="@style/Widget.Material3.Button.TextButton.Icon"
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:nextFocusDown="@id/create_from_qrcode"
-        android:nextFocusForward="@id/create_from_qrcode"
-        android:text="@string/create_from_file"
-        android:textAlignment="viewStart"
-        android:textColor="@color/tunnl_ink"
-        app:backgroundTint="@color/tunnl_paper_2"
-        app:cornerRadius="6dp"
-        app:icon="@drawable/ic_action_open"
-        app:iconPadding="@dimen/bottom_sheet_icon_padding"
-        app:iconTint="@color/tunnl_signal"
-        app:layout_constraintBottom_toTopOf="@+id/create_from_qrcode"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="parent"
-        app:rippleColor="@color/tunnl_paper_3"
-        app:strokeColor="@color/tunnl_rule"
-        app:strokeWidth="1dp" />
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/create_from_qrcode"
-        style="@style/Widget.Material3.Button.TextButton.Icon"
-        android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:layout_marginTop="8dp"
-        android:nextFocusUp="@id/create_from_file"
-        android:nextFocusDown="@id/create_empty"
-        android:nextFocusForward="@id/create_empty"
-        android:text="@string/create_from_qr_code"
-        android:textAlignment="viewStart"
-        android:textColor="@color/tunnl_ink"
-        app:backgroundTint="@color/tunnl_paper_2"
-        app:cornerRadius="6dp"
-        app:icon="@drawable/ic_action_scan_qr_code"
-        app:iconPadding="@dimen/bottom_sheet_icon_padding"
-        app:iconTint="@color/tunnl_signal"
-        app:layout_constraintBottom_toBottomOf="@+id/create_empty"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/create_from_file"
-        app:rippleColor="@color/tunnl_paper_3"
-        app:strokeColor="@color/tunnl_rule"
-        app:strokeWidth="1dp" />
+        <View
+            android:layout_width="36dp"
+            android:layout_height="4dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="14dp"
+            android:background="@drawable/tunnl_add_sheet_handle" />
 
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/create_empty"
-        style="@style/Widget.Material3.Button.TextButton.Icon"
-        android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:layout_marginTop="8dp"
-        android:nextFocusUp="@id/create_from_qrcode"
-        android:text="@string/create_empty"
-        android:textAlignment="viewStart"
-        android:textColor="@color/tunnl_ink"
-        app:backgroundTint="@color/tunnl_paper_2"
-        app:cornerRadius="6dp"
-        app:icon="@drawable/ic_action_edit"
-        app:iconPadding="@dimen/bottom_sheet_icon_padding"
-        app:iconTint="@color/tunnl_signal"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/create_from_qrcode"
-        app:rippleColor="@color/tunnl_paper_3"
-        app:strokeColor="@color/tunnl_rule"
-        app:strokeWidth="1dp" />
+        <TextView
+            style="@style/TunnlLabelText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="14dp"
+            android:text="@string/tunnl_add_sheet_title"
+            android:textColor="@color/tunnl_ink_3" />
 
-</androidx.constraintlayout.widget.ConstraintLayout>
+        <LinearLayout
+            android:id="@+id/create_from_qrcode"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="74dp"
+            android:background="@drawable/tunnl_add_sheet_option_accent_background"
+            android:importantForAccessibility="yes"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:nextFocusDown="@id/create_from_file"
+            android:nextFocusForward="@id/create_from_file"
+            android:orientation="horizontal"
+            android:paddingStart="14dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp">
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:importantForAccessibility="no"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                app:srcCompat="@drawable/ic_tunnl_qr"
+                app:tint="@color/tunnl_signal" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:layout_weight="1"
+                android:importantForAccessibility="noHideDescendants"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/TunnlMonoValueText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/create_from_qr_code"
+                    android:textSize="14sp" />
+
+                <TextView
+                    style="@style/TunnlMonoSubText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="@string/tunnl_add_sheet_qr_subtitle" />
+            </LinearLayout>
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:importantForAccessibility="no"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                app:srcCompat="@drawable/ic_tunnl_chevron_right"
+                app:tint="@color/tunnl_ink_3" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/create_from_file"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="74dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/tunnl_add_sheet_option_background"
+            android:importantForAccessibility="yes"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:nextFocusUp="@id/create_from_qrcode"
+            android:nextFocusDown="@id/create_empty"
+            android:nextFocusForward="@id/create_empty"
+            android:orientation="horizontal"
+            android:paddingStart="14dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp">
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:importantForAccessibility="no"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                app:srcCompat="@drawable/ic_tunnl_file"
+                app:tint="@color/tunnl_ink_2" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:layout_weight="1"
+                android:importantForAccessibility="noHideDescendants"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/TunnlMonoValueText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/create_from_file"
+                    android:textSize="14sp" />
+
+                <TextView
+                    style="@style/TunnlMonoSubText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="@string/tunnl_add_sheet_file_subtitle" />
+            </LinearLayout>
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:importantForAccessibility="no"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                app:srcCompat="@drawable/ic_tunnl_chevron_right"
+                app:tint="@color/tunnl_ink_3" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/create_empty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="74dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/tunnl_add_sheet_option_background"
+            android:importantForAccessibility="yes"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:gravity="center_vertical"
+            android:nextFocusUp="@id/create_from_file"
+            android:orientation="horizontal"
+            android:paddingStart="14dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="12dp"
+            android:paddingBottom="12dp">
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:importantForAccessibility="no"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                app:srcCompat="@drawable/ic_tunnl_key"
+                app:tint="@color/tunnl_ink_2" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
+                android:layout_weight="1"
+                android:importantForAccessibility="noHideDescendants"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/TunnlMonoValueText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/create_empty"
+                    android:textSize="14sp" />
+
+                <TextView
+                    style="@style/TunnlMonoSubText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:text="@string/tunnl_add_sheet_manual_subtitle" />
+            </LinearLayout>
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:importantForAccessibility="no"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                app:srcCompat="@drawable/ic_tunnl_chevron_right"
+                app:tint="@color/tunnl_ink_3" />
+        </LinearLayout>
+
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

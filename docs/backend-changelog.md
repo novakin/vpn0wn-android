@@ -48,6 +48,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **Peer statistics presentation ownership — 2026-10-06**
+  `TunnelDetailFragment.updateStats` publishes nullable immutable peer snapshots to DataBinding by public key. Observed DOWN clears peer rows without fetching backend statistics; failure clears counters/handshake together, and delayed success requires the same view, selected tunnel, resumed lifecycle and captured state. `BindingAdapters` reuses `QuantityFormatter` for separate RX/TX byte totals and compact handshake age. This protects peer projection; it does not add a model/session generation guard to `TunnelManager`'s statistics cache. Config, import and backend transition contracts are unchanged. See [Add/peer verification and limits](development.md#add-sheet-and-peer-presentation-recovery--2026-10-06).
+
 - **Recovered log pipeline and export ownership — 2026-10-06**
   `LogLineParser.parse` handles threadtime with numeric/named UID, preserves native severity filters and leaves continuation rows to `LogBuffer.append`. `LogcatStream.read` separates blocking reads from fixed-deadline delivery and destroys its own process before joining the reader. `LogViewerActivity.applyLogBatch` checks generation on Main; `LogBuffer` owns raw/parsed retention, continuation bounds and filtered indices. Export snapshots on Main, encodes off Main and closes the native pipe stream on every write outcome; fixed I/O diagnostics disclose no exception payload. Initial history is limited to 500 rows, restarted streams to 50. #33 recovery is included in this source tree; [PR #39](https://github.com/novakin/wireguard-android/pull/39) tracks integration. APK/device delivery remains separate. See [behavior and limits](operations.md#diagnostics-and-evidence), [QA](qa-test-plan.md#jvm-unit-tests) and [verification](development.md#log-pipeline-recovery--2026-10-06).
 

@@ -263,4 +263,9 @@
     <string name="tunnl_settings_section_data">§03 DATE · BACKUP</string>
     <string name="tunnl_settings_section_appearance">§04 ASPECT · APLICAȚIE</string>
     <string name="tunnl_settings_section_about">§05 DESPRE · PROIECT</string>
+
+    <string name="tunnl_add_sheet_title">ADAUGĂ TUNEL · ALEGE SURSA</string>
+    <string name="tunnl_add_sheet_qr_subtitle">Cameră</string>
+    <string name="tunnl_add_sheet_file_subtitle">Din fișiere</string>
+    <string name="tunnl_add_sheet_manual_subtitle">Generează pereche de chei · introdu manual</string>
 </resources>

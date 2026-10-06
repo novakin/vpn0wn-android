@@ -289,4 +289,9 @@
     <string name="tunnl_settings_section_data">§03 ДАНІ · РЕЗЕРВНА КОПІЯ</string>
     <string name="tunnl_settings_section_appearance">§04 ВИГЛЯД · ЗАСТОСУНОК</string>
     <string name="tunnl_settings_section_about">§05 ПРО · ПРОЄКТ</string>
+
+    <string name="tunnl_add_sheet_title">ДОДАТИ ТУНЕЛЬ · ВИБРАТИ ДЖЕРЕЛО</string>
+    <string name="tunnl_add_sheet_qr_subtitle">Камера</string>
+    <string name="tunnl_add_sheet_file_subtitle">З файлів</string>
+    <string name="tunnl_add_sheet_manual_subtitle">Створити пару ключів · ввести вручну</string>
 </resources>

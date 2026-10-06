@@ -26,7 +26,6 @@ import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.databinding.TunnelDetailFragmentBinding
 import com.wireguard.android.databinding.TunnelDetailPeerBinding
 import com.wireguard.android.model.ObservableTunnel
-import com.wireguard.android.util.QuantityFormatter
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -162,7 +161,7 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
         if (state != Tunnel.State.UP && lastState != null && lastState == state) return
         lastState = state
         val statistics = try {
-            tunnel.getStatisticsAsync()
+            if (state == Tunnel.State.UP) tunnel.getStatisticsAsync() else null
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -172,41 +171,17 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
             for (i in 0 until binding.peersLayout.childCount) {
                 val peer: TunnelDetailPeerBinding = DataBindingUtil.getBinding(binding.peersLayout.getChildAt(i))
                     ?: continue
-                peer.transferLabel.visibility = View.GONE
-                peer.transferText.visibility = View.GONE
-                peer.latestHandshakeLabel.visibility = View.GONE
-                peer.latestHandshakeText.visibility = View.GONE
+                peer.statistics = null
             }
             return
         }
-        if (this.binding !== binding || binding.tunnel !== tunnel || !isResumed)
+        if (this.binding !== binding || binding.tunnel !== tunnel || tunnel.state != state || !isResumed)
             return
         for (i in 0 until binding.peersLayout.childCount) {
             val peer: TunnelDetailPeerBinding = DataBindingUtil.getBinding(binding.peersLayout.getChildAt(i))
                 ?: continue
             peer.peerTitle.text = "PEER #${(i + 1).toString().padStart(2, '0')}"
-            val publicKey = peer.item!!.publicKey
-            val peerStats = statistics.peer(publicKey)
-            if (peerStats == null || (peerStats.rxBytes == 0L && peerStats.txBytes == 0L)) {
-                peer.transferLabel.visibility = View.GONE
-                peer.transferText.visibility = View.GONE
-            } else {
-                peer.transferText.text = getString(
-                    R.string.transfer_rx_tx,
-                    QuantityFormatter.formatBytes(peerStats.rxBytes),
-                    QuantityFormatter.formatBytes(peerStats.txBytes)
-                )
-                peer.transferLabel.visibility = View.VISIBLE
-                peer.transferText.visibility = View.VISIBLE
-            }
-            if (peerStats == null || peerStats.latestHandshakeEpochMillis == 0L) {
-                peer.latestHandshakeLabel.visibility = View.GONE
-                peer.latestHandshakeText.visibility = View.GONE
-            } else {
-                peer.latestHandshakeText.text = QuantityFormatter.formatEpochAgo(peerStats.latestHandshakeEpochMillis)
-                peer.latestHandshakeLabel.visibility = View.VISIBLE
-                peer.latestHandshakeText.visibility = View.VISIBLE
-            }
+            peer.statistics = peer.item?.publicKey?.let { statistics?.peer(it) }
         }
     }
 

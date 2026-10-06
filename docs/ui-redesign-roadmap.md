@@ -402,6 +402,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
+- [x] **Add sheet and peer presentation recovery — 2026-10-06:** `AddTunnelsSheet` restores QR-first accent, file/manual ordering, localized subtitles, header and drag handle through the existing actions. Wrapping rows, native button semantics and a scrolling container accommodate large text and short screens; chevrons mirror in RTL. `tunnel_detail_peer.xml` binds separate localized RX/TX totals and handshake text from nullable peer snapshots, with 48dp copy targets. Missing/zero data and observed DOWN clear whole rows; selection/view/state guards reject stale peer projection. [Verification and pending phone acceptance](development.md#add-sheet-and-peer-presentation-recovery--2026-10-06) separate source recovery from device delivery.
+
 - [x] **Settings source recovery — 2026-10-06:** `SettingsActivity`, preference XML and row/category layouts recover the custom two-row header and supported native sections. Back has a labeled 48dp target and a mirrored chevron. Settings, Home and Creator reuse the same view-owned system-bar/cutout inset handler. Empty categories are removed after API/admin/backend filtering; the Connection section waits for backend/root eligibility. Seven labels are recovered in 36 resource sets; WireGuard version/link/branding and merged feedback owners remain intact. [Verification and remaining device proof](development.md#settings-presentation-recovery--2026-10-06) distinguish source recovery from delivery.
 - [x] Detail view/selection ownership — 2026-10-06: `TunnelDetailFragment` clears old config on selection, cancels view jobs on destruction and guards delayed config/statistics completions. #13 merged in PR #25; this functional repair changes no visual specification. See [verification](development.md#tunnel-lifecycle-and-transition-settlement--2026-10-06).
 
@@ -415,7 +417,7 @@ This is a historical implementation ledger, not newly executed build/device proo
 - [x] Home tunnel card: card structure, signal rail, Tunnl-styled background, mono tunnel name, address→endpoint sub-text, PSK badge row, stats (↓ IN / ↑ OUT / HANDSHAKE) with real data binding.
 - [x] Tunnel statistics binding: `ObservableTunnel` supplies snapshots; `BindingAdapters.tunnelRate` owns delta samples. Idle-rate correction remains C7.
 - [x] `TunnelSignalView` implemented (home card mini-diagram): animated packet, state-driven colors.
-- [x] Add tunnel bottom sheet: 3 outlined `MaterialButton` tiles, Tunnl-styled (paper_2 background, signal icon tint, rule border).
+- [x] Initial Add tunnel bottom sheet used three outlined `MaterialButton` tiles. Superseded by the localized, wrapping source rows in the 2026-10-06 recovery above.
 - [x] Log viewer: `ChipGroup` level filters (ALL / DEBUG / INFO / WARN / ERROR), dark background, JetBrains Mono entries.
 - [x] Detail/editor/settings surfaces: `tunnl_paper` backgrounds applied.
 - [x] `TunnelThroughputView` implemented (detail hero): dot grid, dimension lines, wire path with dashed encrypted segment rect, bidirectional animated packets, node labels, footer rates.
@@ -487,8 +489,8 @@ This is a historical implementation ledger, not newly executed build/device proo
 - [~] **Protection labels are heuristics** — home aggregation accepts any recent-handshake UP tunnel. It does not prove all peers, routes or multi-tunnel traffic are protected; C4/C10 and the multi-tunnel proposals retain this limit.
 
 - [~] **Backend-specific error reasons not surfaced** — the UI now has red `✕ NO SIGNAL` for unreachable/no-handshake, but `BackendException` is still thrown/caught without being stored on `ObservableTunnel`; there is no `State.ERROR` carrying causes like VPN authorization or tun creation failure.
-- [~] Add tunnel bottom sheet: structure done — **gaps:** button order is file→QR→empty (should be QR first as accent, then file, then manual); no subtitle text under each option; no `ADD TUNNEL · CHOOSE SOURCE` header label; no drag handle.
-- [~] Detail peer card: **remaining gaps:** no peer label name in card header (peers have no label in WireGuard config format — not fixable without format extension); no live handshake badge in header (`TunnelDetailFragment` updates these imperatively post-bind, wiring to XML binding requires a larger refactor); peer live stats is combined text `rx: X, tx: Y` rather than JSX 2-column `↓ RX` / `↑ TX` grid; PSK badge missing `IconLock` icon (plain `PSK` text only).
+- [~] Add sheet follows the recovered native adaptation: QR accent, existing action names and concise localized subtitles; no timing or multi-file-picker claim. The full prototype's card/icon framing and physical system-bar/keyboard output remain unverified; phone acceptance is pending below.
+- [~] Detail peer card: no peer label name in the header because WireGuard configs have no label field; the live handshake remains a row rather than a header badge, and PSK has no `IconLock`. Separate RX/TX totals are now implemented. Received/sent subtitles and the prototype's cell divider remain deferred.
 - [~] **eng-corners bracket decorations outside VPS** — `VpsCornerLayout` now implements the JSX 8×8px corner ticks for VPS deploy cards/action tiles. Some older XML surfaces still use plain card backgrounds and need a reusable XML-friendly wrapper or foreground drawable before this is complete app-wide.
 - [~] Editor ADD PEER button: solid border — true CSS `dashed` border requires custom `ShapeDrawable` with `DashPathEffect`; MaterialButton `strokeWidth` only does solid.
 - [~] **Self-hosted fleet data is partially live** — native screens now render persisted `VpsServerStore` records, but live SSH detect/plan/install/sync/add-peer/revoke/remove results are not yet connected to the UI action handlers.
@@ -509,16 +511,13 @@ This is a historical implementation ledger, not newly executed build/device proo
 - [ ] Add Share button to detail toolbar (Edit icon already exists — place Share + More alongside it in the redesigned TopBar above).
 - [ ] Add More button to detail toolbar: add `ic_tunnl_more` drawable (vertical `⋮`, 3 dots); wire to `MoreSheet`.
 - [ ] **Status card subtitle = session timer** — JSX shows `session MM:SS` counting up from when the tunnel went UP (`LiveTimer` component, 1s interval). Android `setDetailStatusSubtitleTunnel` shows `tunnelHandshake()` = handshake age. Different data. Implementation: track `tunnelUpSince: Long?` in `TunnelDetailFragment`; set to `SystemClock.elapsedRealtime()` when `tunnel.state` transitions to `UP`; launch a 1s coroutine in `onResume` that formats `(now - tunnelUpSince)` as `MM:SS` and sets `binding.tunnelStatusSubtitle.text = "session $formatted"`; cancel in `onPause`. When not UP, fall back to current `setDetailStatusSubtitleTunnel` binding.
-- [ ] **Peer live stats 2-col grid** — current `tunnel_detail_peer.xml` shows a combined `TRANSFER` row (`rx: X MB, tx: Y KB`). JSX `PeerCard` shows separate `↓ RX` / `↑ TX` cells as a 2-column grid (matching the detail `BigStat` pattern). Rework the stats section of `tunnel_detail_peer.xml` to a horizontal `LinearLayout` with two equal-weight columns: left = `↓ RX` label + `fmtBytes(rx)` value; right = `↑ TX` label + `fmtBytes(tx)` value. Keep existing `latest_handshake` row alongside.
 - [ ] **Copy icon button UX** — JSX `ConfigRow` with `copy` prop renders a dedicated 28×28 icon button (right-aligned) that flashes `tunnl_signal` background for 1100ms on press. Android uses `ClipboardUtils::copyTextView` on the value `TextView` itself (no visual indicator). Consider adding a small copy icon `ImageView` to `TunnlDetailRow` style rows or at minimum a ripple + `TunnlSnackbar` confirmation consistent with existing snackbar styling.
 - [ ] **PSK badge lock icon** — `tunnel_detail_peer.xml` shows plain `PSK` text. JSX shows `<IconLock size={10}/> PSK` pill badge. Add `ic_tunnl_lock` (or use existing Material lock drawable) as a leading `ImageView` inside the PSK badge container.
 - [ ] `MoreSheet` bottom sheet (see §8).
 - [ ] `ShareSheet` bottom sheet (see §8).
 
 **Add Sheet:**
-- [ ] Reorder buttons: QR first (accent/highlighted), then file, then manual.
-- [ ] Add subtitle text under each option (e.g. "Camera · ~2s", "From files · multiple OK").
-- [ ] Add `ADD TUNNEL · CHOOSE SOURCE` header label and drag handle.
+- [ ] Inspect recovered #35 Add/peer output on the physical phone: each import/manual action, dismissal and cancellation/error feedback, camera absence, keyboard/cutout/gesture clearance, copying and live RX/TX clearing in both themes, rotation, large text and RTL. Native JVM content previews do not prove those platform/VPN boundaries.
 
 **Editor:**
 - [ ] ADD PEER button: MaterialButton stroke is solid — true dashed border requires custom drawable background (minor gap).

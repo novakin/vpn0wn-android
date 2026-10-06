@@ -263,4 +263,9 @@
     <string name="tunnl_settings_section_data">§03 DATOS · COPIA</string>
     <string name="tunnl_settings_section_appearance">§04 APARIENCIA · APP</string>
     <string name="tunnl_settings_section_about">§05 ACERCA DE · PROYECTO</string>
+
+    <string name="tunnl_add_sheet_title">AÑADIR TÚNEL · ELEGIR ORIGEN</string>
+    <string name="tunnl_add_sheet_qr_subtitle">Cámara</string>
+    <string name="tunnl_add_sheet_file_subtitle">Desde archivos</string>
+    <string name="tunnl_add_sheet_manual_subtitle">Generar par de claves · introducir manualmente</string>
 </resources>

@@ -148,4 +148,9 @@
     <string name="tunnl_settings_section_data">§03 ΔΕΔΟΜΕΝΑ · ΑΝΤΙΓΡΑΦΑ</string>
     <string name="tunnl_settings_section_appearance">§04 ΕΜΦΑΝΙΣΗ · ΕΦΑΡΜΟΓΗ</string>
     <string name="tunnl_settings_section_about">§05 ΣΧΕΤΙΚΑ · ΕΡΓΟ</string>
+
+    <string name="tunnl_add_sheet_title">ΠΡΟΣΘΗΚΗ TUNNEL · ΕΠΙΛΟΓΗ ΠΗΓΗΣ</string>
+    <string name="tunnl_add_sheet_qr_subtitle">Κάμερα</string>
+    <string name="tunnl_add_sheet_file_subtitle">Από αρχεία</string>
+    <string name="tunnl_add_sheet_manual_subtitle">Δημιουργία ζεύγους κλειδιών · χειροκίνητη εισαγωγή</string>
 </resources>

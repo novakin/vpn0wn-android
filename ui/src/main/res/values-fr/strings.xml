@@ -439,4 +439,9 @@
     <string name="tunnl_settings_section_data">§03 DONNÉES · SAUVEGARDE</string>
     <string name="tunnl_settings_section_appearance">§04 APPARENCE · APP</string>
     <string name="tunnl_settings_section_about">§05 À PROPOS · PROJET</string>
+
+    <string name="tunnl_add_sheet_title">AJOUTER TUNNEL · CHOISIR SOURCE</string>
+    <string name="tunnl_add_sheet_qr_subtitle">Caméra</string>
+    <string name="tunnl_add_sheet_file_subtitle">Depuis fichiers</string>
+    <string name="tunnl_add_sheet_manual_subtitle">Générer clé · saisie manuelle</string>
 </resources>

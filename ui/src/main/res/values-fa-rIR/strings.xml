@@ -265,4 +265,9 @@
     <string name="tunnl_settings_section_data">§03 داده‌ها · پشتیبان‌گیری</string>
     <string name="tunnl_settings_section_appearance">§04 ظاهر · برنامه</string>
     <string name="tunnl_settings_section_about">§05 درباره · پروژه</string>
+
+    <string name="tunnl_add_sheet_title">افزودن تونل · انتخاب منبع</string>
+    <string name="tunnl_add_sheet_qr_subtitle">دوربین</string>
+    <string name="tunnl_add_sheet_file_subtitle">از فایل‌ها</string>
+    <string name="tunnl_add_sheet_manual_subtitle">ساخت جفت‌کلید · ورود دستی</string>
 </resources>

@@ -315,4 +315,9 @@
     <string name="tunnl_settings_section_data">§03 البيانات · النسخ الاحتياطي</string>
     <string name="tunnl_settings_section_appearance">§04 المظهر · التطبيق</string>
     <string name="tunnl_settings_section_about">§05 حول · المشروع</string>
+
+    <string name="tunnl_add_sheet_title">إضافة نفق · اختر المصدر</string>
+    <string name="tunnl_add_sheet_qr_subtitle">الكاميرا</string>
+    <string name="tunnl_add_sheet_file_subtitle">من الملفات</string>
+    <string name="tunnl_add_sheet_manual_subtitle">إنشاء زوج مفاتيح · إدخال يدوي</string>
 </resources>

@@ -255,4 +255,9 @@
     <string name="tunnl_settings_section_data">§03 GEGEVENS · BACK-UP</string>
     <string name="tunnl_settings_section_appearance">§04 WEERGAVE · APP</string>
     <string name="tunnl_settings_section_about">§05 OVER · PROJECT</string>
+
+    <string name="tunnl_add_sheet_title">TUNNEL TOEVOEGEN · BRON KIEZEN</string>
+    <string name="tunnl_add_sheet_qr_subtitle">Camera</string>
+    <string name="tunnl_add_sheet_file_subtitle">Uit bestanden</string>
+    <string name="tunnl_add_sheet_manual_subtitle">Sleutelpaar genereren · handmatig invoeren</string>
 </resources>

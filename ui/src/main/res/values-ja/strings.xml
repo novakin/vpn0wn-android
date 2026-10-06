@@ -250,4 +250,9 @@
     <string name="tunnl_settings_section_data">§03 データ · バックアップ</string>
     <string name="tunnl_settings_section_appearance">§04 表示 · アプリ</string>
     <string name="tunnl_settings_section_about">§05 情報 · プロジェクト</string>
+
+    <string name="tunnl_add_sheet_title">トンネル追加 · ソース選択</string>
+    <string name="tunnl_add_sheet_qr_subtitle">カメラ</string>
+    <string name="tunnl_add_sheet_file_subtitle">ファイルから</string>
+    <string name="tunnl_add_sheet_manual_subtitle">キーペア生成 · 手動入力</string>
 </resources>

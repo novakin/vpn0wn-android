@@ -289,4 +289,9 @@
     <string name="tunnl_settings_section_data">§03 DATA · ZÁLOHA</string>
     <string name="tunnl_settings_section_appearance">§04 VZHLED · APLIKACE</string>
     <string name="tunnl_settings_section_about">§05 O APLIKACI · PROJEKT</string>
+
+    <string name="tunnl_add_sheet_title">PŘIDAT TUNEL · VYBRAT ZDROJ</string>
+    <string name="tunnl_add_sheet_qr_subtitle">Kamera</string>
+    <string name="tunnl_add_sheet_file_subtitle">Ze souborů</string>
+    <string name="tunnl_add_sheet_manual_subtitle">Vygenerovat pár klíčů · zadat ručně</string>
 </resources>

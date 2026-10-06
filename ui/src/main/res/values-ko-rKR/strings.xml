@@ -250,4 +250,9 @@
     <string name="tunnl_settings_section_data">§03 데이터 · 백업</string>
     <string name="tunnl_settings_section_appearance">§04 모양 · 앱</string>
     <string name="tunnl_settings_section_about">§05 정보 · 프로젝트</string>
+
+    <string name="tunnl_add_sheet_title">터널 추가 · 소스 선택</string>
+    <string name="tunnl_add_sheet_qr_subtitle">카메라</string>
+    <string name="tunnl_add_sheet_file_subtitle">파일에서</string>
+    <string name="tunnl_add_sheet_manual_subtitle">키 쌍 생성 · 직접 입력</string>
 </resources>
