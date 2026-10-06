@@ -183,11 +183,11 @@ The table distinguishes merged C2–C4, all five merged priority repairs, merged
 
 ## Preserved local work recovery
 
-The [2026-10-06 preservation review](reviews/2026-10-06-local-work-recovery.md) separates merged master from the original checkout's 77 dirty entries. A verified local snapshot preserves 355 files, both APKs, tracked deletion/patch data and repository history. None of the dirty entries exactly matches merged master; 15 files overlap merged repairs and need hunk-level reconciliation. Preservation and tracking are complete; source recovery is not implemented or verified by this record.
+The [2026-10-06 preservation review](reviews/2026-10-06-local-work-recovery.md) separates merged master from the original checkout's 77 dirty entries. A verified local snapshot preserves 355 files, both APKs, tracked deletion/patch data and repository history. None of the dirty entries exactly matches merged master; 15 files overlap merged repairs and need hunk-level reconciliation. Preservation and tracking are complete. The log slice is now implemented on its recovery branch; the other slices remain queued. This preservation record itself does not prove source/runtime recovery; each slice owns its verification and merge status below.
 
 | Recovery slice | Owner and status |
 | --- | --- |
-| Log parser, sparse stream batching and export cleanup | [#33](https://github.com/novakin/wireguard-android/issues/33), queued; first slice within preserved work. |
+| Log parser, sparse stream batching and export cleanup | [#33](https://github.com/novakin/wireguard-android/issues/33), implemented and locally verified on `fix/log-recovery`; ultra code/docs review passed, unmerged. See [recovery evidence](development.md#log-pipeline-recovery--2026-10-06). |
 | Settings header/sections and native preference preservation | [#34](https://github.com/novakin/wireguard-android/issues/34), queued. |
 | Add sheet and peer RX/TX presentation | [#35](https://github.com/novakin/wireguard-android/issues/35), queued. |
 | Home selection and safe delete presentation | [#36](https://github.com/novakin/wireguard-android/issues/36), queued. |

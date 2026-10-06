@@ -48,6 +48,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **Recovered log pipeline and export ownership — 2026-10-06**
+  `LogLineParser.parse` handles threadtime with numeric/named UID, preserves native severity filters and leaves continuation rows to `LogBuffer.append`. `LogcatStream.read` separates blocking reads from fixed-deadline delivery and destroys its own process before joining the reader. `LogViewerActivity.applyLogBatch` checks generation on Main; `LogBuffer` owns raw/parsed retention, continuation bounds and filtered indices. Export snapshots on Main, encodes off Main and closes the native pipe stream on every write outcome; fixed I/O diagnostics disclose no exception payload. Initial history is limited to 500 rows, restarted streams to 50. #33 is implemented on the recovery branch; merge/device delivery remains separate. See [behavior and limits](operations.md#diagnostics-and-evidence), [QA](qa-test-plan.md#jvm-unit-tests) and [verification](development.md#log-pipeline-recovery--2026-10-06).
+
 - **Phone presentation and throughput follow-up — 2026-10-06**
   `TunnelManager.changeTunnelState` publishes the resolved target through `ObservableTunnel.onTransitionStarted`; state changes precede statistics notifications. Pending disconnect now renders off rather than yellow CONNECTING, while failure restores observed state and controls. `BindingAdapters.tunnelRate` distinguishes repeated bindings from fresh idle snapshots and clears its baseline when statistics disappears. Existing switch-mode binding owns checked/enabled/tint together. See [contracts](backend-contracts.md#persistence-and-presentation) and [verification](development.md#phone-ui-and-throughput-follow-up--2026-10-06). Shared safe-area and status-background corrections are recorded in the UI roadmap.
 
