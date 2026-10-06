@@ -64,6 +64,7 @@ Record consequential architecture decisions in `docs/architecture.md` and operat
 
 ## Work Tracking and Handoff
 
+- For an explicitly authorized ongoing goal, follow the named phase scope, acceptance and merge gates in `docs/improvement-plan.md`. Autonomous merging applies only to that authorized scope after independent review and required checks cover the final head. Track concrete new findings as issues; do not silently add them to the goal. APK, device and live-operation boundaries still apply.
 - The improvement plan owns priorities and bounded action states; issues own actionable acceptance, approval and dependencies; PRs own current change-specific acceptance. Link them instead of creating a competing backlog.
 - During the authorized GitHub workflow, check for duplicates and create/update an issue for concrete unresolved work. Include observed/expected behavior, impact, bounded scope, approval/dependencies and observable acceptance. Do not create speculative work or a separate issue for each small fix completed within the current PR.
 - Default new issues/PRs to `novakin`; preserve deliberate existing assignments and unrelated labels. Use existing repository labels matching scope. Read current fields, prefer additive changes and verify the write/readback; metadata belongs in GitHub fields, not duplicated mutable prose. Report rejected/unverified fields.
