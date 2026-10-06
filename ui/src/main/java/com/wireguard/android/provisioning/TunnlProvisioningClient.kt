@@ -102,7 +102,7 @@ class TunnlProvisioningClient(
                 append("; fi")
             }
         }
-        return client.execute(command).requireSuccess()
+        return ProvisioningJson.requireScriptSuccess(client.execute(command))
     }
 
     companion object {

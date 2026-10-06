@@ -10,7 +10,7 @@ require_root
 
 conf=$(cat "$WG_CONF")
 revoked_count=0
-[[ -d "$TUNNL_DIR/revoked" ]] && revoked_count=$(find "$TUNNL_DIR/revoked" -type f -name '*.conf' | wc -l)
+[[ -d "$TUNNL_DIR/revoked" ]] && revoked_count=$(find "$TUNNL_DIR/revoked" -type f \( -name '*.conf' -o -name '*.conf.*' \) | wc -l)
 
 printf '{"ok":true,"interface":%s,"config":%s,"revokedCount":%s}\n' \
   "$(json_string "$WG_IFACE")" \

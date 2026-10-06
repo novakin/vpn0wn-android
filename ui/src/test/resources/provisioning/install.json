@@ -1,0 +1,1 @@
+{"ok":true,"interface":"wg0","endpoint":"vpn.example","port":"51820","cidr":"10.8.0.0/24","serverPublicKey":"UFVCTElDLTEgICAgICAgICAgICAgICAgICAgICAgICA=","cleanupPath":""}

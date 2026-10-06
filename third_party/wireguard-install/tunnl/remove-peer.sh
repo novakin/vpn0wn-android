@@ -24,4 +24,4 @@ prepare_peer_removal "$name"
 apply_peer_config
 finish_mutation
 
-printf '{"ok":true,"removed":%s,"publicKey":%s,"cleanupPath":%s}\n' "$(json_string "$name")" "$(json_string "$REMOVED_PUBLIC_KEY")" "$(json_string "$CLEANUP_PATH")"
+printf '{"ok":true,"name":%s,"removed":true,"revoked":false,"publicKey":%s,"cleanupPath":%s}\n' "$(json_string "$name")" "$(json_string "$REMOVED_PUBLIC_KEY")" "$(json_string "$CLEANUP_PATH")"

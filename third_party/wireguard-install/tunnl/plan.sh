@@ -16,6 +16,7 @@ while [[ $# -gt 0 ]]; do
     --port) require_arg_value "$@"; port=$2; shift 2 ;;
     --cidr) require_arg_value "$@"; cidr=$2; shift 2 ;;
     --dns) require_arg_value "$@"; dns=$2; shift 2 ;;
+    --force) shift ;;
     *) fail_json "invalid_arg" "Unknown argument: $1" 64 ;;
   esac
 done

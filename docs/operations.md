@@ -36,7 +36,9 @@ Fleet screens render persisted non-secret records. Concrete Android SSH transpor
 
 The app-facing server scripts exist under `third_party/wireguard-install/tunnl/`, with narrow Ubuntu/Debian, `wg0`, IPv4 `/24`, IPv4 default-route and iptables NAT assumptions. Use their [current contracts and gaps](backend-contracts.md#provisioning-command-surface), not the upstream interactive installer, as the integration reference.
 
-The C2–C3 source repair rejects unmanaged state/config injection and adds serialized writes, checked runtime results and recovery. [Offline evidence](development.md#c2c3-offline-provisioning-safety--2026-10-06) does not establish real-server reliability. Android JSON/health contracts, the integration harness and real SSH/UI wiring remain unfinished. Installing or deleting server state is outside an ordinary source/docs task.
+The C2–C3 source repair rejects unmanaged state/config injection and adds serialized writes, checked runtime results and recovery. C4 aligns Android/script responses and safe errors, and persists observed health. [C2–C3 evidence](development.md#c2c3-offline-provisioning-safety--2026-10-06) and [C4 evidence](development.md#c4-provisioning-contracts-and-observed-health--2026-10-06) do not establish real-server reliability. The integration harness and real SSH/UI wiring remain unfinished. Installing or deleting server state is outside an ordinary source/docs task.
+
+Fleet ONLINE now requires a recent observed running interface; a fresh stopped observation is OFFLINE, and unknown/stale/future observations need ATTENTION. Legacy records retain their connection metadata with unknown health until status is observed. Recent sync and running are separate checks. These labels do not prove handshake, NAT, routing or connectivity; [backend contracts](backend-contracts.md#persistence-and-presentation) owns exact age thresholds.
 
 ## Provisioning mutation recovery
 
@@ -44,7 +46,7 @@ Read [script ownership and recovery](../third_party/wireguard-install/tunnl/READ
 
 On mutation failure, inspect `recovery`. `unchanged` means no config/runtime mutation required restoration; `restored` means observed disk/native runtime recovery completed, plus service-state recovery for install/uninstall. Peer recovery does not snapshot or verify prior systemd unit state. Neither result promises reversal of attempted package changes or global forwarding enable. `incomplete` means inspect the retained private `recoveryPath` and any `artifact` backup before retrying. Backup/runtime files and revoke archives contain private keys/PSKs: keep permissions private and never attach contents to issues.
 
-Success may have nonempty `cleanupPath` when committed behavior succeeded but private snapshot cleanup did not. Inspect/remove that residue only after checking current state and its recovery value. Do not retry the completed operation solely because cleanup remained. Existing Android models do not present these fields yet; C4 owns consumer alignment.
+Success may have nonempty `cleanupPath` when committed behavior succeeded but private snapshot cleanup did not. Inspect/remove that residue only after checking current state and its recovery value. Do not retry the completed operation solely because cleanup remained. Android result models retain cleanup metadata and failures expose safe categories/codes/recovery enums. Untrusted recovery paths and arbitrary remote messages are omitted from exceptions. Live UI presentation remains C12; an operator needs an authorized server inspection for retained paths/artifacts.
 
 Stopped peer mutations update saved config while leaving the interface absent; they do not prove live access removal or traffic health. SIGKILL, host loss, SSH timeout or a missing response leave uncertain outcomes until disk, service and actual peer state are reconciled. External tools can bypass Tunnl locks. No source/offline result authorizes production testing.
 

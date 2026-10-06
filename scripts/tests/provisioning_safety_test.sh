@@ -714,6 +714,137 @@ test_fixture_legacy_file_commands() {
   [[ ! -e "$TEST_ROOT/moved" ]]
 }
 
+check_contract_fixture() {
+  local name=$1 expected="$REPO_DIR/ui/src/test/resources/provisioning/$1.json"
+  sed -E "s|$TEST_ROOT|/fixture|g; s/\\.conf\\.[A-Za-z0-9]{6}/.conf.synthetic/g" "$TEST_ROOT/response" > "$TEST_ROOT/normalized"
+  if [[ ${TUNNL_UPDATE_CONTRACT_FIXTURES:-0} == 1 ]]; then
+    mkdir -p "$(dirname "$expected")"
+    /bin/cp "$TEST_ROOT/normalized" "$expected"
+  else
+    cmp -s "$TEST_ROOT/normalized" "$expected" || {
+      printf 'Script response disagrees with synthetic fixture: %s\n' "$name" >&2
+      return 1
+    }
+  fi
+}
+
+test_c4_response_fixtures() {
+  owned_config
+  run_script plan --endpoint vpn.example --force
+  assert_success
+  check_contract_fixture plan
+  run_script install --endpoint vpn.example --force
+  assert_success
+  check_contract_fixture install
+  run_script add-peer --name phone --allowed-ips '0.0.0.0/0'
+  assert_success
+  check_contract_fixture add-peer
+  run_script sync-status
+  assert_success
+  check_contract_fixture status-running
+  run_script remove-peer --name phone
+  assert_success
+  check_contract_fixture remove-peer
+  run_script remove-peer --name phone
+  assert_failure peer_not_found
+  check_contract_fixture error
+  run_script add-peer --name tablet --allowed-ips '0.0.0.0/0'
+  assert_success
+  run_script revoke-peer --name tablet
+  assert_success
+  check_contract_fixture revoke-peer
+  run_script backup
+  assert_success
+  check_contract_fixture backup
+  run_script uninstall --confirm
+  assert_success
+  check_contract_fixture uninstall
+}
+
+test_c4_native_observation() {
+  owned_config
+  printf '*' > "$TEST_STATE/fail-systemctl-is-active"
+  run_script sync-status
+  assert_success
+  [[ "$RESPONSE" == *'"running":true'* && "$RESPONSE" == *'"rxBytes":"1024"'* ]]
+  assert_no_mutations
+}
+
+test_c4_missing_counters() {
+  owned_config
+  printf 'synthetic-header\n' > "$TEST_STATE/dump"
+  run_script sync-status
+  assert_success
+  [[ "$RESPONSE" == *'"running":true'* && "$RESPONSE" == *'"rxBytes":null'* ]]
+  assert_no_mutations
+}
+
+test_c4_invalid_counters() {
+  owned_config
+  public=$(awk '$1 == "PublicKey" {print $3}' "$WG_CONF")
+  printf '%s\t(none)\t(none)\t10.8.0.2/32\tsecret-counter\t9223372036854775808\t-1\t25\n' "$public" > "$TEST_STATE/dump"
+  run_script sync-status
+  assert_success
+  [[ "$RESPONSE" == *'"latestHandshake":null,"rxBytes":null,"txBytes":null'* ]]
+  [[ "$RESPONSE" != *secret-counter* ]]
+  assert_no_mutations
+}
+
+test_c4_failed_dump_discards_stdout() {
+  owned_config
+  public=$(awk '$1 == "PublicKey" {print $3}' "$WG_CONF")
+  printf '%s\t(none)\t(none)\t10.8.0.2/32\t1710000000\t1024\t2048\t25\n' "$public" > "$TEST_STATE/dump"
+  touch "$TEST_STATE/dump-failed-output"
+  run_script sync-status
+  assert_success
+  [[ "$RESPONSE" == *'"running":true'* && "$RESPONSE" == *'"latestHandshake":null,"rxBytes":null,"txBytes":null'* ]]
+  ! grep -q 'synthetic-secret-tool-diagnostic' "$TEST_ROOT/response" "$TEST_ROOT/stderr"
+  assert_no_mutations
+  check_contract_fixture status-running-unknown
+}
+
+test_c4_force_plan() {
+  owned_config
+  run_script plan --endpoint vpn.example --force
+  assert_success
+  [[ "$RESPONSE" == *'"willOverwriteConfig":true'* ]]
+  assert_no_mutations
+}
+
+test_c4_remove_schema() {
+  owned_config
+  run_script remove-peer --name existing
+  assert_success
+  [[ "$RESPONSE" == *'"name":"existing"'* && "$RESPONSE" == *'"removed":true'* && "$RESPONSE" == *'"revoked":false'* ]]
+}
+
+test_c4_revoke_schema() {
+  owned_config
+  run_script revoke-peer --name existing
+  assert_success
+  [[ "$RESPONSE" == *'"name":"existing"'* && "$RESPONSE" == *'"removed":true'* && "$RESPONSE" == *'"revoked":true'* ]]
+}
+
+test_c4_unknown_observation() {
+  owned_config
+  printf '*' > "$TEST_STATE/fail-wg-show"
+  run_script sync-status
+  assert_success
+  [[ "$RESPONSE" == *'"running":null'* && "$RESPONSE" == *'"rxBytes":null'* ]]
+  check_contract_fixture status-unknown
+  assert_no_mutations
+}
+
+test_c4_stopped_observation() {
+  owned_config
+  /bin/rm "$TEST_STATE/runtime.conf"
+  run_script sync-status
+  assert_success
+  [[ "$RESPONSE" == *'"running":false'* && "$RESPONSE" == *'"latestHandshake":null'* ]]
+  check_contract_fixture status-stopped
+  assert_no_mutations
+}
+
 if [[ ${1-} == --case ]]; then
   setup
   "$2"
@@ -721,6 +852,10 @@ if [[ ${1-} == --case ]]; then
 fi
 
 tests=(
+  test_c4_force_plan test_c4_remove_schema test_c4_revoke_schema
+  test_c4_unknown_observation test_c4_stopped_observation
+  test_c4_response_fixtures test_c4_native_observation test_c4_missing_counters test_c4_invalid_counters
+  test_c4_failed_dump_discards_stdout
   test_c2_unmanaged_uninstall test_c2_unmanaged_force_install test_c2_symlink_config
   test_c2_unmanaged_peer_mutations test_c2_endpoint_injection test_c2_dns_injection
   test_c2_peer_input_injection test_c2_missing_values test_c2_foreign_forwarding_file

@@ -12,6 +12,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
+import org.json.JSONException
 import org.json.JSONObject
 
 data class StoredVpsServer(
@@ -30,6 +31,7 @@ data class StoredVpsServer(
     val region: String = "",
     val engine: String = "",
     val lastSyncEpochSeconds: Long = 0L,
+    val running: Boolean? = null,
 )
 
 class VpsServerStore(private val dataStore: DataStore<Preferences>) {
@@ -64,6 +66,7 @@ class VpsServerStore(private val dataStore: DataStore<Preferences>) {
                         cidr = status.cidr,
                         dns = status.dns,
                         lastSyncEpochSeconds = syncedAtEpochSeconds,
+                        running = status.running,
                     )
                 }
             }
@@ -75,8 +78,8 @@ class VpsServerStore(private val dataStore: DataStore<Preferences>) {
         if (value.isBlank()) return emptyList()
         val array = try {
             JSONArray(value)
-        } catch (e: Throwable) {
-            Log.w(TAG, "Ignoring corrupt VPS server store payload", e)
+        } catch (_: JSONException) {
+            Log.w(TAG, "Ignoring corrupt VPS server store payload")
             return emptyList()
         }
         return buildList {
@@ -99,6 +102,7 @@ class VpsServerStore(private val dataStore: DataStore<Preferences>) {
                         region = json.optString("region"),
                         engine = json.optString("engine"),
                         lastSyncEpochSeconds = json.optLong("lastSyncEpochSeconds"),
+                        running = json.opt("running") as? Boolean,
                     ),
                 )
             }
@@ -124,7 +128,8 @@ class VpsServerStore(private val dataStore: DataStore<Preferences>) {
                     .put("provider", server.provider)
                     .put("region", server.region)
                     .put("engine", server.engine)
-                    .put("lastSyncEpochSeconds", server.lastSyncEpochSeconds),
+                    .put("lastSyncEpochSeconds", server.lastSyncEpochSeconds)
+                    .put("running", server.running ?: JSONObject.NULL),
             )
         }
         return array.toString()
