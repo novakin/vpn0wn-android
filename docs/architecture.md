@@ -78,6 +78,12 @@ See [backend contracts](backend-contracts.md) for known divergences and [the pla
 
 ## Consequential decisions
 
+### Retain compatible UDP warm-up behavior
+
+2026-10-07 (Europe/Paris), #37 recovery decision. Problem: the preserved local experiment makes warm-up mandatory, substitutes a random native ListenPort and removes merged service-liveness/identity handling. Decision/status: retain GoBackend's existing preflight, config serialization and native-transition owners without porting the experiment. Recovery authorization covers this compatibility review, not a new mandatory rejection or forced-port policy.
+
+Alternatives were copying the old complete file, selectively retaining extra packet/sleep behavior, or introducing configurable warm-up strategies. They either regress supported profiles/lifecycle settlement or add unproven behavior and maintenance surface. Consequences: endpoint-free eligibility and explicit ListenPort remain intact; expected warm-up I/O stays best effort. No format migration or new error/locales are needed. Native handoff, NAT, reconnect and performance remain unproven; revisit only with a concrete measured requirement and separately authorized compatibility decision. [Full source comparison and verification limits](reviews/2026-10-07-udp-compatibility-review.md) own the evidence.
+
 ### Tunnel mutations own admission and settlement
 
 2026-10-06 (Europe/Paris), merged in PR #25. Independent caller jobs and cached no-op decisions could delete during activation, apply stale state snapshots or abandon reconciliation. The existing TunnelManager owns one coroutine mutex for mutations/state reads. Waiting admission is cancellable; admitted work runs noncancellable until backend/store/model settlement. Explicit state decisions observe the backend inside that owner. Notifications reconcile actual backend state while preserving restoration intent after spontaneous service loss. Backend switching reserves admission through restart or preference rollback. Inventory/backend initialization settles deferred failures and cancellation; failed inventory can retry. Detail jobs bind to the view and check selection identity.
