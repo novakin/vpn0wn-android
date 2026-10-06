@@ -17,7 +17,7 @@ The review covered Android UI/model/services, VPN/config/native integration, pro
 
 These are engineering judgments from static review. They are not measured test scores or a security certification. Ratings remain unchanged until implementation has supporting evidence.
 
-This change documents the plan and links it from README. Instruction rewrites, contribution templates, new owning guides and runtime fixes remain planned. No runtime code, dependencies or operational systems are changed by this planning task.
+The initial checkpoint documented the plan and linked it from README. Implementation is now tracked in the delivery table and [development evidence](development.md#recorded-verification). [Issue #5](https://github.com/novakin/wireguard-android/issues/5) and [draft PR #6](https://github.com/novakin/wireguard-android/pull/6) cover the first workflow/privacy slice; other actions remain open.
 
 Preserve unrelated work, `.design/` as read-only reference, upstream attribution and existing architecture. APK builds run only when explicitly requested. Live/destructive VPS validation requires explicit authorization for a disposable environment and must remain outside default checks. A local change does not imply a commit, push, merge, release or deployment.
 
@@ -61,12 +61,12 @@ This file owns the improvement priorities and action states. The UI roadmap owns
 | Order | Actions | Status | Start condition | Acceptance boundary |
 | --- | --- | --- | --- | --- |
 | 0 | Document plan and README entry | Documented | Completed repository review. | Plan is discoverable, links resolve and unrelated work is preserved. |
-| 1 | A1, minimum D1/D2 workflow | Planned | Planning change reviewed; implementation task begins. | Canonical instructions, doc ownership and contribution workflow are clear. |
-| 2 | C1–C3 privacy and provisioning safety | Planned | Reproduce each defect with synthetic inputs or controlled failure injection. | Secrets stay out of logs; unmanaged state survives; mutations report honest outcomes and preserve recovery. |
+| 1 | A1, D1/D2 workflow | Implemented and locally verified | Requested implementation begun. | Canonical instructions, owning guides, contribution templates, labels/assignees and mandatory PR descriptions are established. |
+| 2 | C1–C3 privacy and provisioning safety | C1 in progress; C2–C3 planned | Reproduce each defect with synthetic inputs or controlled failure injection. | Secrets stay out of logs; unmanaged state survives; mutations report honest outcomes and preserve recovery. |
 | 3 | C4–C6 contracts and state/lifecycle | Planned | Affected behavior and compatibility requirements are traced. | Producer/consumer contracts agree; transitions settle; no orphaned VPN or main-thread shutdown wait. |
 | 4 | C7–C10 UI correctness and proof | Planned | Relevant behavior fixes and deterministic fixtures are available. | Focused regressions pass; affected output is checked at supported sizes and configurations. |
 | 5 | C11–C12 real SSH and feature wiring | Planned | Library decision recorded; provisioning safety/contracts repaired. | Real transport owns deadlines/cancellation; UI and QR/import use actual validated results. |
-| Throughout | Complete D1/D2 with affected changes | Planned | An owning fact or workflow changes. | Source, tests and owning documentation agree in the same change. |
+| Throughout | Maintain D1/D2 with affected changes | Ongoing | An owning fact or workflow changes. | Source, tests and owning documentation agree in the same change. |
 
 Minimal process work comes first. Urgent safety fixes need not wait for the entire documentation set. Tests and documentation travel with each fix rather than becoming a later cleanup phase.
 
@@ -79,6 +79,7 @@ The revised contract must:
 - Discover the active branch and worktree instead of relying on the stale `ui-redesign` branch claim.
 - Keep Fragments/adapters responsible for presentation, models/backends for VPN state, provisioning client for remote orchestration and stores for persistence.
 - Extend existing owners and native APIs first. Explain a new dependency or abstraction through a concrete requirement and maintenance tradeoff.
+- Avoid code golf and overengineering. Use clear names and straightforward control flow; add a helper, type, setting or layer only for a concrete requirement or invariant. Optimize total complexity and ownership rather than line count.
 - Apply Kotlin-first guidance to touched Android behavior without requiring incidental rewrites of upstream Java/native code.
 - Preserve config, persisted-data and script/JSON compatibility. Replace the blanket ban on compatibility shims with a rule against unused code and unjustified permanent shims.
 - Handle expected failures where their meaning is known. Never turn denied access, parsing failure or an unreachable server into empty/successful state.
@@ -100,10 +101,10 @@ Acceptance: instruction files are byte-for-byte identical; every named path/comm
 | Document | Ownership and planned change |
 | --- | --- |
 | [README.md](../README.md) | Entry point, current Tunnl capabilities and documentation index. Preserve upstream attribution; distinguish official WireGuard distribution links from this fork's delivery state. |
-| `docs/architecture.md` — planned | Module ownership, UI/model/backend and provisioning data flows, persistence/privilege boundaries and consequential decisions with alternatives and limits. |
-| `docs/development.md` — planned | Setup, repository-native checks, test ownership, contribution/merge workflow and dated verification evidence. |
-| `docs/operations.md` — planned | Import/connect/export, permissions, backend selection, diagnostics and recovery. Label incomplete VPS workflows accurately. |
-| `docs/backend-contracts.md` — planned | Tunnel transitions, supported config behavior, provisioning arguments/JSON, failure/cancellation meaning and compatibility boundaries. |
+| [Architecture](architecture.md) | Module ownership, UI/model/backend and provisioning data flows, persistence/privilege boundaries and consequential decisions with alternatives and limits. |
+| [Development](development.md) | Setup, repository-native checks, test ownership, contribution/merge workflow and dated verification evidence. |
+| [Operations](operations.md) | Import/connect/export, permissions, backend selection, diagnostics and recovery. Label incomplete VPS workflows accurately. |
+| [Backend contracts](backend-contracts.md) | Tunnel transitions, supported config behavior, provisioning arguments/JSON, failure/cancellation meaning and compatibility boundaries. |
 | [UI roadmap](ui-redesign-roadmap.md) | Keep visual specification, design tokens, fidelity gaps and feature detail. Distinguish rendered screens from working backend actions. |
 | [Backend changelog](backend-changelog.md) | Keep functional history and explicit integration gaps. Replace duplicated improvement status with links to action IDs when implemented. |
 | [QA test plan](qa-test-plan.md) | Keep layer/coverage requirements and opt-in VPS use case. List implemented coverage only when tests exist; record execution evidence in development documentation. |
@@ -115,9 +116,9 @@ Acceptance: each detailed fact has one owner; README reaches every guide; exampl
 
 ## D2 — Contribution templates, merge workflow and hygiene
 
-Create the following small GitHub templates:
+The following GitHub templates are implemented:
 
-| Planned file | Required fields |
+| File | Required fields |
 | --- | --- |
 | `.github/ISSUE_TEMPLATE/bug_report.md` | Revision, Android/API/backend/environment, reproduction, expected/observed behavior, sanitized evidence and impact. Include server OS/script context only when relevant. |
 | `.github/ISSUE_TEMPLATE/improvement.md` | Concrete problem, smallest useful scope, existing assets to reuse, compatibility concerns, acceptance and relevant verification. |
@@ -193,4 +194,4 @@ Do not claim full completion while required commands are running or relevant pro
 
 Planning verification on 2026-10-06: 50 local Markdown/source links resolved; both changed documents passed fence and trailing-whitespace checks; `git diff --check` passed. `CLAUDE.md` and `AGENTS.md` remained byte-for-byte identical. A before/after content inventory confirmed 327 pre-existing paths outside README and command artifacts were unchanged. Only README and this new plan were edited; runtime fixes remain planned.
 
-Next implementation slice: A1 plus the minimum D1/D2 development/contribution guidance and templates. Then begin C1–C3 safety repairs with focused regressions and owning documentation. Keep broader feature wiring behind repaired provisioning contracts and the recorded SSH transport decision.
+Current delivery: A1/D1/D2 workflow plus C1 logging proof/fix in issue #5 and draft PR #6. Next after this slice: C2–C3 ownership/input and mutation safety repairs with focused regressions and owning documentation. Keep broader feature wiring behind repaired provisioning contracts and the recorded SSH transport decision.

@@ -1,4 +1,5 @@
 /.gradle/
+/.artifacts/
 /.kotlin/
 /.claude/
 /.design/
