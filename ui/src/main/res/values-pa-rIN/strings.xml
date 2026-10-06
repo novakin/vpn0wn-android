@@ -255,4 +255,12 @@
     <string name="biometric_prompt_private_key_title">ਪ੍ਰਾਈਵੇਟ ਕੁੰਜੀ ਵੇਖਣ ਲਈ ਪਰਮਾਣਕਿਤਾ</string>
     <string name="biometric_auth_error">ਪਰਮਾਣਿਤ ਕਰਨ ਲਈ ਅਸਫ਼ਲ</string>
     <string name="biometric_auth_error_reason">ਪਰਮਾਣਿਤ ਕਰਨ ਲਈ ਅਸਫ਼ਲ: %s</string>
+
+    <string name="tunnl_settings_title">ਸੈਟਿੰਗਾਂ</string>
+    <string name="tunnl_settings_subtitle">ਗਲੋਬਲ · ਐਪ ਕੰਟਰੋਲ</string>
+    <string name="tunnl_settings_section_connection">§01 ਕਨੈਕਸ਼ਨ · ਡਿਫਾਲਟ</string>
+    <string name="tunnl_settings_section_control">§02 ਕੰਟਰੋਲ · ਆਟੋਮੇਸ਼ਨ</string>
+    <string name="tunnl_settings_section_data">§03 ਡਾਟਾ · ਬੈਕਅੱਪ</string>
+    <string name="tunnl_settings_section_appearance">§04 ਦਿੱਖ · ਐਪ</string>
+    <string name="tunnl_settings_section_about">§05 ਬਾਰੇ · ਪ੍ਰੋਜੈਕਟ</string>
 </resources>

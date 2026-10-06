@@ -11,7 +11,10 @@ import android.content.Intent
 import android.net.Uri
 import android.util.AttributeSet
 import android.util.Log
+import android.widget.ImageView
+import androidx.core.widget.ImageViewCompat
 import androidx.preference.Preference
+import androidx.preference.PreferenceViewHolder
 import com.google.android.material.snackbar.Snackbar
 import com.wireguard.android.Application
 import com.wireguard.android.BuildConfig
@@ -33,6 +36,12 @@ class VersionPreference(context: Context, attrs: AttributeSet?) : Preference(con
     override fun getSummary() = versionSummary
 
     override fun getTitle() = context.getString(R.string.version_title, BuildConfig.VERSION_NAME)
+
+    override fun onBindViewHolder(holder: PreferenceViewHolder) {
+        super.onBindViewHolder(holder)
+        val icon = holder.findViewById(android.R.id.icon) as? ImageView ?: return
+        ImageViewCompat.setImageTintList(icon, null)
+    }
 
     override fun onClick() {
         val intent = Intent(Intent.ACTION_VIEW)

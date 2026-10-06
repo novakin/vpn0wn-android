@@ -255,4 +255,12 @@
     <string name="biometric_prompt_private_key_title">Godkänn för att visa tunnelns privata nycklar</string>
     <string name="biometric_auth_error">Fel vid godkännande</string>
     <string name="biometric_auth_error_reason">Fel vid godkännande: %s</string>
+
+    <string name="tunnl_settings_title">inställningar</string>
+    <string name="tunnl_settings_subtitle">GLOBALT · APPSTYRNING</string>
+    <string name="tunnl_settings_section_connection">§01 ANSLUTNING · STANDARDER</string>
+    <string name="tunnl_settings_section_control">§02 STYRNING · AUTOMATISERING</string>
+    <string name="tunnl_settings_section_data">§03 DATA · SÄKERHETSKOPIA</string>
+    <string name="tunnl_settings_section_appearance">§04 UTSEENDE · APP</string>
+    <string name="tunnl_settings_section_about">§05 OM · PROJEKT</string>
 </resources>

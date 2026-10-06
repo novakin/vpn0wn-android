@@ -231,4 +231,12 @@
     <string name="biometric_prompt_private_key_title">Autenticar para ver a chave privada</string>
     <string name="biometric_auth_error">Falha de autenticação</string>
     <string name="biometric_auth_error_reason">Falha de autenticação: %s</string>
+
+    <string name="tunnl_settings_title">definições</string>
+    <string name="tunnl_settings_subtitle">GLOBAL · CONTROLO DA APP</string>
+    <string name="tunnl_settings_section_connection">§01 LIGAÇÃO · PREDEFINIÇÕES</string>
+    <string name="tunnl_settings_section_control">§02 CONTROLO · AUTOMATIZAÇÃO</string>
+    <string name="tunnl_settings_section_data">§03 DADOS · CÓPIA</string>
+    <string name="tunnl_settings_section_appearance">§04 ASPETO · APP</string>
+    <string name="tunnl_settings_section_about">§05 ACERCA · PROJETO</string>
 </resources>

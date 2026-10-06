@@ -2,27 +2,29 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@color/tunnl_paper"
-    android:minHeight="64dp"
+    android:background="@drawable/tunnl_preference_item_background"
+    android:clipToPadding="false"
+    android:minHeight="62dp"
     android:orientation="horizontal"
-    android:paddingStart="16dp"
-    android:paddingTop="8dp"
-    android:paddingEnd="16dp"
-    android:paddingBottom="8dp">
+    android:paddingStart="14dp"
+    android:paddingTop="10dp"
+    android:paddingEnd="14dp"
+    android:paddingBottom="10dp">
 
     <FrameLayout
         android:id="@android:id/icon_frame"
-        android:layout_width="34dp"
+        android:layout_width="28dp"
         android:layout_height="match_parent"
         android:layout_marginEnd="12dp"
-        android:foregroundTint="@color/tunnl_signal">
+        android:foregroundTint="@color/tunnl_ink_2">
 
         <ImageView
             android:id="@android:id/icon"
-            android:layout_width="22dp"
-            android:layout_height="22dp"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
             android:layout_gravity="center"
-            android:tint="@color/tunnl_signal" />
+            android:importantForAccessibility="no"
+            android:tint="@color/tunnl_ink_2" />
     </FrameLayout>
 
     <LinearLayout
@@ -37,9 +39,10 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:fontFamily="@font/inter_tight"
+            android:includeFontPadding="false"
             android:textColor="@color/tunnl_ink"
             android:textSize="14sp"
-            android:textStyle="bold" />
+            android:textStyle="normal" />
 
         <TextView
             android:id="@android:id/summary"
@@ -47,8 +50,10 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="2dp"
             android:fontFamily="@font/jetbrains_mono_regular"
+            android:fontFeatureSettings="ss01, zero, tnum"
+            android:includeFontPadding="false"
             android:textColor="@color/tunnl_ink_3"
-            android:textSize="10sp" />
+            android:textSize="11sp" />
     </LinearLayout>
 
     <FrameLayout

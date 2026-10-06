@@ -140,4 +140,12 @@
     <string name="version_title">WireGuard για Android v%s</string>
     <string name="biometric_auth_error">Αποτυχία ελέγχου ταυτότητας</string>
     <string name="biometric_auth_error_reason">Αποτυχία ελέγχου ταυτότητας: %s</string>
+
+    <string name="tunnl_settings_title">ρυθμίσεις</string>
+    <string name="tunnl_settings_subtitle">ΚΑΘΟΛΙΚΑ · ΕΛΕΓΧΟΣ ΕΦΑΡΜΟΓΗΣ</string>
+    <string name="tunnl_settings_section_connection">§01 ΣΥΝΔΕΣΗ · ΠΡΟΕΠΙΛΟΓΕΣ</string>
+    <string name="tunnl_settings_section_control">§02 ΕΛΕΓΧΟΣ · ΑΥΤΟΜΑΤΙΣΜΟΣ</string>
+    <string name="tunnl_settings_section_data">§03 ΔΕΔΟΜΕΝΑ · ΑΝΤΙΓΡΑΦΑ</string>
+    <string name="tunnl_settings_section_appearance">§04 ΕΜΦΑΝΙΣΗ · ΕΦΑΡΜΟΓΗ</string>
+    <string name="tunnl_settings_section_about">§05 ΣΧΕΤΙΚΑ · ΕΡΓΟ</string>
 </resources>

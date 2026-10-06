@@ -103,4 +103,12 @@
     <string name="type_name_kernel_module">Kernel modul</string>
     <string name="unknown_error">Ismeretlen hiba</string>
     <string name="updater_corrupt_navigate">Weboldal megnyitása</string>
+
+    <string name="tunnl_settings_title">beállítások</string>
+    <string name="tunnl_settings_subtitle">GLOBÁLIS · APPVEZÉRLÉS</string>
+    <string name="tunnl_settings_section_connection">§01 KAPCSOLAT · ALAPÉRTELMEZÉSEK</string>
+    <string name="tunnl_settings_section_control">§02 VEZÉRLÉS · AUTOMATIZÁLÁS</string>
+    <string name="tunnl_settings_section_data">§03 ADATOK · BIZTONSÁGI MENTÉS</string>
+    <string name="tunnl_settings_section_appearance">§04 MEGJELENÉS · APP</string>
+    <string name="tunnl_settings_section_about">§05 NÉVJEGY · PROJEKT</string>
 </resources>

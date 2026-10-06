@@ -58,6 +58,8 @@ Use for deterministic logic that does not require a device.
 
 Use for Android resources, data binding, programmatic fragment UI, and lightweight view behavior.
 
+- `SettingsActivityTest`: native preference groups after API/admin/backend filtering, pending-backend header hiding, kernel action/root-probe eligibility, unchanged switch keys/defaults and values across recreation, log/Back navigation and a single restored fragment. A synthetic tile-success callback removes only the tile and leaves sections expanded; a binding control verifies the native WireGuard artwork has no generic row tint. Insets exercise all four sides, repeated dispatch, consumed system bars/cutouts and retained IME insets. Native Robolectric raster previews exercise 320dp English portrait and 2× Arabic RTL text under both night configurations, plus 640dp landscape in night mode; inspect previews locally. These controls use synthetic preferences and shadowed kernel/tools/tile checks, with no root, VPN, APK install, real tile request or export picker. Physical system bars, TalkBack and the full support matrix remain pending; see [Settings recovery evidence](development.md#settings-presentation-recovery--2026-10-06).
+
 - `VpsProvisioningFragment`:
   - empty fleet renders empty card and add-server button
   - step 1 renders host, port, user, and key fields
@@ -144,7 +146,7 @@ Required before merging UI or backend provisioning work.
 
 The phone presentation, Creator result and Snackbar tint suites are described under [JVM unit tests](#jvm-unit-tests); they are included in the inventory below.
 
-Source contains 32 test classes and 186 test methods: UI 29/170, tunnel 3/16, including merged #14/#13/#16/#15, the merged #22 suites, the phone follow-up and the #33 log recovery. The shared TunnelTestEnvironment fixture is not a test suite. This is an inventory, not an execution total. Guard tests use fake execute calls for timeout, I/O failure and cancellation propagation; they do not prove an entered SSH command, upload timeout or actual channel/session closure. Robolectric also covers detail-fragment selection/destruction and kernel-preference failure recovery; whole-app navigation/rendered-row proof remains separate.
+Source contains 33 test classes and 198 test methods: UI 30/182, tunnel 3/16, including merged #14/#13/#16/#15, the merged #22 suites, the phone follow-up, #33 log recovery and #34 Settings recovery source. The shared TunnelTestEnvironment fixture is not a test suite. This is an inventory, not an execution total. Guard tests use fake execute calls for timeout, I/O failure and cancellation propagation; they do not prove an entered SSH command, upload timeout or actual channel/session closure. Robolectric also covers detail-fragment selection/destruction, kernel-preference failure recovery and bounded Settings navigation/rendering; whole-app/device proof remains separate.
 
 `TunnelManagerTest` covers admitted/queued transitions, deletion/config failure recovery, cancelled initialization, stale state snapshots/native notifications, restoration intent and backend-switch admission/rollback. `ApplicationBackendLifecycleTest` proves cancellation before initializer execution settles backend waiters. `TunnelDetailLifecycleTest` covers reversed/cleared config selections and destroyed views; delayed statistics guards are source reviewed without a dedicated regression. `KernelModuleEnablerPreferenceTest` checks failed shutdown restores its setting/control. `GoBackendLifecycleTest` covers prompt destruction while its lock is held, dead-service rejection/future replacement, cleanup identity/callback ordering and preflight compatibility/protection/interruption. Synthetic owner/native-call shadows exercise no successful native activation, real VPN traffic, process exit or device lifecycle. See [development evidence](development.md#tunnel-lifecycle-and-transition-settlement--2026-10-06).
 
@@ -166,6 +168,7 @@ The separate [Bash provisioning safety suite](../scripts/tests/provisioning_safe
 - `QuantityFormatterTest`
 - `FileConfigStoreTest`
 - `TunnelManagerTest`, `ApplicationBackendLifecycleTest`, `TunnelDetailLifecycleTest`, `KernelModuleEnablerPreferenceTest`, `GoBackendLifecycleTest` — scoped #13 owner/lifecycle regressions.
+- `SettingsActivityTest` — #34 native preferences, recreation, scoped navigation/insets and native raster layout controls described above.
 - `WgQuickBackendTransitionTest` — concurrent UP with disabled/enabled multiple mode, failed activation/shutdown/config update and visible rollback failure through a simulated command-serialized RootShell; the real Application mode collector stays responsive on Main while the backend monitor is held. No real tools or root run.
 - `TunnelComparatorTest` — natural-order controls, equal normalized-name antisymmetry and distinct inventory lookup.
 - `QrCodeFromFileScannerTest` — reopened/recycled retries, allocation recovery/exhaustion, first Reader failure and cancellation/programming errors.
