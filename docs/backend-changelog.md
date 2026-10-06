@@ -48,6 +48,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **UDP warm-up compatibility decision — 2026-10-07**
+  `GoBackend.sendUdpPreflight`/`setStateInternal` retain the merged endpoint-free, explicit ListenPort, best-effort I/O and liveness/teardown contract. #37 rejects the preserved mandatory/random-port variant and its candidate-only error/messages; no runtime code or resource change is needed. [Review evidence and native limits](reviews/2026-10-07-udp-compatibility-review.md) explain the decision; source review is not a packet or performance gain.
+
 - **Stable Home selection and confirmed deletion — 2026-10-07**
   `TunnelListFragment.toggleItemSelection`, coalesced inventory reconciliation and recreation keep selected tunnel identities consistent across sorting/removal. `onDeleteSelection` captures managed instances in a view-owned confirmation, invalidates removed members and warns about observed active/changing tunnels; only the current, showing dialog can admit its own snapshot. `deleteSelectedTunnels` reuses sequential manager mutations, releases pre-entry busy state, lets admitted cancellation settle, reports observed partial progress and retains surviving selection. `onViewStateRestored`/selection projection are view-bound. `TunnelManager.setTunnelName` retains inventory membership during store I/O, then reindexes the same instance synchronously on Main; sorted rename no longer drops selection. `requireManaged` identifies stale ownership with an internal IllegalStateException subtype so unexpected runtime defects propagate rather than becoming ordinary delete failures. Import/config/transition policy remains unchanged; see [source verification and physical limits](development.md#home-selection-and-safe-delete-recovery--2026-10-07).
 
