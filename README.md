@@ -4,6 +4,16 @@
 
 This is an Android GUI for [WireGuard](https://www.wireguard.com/). It [opportunistically uses the kernel implementation](https://git.zx2c4.com/android_kernel_wireguard/about/), and falls back to using the non-root [userspace implementation](https://git.zx2c4.com/wireguard-go/about/).
 
+## Project documentation
+
+Tunnl redesign and functional work are tracked in:
+
+- [Improvement plan](docs/improvement-plan.md): agent instructions, documentation/process, code repairs, reuse decisions and acceptance criteria.
+- [UI redesign roadmap](docs/ui-redesign-roadmap.md): visual specification, progress and fidelity gaps.
+- [Backend changelog](docs/backend-changelog.md): functional history and current integration gaps.
+- [QA test plan](docs/qa-test-plan.md): coverage requirements, verification layers and opt-in VPS validation.
+- [Font attribution](docs/font-attribution.md) and [provisioning upstream reference](third_party/wireguard-install/UPSTREAM.md).
+
 ## Building
 
 ```
