@@ -48,6 +48,8 @@ The Home vertical layout reserves its Add footer below the weighted list. Transi
 
 Import/export children belong to their operation rather than the application scope. Valid ZIP entries settle independently through the existing manager; completion feedback runs once afterward. QR decoding owns each reopened input/bitmap. Narrow error handling preserves cancellation and exposes programming defects while existing generic Backend/ConfigStore boundaries retain needed reconciliation/reporting. [Import/export contracts](backend-contracts.md#import-ordering-and-export) records failure and output-acquisition limits; no new service, parser or dependency is introduced.
 
+The [G2 performance investigation](reviews/2026-10-07-performance-source-investigation.md) traces polling/model publication, view animation and native transfer owners. Resumed/attached presentation is not necessarily uncovered: single-pane Detail leaves Home active, and hidden attached widgets retain animator callbacks (#47). Shared statistics have neither in-flight coalescing nor a state-generation publication guard (#48). These are source/fixture gaps, not measured energy or throughput results. Keep native packet/config ownership; defer optimization selection and physical evidence to G4.
+
 ```mermaid
 flowchart LR
     Client[TunnlProvisioningClient] --> Bundle[Packaged Tunnl scripts]

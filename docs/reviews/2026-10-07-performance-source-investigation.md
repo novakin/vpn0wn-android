@@ -1,0 +1,52 @@
+# Transfer-speed and battery source investigation
+
+Last updated: 2026-10-07 (Europe/Paris).
+
+## Scope and evidence
+
+[#43](https://github.com/novakin/wireguard-android/issues/43), G2 of the [active goal](../improvement-plan.md#active-enhancement-and-performance-goal). Inspected merged master `0f363c8f640b64801e3cc7e7e4fc5566cffdfebb`, after PR #46's source repair; #28 remains open for G4 physical-provider acceptance. Original dirty work, APKs and personal configs remain preserved. This is source investigation with four local characterization controls, not a speed/energy baseline or physical-device run.
+
+Reviewed repository owners: [ObservableTunnel](../../ui/src/main/java/com/wireguard/android/model/ObservableTunnel.kt), [TunnelManager](../../ui/src/main/java/com/wireguard/android/model/TunnelManager.kt), [Home](../../ui/src/main/java/com/wireguard/android/fragment/TunnelListFragment.kt), [Detail](../../ui/src/main/java/com/wireguard/android/fragment/TunnelDetailFragment.kt), [MainActivity](../../ui/src/main/java/com/wireguard/android/activity/MainActivity.kt), [rate bindings](../../ui/src/main/java/com/wireguard/android/databinding/BindingAdapters.kt), [signal widget](../../ui/src/main/java/com/wireguard/android/widget/TunnelSignalView.kt), [throughput widget](../../ui/src/main/java/com/wireguard/android/widget/TunnelThroughputView.kt), [Statistics](../../tunnel/src/main/java/com/wireguard/android/backend/Statistics.java), [GoBackend](../../tunnel/src/main/java/com/wireguard/android/backend/GoBackend.java), [kernel backend](../../tunnel/src/main/java/com/wireguard/android/backend/WgQuickBackend.java), [root command owner](../../tunnel/src/main/java/com/wireguard/android/util/RootShell.java), [native Android entry points](../../tunnel/tools/libwg-go/api-android.go) and [native build pins](../../tunnel/tools/libwg-go/Makefile).
+
+The installed module cache for the exact [go.mod](../../tunnel/tools/libwg-go/go.mod) pin `v0.0.0-20250521234502-f333402bd9cb` supplied focused upstream `device/device.go`, `device/send.go`, `device/receive.go` and `conn/bind_std.go` inspection. This covers transfer worker/batch ownership, not a full cryptographic/native dependency audit or proof of the device's active offloads. No dependency update or claim about the newest upstream version is made.
+
+## Call paths and preserved controls
+
+Home and Detail start polling on resume and cancel their jobs on stop; Detail also cancels at view destruction. Each loop waits for its work and then delays one second, so actual cadence includes backend latency and, for Home, sequential active-tunnel reads. One second is not a guaranteed sample rate. Eligibility uses resumed state and UP, which does not establish uncovered visibility. Two-pane Home/Detail can both legitimately present data.
+
+`ObservableTunnel` returns fresh cached statistics, with `Statistics.isStale` becoming true after more than 900ms. The bindable getter can launch an application-scope fetch; explicit callers use `getStatisticsAsync`. Both reach `TunnelManager.getTunnelStatistics`, which reads on IO and publishes on Main. No shared in-flight fetch or state-generation publication guard exists. Detail's binding/state guards protect peer cells, not the shared model cache.
+
+`BindingAdapters.tunnelRate` shares a rate sample by snapshot identity, uses elapsed time and byte deltas, resets on clock/counter rollback and requires a minimum 250ms interval. Preserve that meaning; polling cadence is not transfer speed. Source already caches drawing paints, colors and geometry. Further allocation tuning is a profiling hypothesis, not an established reason to rewrite rendering.
+
+GoBackend obtains statistics through locked `wgGetConfig`, then parses the native IPC result; this is separate from packet forwarding. Activation establishes the TUN descriptor and calls `wgTurnOn`. The Android Go wrapper creates the upstream device with `conn.NewStdNetBind`, applies the config and brings it up. Upstream owns parallel encryption/decryption workers, TUN queues and batch send/receive. The pinned bind contains Android/Linux batching and conditional UDP offload support; source support does not prove those capabilities are active on a phone/kernel. Kernel statistics execute `wg show ... dump` through serialized RootShell; repeated readers can duplicate or queue commands.
+
+GoBackend uses the explicit profile MTU, falling back to 1280 when absent. PersistentKeepalive remains per-peer configuration, including omission/zero semantics. MTU, keepalive/NAT, network/server capacity, loss and thermal limits need actual measurement. Keep native/config ownership and the #37 warm-up decision; no universal MTU/keepalive default or activation-warm-up experiment is justified as sustained-transfer optimization.
+
+## Ranked findings and decisions
+
+| Rank | Evidence and owner | Confidence, consequence and action |
+| --- | --- | --- |
+| 1 | MainActivity adds full-size opaque Detail to the same single-pane container as Home. Characterization confirms Home remains resumed, attached and polling. Widgets gate on attachment/mode, with no visibility gate; hidden attached signal/throughput views retain update callbacks. Detach cancels both. | Confirmed unnecessary presentation work. CPU, wakeup and energy costs are unmeasured; covered-Home backend-call volume was not counted by that fixture. [#47](https://github.com/novakin/wireguard-android/issues/47) is the sole battery candidate for G4 selection: gate work at existing navigation/fragment/widget owners, preserving visible two-pane behavior. No implementation or energy gain accepted yet. |
+| 2 | Two explicit readers and the bindable getter enter three same-tunnel backend calls before any returns. A blocked snapshot captured before DOWN republishes non-null cache after DOWN cleared it. | Confirmed shared-statistics correctness/ownership gap. Repeated work and rate disruption are plausible costs, not measured gains. [#48](https://github.com/novakin/wireguard-android/issues/48) owns coalescing and stale-publication repair; this separate correction is not silently added to G0–G4 and needs an agreed implementation scope. |
+| 3 | Statistics use native IPC or root commands; drawing/formatting run in presentation. Upstream already owns parallel and batch packet processing. | Snapshot parsing/queueing, rendering/allocation and CPU/thermal bottlenecks remain profiling hypotheses. Source cannot rank their real cost. Retain existing owners; no framework, custom packet loop or speculative dependency update. |
+| 4 | MTU fallback, peer keepalive and backend/network selection have different path/compatibility constraints. No direct/VPN throughput, loss, latency, CPU or energy baseline exists. | No justified transfer-speed code candidate yet. Keep behavior until G4 identifies a reproducible bottleneck. This current no-change decision is not final transfer-category acceptance or a promise to tune MTU. |
+
+## Offline verification
+
+Four local characterization controls passed with zero failures/errors/skips using WSL Debian, OpenJDK 21.0.10, Gradle 9.3.1, Robolectric API 29 and existing TunnelTestEnvironment/platform fixtures:
+
+```bash
+./gradlew :ui:testDebugUnitTest --tests com.wireguard.android.model.PerformanceInvestigationTest --console=plain
+```
+
+The temporary characterization file was added to the native test source set for that run, then retained with its XML under ignored `.artifacts/performance-investigation/`. Log: `20261007-013417-577-aed9d2de813c44228c50d5bf7734b461.log`. Tested revision: `0f363c8f` plus that local fixture, not an unchanged clean-clone suite. Its assertions characterize existing defects and deliberately do not become a permanent gate requiring preservation of them. Future repairs must add regressions with corrected expectations. Tracked runtime/test source and its UI 33/227 plus tunnel 3/16 inventory are unchanged by this documentation PR.
+
+Controls establish three concurrent backend entries, post-DOWN cache publication, hidden attached animator callbacks with detach cancellation, and covered single-pane Home lifecycle/job state. Synthetic callback counts are not physical frame timing, draw volume, power or production concurrency frequency. No stopped-window/screen-off device behavior, native packet processing, actual kernel/root command or energy metric was exercised. Final-head ultra acceptance and documentation checks belong in the PR.
+
+## G4 selection and stop conditions
+
+For #47, profile the unchanged baseline across visible Home/Detail, covered single-pane Home, two-pane presentation, Settings/background and screen-off. Count eligible statistics/backend calls, animator updates, CPU/wakeups and available energy under the [QA protocol](../qa-test-plan.md#transfer-speed-and-battery-validation). Freeze a numeric primary energy target and allowed regressions after baseline variability is known. Accept at most this one battery slice only when paired benefit exceeds noise and config/connectivity/rate/UI/accessibility controls pass. Reduced callbacks alone are a CPU-work proxy, not battery savings.
+
+For transfer speed, compare authorized direct and VPN download/upload against the same endpoint, including sustained throughput, latency/loss, CPU and thermal behavior. Identify the responsible limiting layer; select at most one bounded code candidate only when evidence supports it. No universal config/default change or native rewrite is preselected. Without a justified candidate, G4 records a verified no-change result after the required baseline; source inspection alone does not complete it.
+
+Phone/endpoint details, explicit APK assembly/install and paired baselines remain deferred to G4, as requested. #28/#34/#35/#36 physical acceptance and CI APK artifact proof remain required. This investigation fulfils #43's source-review boundary after final ultra acceptance and merge; it fulfils none of those physical/performance gates. Next: G3 native CI and a gated debug-APK workflow.

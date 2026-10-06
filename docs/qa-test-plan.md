@@ -152,6 +152,8 @@ Planned for the [active enhancement/performance goal](improvement-plan.md#active
 
 Record both baseline and candidate app revisions. Use the same phone, Android version, build type, test endpoint, network, backend and synthetic test profile for a paired comparison. Record signal/network quality, thermal state, charging state, foreground/screen state, MTU, routes, keepalive and background load. Keep private profiles/raw device reports local; commit only sanitized methodology and aggregates. Use existing Android profiling and benchmark tools rather than creating a performance framework.
 
+The [G2 source investigation](reviews/2026-10-07-performance-source-investigation.md) proposes #47 as the single battery candidate and retains current transfer code until G4 proves a bottleneck. Include covered single-pane Home, visible two-pane Home/Detail and hidden attached animations in the baseline; resumed/attached state does not establish actual visibility. #48's shared-read/late-publication defect is separately tracked. Four temporary characterization controls establish source behavior, not permanent suite coverage, device frame frequency or energy/throughput benefit.
+
 | Scenario | Measures and control |
 | --- | --- |
 | Transfer | Compare direct and VPN download/upload against the same authorized endpoint. Use fixed warm-up, duration and stream count; inspect sustained throughput, latency/loss and CPU cost. Run at least five paired A/B trials, varying A/B order to reduce thermal/time bias, and report median plus spread. Increase repetitions only when noise prevents a decision. A direct result is context, not an optimization comparison between app revisions. |
