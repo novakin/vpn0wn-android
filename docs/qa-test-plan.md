@@ -133,7 +133,7 @@ Baseline requirements:
 
 ### Manual Smoke Tests
 
-Required before merging UI or backend provisioning work.
+Required before merging UI or backend provisioning work, except the explicitly authorized source-only recovery integration in G1 of the [active goal](improvement-plan.md#active-enhancement-and-performance-goal). That narrow exception requires meaningful local regression checks, native content inspection for affected UI and independent ultra review; physical/device-provider acceptance stays open and must pass in G4 before delivery or goal completion. It does not waive live provisioning acceptance or authorize APK/device operations.
 
 - Import a WireGuard config.
 - Toggle tunnel up/down.
@@ -148,7 +148,7 @@ Required before merging UI or backend provisioning work.
 
 Planned for the [active enhancement/performance goal](improvement-plan.md#active-enhancement-and-performance-goal); no performance baseline or improvement is claimed. Issues own the selected device/endpoint, primary metric, numeric target and guardrails after baseline measurement. APK assembly/install and a real benchmark target need their own explicit authorization. Start with Wi-Fi; mobile-data and root/kernel coverage are conditional on the authorized environment.
 
-Use the same phone, Android version, app revision/build type, test endpoint, network, backend and synthetic test profile for a paired comparison. Record signal/network quality, thermal state, charging state, foreground/screen state, MTU, routes, keepalive and background load. Keep private profiles/raw device reports local; commit only sanitized methodology and aggregates. Use existing Android profiling and benchmark tools rather than creating a performance framework.
+Record both baseline and candidate app revisions. Use the same phone, Android version, build type, test endpoint, network, backend and synthetic test profile for a paired comparison. Record signal/network quality, thermal state, charging state, foreground/screen state, MTU, routes, keepalive and background load. Keep private profiles/raw device reports local; commit only sanitized methodology and aggregates. Use existing Android profiling and benchmark tools rather than creating a performance framework.
 
 | Scenario | Measures and control |
 | --- | --- |
