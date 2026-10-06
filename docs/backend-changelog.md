@@ -48,6 +48,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **Detekt configuration validation — 2026-10-06**
+  `config/detekt/detekt.yml` removes the unsupported `AvoidReferenceToMutableVar` property for pinned Detekt 1.23.8. Native analysis now runs and reports existing source findings instead of failing config validation. [Issue #22](https://github.com/novakin/wireguard-android/issues/22) owns the 538 findings; the source gate still exits 1. See [development evidence](development.md#detekt-configuration-repair--2026-10-06).
+
 ### VPS provisioning
 
 - **`third_party/wireguard-install` — vendored upstream reference**
