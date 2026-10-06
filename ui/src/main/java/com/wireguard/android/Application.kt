@@ -28,10 +28,13 @@ import com.wireguard.android.util.ToolsInstaller
 import com.wireguard.android.util.UserKnobs
 import com.wireguard.android.util.applicationScope
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -72,6 +75,8 @@ class Application : android.app.Application() {
                 UserKnobs.multipleTunnels.onEach {
                     wgQuickBackend.setMultipleTunnels(it)
                 }.launchIn(coroutineScope)
+            } catch (e: CancellationException) {
+                throw e
             } catch (ignored: Exception) {
             }
         }
@@ -111,12 +116,19 @@ class Application : android.app.Application() {
         coroutineScope.launch(Dispatchers.IO) {
             try {
                 val b = determineBackend()
+                currentCoroutineContext().ensureActive()
                 backend = b
                 futureBackend.complete(b)
-            } catch (e: Throwable) {
+            } catch (e: CancellationException) {
+                futureBackend.cancel(e)
+                throw e
+            } catch (e: Exception) {
                 Log.e(TAG, "Failed to determine and initialize backend", e)
                 futureBackend.completeExceptionally(e)
             }
+        }.invokeOnCompletion { cause ->
+            if (cause != null)
+                futureBackend.completeExceptionally(cause)
         }
         Updater.monitorForUpdates()
 

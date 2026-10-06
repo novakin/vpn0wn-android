@@ -23,10 +23,12 @@ import com.wireguard.crypto.Key;
 import com.wireguard.crypto.KeyFormatException;
 import com.wireguard.util.NonNullForAll;
 
+import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.SocketException;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -55,6 +57,7 @@ public final class GoBackend implements Backend {
     private final Object stateLock = new Object();
     @Nullable private Config currentConfig;
     @Nullable private Tunnel currentTunnel;
+    @Nullable private VpnService currentService;
     private int currentTunnelHandle = -1;
 
     /**
@@ -273,22 +276,29 @@ public final class GoBackend implements Backend {
         }
     }
 
-    private boolean sendUdpPreflight(final VpnService service, final int listenPort,
+    private void sendUdpPreflight(final VpnService service, final int listenPort,
                                      final InetAddress addr, final int port,
-                                     final InetEndpoint resolved) throws Exception {
+                                     final InetEndpoint resolved) throws IOException {
         try (final DatagramSocket socket = new DatagramSocket(null)) {
             socket.setReuseAddress(true);
             if (!service.protect(socket))
-                Log.w(TAG, "UDP preflight: protect() returned false — VpnService may be dead");
+                throw new SocketException("UDP preflight socket protection failed");
             socket.bind(new InetSocketAddress(listenPort));
             final byte[] payload = {0x00};
             socket.send(new DatagramPacket(payload, payload.length, addr, port));
             Log.d(TAG, "UDP preflight sent to " + resolved);
-            return true;
         }
     }
 
-    private void sendUdpPreflight(final Config config, final VpnService service) {
+    private static void requireActiveService(final VpnService service) throws BackendException, InterruptedException {
+        if (Thread.currentThread().isInterrupted())
+            throw new InterruptedException("VPN activation interrupted");
+        if (service.destroyed)
+            throw new BackendException(Reason.UNABLE_TO_START_VPN);
+    }
+
+    private void sendUdpPreflight(final Config config, final VpnService service) throws Exception {
+        requireActiveService(service);
         final int listenPort = config.getInterface().getListenPort().orElse(0);
         if (listenPort == 0)
             return;
@@ -301,14 +311,14 @@ public final class GoBackend implements Backend {
                 continue;
             try {
                 final InetAddress addr = InetAddress.getByName(resolved.getHost());
-                Exception lastException = null;
+                IOException lastException = null;
                 for (int attempt = 1; attempt <= UDP_PREFLIGHT_RETRIES; ++attempt) {
+                    requireActiveService(service);
                     try {
-                        if (sendUdpPreflight(service, listenPort, addr, resolved.getPort(), resolved)) {
-                            lastException = null;
-                            break;
-                        }
-                    } catch (final Exception e) {
+                        sendUdpPreflight(service, listenPort, addr, resolved.getPort(), resolved);
+                        lastException = null;
+                        break;
+                    } catch (final IOException e) {
                         lastException = e;
                         if (attempt == UDP_PREFLIGHT_RETRIES)
                             break;
@@ -322,8 +332,8 @@ public final class GoBackend implements Backend {
                             + UDP_PREFLIGHT_RETRIES + " attempts: " + lastException.getMessage());
             } catch (final InterruptedException e) {
                 Thread.currentThread().interrupt();
-                Log.w(TAG, "UDP preflight interrupted for " + ep.getHost());
-            } catch (final Exception e) {
+                throw e;
+            } catch (final IOException e) {
                 Log.w(TAG, "UDP preflight failed for " + ep.getHost() + ": " + e.getMessage());
             }
         }
@@ -357,6 +367,7 @@ public final class GoBackend implements Backend {
                 throw be;
             }
             service.setOwner(this);
+            requireActiveService(service);
 
             if (currentTunnelHandle != -1) {
                 Log.w(TAG, "Tunnel already up");
@@ -365,6 +376,7 @@ public final class GoBackend implements Backend {
 
 
             dnsRetry: for (int i = 0; i < DNS_RESOLUTION_RETRIES; ++i) {
+                requireActiveService(service);
                 // Pre-resolve IPs so they're cached when building the userspace string
                 for (final Peer peer : config.getPeers()) {
                     final InetEndpoint ep = peer.getEndpoint().orElse(null);
@@ -383,6 +395,7 @@ public final class GoBackend implements Backend {
             }
 
             sendUdpPreflight(config, service);
+            requireActiveService(service);
 
             // Build config
             final String goConfig = config.toWgUserspaceString();
@@ -439,7 +452,14 @@ public final class GoBackend implements Backend {
                 final int tunnelHandle = wgTurnOn(tunnel.getName(), tun.detachFd(), goConfig);
                 if (tunnelHandle < 0)
                     throw new BackendException(Reason.GO_ACTIVATION_ERROR_CODE, tunnelHandle);
+                try {
+                    requireActiveService(service);
+                } catch (final Exception e) {
+                    wgTurnOff(tunnelHandle);
+                    throw e;
+                }
                 currentTunnelHandle = tunnelHandle;
+                currentService = service;
             }
 
             currentTunnel = tunnel;
@@ -453,13 +473,16 @@ public final class GoBackend implements Backend {
                 return;
             }
             int handleToClose = currentTunnelHandle;
+            final VpnService service = currentService;
             currentTunnel = null;
             currentTunnelHandle = -1;
             currentConfig = null;
+            currentService = null;
             wgTurnOff(handleToClose);
-            try {
-                vpnServiceRef.get().get(0, TimeUnit.NANOSECONDS).stopSelf();
-            } catch (final TimeoutException ignored) { }
+            if (service != null) {
+                resetVpnServiceFutureForService(service);
+                service.stopSelf();
+            }
         }
 
         tunnel.onStateChange(state);
@@ -468,6 +491,8 @@ public final class GoBackend implements Backend {
     private void handleServiceDestroyed(final VpnService service) {
         final Tunnel tunnel;
         synchronized (stateLock) {
+            if (currentService != service)
+                return;
             Log.i(TAG, "VpnService.onDestroy(); tunnel active=" + (currentTunnelHandle != -1));
             tunnel = currentTunnel;
             if (tunnel != null) {
@@ -477,9 +502,10 @@ public final class GoBackend implements Backend {
                 currentTunnelHandle = -1;
                 currentConfig = null;
             }
+            currentService = null;
+            if (tunnel != null)
+                tunnel.onStateChange(State.DOWN);
         }
-        if (tunnel != null)
-            tunnel.onStateChange(State.DOWN);
         resetVpnServiceFutureForService(service);
     }
 
@@ -496,6 +522,7 @@ public final class GoBackend implements Backend {
      */
     public static class VpnService extends android.net.VpnService {
         @Nullable private volatile GoBackend owner;
+        private volatile boolean destroyed;
 
         public Builder getBuilder() {
             return new Builder();
@@ -509,16 +536,26 @@ public final class GoBackend implements Backend {
 
         @Override
         public void onDestroy() {
-            final GoBackend currentOwner = owner;
+            final GoBackend currentOwner;
+            synchronized (this) {
+                destroyed = true;
+                currentOwner = owner;
+                owner = null;
+            }
+            resetVpnServiceFutureForService(this);
             if (currentOwner != null)
-                currentOwner.handleServiceDestroyed(this);
-            else
-                resetVpnServiceFutureForService(this);
+                CompletableFuture.runAsync(() -> currentOwner.handleServiceDestroyed(this))
+                        .whenComplete((ignored, failure) -> {
+                            if (failure != null)
+                                Log.e(TAG, "Failed to release destroyed VPN service", failure);
+                        });
             super.onDestroy();
         }
 
         @Override
         public int onStartCommand(@Nullable final Intent intent, final int flags, final int startId) {
+            if (destroyed)
+                return START_NOT_STICKY;
             vpnServiceRef.get().complete(this);
             if (intent == null || intent.getComponent() == null || !intent.getComponent().getPackageName().equals(getPackageName())) {
                 Log.d(TAG, "Service started by Always-on VPN feature");
@@ -528,7 +565,9 @@ public final class GoBackend implements Backend {
             return super.onStartCommand(intent, flags, startId);
         }
 
-        public void setOwner(final GoBackend owner) {
+        public synchronized void setOwner(final GoBackend owner) throws BackendException {
+            if (destroyed)
+                throw new BackendException(Reason.UNABLE_TO_START_VPN);
             this.owner = owner;
         }
     }

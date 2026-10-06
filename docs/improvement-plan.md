@@ -70,7 +70,7 @@ This file owns the improvement priorities and action states. The UI roadmap owns
 | 0 | Document plan and README entry | Documented | Completed repository review. | Plan is discoverable, links resolve and unrelated work is preserved. |
 | 1 | A1, D1/D2 workflow | Process/content merged in PRs #6/#8/#18; issues #5/#7/#9 closed | Requested implementation begun. | Sole AGENTS.md, owning guides, templates, metadata and revision-specific PR acceptance are established; full-guide claims are reconciled with source. |
 | 2 | C1–C3 privacy and provisioning safety | Merged in PRs #6/#19; issues #5/#10/#11 closed | Reproduce each defect with synthetic inputs or controlled failure injection. | Secrets stay out of the repaired logging paths; unmanaged state survives; mutations report honest outcomes and preserve recovery. |
-| 3 | C4–C6 contracts and state/lifecycle | C4 merged in PR #21; C5–C6 planned | Affected behavior and compatibility requirements are traced. | C4 aligns schemas, safe failures and observed health; C5–C6 still own settled transitions, orphan prevention and responsive teardown. |
+| 3 | C4–C6 contracts and state/lifecycle | C4 merged in PR #21; #13/#14 implemented pending merge; #15 planned | Affected behavior and compatibility requirements are traced. | C4 aligns schemas, safe failures and observed health; #13 repairs manager/detail/userspace lifecycle; #14 preserves failed profile replacement; #15 still owns complete kernel transitions. |
 | 4 | C7–C10 UI correctness and proof | Planned | Relevant behavior fixes and deterministic fixtures are available. | Focused regressions pass; affected output is checked at supported sizes and configurations. |
 | 5 | C11–C12 real SSH and feature wiring | Planned | Library decision recorded; provisioning safety/contracts repaired. | Real transport owns deadlines/cancellation; UI and QR/import use actual validated results. |
 | Throughout | Maintain D1/D2 with affected changes | Ongoing | An owning fact or workflow changes. | Source, tests and owning documentation agree in the same change. |
@@ -169,15 +169,15 @@ Clean-source extensions: C6 also owns atomic replacement/failure recovery in [Fi
 | C2 ownership/input safety; merged in PR #19, issue closed | [#10](https://github.com/novakin/wireguard-android/issues/10) |
 | C3 mutations/recovery; merged in PR #19, issue closed | [#11](https://github.com/novakin/wireguard-android/issues/11) |
 | C4 responses, safe errors and observed health; merged in PR #21, issue closed | [#12](https://github.com/novakin/wireguard-android/issues/12) |
-| Detekt config validation repaired in current change; pending merge | [#20](https://github.com/novakin/wireguard-android/issues/20) |
-| Native Detekt source gate reports 538 existing findings; separate remediation | [#22](https://github.com/novakin/wireguard-android/issues/22) |
-| C5–C6 transitions, teardown and view ownership | [#13](https://github.com/novakin/wireguard-android/issues/13) |
-| C6 atomic config replacement implemented in current change; pending merge | [#14](https://github.com/novakin/wireguard-android/issues/14) |
+| Detekt config validation repaired in PR #23; pending merge | [#20](https://github.com/novakin/wireguard-android/issues/20) |
+| Native Detekt source gate reports 546 findings on #13: 538 inherited plus eight broad catches; separate remediation | [#22](https://github.com/novakin/wireguard-android/issues/22) |
+| C5–C6 transitions, teardown and view ownership implemented; pending merge | [#13](https://github.com/novakin/wireguard-android/issues/13) |
+| C6 atomic config replacement implemented in PR #24; pending merge | [#14](https://github.com/novakin/wireguard-android/issues/14) |
 | C6 complete kernel transition serialization | [#15](https://github.com/novakin/wireguard-android/issues/15) |
 | Config DNS round trips and negative-prefix rejection | [#16](https://github.com/novakin/wireguard-android/issues/16) |
 | C9 harness postconditions/failure redaction | [#17](https://github.com/novakin/wireguard-android/issues/17) |
 
-The table distinguishes merged C2–C4, current #20 config repair and remaining source-confirmed gaps. [C4 evidence](development.md#c4-provisioning-contracts-and-observed-health--2026-10-06) and [Detekt evidence](development.md#detekt-configuration-repair--2026-10-06) record tests and limits. Requested repair order is #20, #14, #13, #16, #15; planned APK CI follows these fixes and a passing static gate under #22. No issue proves a live reproduction or authorizes operational mutation. C7–C8 and C10–C12 retain their existing acceptance until a bounded implementation task needs an issue.
+The table distinguishes merged C2–C4, implemented #20/#14/#13 repairs pending merge and remaining source-confirmed gaps. [C4 evidence](development.md#c4-provisioning-contracts-and-observed-health--2026-10-06) and [Detekt evidence](development.md#detekt-configuration-repair--2026-10-06) record tests and limits. Requested repair order is #20, #14, #13, #16, #15; planned APK CI follows these fixes and a passing static gate under #22. No issue proves a live reproduction or authorizes operational mutation. C7–C8 and C10–C12 retain their existing acceptance until a bounded implementation task needs an issue.
 
 ## Verification and definition of done
 

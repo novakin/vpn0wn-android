@@ -30,6 +30,7 @@ import com.wireguard.android.databinding.TunnelDetailPeerBinding
 import com.wireguard.android.model.ObservableTunnel
 import com.wireguard.android.util.QuantityFormatter
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -42,10 +43,11 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
     private var lastState: Tunnel.State? = null
     private var observedTunnel: ObservableTunnel? = null
     private var statsJob: Job? = null
+    private var configJob: Job? = null
     private val tunnelCallback = object : Observable.OnPropertyChangedCallback() {
         override fun onPropertyChanged(sender: Observable?, propertyId: Int) {
             if (propertyId == BR.state) {
-                lifecycleScope.launch { updateStats() }
+                viewLifecycleOwner.lifecycleScope.launch { updateStats() }
                 if (sender is ObservableTunnel && sender.state == Tunnel.State.UP) {
                     refreshSelectedStats()
                 }
@@ -89,6 +91,9 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
     }
 
     override fun onDestroyView() {
+        configJob?.cancel()
+        configJob = null
+        stopStatsRefresh()
         observedTunnel?.removeOnPropertyChangedCallback(tunnelCallback)
         observedTunnel = null
         binding = null
@@ -112,6 +117,8 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
 
     override fun onSelectedTunnelChanged(oldTunnel: ObservableTunnel?, newTunnel: ObservableTunnel?) {
         val binding = binding ?: return
+        configJob?.cancel()
+        binding.config = null
         binding.tunnel = newTunnel
         observedTunnel?.removeOnPropertyChangedCallback(tunnelCallback)
         observedTunnel = newTunnel
@@ -119,17 +126,22 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
         if (newTunnel == null) {
             binding.config = null
         } else {
-            lifecycleScope.launch {
+            configJob = viewLifecycleOwner.lifecycleScope.launch {
                 try {
-                    binding.config = newTunnel.getConfigAsync()
+                    val config = newTunnel.getConfigAsync()
+                    if (this@TunnelDetailFragment.binding === binding && observedTunnel === newTunnel)
+                        binding.config = config
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (_: Exception) {
-                    binding.config = null
+                    if (this@TunnelDetailFragment.binding === binding && observedTunnel === newTunnel)
+                        binding.config = null
                 }
             }
         }
         lastState = null
         refreshSelectedStats()
-        lifecycleScope.launch { updateStats() }
+        viewLifecycleOwner.lifecycleScope.launch { updateStats() }
     }
 
     override fun onStop() {
@@ -157,6 +169,8 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
         lastState = state
         try {
             val statistics = tunnel.getStatisticsAsync()
+            if (this.binding !== binding || binding.tunnel !== tunnel || !isResumed)
+                return
             for (i in 0 until binding.peersLayout.childCount) {
                 val peer: TunnelDetailPeerBinding = DataBindingUtil.getBinding(binding.peersLayout.getChildAt(i))
                     ?: continue
@@ -184,7 +198,11 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
                     peer.latestHandshakeText.visibility = View.VISIBLE
                 }
             }
-        } catch (e: Throwable) {
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            if (this.binding !== binding || binding.tunnel !== tunnel || !isResumed)
+                return
             Log.w(TAG, "Failed to update tunnel statistics", e)
             for (i in 0 until binding.peersLayout.childCount) {
                 val peer: TunnelDetailPeerBinding = DataBindingUtil.getBinding(binding.peersLayout.getChildAt(i))
@@ -200,10 +218,12 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
     private fun refreshSelectedStats() {
         val tunnel = binding?.tunnel ?: return
         if (!isResumed || tunnel.state != Tunnel.State.UP) return
-        lifecycleScope.launch {
+        viewLifecycleOwner.lifecycleScope.launch {
             try {
                 tunnel.getStatisticsAsync()
-            } catch (e: Throwable) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
                 Log.w(TAG, "Failed to refresh tunnel statistics", e)
             }
         }
@@ -211,7 +231,7 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
 
     private fun startStatsRefresh() {
         if (statsJob?.isActive == true) return
-        statsJob = lifecycleScope.launch {
+        statsJob = viewLifecycleOwner.lifecycleScope.launch {
             while (true) {
                 updateStats()
                 delay(1000)

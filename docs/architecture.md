@@ -36,7 +36,7 @@ flowchart LR
     Bindings --> Views
 ```
 
-UI actions request model/backend changes; backend state/statistics return through observable data and bindings. Keep UI formatting separate from operation success, permission/service management and config parsing. View-bound work must not update a destroyed view or a superseded selection. Known lifecycle/transition repairs are [C5–C6](improvement-plan.md#codebase-actions).
+UI actions request model/backend changes; backend state/statistics return through observable data and bindings. Keep UI formatting separate from operation success, permission/service management and config parsing. Detail config/statistics jobs belong to the view lifecycle and guard completions by binding/selection identity. Manager admission owns state settlement; [the decision below](#tunnel-mutations-own-admission-and-settlement) describes #13's repairs and limits. Kernel transition serialization remains #15.
 
 ```mermaid
 flowchart LR
@@ -53,7 +53,7 @@ The provisioning client and scripts exist, while concrete SSH, protected credent
 
 ## Boundaries and invariants
 
-These are required maintenance invariants, not guarantees that all current owners already meet them. `VpsServerStore` uses DataStore transactions and nullable observed running health; `FileConfigStore` serializes operations and commits synced staged files through native atomic rename. Transition/cancellation repairs remain open in the improvement plan; local profile guarantees and filesystem limits are defined below and in the backend contracts.
+These are required maintenance invariants, not guarantees that all current owners already meet them. `VpsServerStore` uses DataStore transactions and nullable observed running health; `FileConfigStore` serializes operations and commits synced staged files through native atomic rename. #13 implements manager/detail/userspace lifecycle repair, pending merge; kernel transition serialization remains #15. Exact contracts and proof limits belong below and in the backend contracts.
 
 - `.design/` supplies read-only visual intent; it does not establish runtime capability.
 - Config parsers and backends preserve supported WireGuard behavior. Do not invent another parser for generated/imported profiles.
@@ -67,6 +67,14 @@ These are required maintenance invariants, not guarantees that all current owner
 See [backend contracts](backend-contracts.md) for known divergences and [the plan](improvement-plan.md) for repair ownership.
 
 ## Consequential decisions
+
+### Tunnel mutations own admission and settlement
+
+2026-10-06 (Europe/Paris), implemented for #13, pending merge. Independent caller jobs and cached no-op decisions could delete during activation, apply stale state snapshots or abandon reconciliation. The existing TunnelManager owns one coroutine mutex for mutations/state reads. Waiting admission is cancellable; admitted work runs noncancellable until backend/store/model settlement. Explicit state decisions observe the backend inside that owner. Notifications reconcile actual backend state while preserving restoration intent after spontaneous service loss. Backend switching reserves admission through restart or preference rollback. Inventory/backend initialization settles deferred failures and cancellation; failed inventory can retry. Detail jobs bind to the view and check selection identity.
+
+GoBackend retains its existing native transition lock. VpnService destruction marks liveness and resets acquisition without waiting on that lock, then dispatches identity-checked cleanup through the existing CompletableFuture executor. Cleanup callbacks stay ordered under the transition lock. Preflight preserves its explicit-port/endpoint-free policy; expected I/O remains best effort, while UDP interruption aborts with the flag preserved.
+
+Alternatives were UI busy flags alone, detached transition jobs or cancellation after partial backend/store effects. They do not protect queued callers or reconciliation. Extending current owners avoids another operation service. Admitted blocking work can delay cancellation; mutex/service checks do not interrupt hung native calls or prove device traffic, process restart or native reacquisition. WgQuickBackend's complete transition owner remains #15. See [contracts](backend-contracts.md#wireguard-configuration-and-tunnel-state) and [verification](development.md#tunnel-lifecycle-and-transition-settlement--2026-10-06).
 
 ### Local profiles commit through native atomic rename
 

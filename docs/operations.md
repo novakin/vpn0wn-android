@@ -12,7 +12,7 @@ Use the add-tunnel flow to create a profile, import a file or scan a QR code. Ex
 
 Review interface addresses, DNS, peer endpoints and AllowedIPs before connecting. Supported WireGuard config behavior belongs to [backend contracts](backend-contracts.md); do not infer traffic protection from a label alone. The userspace backend needs Android VPN permission and can own one active tunnel. Kernel behavior requires root and available kernel support; multiple-tunnel behavior also depends on existing settings.
 
-Current committed userspace preflight uses an explicit nonzero ListenPort and skips peers without resolved endpoints. It preserves the configured port and logs preflight failure before continuing activation; endpoint resolution can independently fail startup. See [the current activation contract](backend-contracts.md#wireguard-configuration-and-tunnel-state). C5 tracks teardown responsiveness and preflight failure/cancellation policy; repeated errors need diagnosis rather than blind toggles.
+Current committed userspace preflight uses an explicit nonzero ListenPort and skips peers without resolved endpoints. It preserves the configured port; expected socket/send failure remains best effort. Failed socket protection prevents that send. UDP interruption or service destruction aborts activation; endpoint resolution can independently fail startup. See [the activation contract](backend-contracts.md#wireguard-configuration-and-tunnel-state). #13 implements lifecycle/interruption repair, pending merge; repeated errors still need diagnosis rather than blind toggles.
 
 Known import/edit defects pending C8 include invalid-name dialog dismissal, QR image retry stream reuse and replacement-length handling. Abbreviated displayed keys also require a full-key copy fix. Until repaired, inspect an exported profile when a copied key is unusable; do not paste a displayed ellipsis as a WireGuard key.
 
@@ -20,7 +20,7 @@ Known import/edit defects pending C8 include invalid-name dialog dismissal, QR i
 
 VPN permission, camera access and document/export handling depend on the selected action and Android version. Grant permissions for the requested workflow and verify the resulting action. Denial/cancellation is not success.
 
-Switching the kernel/backend preference may shut down active tunnels before changing behavior. Failed shutdown currently has a recovery defect tracked by C6. If preference/UI state becomes stuck, retain sanitized evidence and report the failure; do not assume the new backend is active. Never delete a profile merely to diagnose an unresolved transition.
+Switching the kernel/backend preference drains earlier transitions and shuts down active tunnels before committing the setting and restarting. New mutations are rejected between commit and restart. Failed shutdown/restart restores the previous preference and usable control; already-stopped tunnels can remain down with profiles intact. Failed preference rollback keeps the admission reservation and needs diagnosis. These #13 repairs are pending merge; root/kernel transition races remain #15. Retain sanitized evidence after failure and verify the selected backend after restart. Never delete a profile merely to diagnose an unresolved transition.
 
 ## Diagnostics and evidence
 
@@ -28,7 +28,7 @@ Use the in-app log viewer for relevant error categories and lifecycle events. A 
 
 Never attach private keys, PSKs, passwords or a full generated/backup config to an issue. C1 removes raw root-shell command/stdout/stderr logging, provisioning exit-failure payloads, malformed JSON payloads/parser causes and cleanup exception payloads. Internal command results still carry authorized output; do not stringify them into diagnostics. Historical log buffers and exported files may contain secret-bearing output. Review those logs before sharing; this fix does not sanitize previously written data or establish that every transport/server message is safe.
 
-Traffic-rate and selected-view races are tracked by C6–C7. A displayed nonzero rate or a recent sync alone cannot prove connectivity. Device/packet behavior needs relevant real observations; unit tests cannot supply that evidence.
+#13 prevents delayed detail config/statistics from updating another selection or a destroyed view, pending merge. Idle-rate correction remains C7. A displayed nonzero rate or a recent sync alone cannot prove connectivity. Device/packet behavior needs relevant real observations; unit tests cannot supply that evidence.
 
 ## VPS feature status
 
