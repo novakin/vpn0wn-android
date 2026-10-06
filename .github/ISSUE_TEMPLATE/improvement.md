@@ -6,6 +6,8 @@ labels: "enhancement"
 assignees: "novakin"
 ---
 
+<!-- Template last updated: 2026-10-06 (Europe/Paris). -->
+
 ## Problem
 
 Describe the concrete need and link the relevant improvement-plan ID or owning documentation.

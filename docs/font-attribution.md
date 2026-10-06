@@ -1,5 +1,7 @@
 # Font Attribution
 
+Last updated: 2026-10-06 (Europe/Paris).
+
 The UI redesign uses font families referenced by the `.design/` prototype:
 
 - Inter Tight from Google Fonts.

@@ -1,5 +1,7 @@
 # Tunnl UI Redesign Roadmap
 
+Last updated: 2026-10-06 (Europe/Paris).
+
 ## Design Source
 
 Reference: `.design/` — React/JSX prototype for **Tunnl**, a WireGuard tunnel manager with an engineering-console visual language. Read-only. Never modify.

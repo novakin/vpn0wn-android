@@ -1,5 +1,7 @@
 # Tunnl WireGuard Provisioning Scripts
 
+Last updated: 2026-10-06 (Europe/Paris).
+
 This directory contains Tunnl-owned, non-interactive provisioning scripts derived
 from the upstream `wireguard-install.sh` logic.
 

@@ -1,5 +1,7 @@
 # Tunnl — WireGuard Android
 
+Last updated: 2026-10-06 (Europe/Paris).
+
 ## Source of Truth — Prompt Instructions
 
 **`AGENTS.md` is the single source of truth for project agent instructions.** Edit this file directly when instructions change. Keep detailed workflow and runtime facts in their owning guides and update affected references in the same change.
@@ -54,7 +56,9 @@ The JSX prototype owns visual intent, not runtime truth. Never treat demo data, 
 
 Read the records relevant to the task. Keep completed, in-progress and deferred work distinct; record scope removals with their reason rather than hiding unresolved work as completed.
 
-Assess documentation impact for every change. Update affected owning guidance in the same change and search related summaries, examples, agent rules and limitations for contradictions. Give a specific no-impact reason when no update is needed; do not add cosmetic prose to satisfy a checklist. Links, dates and checked boxes do not replace review of meaning. Link to detailed facts instead of duplicating them.
+Assess documentation impact after every code, test, build, configuration, UI, workflow or documentation change. Update affected owning guidance in the same change and search related summaries, examples, agent rules and limitations for contradictions. Give a specific no-impact reason when no documentation update is needed; do not edit unaffected docs just to refresh dates. Links, dates and checked boxes do not replace review of meaning. Link to detailed facts instead of duplicating them.
+
+Date every maintained project Markdown guide, including README and AGENTS.md, with `Last updated: YYYY-MM-DD (Europe/Paris).` near the top. Update that date whenever the file is edited, including small corrections; same-day edits keep the same date. Templates use the equivalent hidden `Template last updated` comment in their source. A read-only review does not change the last-edit date. Follow `docs/development.md` for date scope and historical evidence; do not overwrite original event/test dates or date read-only design, generated or externally owned material.
 
 Record consequential architecture decisions in `docs/architecture.md` and operational policy in its owning guide: problem, decision/status, alternatives, consequences/limits and verification or migration impact. Record approval/date only when evidenced. Routine edits need no decision record. Revisit decisions when requirements change; keep the superseded rationale. Preserve historical event/test dates and revisions; date new substantive records in Europe/Paris and distinguish a scoped review from a new runtime run.
 

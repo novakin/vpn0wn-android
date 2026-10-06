@@ -1,5 +1,7 @@
 # Backend & Functional Changelog
 
+Last updated: 2026-10-06 (Europe/Paris).
+
 Tracks non-UI changes: backend logic, data layer, permissions, networking, build config, and any functional behavior changes. Separate from `ui-redesign-roadmap.md` which covers visual/layout work only.
 
 ---

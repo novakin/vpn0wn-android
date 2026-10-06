@@ -1,3 +1,5 @@
+<!-- Template last updated: 2026-10-06 (Europe/Paris). -->
+
 ## Problem and resulting behavior
 
 Explain the problem and what users/operators observe after this change. Link the issue or improvement-plan ID.
@@ -36,6 +38,7 @@ Keep one current acceptance record here. Reassess the affected delta after edits
 ## Documentation impact
 
 - Owning guidance updated, or specific no-impact reason:
+- Last-updated dates refreshed for edited docs/templates; historical event/test dates preserved:
 - Related summaries, examples, roadmap and agent statements checked:
 - Decision/changelog impact, or why not applicable:
 - Review basis and unresolved inconsistencies/evidence gaps:

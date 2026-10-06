@@ -1,5 +1,7 @@
 # Tunnl — WireGuard Android
 
+Last updated: 2026-10-06 (Europe/Paris).
+
 Tunnl is [novakin's WireGuard Android fork](https://github.com/novakin/wireguard-android), adding an engineering-console redesign and a partial VPS fleet/provisioning flow to the existing Android DataBinding/Fragment architecture.
 
 The app uses [WireGuard](https://www.wireguard.com/), with the [kernel implementation](https://git.zx2c4.com/android_kernel_wireguard/about/) when available and the non-root [userspace implementation](https://git.zx2c4.com/wireguard-go/about/). The [official WireGuard app on the Play Store](https://play.google.com/store/apps/details?id=com.wireguard.android) distributes upstream WireGuard, not this fork.

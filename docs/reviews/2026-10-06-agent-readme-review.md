@@ -1,5 +1,7 @@
 # Agent and README review — 2026-10-06
 
+Last updated: 2026-10-06 (Europe/Paris).
+
 [Documentation index](../../README.md#project-documentation) · Substantive documentation review, Europe/Paris.
 
 The initial review sections below describe the two-file instruction layout at checkpoint `584d0999d787c5ab6ad3a7db75e321a0f34c8a15`. The [single-file follow-up](#single-instruction-file-follow-up) records the user's subsequent consolidation request; historical mirror results and scores retain their original scope.
@@ -89,3 +91,11 @@ This follow-up changes six paths, including the removed file; PR #8 still spans 
 The current rubric replaces the mirror criterion with sole AGENTS.md ownership and consistent active references/checks. Other criteria remain unchanged. Follow-up checks passed on Python 3.12.10/Windows: six live documents, 129 local links/fragments, fences/whitespace, absent duplicate file, sole ownership, 48 source assertions and scoped diff checks. Fresh preservation comparison passed for 333 unrelated paths, including 330 file hashes, one retained deletion and two unchanged gitlinks with clean submodule worktrees. Issue #7 acceptance was updated and read back for the requested ownership change.
 
 Independent ultra reasoning re-review found no material consolidation findings and confirmed the current documentation assessment remains **100/100** under the sole-ownership criterion. It independently checked retained substantive rules, references/history, source/link/fence/whitespace checks, preservation, submodules, unchanged PR template and live issue acceptance/metadata. Final committed revision and publication readback belong in the PR acceptance record. No runtime/APK/live operation was run or merge approval granted.
+
+## Documentation dating follow-up
+
+2026-10-06 (Europe/Paris): the user required dated documentation, dates refreshed when files change, and affected documentation updated after any change when needed. AGENTS.md, development ownership/date rules, plan acceptance and the PR template now enforce that workflow. All 17 maintained Markdown guides/templates received a latest-edit marker; templates use a hidden source comment. Same-day edits keep the date; read-only checks do not refresh it. Event/test/review history remains separate. No date bot, dependency or CI workflow was introduced.
+
+This pass changes metadata only in architecture, operations, backend contracts, fonts, UI roadmap, backend changelog, QA and the fork-owned provisioning/reference guides. It does not revalidate their complete runtime contents. The three pre-existing dirty guides retain their original bytes outside the new date line, and only those inserted metadata hunks belong in the commit. The initial latest-edit markers record this actual edit date rather than inventing earlier dates.
+
+Dating/link/fence/whitespace checks passed for all 17 maintained Markdown files; 164 local links/fragments and 48 source assertions passed. Fresh preservation comparison covers 321 unrelated paths, including 318 matching file hashes, one retained deletion and two clean unchanged submodules. All 12 metadata-only files preserve original bytes outside the inserted marker/comment, including the three dirty guides. Independent ultra review found no material in-scope findings and confirmed the bounded documentation rubric remains **100/100**. It verified date placement, unchanged issue front matter, policy semantics, historical scope, preservation, metadata-only staging patch and live issue acceptance/metadata. Final staged/committed-scope proof and delivery evidence belong in PR #8; earlier results retain their checkpoint scope. No build, runtime or live validation is required for this metadata/process change.

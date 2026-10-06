@@ -1,5 +1,7 @@
 # Architecture and maintenance boundaries
 
+Last updated: 2026-10-06 (Europe/Paris).
+
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
 Preserve the existing Android DataBinding/Fragment foundation and upstream WireGuard config/backend ownership. This guide describes current code; planned integration and repairs are identified explicitly.

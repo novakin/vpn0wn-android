@@ -1,5 +1,7 @@
 # Tunnl improvement plan
 
+Last updated: 2026-10-06 (Europe/Paris).
+
 [Documentation index](../README.md#project-documentation) · Agent/process and delivery pointers updated 2026-10-06 (Europe/Paris); initial runtime assessment remains historical.
 
 ## Scope and baseline
@@ -113,9 +115,9 @@ Acceptance: AGENTS.md is the sole project instruction file and active references
 | [QA test plan](qa-test-plan.md) | Keep layer/coverage requirements and opt-in VPS use case. List implemented coverage only when tests exist; record execution evidence in development documentation. |
 | This plan | Own audit/remediation priorities, action status and acceptance. Link to source/tests and owning guides as actions land. |
 
-Write current facts from source. Label proposed behavior, known gaps and dated evidence separately. Do not invent supported versions, successful verification, release infrastructure or operational owners. Avoid dedicated ADR files until decision history needs them.
+Write current facts from source. Label proposed behavior, known gaps and dated evidence separately. Every maintained guide has a last-updated date; refresh it whenever that file is edited and preserve historical event/test/review dates. Check documentation impact after every change and update affected owners in the same change, or give a specific no-impact reason. Follow [date conventions](development.md#dates-and-decisions). Do not invent supported versions, successful verification, release infrastructure or operational owners. Avoid dedicated ADR files until decision history needs them.
 
-Acceptance: each detailed fact has one owner; README reaches every guide; examples agree with source; planned features are distinguishable from working behavior; local Markdown links/fences are valid; no real credentials are included.
+Acceptance: each detailed fact has one owner; README reaches every guide; examples agree with source; planned features are distinguishable from working behavior; maintained documents/templates are dated and edited dates are current without altering historical evidence; local Markdown links/fences are valid; no real credentials are included.
 
 ## D2 — Contribution templates, merge workflow and hygiene
 

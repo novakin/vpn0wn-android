@@ -1,5 +1,7 @@
 # Development and contribution workflow
 
+Last updated: 2026-10-06 (Europe/Paris).
+
 [Documentation index](../README.md#project-documentation) · Setup/process substantively updated 2026-10-06 (Europe/Paris); historical runtime evidence retains its original scope.
 
 Use focused changes, the existing Android architecture and explicit verification limits. [AGENTS.md](../AGENTS.md) is the sole project agent-instruction file; edit it directly when instructions change.
@@ -31,9 +33,13 @@ From that environment, `./gradlew :ui:assembleDebug --console=plain` assembles a
 | [QA plan](qa-test-plan.md) | Required coverage by layer and opt-in VPS validation. |
 | `docs/reviews/` | Substantive historical assessments with scope, revision, evidence, findings/resolution and limits. |
 
-Assess documentation impact for every change. Update the smallest affected owning set and search related summaries, examples, agent rules and limitations for contradictions. Record the reviewed sections and specific no-impact reasons in the PR. Links, dates and checked boxes do not prove meaning is correct; avoid cosmetic edits solely to satisfy a checklist. Link detailed facts instead of duplicating long status blocks. Routine self-review/CI acceptance belongs in the PR; no separate report is required for each edit. Never commit raw chat, private reasoning or host/credential reports.
+Assess documentation impact after every code, test, build, configuration, UI, workflow or documentation change. Update the smallest affected owning set in the same change and search related summaries, examples, agent rules and limitations for contradictions. Update docs when their behavior, setup, API/contracts, operations, examples or process facts change; record reviewed sections and a specific no-impact reason when no update is needed. Update each edited document's date under the convention below. Links, dates and checked boxes do not prove meaning is correct; do not edit unaffected docs merely to refresh dates. Link detailed facts instead of duplicating long status blocks. Routine self-review/CI acceptance belongs in the PR; no separate report is required for each edit. Never commit raw chat, private reasoning or host/credential reports.
 
 ### Dates and decisions
+
+Every maintained project Markdown guide uses `Last updated: YYYY-MM-DD (Europe/Paris).` near the top: README, AGENTS.md, docs (including historical review files when appended/corrected), the fork-maintained provisioning README and upstream-reference guide. Set it to the actual local date whenever that file is edited, including wording, link or metadata corrections. Same-day edits retain the same date; a read-only check does not refresh it. The field records the latest document edit, not whole-guide revalidation or the date of every described event. This initial dating pass starts on 2026-10-06; it does not invent earlier edit dates.
+
+Issue/PR template source uses `<!-- Template last updated: YYYY-MM-DD (Europe/Paris). -->`; place it after issue-template front matter or before the first PR heading. Update it when the template changes. The hidden source date is not an issue/PR creation, event or verification date. Keep licenses, generated artifacts, read-only `.design/` and externally owned vendored content under their own contracts; do not stamp them as project-maintained guidance.
 
 Use YYYY-MM-DD with Europe/Paris stated for new human-written records; retain machine timestamps in UTC or with an explicit offset. Distinguish substantive updates, scoped reviews, decisions and test execution. A narrow review is not whole-guide runtime revalidation. Preserve historical dates, revisions, evidence and limits; correct inaccuracies with a dated clarification. Do not invent missing event dates/timezones or refresh old tests to today's date.
 
@@ -121,7 +127,7 @@ Invoke-CodexQuiet -Command 'wsl -- bash -c "cd /mnt/c/Users/Guillaume/Documents/
 
 Broaden tests for shared state, public/script contracts or cross-cutting/high-risk changes. Use deterministic clocks, synthetic profiles, injected commands and temporary files where they answer the question. Do not introduce a framework, CI or release pipeline merely to record proof.
 
-For documentation-only work, validate relative links, fences, examples/source claims, consistency with AGENTS.md and `git diff --check`. A search with no matches returns `rg` exit 1; exit 2 is a search error. An executed test suite with disclosed skips differs from source-inspected tests, and neither proves unperformed device or live-server behavior.
+For documentation-only work, validate relative links, fences, examples/source claims, consistency with AGENTS.md, date presence/actual edit date and `git diff --check`. Keep historical event/test/review dates separate from the latest edit marker. A search with no matches returns `rg` exit 1; exit 2 is a search error. An executed test suite with disclosed skips differs from source-inspected tests, and neither proves unperformed device or live-server behavior.
 
 ## Evidence and completion
 

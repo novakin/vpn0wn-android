@@ -6,6 +6,8 @@ labels: "bug"
 assignees: "novakin"
 ---
 
+<!-- Template last updated: 2026-10-06 (Europe/Paris). -->
+
 ## Problem and impact
 
 Describe the observed behavior and its impact. Include a related improvement-plan ID when applicable.

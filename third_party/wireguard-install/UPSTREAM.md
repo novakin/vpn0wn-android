@@ -1,5 +1,7 @@
 # Nyr wireguard-install
 
+Last updated: 2026-10-06 (Europe/Paris).
+
 Source: https://github.com/Nyr/wireguard-install
 
 Imported from commit: `3b85b2702ffcb2ce670c29bd90c6cae4a5bcc753`
