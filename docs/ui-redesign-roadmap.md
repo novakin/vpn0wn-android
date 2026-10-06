@@ -294,7 +294,7 @@ SVG topology diagram (`280×64` viewBox) on `.schematic-grid` background. Three 
 
 ### Server Status System
 
-This table defines visual labels. Current persisted-fleet ONLINE classification uses sync freshness and can misrepresent stopped/unknown health (C4).
+This table defines visual labels. C4 now requires fresh observed running for persisted-fleet ONLINE; stopped is OFFLINE and unknown/stale needs ATTENTION. [Backend contracts](backend-contracts.md#persistence-and-presentation) owns runtime meaning. Labels still do not prove connectivity.
 
 | Status | Label | Color | Card border |
 |--------|-------|-------|-------------|

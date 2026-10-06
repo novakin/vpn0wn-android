@@ -4,7 +4,7 @@ Last updated: 2026-10-06 (Europe/Paris).
 
 These Tunnl-owned Bash commands adapt the [pinned upstream reference](../UPSTREAM.md) into a non-interactive server surface. Android uses these scripts rather than the upstream interactive installer. Concrete Android SSH transport and live UI actions remain unfinished.
 
-This guide describes the C2–C3 source repair and its offline proof. Confirmation does not establish ownership; successful JSON does not establish traffic or handshake health. [Backend contracts](../../../docs/backend-contracts.md#provisioning-command-surface) owns Android arguments/results; [the plan](../../../docs/improvement-plan.md#codebase-actions) tracks delivery and remaining C4/C9 work.
+This guide describes the C2–C4 source repairs and offline proof. Confirmation does not establish ownership; successful JSON does not establish traffic or handshake health. [Backend contracts](../../../docs/backend-contracts.md#provisioning-command-surface) owns strict Android schemas, safe error categories and health meaning; [the plan](../../../docs/improvement-plan.md#codebase-actions) tracks delivery and remaining work.
 
 ## Scope and defaults
 
@@ -17,12 +17,12 @@ Plan/install require a single hostname/IPv4 token or bracketed IPv6 endpoint and
 | Command | Source-observed result and limitation |
 | --- | --- |
 | `detect.sh` | Reports distro, tools/firewall hints, config/package presence and forwarding. Endpoint comes from config metadata, not external public-IP discovery. |
-| `plan.sh` | Validates endpoint, port, CIDR, DNS and OS, then emits static install steps and an overwrite flag. It changes no state and is not an exact migration/update plan. It rejects Android's forwarded `--force`; C4. |
+| `plan.sh` | Validates endpoint, port, CIDR, DNS and OS, then emits static install steps and an overwrite flag. Accepts the shared request's `--force` without changing this advisory result. It changes no state and does not prove root access, ownership or install feasibility. |
 | `install.sh` | Requires root and ownership, stages config, enables/restarts the unit and checks service, server key, port, address and peer state. Forced reinstall stops the old unit with its old config/hooks before replacement. Existing config fails without `--force`; force never bypasses ownership. |
 | `add-peer.sh` | Locks allocation/read/write/apply, rejects duplicate names or ambiguous markers, and returns a secret-bearing profile after disk/runtime postconditions. |
-| `remove-peer.sh` | Removes one ordered, unambiguous block and checks disk/live peer removal. Absent names fail. String `removed` remains the name rather than Android's expected Boolean/name fields; C4. |
-| `revoke-peer.sh` | Shares removal under the same lock, then publishes a unique private archive. Archive includes the PSK and server peer metadata, not the full client profile. String `revoked` remains an Android schema gap; C4. |
-| `sync-status.sh` | Returns saved peer metadata and runtime handshake/transfer counters. `running` observes systemd activity. Failed `wg show` is suppressed and counters default to zero; neither proves VPN health. |
+| `remove-peer.sh` | Removes one ordered, unambiguous block and checks disk/live peer removal. Absent names fail. Success emits `name`, `removed:true` and `revoked:false`. |
+| `revoke-peer.sh` | Shares removal under the same lock, then publishes a unique private archive. Success emits `name`, `removed:true`, `revoked:true` and `archive`. Archive includes the PSK and server peer metadata, not the full client profile. |
+| `sync-status.sh` | Returns saved peer metadata and observed runtime handshake/transfer counters. Shared `observe_runtime` checks native interface presence: true/false/null for running/stopped/unobservable. Missing/failed dump, missing rows and invalid/out-of-range counters produce null, not zero. Interface presence is independent of systemd activity and does not prove connectivity. |
 | `backup.sh` | Emits JSON containing full server config and revoked count. It does not write an archive or safe backup file; protect the secret-bearing result. |
 | `uninstall.sh` | Requires `--confirm` and ownership, writes a unique private backup before stop/disable/delete, and verifies absence. Optional purge refuses other config/live interfaces and checks named package absence. No autoremove runs. Global forwarding stays unchanged; its managed file stays when another interface/config exists. |
 
@@ -46,8 +46,8 @@ Normal responses and explicit failures use JSON on stdout. Mutating-command diag
 
 Never log or publish generated configs, backup payloads, private keys or PSKs. Shell-quoted arguments do not validate WireGuard config content. No script manages SSH configuration or intentionally edits SSH port rules; this is not a guarantee about all host firewall/package effects.
 
-Remaining repairs include agreed Android JSON/health contracts (C4), harness postcondition/failure-redaction proof (C9), and real SSH/UI integration (C11–C12). No real-server validation is claimed by the C2–C3 offline suite.
+Android consumes agreed C4 JSON/health contracts. Remaining work includes harness postcondition/failure-redaction proof (C9) and real SSH/UI integration (C11–C12). Neither C2–C3 nor C4 offline proof establishes real-server behavior.
 
 ## Verification
 
-Run [the offline suite](../../../scripts/tests/provisioning_safety_test.sh) through an unprivileged Linux user namespace; see [development commands/evidence](../../../docs/development.md#c2c3-offline-provisioning-safety--2026-10-06). Fixtures use synthetic keys, private temporary files and fake privileged commands. Syntax alone does not establish mutation safety. The [disposable VPS harness](../../../docs/qa-test-plan.md#disposable-vps-integration-use-case) still needs C9 repairs and explicit authorization. No APK, SSH or live VPN proof was run for this change.
+Run [the offline suite](../../../scripts/tests/provisioning_safety_test.sh) through an unprivileged Linux user namespace; see [C2–C3 evidence](../../../docs/development.md#c2c3-offline-provisioning-safety--2026-10-06) and [C4 contract evidence](../../../docs/development.md#c4-provisioning-contracts-and-observed-health--2026-10-06). Fixtures use synthetic keys, private temporary files and fake privileged commands. The suite compares actual normalized script responses to committed synthetic JSON consumed by JVM tests. Syntax alone does not establish mutation safety. The [disposable VPS harness](../../../docs/qa-test-plan.md#disposable-vps-integration-use-case) still needs C9 repairs and explicit authorization. No APK, SSH or live VPN proof was run for this change.

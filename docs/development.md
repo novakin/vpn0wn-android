@@ -197,3 +197,36 @@ The repaired suite passed 59 cases with zero failures/skips. In the final compar
 Retained command logs under ignored `.artifacts/codex-command-logs` include the repaired 59-case run `20261006-140949-601-6373b7ff152b44168e4898fa664e1056.log` and baseline comparison `20261006-140949-684-866df557cbcb413094dc321f75ac403a.log`. Earlier fixture/source failures and preliminary baseline comparisons remain retained and superseded; they are not final proof. The PR acceptance record owns the final reviewed/tested revision and independent findings/resolution.
 
 No APK/Gradle, device, real WireGuard/systemd/apt, SSH or live/destructive VPS operation ran. Fake native observations prove Bash ordering/decisions rather than actual NAT, VPN traffic or real package rollback. SIGKILL/host loss and uncoordinated external tools remain outside transactional guarantees. C4 response/health/consumer alignment, C9 harness repairs and C11–C12 integration remain open.
+
+2026-10-06 delivery clarification (Europe/Paris): [PR #19](https://github.com/novakin/wireguard-android/pull/19) merged C2–C3 into master as `37b3ad34f4df09a28b1ed6e7b5109faf3ff45789`; issues #10/#11 were verified closed. The historical run/limits above remain unchanged. C4 below supersedes its response/health gap.
+
+### C4 provisioning contracts and observed health — 2026-10-06
+
+Source/test work uses isolated `fix/provisioning-contracts` from merged master `37b3ad34f4df09a28b1ed6e7b5109faf3ff45789`; the original dirty workspace/index stays untouched. Environment: WSL Debian, OpenJDK 21.0.10, Gradle 9.3.1, installed Android SDK and Robolectric SDK 28 for focused command/logging/mapper checks. No dependency was added or installed.
+
+| Run | Observed result and limits |
+| --- | --- |
+| New JSON/mapper regressions against unrepaired source | 19 tests ran; five failed as expected: nested shape, unsafe known/unknown remote errors and fresh/future timestamp health. |
+| Five new Bash regressions against unrepaired source | Existing 59 passed; new force-plan, remove/revoke schema and unknown/stopped observation cases failed. |
+| Repaired offline script suite after review | 69 passed, zero failed; native namespace locks/files and fake privileged tools. Twelve exact normalized responses are committed as synthetic fixtures and consumed by JVM tests. |
+| Full UI JVM suite after review | 73 passed, zero failures/errors/skips; ten suites. No APK assembly or device proof. |
+| Native `:ui:detekt` | Blocked before analysis by unchanged unsupported `AvoidReferenceToMutableVar` config property; [issue #20](https://github.com/novakin/wireguard-android/issues/20). |
+| Task-local Detekt comparison of ten touched Kotlin files | Config copy omits only that unsupported rule. Exported baseline has 11 findings; repaired source has ten, all existing mapper/store ReturnCount/MagicNumber findings. The generic Throwable catch is removed; no new findings. This is not a clean repository-wide gate. |
+
+Run the relevant suites from the intended checkout:
+
+```bash
+./gradlew :ui:testDebugUnitTest --tests 'com.wireguard.android.provisioning.*' --console=plain
+./gradlew :ui:testDebugUnitTest --console=plain
+unshare --user --map-root-user bash scripts/tests/provisioning_safety_test.sh
+```
+
+Command-contract tests need Bash in the JVM test environment. They run the exact constructed command through Bash with fake id/sudo/script stubs, covering root/sudo dispatch, shared force arguments, quotes, spaces, substitution syntax, newlines, remote paths, upload contents/mode and structured nonzero script failure/cleanup. Script cases compare actual outputs after normalizing private fixture paths and random archive suffixes; only synthetic keys/configs are committed. The generated profile also passes upstream Config parsing. To regenerate fixtures intentionally after a reviewed contract change, run the offline suite with `TUNNL_UPDATE_CONTRACT_FIXTURES=1`, review the JSON diff, then rerun without that variable and run JVM tests. Never capture real host responses into these resources.
+
+JSON tests validate nested/missing/wrong-type success fields, actual Booleans, bounded decimal counters, null observations, known/unknown/malformed errors, recovery enums, conditional revoke archives and cleanup metadata. Captured logs/exception stacks exclude synthetic secrets. Store tests cover legacy/malformed running fields, true/false/null round trips and existing transactions. Mapper tests separate freshness from observed running, reject future/stale evidence, check thresholds and retain unknown peer values. See [contracts](backend-contracts.md) for deliberate schema/health semantics and compatibility.
+
+Independent ultra review identified unintended Unicode damage, a wrong C9 issue reference, failed dump stdout being treated as observed counters and optional archive acceptance for revoked success. Text/reference corrections restored the intended content. Failed dumps now discard stdout even when it looks valid; a synthetic partial-output/secret-stderr case fails against the unadapted ten-script export of merged master and passes after repair. Revoked responses now require a nonblank string archive, with safe missing/blank/wrong-type failures and remove/revoke controls. Final revision-specific verdict belongs in PR acceptance; this is not formal GitHub approval or live proof.
+
+Evidence remains under ignored `.artifacts/codex-command-logs`. Initial baseline JVM/Bash logs: `20261006-143649-972-5e96fb9d303340059eda9f5f253e52d4.log` and `20261006-143630-630-3c4fb357bbcd4b25b2acece15c4b1c16.log`. Earlier repaired 68-case/72-test runs remain historical: `20261006-144559-094-60ffc6b4716246fd8a249255d37306bb.log` and `20261006-145025-117-0ae19fc5464849c5b5004d7bebb7a3c6.log`. Final 69-case script proof and 73-test UI proof are `20261006-150149-399-52b32714747f4c23b77ee6e3c13b829f.log` and `20261006-150350-514-1c65ea299cd54fa6ae6b5462dbefd3a6.log`. The partial-dump baseline regression's expected exit 1 is retained in `20261006-150300-931-f6be2dff775242c685e7e763af514177.log`; its test assertions emit no payload. The initial static-config failure, exported-baseline comparison and final scoped comparison are `20261006-145025-214-cf9dd15277864157a0dd51247cc71fd3.log`, `20261006-145457-284-594f70233601455394e1755826bd6534.log` and `20261006-150401-019-150ac02628af429980cf2d472020d1de.log`. Earlier fixture/test setup failures remain retained and superseded. Final reviewed/tested revision belongs in PR acceptance.
+
+No APK, device, real root/WireGuard/systemd/apt, SSH or live/destructive VPS operation ran. Native observation fixtures establish decisions, not VPN packets or real OS reliability. Legacy records lose no connection metadata but deliberately start with unknown running health. C9 harness assertions/redaction, C11 concrete transport, C12 live UI/recovery presentation and issue #20's native static gate remain open. Existing AGENTS.md/README/templates already enforce this workflow; no instruction/template/process change is needed for this functional slice.

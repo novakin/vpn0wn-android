@@ -113,6 +113,7 @@ class VpsServerStoreTest {
                 cidr = "10.9.0.0/24",
                 dns = "9.9.9.9",
                 lastSyncEpochSeconds = 1710000000L,
+                running = true,
             ),
             store.servers.first().single(),
         )
@@ -175,6 +176,34 @@ class VpsServerStoreTest {
         assertEquals(setOf("ams-01", "fra-01", "nyc-01"), servers.keys)
         assertEquals("203.0.113.99", servers.getValue("ams-01").endpoint)
         assertEquals(1710000001L, servers.getValue("ams-01").lastSyncEpochSeconds)
+    }
+
+    @Test
+    fun runningStoppedAndUnknownObservationsRoundTripWithoutInventingHealth() = runBlocking {
+        val server = storedServer(id = "ams-01")
+        store.upsert(server)
+        for (running in listOf(true, false, null)) {
+            store.updateStatus(server.id, status("203.0.113.10").copy(running = running), 1710000000L)
+            assertEquals(running, store.servers.first().single().running)
+        }
+        store.upsert(server.copy(id = "other", running = true))
+        store.remove("missing")
+        assertEquals(null, store.servers.first().first { it.id == server.id }.running)
+        assertEquals(true, store.servers.first().first { it.id == "other" }.running)
+    }
+
+    @Test
+    fun legacyAndMalformedRunningFieldsMigrateToUnknown() = runBlocking {
+        for (field in listOf("", ""","running":null""", ""","running":"true"""", ""","running":{}""")) {
+            writeRawStore("""[{"id":"legacy","name":"kept","host":"vpn.example","sshPort":22,"sshUser":"root","endpoint":"vpn.example","cidr":"10.8.0.0/24","lastSyncEpochSeconds":1710000000$field}]""")
+            val server = store.servers.first().single()
+            assertEquals("kept", server.name)
+            assertEquals(1710000000L, server.lastSyncEpochSeconds)
+            assertEquals(null, server.running)
+            store.upsert(server.copy(provider = "kept provider"))
+            assertEquals("kept provider", store.servers.first().single().provider)
+            assertEquals(null, store.servers.first().single().running)
+        }
     }
 
     private fun storedServer(

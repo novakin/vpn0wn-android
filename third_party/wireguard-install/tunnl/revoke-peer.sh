@@ -35,7 +35,7 @@ REVOKE_ARCHIVE=$archive
 mv -fT -- "$RECOVERY_DIR/revoked.conf" "$archive" 2>/dev/null || mutation_abort archive_failed
 finish_mutation
 
-printf '{"ok":true,"revoked":%s,"publicKey":%s,"archive":%s,"cleanupPath":%s}\n' \
+printf '{"ok":true,"name":%s,"removed":true,"revoked":true,"publicKey":%s,"archive":%s,"cleanupPath":%s}\n' \
   "$(json_string "$name")" \
   "$(json_string "$REMOVED_PUBLIC_KEY")" \
   "$(json_string "$archive")" \

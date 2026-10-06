@@ -100,5 +100,6 @@ object VpsDeployFixtureData {
         region = region,
         engine = engine,
         lastSyncEpochSeconds = lastSyncEpochSeconds,
+        running = if (lastSyncEpochSeconds > 0L) true else null,
     )
 }

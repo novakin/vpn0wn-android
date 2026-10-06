@@ -9,6 +9,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.json.JSONObject
 
 class ProvisioningJsonTest {
     @Test
@@ -53,6 +54,7 @@ class ProvisioningJsonTest {
             """
             {
               "ok": true,
+              "supported": true,
               "endpoint": "203.0.113.10",
               "port": "51820",
               "cidr": "10.8.0.0/24",
@@ -120,7 +122,7 @@ class ProvisioningJsonTest {
         )
 
         assertEquals("wg0", result.interfaceName)
-        assertTrue(result.running)
+        assertEquals(true, result.running)
         assertEquals("203.0.113.10", result.endpoint)
         assertEquals("51820", result.listenPort)
         assertEquals("10.8.0.0/24", result.cidr)
@@ -228,6 +230,167 @@ class ProvisioningJsonTest {
             )
         }
 
-        assertEquals("unsupported_os: Debian 10", exception.message)
+        assertEquals("Server operating system is unsupported", exception.message)
     }
+
+    @Test
+    fun nestedMalformedDataFailsWithoutRetainingPayload() {
+        val secret = "synthetic-nested-private-key"
+        for (peers in listOf("[\"$secret\"]", "{}", "[{\"name\":\"$secret\"}]")) {
+            val failure = assertThrows(ProvisioningException::class.java) {
+                ProvisioningJson.parseStatus("""{"ok":true,"interface":"wg0","running":true,"endpoint":"vpn.example","listenPort":"51820","cidr":"10.8.0.0/24","dns":"1.1.1.1","peers":$peers}""")
+            }
+            assertFalse(failure.stackTraceToString().contains(secret))
+            assertEquals(null, failure.cause)
+        }
+    }
+
+    @Test
+    fun remoteErrorTextIsNeverDiagnosticText() {
+        val secret = "synthetic-remote-private-key"
+        for (error in listOf("\"unsupported_os\"", "\"$secret\"", "{}", "null")) {
+            val failure = assertThrows(ProvisioningException::class.java) {
+                ProvisioningJson.parseDetect("""{"ok":false,"error":$error,"message":"$secret"}""")
+            }
+            assertFalse(failure.stackTraceToString().contains(secret))
+            assertEquals(null, failure.cause)
+        }
+    }
+
+    @Test
+    fun actualScriptResponsesParseAcrossCommandSurface() {
+        assertTrue(ProvisioningJson.parsePlan(fixture("plan")).willOverwriteConfig)
+        assertEquals("wg0", ProvisioningJson.parseInstall(fixture("install")).interfaceName)
+        val profile = ProvisioningJson.parseAddPeer(fixture("add-peer")).config
+        assertTrue(profile.contains("PrivateKey"))
+        val config = com.wireguard.config.Config.parse(profile.byteInputStream())
+        assertEquals(1, config.peers.size)
+        val status = ProvisioningJson.parseStatus(fixture("status-running"))
+        assertEquals(true, status.running)
+        assertEquals(1024L, status.peers.single().rxBytes)
+        assertEquals(false, ProvisioningJson.parseStatus(fixture("status-stopped")).running)
+        assertEquals(null, ProvisioningJson.parseStatus(fixture("status-unknown")).running)
+        assertEquals(null, ProvisioningJson.parseStatus(fixture("status-unknown")).peers.single().rxBytes)
+        val runningUnknown = ProvisioningJson.parseStatus(fixture("status-running-unknown"))
+        assertEquals(true, runningUnknown.running)
+        assertEquals(null, runningUnknown.peers.single().latestHandshake)
+        assertEquals(null, runningUnknown.peers.single().rxBytes)
+        val removed = ProvisioningJson.parsePeerMutation(fixture("remove-peer"))
+        assertEquals("phone", removed.name)
+        assertTrue(removed.removed)
+        assertFalse(removed.revoked)
+        val revoked = ProvisioningJson.parsePeerMutation(fixture("revoke-peer"))
+        assertEquals("tablet", revoked.name)
+        assertTrue(revoked.removed)
+        assertTrue(revoked.revoked)
+        assertTrue(revoked.archive.endsWith(".conf.synthetic"))
+        assertEquals(1, ProvisioningJson.parseBackup(fixture("backup")).revokedCount)
+        assertTrue(ProvisioningJson.parseUninstall(fixture("uninstall")).uninstalled)
+    }
+
+    @Test
+    fun missingAndWrongTypesAreNotCoercedToSuccess() {
+        val controls = listOf<Pair<String, (String) -> Any>>(
+            "plan" to ProvisioningJson::parsePlan,
+            "install" to ProvisioningJson::parseInstall,
+            "status-running" to ProvisioningJson::parseStatus,
+            "add-peer" to ProvisioningJson::parseAddPeer,
+            "remove-peer" to ProvisioningJson::parsePeerMutation,
+            "backup" to ProvisioningJson::parseBackup,
+            "uninstall" to ProvisioningJson::parseUninstall,
+        )
+        for ((name, parser) in controls) {
+            val original = JSONObject(fixture(name))
+            for (key in original.keys().asSequence().toList().filter { it !in listOf("publicKey", "cleanupPath") }) {
+                val malformed = JSONObject(original.toString()).put(key, JSONObject().put("secret", "synthetic-shape-secret"))
+                assertInvalid { parser(malformed.toString()) }
+            }
+            val missingOk = JSONObject(original.toString()).apply { remove("ok") }
+            assertInvalid { parser(missingOk.toString()) }
+            assertInvalid { parser(JSONObject(original.toString()).put("ok", "true").toString()) }
+        }
+        assertInvalid { ProvisioningJson.parsePeerMutation("""{"ok":true,"removed":"phone"}""") }
+        assertInvalid { ProvisioningJson.parsePlan(JSONObject(fixture("plan")).put("steps", listOf(JSONObject())).toString()) }
+    }
+
+    @Test
+    fun countersRejectMalformedNegativeAndOverflowWithoutLosingValidZero() {
+        for (value in listOf("-1", "1.5", "9223372036854775808", "synthetic-shape-secret")) {
+            val json = JSONObject(fixture("status-running"))
+            json.getJSONArray("peers").getJSONObject(0).put("rxBytes", value)
+            assertInvalid { ProvisioningJson.parseStatus(json.toString()) }
+        }
+        val json = JSONObject(fixture("status-running"))
+        json.getJSONArray("peers").getJSONObject(0).put("rxBytes", "0").put("txBytes", Long.MAX_VALUE.toString())
+        val peer = ProvisioningJson.parseStatus(json.toString()).peers.single()
+        assertEquals(0L, peer.rxBytes)
+        assertEquals(Long.MAX_VALUE, peer.txBytes)
+    }
+
+    @Test
+    fun remoteFailuresHaveSafeCategoriesAndRecovery() {
+        val known = assertThrows(ProvisioningException::class.java) { ProvisioningJson.parseDetect(fixture("error")) }
+        assertEquals(ProvisioningFailureCategory.CONFLICT, known.category)
+        assertEquals("peer_not_found", known.remoteCode)
+        assertEquals(ProvisioningRecovery.UNCHANGED, known.recovery)
+        for (recovery in listOf("unchanged", "restored", "incomplete", "synthetic-shape-secret")) {
+            val payload = """{"ok":false,"error":"apply_failed","message":"synthetic-shape-secret","recovery":"$recovery","recoveryPath":"synthetic-shape-secret","artifact":"synthetic-shape-secret"}"""
+            val failure = assertThrows(ProvisioningException::class.java) { ProvisioningJson.parseDetect(payload) }
+            assertEquals(ProvisioningFailureCategory.MUTATION_FAILED, failure.category)
+            assertFalse(failure.stackTraceToString().contains("synthetic-shape-secret"))
+        }
+        val unknown = assertThrows(ProvisioningException::class.java) {
+            ProvisioningJson.parseDetect("""{"ok":false,"error":"synthetic-shape-secret","message":"synthetic-shape-secret"}""")
+        }
+        assertEquals(ProvisioningFailureCategory.REMOTE_FAILURE, unknown.category)
+        assertEquals(null, unknown.remoteCode)
+        for (payload in listOf("""{"ok":false}""", """{"ok":false,"error":"unsupported_os"}""", """{"ok":false,"error":[],"message":{}}""")) {
+            assertInvalid { ProvisioningJson.parseDetect(payload) }
+        }
+    }
+
+    @Test
+    fun failedScriptExitPreservesStructuredCategoryAndNeverAcceptsSuccess() {
+        val failure = assertThrows(ProvisioningException::class.java) {
+            ProvisioningJson.requireScriptSuccess(ProvisioningCommandOutput(74, fixture("error"), "synthetic-shape-secret"))
+        }
+        assertEquals("peer_not_found", failure.remoteCode)
+        assertEquals(null, failure.output)
+        assertFalse(failure.stackTraceToString().contains("synthetic-shape-secret"))
+        val successWithFailedExit = assertThrows(ProvisioningException::class.java) {
+            ProvisioningJson.requireScriptSuccess(ProvisioningCommandOutput(74, fixture("install"), ""))
+        }
+        assertEquals(ProvisioningFailureCategory.COMMAND_FAILED, successWithFailedExit.category)
+    }
+
+    @Test
+    fun cleanupResidueRemainsAvailableWithoutChangingSuccess() {
+        val json = JSONObject(fixture("remove-peer")).put("cleanupPath", "/fixture/private-residue")
+        val result = ProvisioningJson.parsePeerMutation(json.toString())
+        assertTrue(result.removed)
+        assertEquals("/fixture/private-residue", result.cleanupPath)
+    }
+
+    @Test
+    fun revocationRequiresArchiveButRemovalCanOmitIt() {
+        val missing = JSONObject(fixture("revoke-peer")).apply { remove("archive") }
+        assertInvalid { ProvisioningJson.parsePeerMutation(missing.toString()) }
+        for (archive in listOf("", " ", JSONObject().put("secret", "synthetic-shape-secret"))) {
+            val malformed = JSONObject(fixture("revoke-peer")).put("archive", archive)
+            assertInvalid { ProvisioningJson.parsePeerMutation(malformed.toString()) }
+        }
+        assertEquals("", ProvisioningJson.parsePeerMutation(fixture("remove-peer")).archive)
+        assertTrue(ProvisioningJson.parsePeerMutation(fixture("revoke-peer")).archive.isNotBlank())
+    }
+
+    private fun assertInvalid(parse: () -> Any) {
+        val failure = assertThrows(ProvisioningException::class.java) { parse() }
+        assertEquals(ProvisioningFailureCategory.INVALID_RESPONSE, failure.category)
+        assertEquals(null, failure.cause)
+        assertEquals(null, failure.output)
+        assertFalse(failure.stackTraceToString().contains("synthetic-shape-secret"))
+    }
+
+    private fun fixture(name: String): String =
+        requireNotNull(javaClass.getResourceAsStream("/provisioning/$name.json")).bufferedReader().use { it.readText() }
 }

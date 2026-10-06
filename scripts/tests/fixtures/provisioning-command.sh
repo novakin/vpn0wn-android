@@ -120,6 +120,18 @@ case "$command_name" in
           allowed-ips)
             awk '$1 == "PublicKey" {key=$3} $1 == "AllowedIPs" {print key "\t" substr($0, index($0, "=") + 2)}' "$runtime_file"
             ;;
+          dump)
+            if [[ -f "$TEST_STATE/dump" ]]; then
+              cat "$TEST_STATE/dump"
+              if [[ -f "$TEST_STATE/dump-failed-output" ]]; then
+                printf 'synthetic-secret-tool-diagnostic\n' >&2
+                exit 1
+              fi
+              exit 0
+            fi
+            printf 'synthetic-private\tsynthetic-public\t51820\toff\n'
+            awk '$1 == "PublicKey" {key=$3} $1 == "AllowedIPs" {print key "\t(none)\t(none)\t" $3 "\t1710000000\t1024\t2048\t25"}' "$runtime_file"
+            ;;
           *) exit 2 ;;
         esac
         ;;

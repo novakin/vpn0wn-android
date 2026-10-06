@@ -14,9 +14,10 @@ object VpsDeployMapper {
     fun fromStored(server: StoredVpsServer, nowEpochSeconds: Long): VpsDeployServer {
         val status = when {
             server.endpoint.isBlank() || server.cidr.isBlank() -> VpsDeployServerStatus.PROVISIONING
-            server.lastSyncEpochSeconds == 0L -> VpsDeployServerStatus.OFFLINE
-            nowEpochSeconds - server.lastSyncEpochSeconds > STALE_SYNC_SECONDS -> VpsDeployServerStatus.ATTENTION
-            else -> VpsDeployServerStatus.ONLINE
+            !hasRecentSync(server, nowEpochSeconds) -> VpsDeployServerStatus.ATTENTION
+            server.running == true -> VpsDeployServerStatus.ONLINE
+            server.running == false -> VpsDeployServerStatus.OFFLINE
+            else -> VpsDeployServerStatus.ATTENTION
         }
         val version = server.version.ifBlank { "pending sync" }
         return VpsDeployServer(
@@ -34,7 +35,7 @@ object VpsDeployMapper {
             dns = server.dns.ifBlank { "—" },
             uptime = "—",
             lastSync = formatAgo(server.lastSyncEpochSeconds, nowEpochSeconds),
-            health = healthFor(server, status),
+            health = healthFor(server, nowEpochSeconds),
         )
     }
 
@@ -43,7 +44,6 @@ object VpsDeployMapper {
         status: VpsServerStatus,
         nowEpochSeconds: Long,
     ): VpsDeployServer {
-        val deployStatus = if (status.running) VpsDeployServerStatus.ONLINE else VpsDeployServerStatus.ATTENTION
         return fromStored(
             stored.copy(
                 endpoint = status.endpoint,
@@ -51,24 +51,21 @@ object VpsDeployMapper {
                 cidr = status.cidr,
                 dns = status.dns,
                 lastSyncEpochSeconds = nowEpochSeconds,
+                running = status.running,
             ),
             nowEpochSeconds,
         ).copy(
-            status = deployStatus,
             engine = stored.engine.ifBlank { status.interfaceName },
             users = status.peers.mapIndexed { index, peer ->
-                peer.toDeployUser(index, nowEpochSeconds)
+                peer.toDeployUser(index, nowEpochSeconds, status.running)
             }.toMutableList(),
-            health = listOf(
-                VpsDeployHealthCheck("wg running", status.running),
-                VpsDeployHealthCheck("endpoint", status.endpoint.isNotBlank()),
-                VpsDeployHealthCheck("peers synced", true),
-            ),
         )
     }
 
-    private fun VpsPeerStatus.toDeployUser(index: Int, nowEpochSeconds: Long): VpsDeployUser {
-        val handshakeAge = if (latestHandshake > 0L) max(0L, nowEpochSeconds - latestHandshake) else Long.MAX_VALUE
+    private fun VpsPeerStatus.toDeployUser(index: Int, nowEpochSeconds: Long, running: Boolean?): VpsDeployUser {
+        val handshake = latestHandshake
+        val validHandshake = handshake != null && handshake > 0L && handshake <= nowEpochSeconds
+        val handshakeAge = if (validHandshake) nowEpochSeconds - handshake else Long.MAX_VALUE
         return VpsDeployUser(
             id = publicKey.ifBlank { "peer-$index" },
             name = name.ifBlank { "Device ${(index + 1).toString().padStart(2, '0')}" },
@@ -76,33 +73,35 @@ object VpsDeployMapper {
             ip = allowedIps.substringBefore(',').ifBlank { "—" },
             allowedIps = allowedIps.ifBlank { "0.0.0.0/0, ::/0" },
             status = when {
-                latestHandshake <= 0L -> VpsDeployUserStatus.IDLE
+                running != true || !validHandshake -> VpsDeployUserStatus.IDLE
                 handshakeAge > STALE_HANDSHAKE_SECONDS -> VpsDeployUserStatus.IDLE
                 else -> VpsDeployUserStatus.ACTIVE
             },
-            rx = QuantityFormatter.formatBytes(rxBytes),
-            tx = QuantityFormatter.formatBytes(txBytes),
-            handshake = if (latestHandshake <= 0L) "—" else formatDuration(handshakeAge),
-            created = DateTimeFormatter.ISO_LOCAL_DATE.format(Instant.ofEpochSecond(latestHandshake.coerceAtLeast(0L)).atZone(ZoneOffset.UTC)),
+            rx = rxBytes?.let { QuantityFormatter.formatBytes(it) } ?: "—",
+            tx = txBytes?.let { QuantityFormatter.formatBytes(it) } ?: "—",
+            handshake = if (validHandshake) formatDuration(handshakeAge) else "—",
+            created = if (validHandshake) DateTimeFormatter.ISO_LOCAL_DATE.format(Instant.ofEpochSecond(handshake).atZone(ZoneOffset.UTC)) else "—",
             key = publicKey,
         )
     }
 
-    private fun healthFor(server: StoredVpsServer, status: VpsDeployServerStatus): List<VpsDeployHealthCheck> = listOf(
+    private fun healthFor(server: StoredVpsServer, nowEpochSeconds: Long): List<VpsDeployHealthCheck> = listOf(
         VpsDeployHealthCheck("server record", true),
         VpsDeployHealthCheck("endpoint", server.endpoint.isNotBlank()),
         VpsDeployHealthCheck(
             "recent sync",
-            when (status) {
-                VpsDeployServerStatus.ONLINE -> true
-                VpsDeployServerStatus.PROVISIONING -> null
-                else -> false
-            },
+            if (server.lastSyncEpochSeconds <= 0L) null else hasRecentSync(server, nowEpochSeconds),
         ),
+        VpsDeployHealthCheck("wg running", if (hasRecentSync(server, nowEpochSeconds)) server.running else null),
     )
 
+    private fun hasRecentSync(server: StoredVpsServer, nowEpochSeconds: Long): Boolean =
+        server.lastSyncEpochSeconds > 0L &&
+            server.lastSyncEpochSeconds <= nowEpochSeconds &&
+            nowEpochSeconds - server.lastSyncEpochSeconds <= STALE_SYNC_SECONDS
+
     private fun formatAgo(epochSeconds: Long, nowEpochSeconds: Long): String {
-        if (epochSeconds <= 0L) return "—"
+        if (epochSeconds <= 0L || epochSeconds > nowEpochSeconds) return "—"
         return formatDuration(max(0L, nowEpochSeconds - epochSeconds))
     }
 
