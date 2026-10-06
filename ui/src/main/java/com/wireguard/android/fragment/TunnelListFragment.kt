@@ -422,7 +422,7 @@ class TunnelListFragment : BaseFragment() {
         sheet.findViewById<TextView>(R.id.delete_sheet_names).text = deleteSnapshot.joinToString("\n") { it.name }
         sheet.findViewById<View>(R.id.delete_sheet_cancel).setOnClickListener { dialog.dismiss() }
         sheet.findViewById<View>(R.id.delete_sheet_confirm).setOnClickListener {
-            val snapshot = deleteSnapshot
+            if (deleteSheet !== dialog || !dialog.isShowing) return@setOnClickListener
             dialog.dismiss()
             deleteSelectedTunnels(snapshot)
         }

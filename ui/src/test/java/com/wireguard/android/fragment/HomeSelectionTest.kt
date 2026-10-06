@@ -166,9 +166,9 @@ class HomeSelectionTest {
 
     @Test fun mixedDeletionReportsActualProgressAndKeepsFailedActiveTunnelSelected() = runHomeTest {
         val f = host("bravo", "charlie")
-        val active = f.binding.tunnels!!["charlie"]!!
+        val active = f.binding.tunnels!!["bravo"]!!
         active.setStateAsync(Tunnel.State.UP)
-        f.env.store.failDeleteNames.add("charlie")
+        f.env.store.failDeleteNames.add("bravo")
         runCurrent()
         layout(f.binding)
         selectAll(f)
@@ -177,7 +177,8 @@ class HomeSelectionTest {
         runCurrent()
         layout(f.binding)
         shadowOf(Looper.getMainLooper()).idle()
-        assertEquals(setOf("charlie"), f.env.store.configs.keys.toSet())
+        assertEquals(listOf("bravo", "charlie"), f.env.store.deleteAttempts)
+        assertEquals(setOf("bravo"), f.env.store.configs.keys.toSet())
         assertEquals(Tunnel.State.UP, active.state)
         assertTrue(row(f.binding, 0).isActivated)
         assertTrue(f.binding.selectionDelete.isEnabled)
@@ -284,6 +285,17 @@ class HomeSelectionTest {
         assertSame(replacement, f.binding.tunnels!!["bravo"])
         assertEquals(51821, f.env.store.configs["bravo"]!!.getInterface().listenPort.get())
         assertFalse(row(f.binding, 0).isActivated)
+        f.binding.selectionAll.performClick()
+        layout(f.binding)
+        f.binding.selectionDelete.performClick()
+        val reopened = dialog(f.fragment)
+        button.performClick()
+        pendingDeletion(f.fragment)?.join()
+        runCurrent()
+        layout(f.binding)
+        assertTrue("stale confirmation must not admit a newer selection", reopened.isShowing)
+        assertSame(replacement, f.binding.tunnels!!["bravo"])
+        assertEquals(51821, f.env.store.configs["bravo"]!!.getInterface().listenPort.get())
     }
 
     @Test fun selectionRowsExposeCheckableSemanticsAndRestoreNormalInset() = runHomeTest {
@@ -478,8 +490,10 @@ class HomeSelectionTest {
     private fun dialog(fragment: TunnelListFragment): BottomSheetDialog =
         TunnelListFragment::class.java.getDeclaredField("deleteSheet").apply { isAccessible = true }.get(fragment) as BottomSheetDialog
 
-    private fun deletion(fragment: TunnelListFragment): Job =
-        TunnelListFragment::class.java.getDeclaredField("deleteJob").apply { isAccessible = true }.get(fragment) as Job
+    private fun deletion(fragment: TunnelListFragment): Job = checkNotNull(pendingDeletion(fragment))
+
+    private fun pendingDeletion(fragment: TunnelListFragment): Job? =
+        TunnelListFragment::class.java.getDeclaredField("deleteJob").apply { isAccessible = true }.get(fragment) as? Job
 
     private fun message(binding: TunnelListFragmentBinding): String =
         binding.root.findViewById<TextView>(com.google.android.material.R.id.snackbar_text).text.toString()

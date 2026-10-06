@@ -234,7 +234,7 @@
     <string name="tunnl_selection_exit">चयन से बाहर निकलें</string>
     <string name="tunnl_selection_mode">चयन मोड</string>
     <string name="tunnl_selection_status_empty">0 चयनित</string>
-    <string name="tunnl_selection_status_count">%1$d में से %2$d चयनित</string>
+    <string name="tunnl_selection_status_count">%2$d में से %1$d चयनित</string>
     <plurals name="tunnl_selection_title">
         <item quantity="one">%d चयनित</item>
         <item quantity="other">%d चयनित</item>
