@@ -10,24 +10,31 @@ This guide distinguishes source-observed behavior from required repair boundarie
 
 The existing [Config](../tunnel/src/main/java/com/wireguard/config/Config.java), Interface, Peer and endpoint/address types own parse/serialize behavior. Preserve repeated list fields, multi-peer profiles, IPv6 endpoint syntax and other supported WireGuard fields. Generated provisioning profiles must pass these same parsers/import paths.
 
+| Section | Accepted attributes |
+| --- | --- |
+| Interface | `Address`, `DNS`, `ExcludedApplications`, `IncludedApplications`, `ListenPort`, `MTU`, `PrivateKey`. |
+| Peer | `AllowedIPs`, `Endpoint`, `PersistentKeepalive`, `PresharedKey`, `PublicKey`. |
+
+Private/public key requirements and value validation belong to those parsers. Peer Endpoint is optional; IPv6 endpoint literals use `[address]:port`. Unknown attributes, including wg-quick hooks and `SaveConfig`, are rejected. Domain-only DNS serialization and explicit negative network-prefix handling have known compatibility defects; they are not supported-behavior guarantees.
+
 Backend state uses `DOWN`, `UP` and `TOGGLE`. `TunnelManager` uses TOGGLE as an in-progress observable transition; it is not proof of an active VPN. State-changing operations and waiting callers must settle after success, failure or cancellation. Delete/shutdown cannot leave a live backend orphaned from its model.
 
 `GoBackend` manages Android VpnService and userspace/native activation; `WgQuickBackend` manages root/kernel commands. Preserve required permission/service setup and explicit ordering. A stale/destroyed service must not be reused; teardown cannot block the main thread waiting for long activation.
 
-Current `GoBackend` preflight resolves endpoints, chooses a fresh high UDP port, sends protected warm-up packets and passes that port to native activation. Missing endpoints or preflight failure prevent startup. This currently rejects otherwise valid endpoint-free profiles and overrides configured ListenPort. C5 owns the compatibility correction while preserving intentional applicable-profile preflight behavior. Do not silently reinterpret this source-observed divergence as general WireGuard semantics.
+At committed baseline `11d4a9b1`, `GoBackend` preflight runs only with an explicit nonzero ListenPort. It sends a one-byte UDP packet from that port to configured resolved endpoints and retries socket/send failures. Missing endpoints skip preflight; native serialization preserves ListenPort. A failed `protect()`, send or interrupted retry is logged and activation continues; separate endpoint-resolution failure can still prevent startup. C5 owns teardown responsiveness and explicit preflight failure/cancellation policy. Mandatory preflight/random-port behavior described in the initial mixed-worktree audit is not present in this committed baseline.
 
 ## Provisioning command surface
 
 The [client](../ui/src/main/java/com/wireguard/android/provisioning/TunnlProvisioningClient.kt) uploads [packaged scripts](../ui/src/main/java/com/wireguard/android/provisioning/ProvisioningScriptBundle.kt) to a temporary remote directory, constructs quoted commands, parses JSON and attempts cleanup. Commands requiring root run directly for root or through non-interactive `sudo -n`. Concrete SSH execution is not implemented yet.
 
-Current server assumptions: Ubuntu/Debian, `wg0`, IPv4 `/24` allocation, IPv4 default routes and iptables NAT. Scripts print machine-readable JSON to stdout and diagnostic/package output separately. Shell quoting and remote privilege selection do not validate text inserted into WireGuard config.
+Current server assumptions: Ubuntu/Debian, default `wg0`, IPv4 `/24` allocation, IPv4 default routes and iptables NAT. Script environment overrides exist but do not establish a validated alternate-platform/interface matrix. Normal responses and explicit `fail` paths produce JSON; missing option values and unhandled shell/tool failures can exit without JSON. Shell quoting and remote privilege selection do not validate text inserted into WireGuard config. The [script guide](../third_party/wireguard-install/tunnl/README.md) owns command details and safety limits.
 
 | Command | Current inputs | Result fields used by Android | Known gap |
 | --- | --- | --- | --- |
-| `detect.sh` | No app arguments. | OS/version/support, package/firewall, installed/config state, interface/endpoint/port/CIDR/forwarding. | Detection is not proof of working connectivity. |
+| `detect.sh` | No app arguments. | OS/version/support, package/firewall, installed/config state, interface/endpoint/port/CIDR/forwarding. | Endpoint comes from config metadata, not public-IP discovery; detection is not connectivity proof. |
 | `plan.sh` | `--endpoint`, `--port`, `--cidr`, `--dns`. | Endpoint/port/CIDR/DNS, overwrite flag and steps. | Client currently forwards install `--force`, which plan rejects; C4. |
 | `install.sh` | Same fields plus optional `--force`. | Interface/endpoint/port/CIDR and server public key. | Config injection and forced reinstall/runtime mismatch; C2–C3. |
-| `sync-status.sh` | No app arguments. | Interface/running/config metadata and peer name/key/AllowedIPs/handshake/RX/TX. | Store drops running health; mapper infers ONLINE from freshness; C4. |
+| `sync-status.sh` | No app arguments. | Interface/running/config metadata and peer name/key/AllowedIPs/handshake/RX/TX. | `running` is systemd activity; failed `wg show` falls back to zero counters. Store drops running health; mapper infers ONLINE from freshness; C4. |
 | `add-peer.sh` | App sends required `--name` and `--allowed-ips`, plus optional `--dns`. | Name/address/public key and full generated client config. | Concurrency and failed-apply recovery; C3. The config contains a private key. |
 | `remove-peer.sh` | `--name`. | Android expects name and Boolean removed/revoked. | Script emits the name as string `removed` rather than expected fields; live removal failures are hidden; C3–C4. |
 | `revoke-peer.sh` | `--name`. | Same mutation model plus archive path. | Script emits string `revoked`; inherited live removal failures; C3–C4. |
@@ -40,7 +47,7 @@ Do not use invented success fixtures to hide producer/consumer drift. Add fixtur
 
 `ProvisioningCommandOutput` carries exit code/stdout/stderr. A zero exit passes `requireSuccess`; nonzero throws a category/exit-code exception while retaining the internal output for the responsible caller. Internal output may contain secrets and is not a diagnostic string.
 
-`RootShell.run()` preserves returned stdout, marker framing and exit status without logging commands or stream payloads. Root startup diagnostics also omit raw UID/error output. Provisioning command failures log only their exit code/category. Malformed JSON handling catches `JSONException` and throws a payload-free failure without retaining the parser cause, which may contain input. Cleanup warnings omit exception payloads and preserve the completed result. These boundaries are covered by the [C1 regression evidence](development.md#c1-secret-safe-logging--2026-10-06); arbitrary structured server error text and future transport diagnostics still need appropriate handling at their owner.
+`RootShell.run()` preserves returned stdout, marker framing and exit status without logging commands or stream payloads. Root startup diagnostics also omit raw UID/error output. Provisioning command failures log only their exit code/category. Outer JSON construction in `requireOk` catches `JSONException` and throws a payload-free failure without retaining its parser cause. Nested response-shape parsing is not fully guarded: wrong-type peer rows can escape as raw JSON exceptions; C4 owns that repair. Cleanup warnings omit exception payloads and preserve the completed result. The repaired boundaries have [C1 regression evidence](development.md#c1-secret-safe-logging--2026-10-06); arbitrary structured server errors, harness failures and future transport diagnostics still need handling at their owner.
 
 JSON uses an `ok` Boolean. Structured failures use error/message fields; malformed JSON becomes a provisioning failure. Consumers currently use optional getters for many fields; missing data must not be mistaken for confirmed runtime health or completed mutations. C4 owns producer/consumer contract proof.
 
