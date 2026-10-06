@@ -172,7 +172,7 @@ Clean-source extensions: C6 also owns atomic replacement/failure recovery in [Fi
 | Detekt config validation repaired in current change; pending merge | [#20](https://github.com/novakin/wireguard-android/issues/20) |
 | Native Detekt source gate reports 538 existing findings; separate remediation | [#22](https://github.com/novakin/wireguard-android/issues/22) |
 | C5–C6 transitions, teardown and view ownership | [#13](https://github.com/novakin/wireguard-android/issues/13) |
-| C6 atomic config replacement | [#14](https://github.com/novakin/wireguard-android/issues/14) |
+| C6 atomic config replacement implemented in current change; pending merge | [#14](https://github.com/novakin/wireguard-android/issues/14) |
 | C6 complete kernel transition serialization | [#15](https://github.com/novakin/wireguard-android/issues/15) |
 | Config DNS round trips and negative-prefix rejection | [#16](https://github.com/novakin/wireguard-android/issues/16) |
 | C9 harness postconditions/failure redaction | [#17](https://github.com/novakin/wireguard-android/issues/17) |

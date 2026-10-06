@@ -4,7 +4,7 @@ Last updated: 2026-10-06 (Europe/Paris).
 
 This document tracks the automated and manual QA coverage required for the Tunnl Android redesign.
 
-The layer lists below are target requirements, not a passing coverage report. [Source-inspected coverage](#source-inspected-coverage) lists committed suites at `11d4a9b1`; [development evidence](development.md#recorded-verification) records actual historical executions. This audit ran no runtime suites. No committed fragment/row, instrumented navigation or screenshot suite exists yet.
+The layer lists below are target requirements, not a passing coverage report. [Source-inspected coverage](#source-inspected-coverage) inventories current source, including explicitly identified pending changes; [development evidence](development.md#recorded-verification) records actual executions and their scope. The original documentation audit at `11d4a9b1` ran no runtime suites. No fragment/row, instrumented navigation or screenshot suite exists yet.
 
 ## Test Layers
 
@@ -136,7 +136,9 @@ Required before merging UI or backend provisioning work.
 
 ## Source-inspected Coverage
 
-Committed source contains 12 test classes and 83 test methods: UI 10/73, tunnel 2/10. This is an inventory, not an execution total. Guard tests use fake execute calls for timeout, I/O failure and cancellation propagation; they do not prove an entered SSH command, upload timeout or actual channel/session closure. Existing Robolectric coverage supplies resources, formatters, empty summaries, mapper states and captured logs rather than fragment/navigation/rendered-row proof.
+Source contains 13 test classes and 93 test methods: UI 11/83, tunnel 2/10, including the current #14 change. This is an inventory, not an execution total. Guard tests use fake execute calls for timeout, I/O failure and cancellation propagation; they do not prove an entered SSH command, upload timeout or actual channel/session closure. Existing Robolectric coverage supplies resources, formatters, empty summaries, mapper states and captured logs rather than fragment/navigation/rendered-row proof.
+
+`FileConfigStoreTest` covers temporary local files, successful profile round trips, partial-write/native-rename failure preserving prior content, failed creates with no usable profile, conflicting names and concurrent create/save/delete ordering. The Context writer and native-call shadow inject failures without modifying user data. The reviewed suite does not prove Android filesystem durability, actual disk-full/power-loss behavior or coordination with other processes/store instances; [development evidence](development.md#atomic-local-profile-replacement--2026-10-06) separates executed results and limits.
 
 C4 extends the existing provisioning suites with exact normalized responses from real scripts, successful profile parsing through upstream Config, strict nested/missing/wrong-type shapes, safe remote categories/recovery, nonzero script failure dispatch, secret-safe logs/store corruption and legacy/null running migration. Command tests require Bash in the JVM test environment: fake id/sudo/script stubs exercise both constructed dispatch branches and preserve hostile argument/path bytes without root or SSH. Native running/stopped/unknown and missing/malformed counters are separate Bash cases. Mapper controls cover stopped, legacy/unknown, stale/future and threshold observations; ONLINE does not establish connectivity. [Development evidence](development.md#c4-provisioning-contracts-and-observed-health--2026-10-06) records actual runs.
 
@@ -152,6 +154,7 @@ The separate [Bash provisioning safety suite](../scripts/tests/provisioning_safe
 - `VpsServerStoreTest`
 - `BindingAdaptersTest`
 - `QuantityFormatterTest`
+- `FileConfigStoreTest`
 - `ConfigTest` and `BadConfigExceptionTest` — configuration/parser fixtures and error descriptions.
 
 ## Next Implementation Roadmap
