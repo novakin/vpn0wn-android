@@ -36,7 +36,17 @@ Fleet screens render persisted non-secret records. Concrete Android SSH transpor
 
 The app-facing server scripts exist under `third_party/wireguard-install/tunnl/`, with narrow Ubuntu/Debian, `wg0`, IPv4 `/24`, IPv4 default-route and iptables NAT assumptions. Use their [current contracts and gaps](backend-contracts.md#provisioning-command-surface), not the upstream interactive installer, as the integration reference.
 
-Audited script issues include unmanaged-config deletion, hidden revocation/apply failures, config injection and reinstall/runtime mismatch. Treat them as open safety work, not production-ready guarantees. Installing or deleting server state is outside an ordinary source/docs task.
+The C2–C3 source repair rejects unmanaged state/config injection and adds serialized writes, checked runtime results and recovery. [Offline evidence](development.md#c2c3-offline-provisioning-safety--2026-10-06) does not establish real-server reliability. Android JSON/health contracts, the integration harness and real SSH/UI wiring remain unfinished. Installing or deleting server state is outside an ordinary source/docs task.
+
+## Provisioning mutation recovery
+
+Read [script ownership and recovery](../third_party/wireguard-install/tunnl/README.md#ownership-locking-and-recovery) before an authorized server mutation. `--force` permits replacement of owned config only. Installation stops an old running unit before replacing its config/hooks. Uninstall backs up owned config before stopping/deleting, preserves global forwarding and refuses package purge while another config/live interface exists.
+
+On mutation failure, inspect `recovery`. `unchanged` means no config/runtime mutation required restoration; `restored` means observed disk/native runtime recovery completed, plus service-state recovery for install/uninstall. Peer recovery does not snapshot or verify prior systemd unit state. Neither result promises reversal of attempted package changes or global forwarding enable. `incomplete` means inspect the retained private `recoveryPath` and any `artifact` backup before retrying. Backup/runtime files and revoke archives contain private keys/PSKs: keep permissions private and never attach contents to issues.
+
+Success may have nonempty `cleanupPath` when committed behavior succeeded but private snapshot cleanup did not. Inspect/remove that residue only after checking current state and its recovery value. Do not retry the completed operation solely because cleanup remained. Existing Android models do not present these fields yet; C4 owns consumer alignment.
+
+Stopped peer mutations update saved config while leaving the interface absent; they do not prove live access removal or traffic health. SIGKILL, host loss, SSH timeout or a missing response leave uncertain outcomes until disk, service and actual peer state are reconciled. External tools can bypass Tunnl locks. No source/offline result authorizes production testing.
 
 ## Disposable validation and recovery
 
