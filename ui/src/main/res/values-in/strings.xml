@@ -250,4 +250,9 @@
     <string name="tunnl_settings_section_data">§03 DATA · CADANGAN</string>
     <string name="tunnl_settings_section_appearance">§04 TAMPILAN · APLIKASI</string>
     <string name="tunnl_settings_section_about">§05 TENTANG · PROYEK</string>
+
+    <string name="tunnl_add_sheet_title">TAMBAH TUNNEL · PILIH SUMBER</string>
+    <string name="tunnl_add_sheet_qr_subtitle">Kamera</string>
+    <string name="tunnl_add_sheet_file_subtitle">Dari file</string>
+    <string name="tunnl_add_sheet_manual_subtitle">Buat pasangan kunci · masukkan manual</string>
 </resources>

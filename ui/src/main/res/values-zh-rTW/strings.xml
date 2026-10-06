@@ -250,4 +250,9 @@
     <string name="tunnl_settings_section_data">§03 資料 · 備份</string>
     <string name="tunnl_settings_section_appearance">§04 外觀 · 應用程式</string>
     <string name="tunnl_settings_section_about">§05 關於 · 專案</string>
+
+    <string name="tunnl_add_sheet_title">新增隧道 · 選擇來源</string>
+    <string name="tunnl_add_sheet_qr_subtitle">相機</string>
+    <string name="tunnl_add_sheet_file_subtitle">從檔案</string>
+    <string name="tunnl_add_sheet_manual_subtitle">產生金鑰組 · 手動輸入</string>
 </resources>

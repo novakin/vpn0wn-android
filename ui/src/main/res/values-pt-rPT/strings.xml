@@ -239,4 +239,9 @@
     <string name="tunnl_settings_section_data">§03 DADOS · CÓPIA</string>
     <string name="tunnl_settings_section_appearance">§04 ASPETO · APP</string>
     <string name="tunnl_settings_section_about">§05 ACERCA · PROJETO</string>
+
+    <string name="tunnl_add_sheet_title">ADICIONAR TÚNEL · ESCOLHER ORIGEM</string>
+    <string name="tunnl_add_sheet_qr_subtitle">Câmara</string>
+    <string name="tunnl_add_sheet_file_subtitle">De ficheiros</string>
+    <string name="tunnl_add_sheet_manual_subtitle">Gerar par de chaves · introduzir manualmente</string>
 </resources>

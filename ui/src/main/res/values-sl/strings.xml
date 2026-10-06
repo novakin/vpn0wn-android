@@ -289,4 +289,9 @@
     <string name="tunnl_settings_section_data">§03 PODATKI · VARNOSTNA KOPIJA</string>
     <string name="tunnl_settings_section_appearance">§04 VIDEZ · APLIKACIJA</string>
     <string name="tunnl_settings_section_about">§05 O APLIKACIJI · PROJEKT</string>
+
+    <string name="tunnl_add_sheet_title">DODAJ TUNEL · IZBERI VIR</string>
+    <string name="tunnl_add_sheet_qr_subtitle">Kamera</string>
+    <string name="tunnl_add_sheet_file_subtitle">Iz datotek</string>
+    <string name="tunnl_add_sheet_manual_subtitle">Ustvari par ključev · vnesi ročno</string>
 </resources>

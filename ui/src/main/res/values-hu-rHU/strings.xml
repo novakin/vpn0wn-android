@@ -111,4 +111,9 @@
     <string name="tunnl_settings_section_data">§03 ADATOK · BIZTONSÁGI MENTÉS</string>
     <string name="tunnl_settings_section_appearance">§04 MEGJELENÉS · APP</string>
     <string name="tunnl_settings_section_about">§05 NÉVJEGY · PROJEKT</string>
+
+    <string name="tunnl_add_sheet_title">ALAGÚT HOZZÁADÁSA · FORRÁS VÁLASZTÁSA</string>
+    <string name="tunnl_add_sheet_qr_subtitle">Kamera</string>
+    <string name="tunnl_add_sheet_file_subtitle">Fájlokból</string>
+    <string name="tunnl_add_sheet_manual_subtitle">Kulcspár létrehozása · kézi bevitel</string>
 </resources>

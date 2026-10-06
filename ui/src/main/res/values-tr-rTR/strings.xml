@@ -263,4 +263,9 @@
     <string name="tunnl_settings_section_data">§03 VERİ · YEDEK</string>
     <string name="tunnl_settings_section_appearance">§04 GÖRÜNÜM · UYGULAMA</string>
     <string name="tunnl_settings_section_about">§05 HAKKINDA · PROJE</string>
+
+    <string name="tunnl_add_sheet_title">TÜNEL EKLE · KAYNAK SEÇ</string>
+    <string name="tunnl_add_sheet_qr_subtitle">Kamera</string>
+    <string name="tunnl_add_sheet_file_subtitle">Dosyalardan</string>
+    <string name="tunnl_add_sheet_manual_subtitle">Anahtar çifti oluştur · elle gir</string>
 </resources>

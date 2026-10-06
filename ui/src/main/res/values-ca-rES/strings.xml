@@ -263,4 +263,9 @@
     <string name="tunnl_settings_section_data">§03 DADES · CÒPIA SEGURETAT</string>
     <string name="tunnl_settings_section_appearance">§04 APARENÇA · APP</string>
     <string name="tunnl_settings_section_about">§05 QUANT A · PROJECTE</string>
+
+    <string name="tunnl_add_sheet_title">AFEGEIX TÚNEL · TRIA ORIGEN</string>
+    <string name="tunnl_add_sheet_qr_subtitle">Càmera</string>
+    <string name="tunnl_add_sheet_file_subtitle">Des de fitxers</string>
+    <string name="tunnl_add_sheet_manual_subtitle">Genera parell de claus · entrada manual</string>
 </resources>

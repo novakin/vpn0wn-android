@@ -143,4 +143,9 @@
     <string name="tunnl_settings_section_data">§03 DỮ LIỆU · SAO LƯU</string>
     <string name="tunnl_settings_section_appearance">§04 GIAO DIỆN · ỨNG DỤNG</string>
     <string name="tunnl_settings_section_about">§05 GIỚI THIỆU · DỰ ÁN</string>
+
+    <string name="tunnl_add_sheet_title">THÊM ĐƯỜNG HẦM · CHỌN NGUỒN</string>
+    <string name="tunnl_add_sheet_qr_subtitle">Camera</string>
+    <string name="tunnl_add_sheet_file_subtitle">Từ tệp</string>
+    <string name="tunnl_add_sheet_manual_subtitle">Tạo cặp khóa · nhập thủ công</string>
 </resources>

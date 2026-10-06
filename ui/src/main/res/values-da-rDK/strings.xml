@@ -263,4 +263,9 @@
     <string name="tunnl_settings_section_data">§03 DATA · BACKUP</string>
     <string name="tunnl_settings_section_appearance">§04 UDSEENDE · APP</string>
     <string name="tunnl_settings_section_about">§05 OM · PROJEKT</string>
+
+    <string name="tunnl_add_sheet_title">TILFØJ TUNNEL · VÆLG KILDE</string>
+    <string name="tunnl_add_sheet_qr_subtitle">Kamera</string>
+    <string name="tunnl_add_sheet_file_subtitle">Fra filer</string>
+    <string name="tunnl_add_sheet_manual_subtitle">Generer nøglepar · indtast manuelt</string>
 </resources>

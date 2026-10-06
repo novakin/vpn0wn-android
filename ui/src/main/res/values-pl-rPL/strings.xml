@@ -289,4 +289,9 @@
     <string name="tunnl_settings_section_data">§03 DANE · KOPIA</string>
     <string name="tunnl_settings_section_appearance">§04 WYGLĄD · APLIKACJA</string>
     <string name="tunnl_settings_section_about">§05 O APLIKACJI · PROJEKT</string>
+
+    <string name="tunnl_add_sheet_title">DODAJ TUNEL · WYBIERZ ŹRÓDŁO</string>
+    <string name="tunnl_add_sheet_qr_subtitle">Aparat</string>
+    <string name="tunnl_add_sheet_file_subtitle">Z plików</string>
+    <string name="tunnl_add_sheet_manual_subtitle">Wygeneruj parę kluczy · wpisz ręcznie</string>
 </resources>

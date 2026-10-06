@@ -263,4 +263,9 @@
     <string name="tunnl_settings_section_data">§03 ਡਾਟਾ · ਬੈਕਅੱਪ</string>
     <string name="tunnl_settings_section_appearance">§04 ਦਿੱਖ · ਐਪ</string>
     <string name="tunnl_settings_section_about">§05 ਬਾਰੇ · ਪ੍ਰੋਜੈਕਟ</string>
+
+    <string name="tunnl_add_sheet_title">ਟਨਲ ਸ਼ਾਮਲ ਕਰੋ · ਸਰੋਤ ਚੁਣੋ</string>
+    <string name="tunnl_add_sheet_qr_subtitle">ਕੈਮਰਾ</string>
+    <string name="tunnl_add_sheet_file_subtitle">ਫਾਈਲਾਂ ਤੋਂ</string>
+    <string name="tunnl_add_sheet_manual_subtitle">ਕੁੰਜੀ ਜੋੜਾ ਬਣਾਓ · ਹੱਥੋਂ ਦਾਖਲ ਕਰੋ</string>
 </resources>

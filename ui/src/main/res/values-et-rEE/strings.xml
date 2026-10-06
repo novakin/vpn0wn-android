@@ -261,4 +261,9 @@ Aitäh veelkord sinu panuse eest.</string>
     <string name="tunnl_settings_section_data">§03 ANDMED · VARUNDUS</string>
     <string name="tunnl_settings_section_appearance">§04 VÄLIMUS · RAKENDUS</string>
     <string name="tunnl_settings_section_about">§05 TEAVE · PROJEKT</string>
+
+    <string name="tunnl_add_sheet_title">LISA TUNNEL · VALI ALLIKAS</string>
+    <string name="tunnl_add_sheet_qr_subtitle">Kaamera</string>
+    <string name="tunnl_add_sheet_file_subtitle">Failidest</string>
+    <string name="tunnl_add_sheet_manual_subtitle">Loo võtmepaar · sisesta käsitsi</string>
 </resources>

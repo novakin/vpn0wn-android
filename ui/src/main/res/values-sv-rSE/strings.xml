@@ -263,4 +263,9 @@
     <string name="tunnl_settings_section_data">§03 DATA · SÄKERHETSKOPIA</string>
     <string name="tunnl_settings_section_appearance">§04 UTSEENDE · APP</string>
     <string name="tunnl_settings_section_about">§05 OM · PROJEKT</string>
+
+    <string name="tunnl_add_sheet_title">LÄGG TILL TUNNEL · VÄLJ KÄLLA</string>
+    <string name="tunnl_add_sheet_qr_subtitle">Kamera</string>
+    <string name="tunnl_add_sheet_file_subtitle">Från filer</string>
+    <string name="tunnl_add_sheet_manual_subtitle">Generera nyckelpar · ange manuellt</string>
 </resources>

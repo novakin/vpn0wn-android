@@ -163,4 +163,9 @@
     <string name="tunnl_settings_section_data">§03 DÁTA · ZÁLOHA</string>
     <string name="tunnl_settings_section_appearance">§04 VZHĽAD · APLIKÁCIA</string>
     <string name="tunnl_settings_section_about">§05 O APLIKÁCII · PROJEKT</string>
+
+    <string name="tunnl_add_sheet_title">PRIDAŤ TUNEL · VYBRAŤ ZDROJ</string>
+    <string name="tunnl_add_sheet_qr_subtitle">Kamera</string>
+    <string name="tunnl_add_sheet_file_subtitle">Zo súborov</string>
+    <string name="tunnl_add_sheet_manual_subtitle">Vygenerovať pár kľúčov · zadať ručne</string>
 </resources>

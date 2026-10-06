@@ -95,4 +95,9 @@
     <string name="tunnl_settings_section_data">§03 TIEDOT · VARMUUSKOPIO</string>
     <string name="tunnl_settings_section_appearance">§04 ULKOASU · SOVELLUS</string>
     <string name="tunnl_settings_section_about">§05 TIETOJA · PROJEKTI</string>
+
+    <string name="tunnl_add_sheet_title">LISÄÄ TUNNELI · VALITSE LÄHDE</string>
+    <string name="tunnl_add_sheet_qr_subtitle">Kamera</string>
+    <string name="tunnl_add_sheet_file_subtitle">Tiedostoista</string>
+    <string name="tunnl_add_sheet_manual_subtitle">Luo avainpari · syötä käsin</string>
 </resources>

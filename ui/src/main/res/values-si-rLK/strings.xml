@@ -209,4 +209,9 @@
     <string name="tunnl_settings_section_data">§03 දත්ත · උපස්ථ</string>
     <string name="tunnl_settings_section_appearance">§04 පෙනුම · යෙදුම</string>
     <string name="tunnl_settings_section_about">§05 පිළිබඳ · ව්‍යාපෘතිය</string>
+
+    <string name="tunnl_add_sheet_title">ටනලයක් එක් කරන්න · මූලාශ්‍රය තෝරන්න</string>
+    <string name="tunnl_add_sheet_qr_subtitle">කැමරාව</string>
+    <string name="tunnl_add_sheet_file_subtitle">ගොනු වලින්</string>
+    <string name="tunnl_add_sheet_manual_subtitle">යතුරු යුගලය ජනනය කරන්න · අතින් ඇතුළත් කරන්න</string>
 </resources>

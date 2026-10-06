@@ -519,6 +519,27 @@ object BindingAdapters {
     fun tunnelRx(statistics: Statistics?): String = formatBytesValue(statistics?.totalRx() ?: 0L)
 
     @JvmStatic
+    fun peerRx(statistics: Statistics.PeerStats?): String = QuantityFormatter.formatBytes(statistics?.rxBytes() ?: 0L)
+
+    @JvmStatic
+    fun peerTx(statistics: Statistics.PeerStats?): String = QuantityFormatter.formatBytes(statistics?.txBytes() ?: 0L)
+
+    @JvmStatic
+    fun peerTransferVisible(statistics: Statistics.PeerStats?): Boolean =
+        statistics != null && (statistics.rxBytes() != 0L || statistics.txBytes() != 0L)
+
+    @JvmStatic
+    fun peerHandshakeVisible(statistics: Statistics.PeerStats?): Boolean =
+        statistics != null && statistics.latestHandshakeEpochMillis() != 0L
+
+    @JvmStatic
+    fun peerHandshake(statistics: Statistics.PeerStats?): String {
+        val handshake = statistics?.latestHandshakeEpochMillis() ?: return ""
+        if (handshake == 0L) return ""
+        return QuantityFormatter.formatEpochAgo(handshake)
+    }
+
+    @JvmStatic
     fun tunnelTx(statistics: Statistics?): String = formatBytesValue(statistics?.totalTx() ?: 0L)
 
     @JvmStatic

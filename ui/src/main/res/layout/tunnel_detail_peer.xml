@@ -14,6 +14,9 @@
         <variable
             name="item"
             type="com.wireguard.config.Peer" />
+        <variable
+            name="statistics"
+            type="com.wireguard.android.backend.Statistics.PeerStats" />
     </data>
 
     <com.google.android.material.card.MaterialCardView
@@ -122,80 +125,93 @@
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/transfer_grid"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:baselineAligned="false"
-                android:orientation="horizontal">
+                android:background="@color/tunnl_paper_2"
+                android:orientation="horizontal"
+                android:paddingStart="14dp"
+                android:paddingTop="10dp"
+                android:paddingEnd="14dp"
+                android:paddingBottom="10dp"
+                android:visibility="@{BindingAdapters.peerTransferVisible(statistics) ? android.view.View.VISIBLE : android.view.View.GONE}"
+                tools:visibility="visible">
 
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:paddingEnd="4dp"
                     android:orientation="vertical">
 
                     <TextView
-                        android:id="@+id/transfer_label"
                         style="@style/TunnlConfigRowLabel"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:background="@color/tunnl_paper_2"
-                        android:paddingStart="14dp"
-                        android:paddingTop="10dp"
-                        android:paddingEnd="14dp"
-                        android:text="@string/transfer"
-                        android:visibility="gone"
-                        tools:visibility="visible" />
+                        android:text="@string/tunnl_peer_rx_label" />
 
                     <TextView
-                        android:id="@+id/transfer_text"
+                        android:id="@+id/rx_text"
                         style="@style/TunnlMonoValueText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:background="@color/tunnl_paper_2"
+                        android:minHeight="48dp"
+                        android:gravity="center_vertical|start"
+                        android:contentDescription="@{@string/tunnl_peer_rx_label + `: ` + BindingAdapters.peerRx(statistics)}"
                         android:onClick="@{ClipboardUtils::copyTextView}"
-                        android:paddingStart="14dp"
-                        android:paddingEnd="14dp"
-                        android:paddingBottom="10dp"
+                        android:text="@{BindingAdapters.peerRx(statistics)}"
                         android:textSize="13sp"
-                        android:visibility="gone"
-                        tools:text="rx: 19.8 MB, tx: 973 KB"
-                        tools:visibility="visible" />
+                        tools:text="19.8 MB" />
                 </LinearLayout>
 
                 <LinearLayout
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
+                    android:paddingStart="4dp"
                     android:orientation="vertical">
 
                     <TextView
-                        android:id="@+id/latest_handshake_label"
                         style="@style/TunnlConfigRowLabel"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:background="@color/tunnl_paper_2"
-                        android:paddingStart="14dp"
-                        android:paddingTop="10dp"
-                        android:paddingEnd="14dp"
-                        android:text="@string/latest_handshake"
-                        android:visibility="gone"
-                        tools:visibility="visible" />
+                        android:text="@string/tunnl_peer_tx_label" />
 
                     <TextView
-                        android:id="@+id/latest_handshake_text"
+                        android:id="@+id/tx_text"
                         style="@style/TunnlMonoValueText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:background="@color/tunnl_paper_2"
+                        android:minHeight="48dp"
+                        android:gravity="center_vertical|start"
+                        android:contentDescription="@{@string/tunnl_peer_tx_label + `: ` + BindingAdapters.peerTx(statistics)}"
                         android:onClick="@{ClipboardUtils::copyTextView}"
-                        android:paddingStart="14dp"
-                        android:paddingEnd="14dp"
-                        android:paddingBottom="10dp"
+                        android:text="@{BindingAdapters.peerTx(statistics)}"
                         android:textSize="13sp"
-                        android:visibility="gone"
-                        tools:text="4 minutes ago"
-                        tools:visibility="visible" />
+                        tools:text="973 KB" />
                 </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                style="@style/TunnlDetailRow"
+                android:id="@+id/latest_handshake_row"
+                android:orientation="vertical"
+                android:visibility="@{BindingAdapters.peerHandshakeVisible(statistics) ? android.view.View.VISIBLE : android.view.View.GONE}">
+
+                <TextView
+                    android:id="@+id/latest_handshake_label"
+                    style="@style/TunnlConfigRowLabel"
+                    android:text="@string/latest_handshake"
+                    tools:visibility="visible" />
+
+                <TextView
+                    android:id="@+id/latest_handshake_text"
+                    style="@style/TunnlConfigRowValue"
+                    android:onClick="@{ClipboardUtils::copyTextView}"
+                    android:text="@{BindingAdapters.peerHandshake(statistics)}"
+                    tools:text="4 minutes ago"
+                    tools:visibility="visible" />
             </LinearLayout>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>

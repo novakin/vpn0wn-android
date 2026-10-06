@@ -454,4 +454,11 @@
     <string name="tunnl_settings_section_data">§03 DATA · BACKUP</string>
     <string name="tunnl_settings_section_appearance">§04 APPEARANCE · APP</string>
     <string name="tunnl_settings_section_about">§05 ABOUT · PROJECT</string>
+
+    <string name="tunnl_add_sheet_title">ADD TUNNEL · CHOOSE SOURCE</string>
+    <string name="tunnl_add_sheet_qr_subtitle">Camera</string>
+    <string name="tunnl_add_sheet_file_subtitle">From files</string>
+    <string name="tunnl_add_sheet_manual_subtitle">Generate keypair · enter manually</string>
+    <string name="tunnl_peer_rx_label" translatable="false">↓ RX</string>
+    <string name="tunnl_peer_tx_label" translatable="false">↑ TX</string>
 </resources>

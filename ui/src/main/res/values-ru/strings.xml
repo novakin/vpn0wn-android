@@ -289,4 +289,9 @@
     <string name="tunnl_settings_section_data">§03 ДАННЫЕ · РЕЗЕРВНАЯ КОПИЯ</string>
     <string name="tunnl_settings_section_appearance">§04 ВНЕШНИЙ ВИД · ПРИЛОЖЕНИЕ</string>
     <string name="tunnl_settings_section_about">§05 О ПРОГРАММЕ · ПРОЕКТ</string>
+
+    <string name="tunnl_add_sheet_title">ДОБАВИТЬ ТУННЕЛЬ · ВЫБРАТЬ ИСТОЧНИК</string>
+    <string name="tunnl_add_sheet_qr_subtitle">Камера</string>
+    <string name="tunnl_add_sheet_file_subtitle">Из файлов</string>
+    <string name="tunnl_add_sheet_manual_subtitle">Создать пару ключей · ввести вручную</string>
 </resources>

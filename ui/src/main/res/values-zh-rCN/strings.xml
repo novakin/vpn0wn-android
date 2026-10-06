@@ -250,4 +250,9 @@
     <string name="tunnl_settings_section_data">§03 数据 · 备份</string>
     <string name="tunnl_settings_section_appearance">§04 外观 · 应用</string>
     <string name="tunnl_settings_section_about">§05 关于 · 项目</string>
+
+    <string name="tunnl_add_sheet_title">添加隧道 · 选择来源</string>
+    <string name="tunnl_add_sheet_qr_subtitle">相机</string>
+    <string name="tunnl_add_sheet_file_subtitle">从文件</string>
+    <string name="tunnl_add_sheet_manual_subtitle">生成密钥对 · 手动输入</string>
 </resources>
