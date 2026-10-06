@@ -171,13 +171,13 @@ Clean-source extensions: C6 also owns atomic replacement/failure recovery in [Fi
 | C4 responses, safe errors and observed health; merged in PR #21, issue closed | [#12](https://github.com/novakin/wireguard-android/issues/12) |
 | Detekt config validation repaired in PR #23; pending merge | [#20](https://github.com/novakin/wireguard-android/issues/20) |
 | Native Detekt source gate reports 546 findings on #13: 538 inherited plus eight broad catches; separate remediation | [#22](https://github.com/novakin/wireguard-android/issues/22) |
-| C5–C6 transitions, teardown and view ownership implemented; pending merge | [#13](https://github.com/novakin/wireguard-android/issues/13) |
+| C5–C6 transitions, teardown and view ownership implemented in PR #25; pending merge | [#13](https://github.com/novakin/wireguard-android/issues/13) |
 | C6 atomic config replacement implemented in PR #24; pending merge | [#14](https://github.com/novakin/wireguard-android/issues/14) |
 | C6 complete kernel transition serialization | [#15](https://github.com/novakin/wireguard-android/issues/15) |
-| Config DNS round trips and negative-prefix rejection | [#16](https://github.com/novakin/wireguard-android/issues/16) |
+| Config DNS round trips and negative-prefix rejection implemented; pending merge | [#16](https://github.com/novakin/wireguard-android/issues/16) |
 | C9 harness postconditions/failure redaction | [#17](https://github.com/novakin/wireguard-android/issues/17) |
 
-The table distinguishes merged C2–C4, implemented #20/#14/#13 repairs pending merge and remaining source-confirmed gaps. [C4 evidence](development.md#c4-provisioning-contracts-and-observed-health--2026-10-06) and [Detekt evidence](development.md#detekt-configuration-repair--2026-10-06) record tests and limits. Requested repair order is #20, #14, #13, #16, #15; planned APK CI follows these fixes and a passing static gate under #22. No issue proves a live reproduction or authorizes operational mutation. C7–C8 and C10–C12 retain their existing acceptance until a bounded implementation task needs an issue.
+The table distinguishes merged C2–C4, implemented #20/#14/#13/#16 repairs pending merge and remaining source-confirmed gaps. [C4 evidence](development.md#c4-provisioning-contracts-and-observed-health--2026-10-06) and [Detekt evidence](development.md#detekt-configuration-repair--2026-10-06) record tests and limits. Requested repair order is #20, #14, #13, #16, #15; planned APK CI follows these fixes and a passing static gate under #22. No issue proves a live reproduction or authorizes operational mutation. C7–C8 and C10–C12 retain their existing acceptance until a bounded implementation task needs an issue.
 
 ## Verification and definition of done
 

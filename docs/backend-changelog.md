@@ -48,6 +48,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **DNS round trips and network-prefix validation — 2026-10-06**
+  `Interface.toWgQuickString` retains DNS search domains when no DNS server is present. `InetNetwork.parse` distinguishes omitted masks from explicit negative masks and preserves valid IPv4/IPv6 controls. #16 is implemented pending merge, with no new parser, format migration or user-file rewrite. See [contracts](backend-contracts.md#wireguard-configuration-and-tunnel-state) and [evidence](development.md#dns-round-trips-and-prefix-validation--2026-10-06).
+
 - **Tunnel lifecycle and settled transitions — 2026-10-06**
   `TunnelManager` serializes mutations/state snapshots, finishes admitted reconciliation before cancellation, rejects stale references and reserves backend switching until restart/rollback. Backend notifications preserve restoration intent after spontaneous service loss. Inventory/backend futures settle failure/cancellation; failed inventory retries. `ObservableTunnel.setStateAsync` delegates queued decisions to the manager. `TunnelDetailFragment` binds config/statistics work to view/selection identity. `KernelModuleEnablerPreference` prevents duplicate clicks and restores its setting/control after failure. `GoBackend.VpnService.onDestroy` marks liveness and resets acquisition immediately, with identity-checked cleanup/callback ordering off the main thread; UDP protection/interruption policy is explicit. See [contracts](backend-contracts.md#wireguard-configuration-and-tunnel-state) and [evidence](development.md#tunnel-lifecycle-and-transition-settlement--2026-10-06). #13 is implemented pending merge; successful native VPN, process restart and device teardown remain unproved. Kernel transition serialization remains #15.
 
