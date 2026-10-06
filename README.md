@@ -1,6 +1,6 @@
 # Tunnl — WireGuard Android
 
-Last updated: 2026-10-06 (Europe/Paris).
+Last updated: 2026-10-07 (Europe/Paris).
 
 Tunnl is [novakin's WireGuard Android fork](https://github.com/novakin/wireguard-android), adding an engineering-console redesign and a partial VPS fleet/provisioning flow to the existing Android DataBinding/Fragment architecture.
 
@@ -36,6 +36,8 @@ The debug application ID has the `.debug` suffix. Build commands document operat
 Start with [AGENTS.md](AGENTS.md), the sole project agent-instruction file, and the [development workflow](docs/development.md). Choose the owning guide and relevant tests, refresh the intended integration base, preserve unrelated work, and use a scoped branch/PR. Apply actual GitHub labels/assignee and fill the [PR template](.github/PULL_REQUEST_TEMPLATE.md) with the final change, documentation impact, executed checks and limits.
 
 Use the [bug report](.github/ISSUE_TEMPLATE/bug_report.md) or [improvement](.github/ISSUE_TEMPLATE/improvement.md) template for concrete work. Keep keys, passwords and raw secret-bearing logs out of issues/PRs. Focused tests, UI/device proof and destructive disposable-VPS validation have separate boundaries in [development](docs/development.md#verification-commands-and-ownership); merge and deployment require their own authorization.
+
+Repository-native unit/static [Android CI checks](docs/development.md#android-ci-and-debug-apk-artifacts) run on PR heads and `master` pushes. Debug APK artifacts require explicit manual dispatch with `build_apk=true`; signing/retention and installation limits are described in that guide. A passing check does not establish device/VPN behavior or branch protection.
 
 `.design/` is an ignored, read-only local prototype and can be absent from a clean clone. UI fidelity work needs that reference or another user-approved visual source; ordinary runtime/documentation work does not depend on it.
 
