@@ -4,7 +4,7 @@ Last updated: 2026-10-06 (Europe/Paris).
 
 This document tracks the automated and manual QA coverage required for the Tunnl Android redesign.
 
-The layer lists below are target requirements, not a passing coverage report. [Source-inspected coverage](#source-inspected-coverage) inventories current source, including explicitly identified pending changes; [development evidence](development.md#recorded-verification) records actual executions and their scope. The original documentation audit at `11d4a9b1` ran no runtime suites. No fragment/row, instrumented navigation or screenshot suite exists yet.
+The layer lists below are target requirements, not a passing coverage report. [Source-inspected coverage](#source-inspected-coverage) inventories current source, including explicitly identified pending changes; [development evidence](development.md#recorded-verification) records actual executions and their scope. The original documentation audit at `11d4a9b1` ran no runtime suites. #13 adds focused detail-fragment lifecycle tests; broader rendered-row, instrumented navigation and screenshot suites remain absent.
 
 ## Test Layers
 
@@ -136,7 +136,9 @@ Required before merging UI or backend provisioning work.
 
 ## Source-inspected Coverage
 
-Source contains 13 test classes and 93 test methods: UI 11/83, tunnel 2/10, including the current #14 change. This is an inventory, not an execution total. Guard tests use fake execute calls for timeout, I/O failure and cancellation propagation; they do not prove an entered SSH command, upload timeout or actual channel/session closure. Existing Robolectric coverage supplies resources, formatters, empty summaries, mapper states and captured logs rather than fragment/navigation/rendered-row proof.
+Source contains 18 test classes and 122 test methods: UI 16/112, tunnel 2/10, including #14 and the current #13 change. The shared TunnelTestEnvironment fixture is not a test suite. This is an inventory, not an execution total. Guard tests use fake execute calls for timeout, I/O failure and cancellation propagation; they do not prove an entered SSH command, upload timeout or actual channel/session closure. Robolectric also covers detail-fragment selection/destruction and kernel-preference failure recovery; whole-app navigation/rendered-row proof remains separate.
+
+`TunnelManagerTest` covers admitted/queued transitions, deletion/config failure recovery, cancelled initialization, stale state snapshots/native notifications, restoration intent and backend-switch admission/rollback. `ApplicationBackendLifecycleTest` proves cancellation before initializer execution settles backend waiters. `TunnelDetailLifecycleTest` covers reversed/cleared config selections and destroyed views; delayed statistics guards are source reviewed without a dedicated regression. `KernelModuleEnablerPreferenceTest` checks failed shutdown restores its setting/control. `GoBackendLifecycleTest` covers prompt destruction while its lock is held, dead-service rejection/future replacement, cleanup identity/callback ordering and preflight compatibility/protection/interruption. Synthetic owner/native-call shadows exercise no successful native activation, real VPN traffic, process exit or device lifecycle. See [development evidence](development.md#tunnel-lifecycle-and-transition-settlement--2026-10-06).
 
 `FileConfigStoreTest` covers temporary local files, successful profile round trips, partial-write/native-rename failure preserving prior content, failed creates with no usable profile, conflicting names and concurrent create/save/delete ordering. The Context writer and native-call shadow inject failures without modifying user data. The reviewed suite does not prove Android filesystem durability, actual disk-full/power-loss behavior or coordination with other processes/store instances; [development evidence](development.md#atomic-local-profile-replacement--2026-10-06) separates executed results and limits.
 
@@ -155,6 +157,7 @@ The separate [Bash provisioning safety suite](../scripts/tests/provisioning_safe
 - `BindingAdaptersTest`
 - `QuantityFormatterTest`
 - `FileConfigStoreTest`
+- `TunnelManagerTest`, `ApplicationBackendLifecycleTest`, `TunnelDetailLifecycleTest`, `KernelModuleEnablerPreferenceTest`, `GoBackendLifecycleTest` — scoped #13 owner/lifecycle regressions.
 - `ConfigTest` and `BadConfigExceptionTest` — configuration/parser fixtures and error descriptions.
 
 ## Next Implementation Roadmap

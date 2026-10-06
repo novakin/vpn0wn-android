@@ -48,6 +48,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **Tunnel lifecycle and settled transitions — 2026-10-06**
+  `TunnelManager` serializes mutations/state snapshots, finishes admitted reconciliation before cancellation, rejects stale references and reserves backend switching until restart/rollback. Backend notifications preserve restoration intent after spontaneous service loss. Inventory/backend futures settle failure/cancellation; failed inventory retries. `ObservableTunnel.setStateAsync` delegates queued decisions to the manager. `TunnelDetailFragment` binds config/statistics work to view/selection identity. `KernelModuleEnablerPreference` prevents duplicate clicks and restores its setting/control after failure. `GoBackend.VpnService.onDestroy` marks liveness and resets acquisition immediately, with identity-checked cleanup/callback ordering off the main thread; UDP protection/interruption policy is explicit. See [contracts](backend-contracts.md#wireguard-configuration-and-tunnel-state) and [evidence](development.md#tunnel-lifecycle-and-transition-settlement--2026-10-06). #13 is implemented pending merge; successful native VPN, process restart and device teardown remain unproved. Kernel transition serialization remains #15.
+
 - **Atomic local profile replacement — 2026-10-06**
   `FileConfigStore.create`/`save` stage private writes, sync/close before native atomic rename and propagate commit errors. All store operations serialize through the existing owner; rename no longer creates a destination marker. Previous valid configs survive injected partial-write/rename failures, failed creates publish no profile, and conflicting mutations retain ownership. See [contracts](backend-contracts.md#persistence-and-presentation) and [development evidence](development.md#atomic-local-profile-replacement--2026-10-06). Android filesystem/power-loss proof remains separate.
 

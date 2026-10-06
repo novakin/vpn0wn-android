@@ -13,17 +13,13 @@ import androidx.preference.Preference
 import com.wireguard.android.Application
 import com.wireguard.android.R
 import com.wireguard.android.activity.SettingsActivity
-import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.backend.WgQuickBackend
 import com.wireguard.android.util.UserKnobs
 import com.wireguard.android.util.activity
 import com.wireguard.android.util.lifecycleScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import kotlin.system.exitProcess
 
 class KernelModuleEnablerPreference(context: Context, attrs: AttributeSet?) : Preference(context, attrs) {
@@ -41,27 +37,36 @@ class KernelModuleEnablerPreference(context: Context, attrs: AttributeSet?) : Pr
     override fun getTitle() = if (state == State.UNKNOWN) "" else context.getString(state.titleResourceId)
 
     override fun onClick() {
+        val previousState = state
+        if (previousState != State.DISABLED && previousState != State.ENABLED)
+            return
+        setState(if (previousState == State.DISABLED) State.ENABLING else State.DISABLING)
         activity.lifecycleScope.launch {
-            if (state == State.DISABLED) {
-                setState(State.ENABLING)
-                UserKnobs.setEnableKernelModule(true)
-            } else if (state == State.ENABLED) {
-                setState(State.DISABLING)
-                UserKnobs.setEnableKernelModule(false)
-            }
-            val observableTunnels = Application.getTunnelManager().getTunnels()
-            val downings = observableTunnels.map { async(SupervisorJob()) { it.setStateAsync(Tunnel.State.DOWN) } }
+            var previousSetting: Boolean? = null
+            var changingSetting = false
             try {
-                downings.awaitAll()
-                withContext(Dispatchers.IO) {
-                    val restartIntent = Intent(context, SettingsActivity::class.java)
-                    restartIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                    restartIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    Application.get().startActivity(restartIntent)
-                    exitProcess(0)
-                }
-            } catch (e: Throwable) {
+                previousSetting = UserKnobs.enableKernelModule.first()
+                changingSetting = true
+                Application.getTunnelManager().getTunnels()
+                Application.getTunnelManager().prepareBackendSwitch(previousState == State.DISABLED)
+                val restartIntent = Intent(context, SettingsActivity::class.java)
+                restartIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                restartIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                Application.get().startActivity(restartIntent)
+                exitProcess(0)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
                 Log.e(TAG, "Failed to enable kernel module", e)
+            } finally {
+                if (changingSetting) {
+                    try {
+                        Application.getTunnelManager().cancelBackendSwitch(previousSetting)
+                    } catch (recovery: Exception) {
+                        Log.e(TAG, "Failed to restore backend preference", recovery)
+                    }
+                }
+                setState(previousState)
             }
         }
     }

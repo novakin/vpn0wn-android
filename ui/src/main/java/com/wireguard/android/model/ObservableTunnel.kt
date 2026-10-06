@@ -4,7 +4,6 @@
  */
 package com.wireguard.android.model
 
-import android.os.Looper
 import android.util.Log
 import androidx.databinding.BaseObservable
 import androidx.databinding.Bindable
@@ -52,13 +51,7 @@ class ObservableTunnel internal constructor(
         private set
 
     override fun onStateChange(newState: Tunnel.State) {
-        if (Looper.myLooper() == Looper.getMainLooper()) {
-            onStateChanged(newState)
-        } else {
-            applicationScope.launch(Dispatchers.Main.immediate) {
-                onStateChanged(newState)
-            }
-        }
+        manager.onTunnelStateChange(this)
     }
 
     fun onStateChanged(state: Tunnel.State): Tunnel.State {
@@ -70,12 +63,7 @@ class ObservableTunnel internal constructor(
     }
 
     suspend fun setStateAsync(state: Tunnel.State): Tunnel.State = withContext(Dispatchers.Main.immediate) {
-        if (this@ObservableTunnel.state == Tunnel.State.TOGGLE)
-            this@ObservableTunnel.state
-        else if (state != this@ObservableTunnel.state)
-            manager.setTunnelState(this@ObservableTunnel, state)
-        else
-            this@ObservableTunnel.state
+        manager.setTunnelState(this@ObservableTunnel, state)
     }
 
 
