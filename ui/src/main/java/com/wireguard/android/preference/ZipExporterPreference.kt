@@ -20,7 +20,6 @@ import com.wireguard.android.util.lifecycleScope
 import com.wireguard.android.util.tunnlStyle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -37,7 +36,7 @@ class ZipExporterPreference(context: Context, attrs: AttributeSet?) : Preference
     private var exportedFilePath: String? = null
     private val downloadsFileSaver = DownloadsFileSaver(activity)
 
-    // ConfigStore failures need user feedback; write cleanup must preserve even a primary Error/cancellation before rethrowing.
+    // ConfigStore failures need user feedback while cancellation and unrelated Errors propagate.
     @Suppress("TooGenericExceptionCaught")
     private fun exportZip() {
         lifecycleScope.launch {
@@ -48,32 +47,15 @@ class ZipExporterPreference(context: Context, attrs: AttributeSet?) : Preference
                         tunnels.map { async { it.getConfigAsync() } }.awaitAll()
                     }
                     require(configs.isNotEmpty()) { context.getString(R.string.no_tunnels_error) }
-                    val outputFile = downloadsFileSaver.save("wireguard-export.zip", "application/zip", true)
-                    if (outputFile == null) {
-                        withContext(Dispatchers.Main.immediate) {
-                            isEnabled = true
-                        }
-                        return@withContext null
-                    }
-                    try {
-                        ZipOutputStream(outputFile.outputStream).use { zip ->
+                    downloadsFileSaver.save("wireguard-export.zip", "application/zip", true) { stream ->
+                        ZipOutputStream(stream).use { zip ->
                             for (i in configs.indices) {
                                 zip.putNextEntry(ZipEntry(tunnels[i].name + ".conf"))
                                 zip.write(configs[i].toWgQuickString().toByteArray(StandardCharsets.UTF_8))
                             }
                             zip.closeEntry()
                         }
-                    } catch (e: Throwable) {
-                        withContext(NonCancellable) {
-                            try {
-                                outputFile.delete()
-                            } catch (recovery: Throwable) {
-                                e.addSuppressed(recovery)
-                            }
-                        }
-                        throw e
                     }
-                    outputFile.fileName
                 }
                 notifyChanged()
             } catch (e: CancellationException) {

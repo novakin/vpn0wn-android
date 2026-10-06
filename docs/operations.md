@@ -24,7 +24,7 @@ File/ZIP importing settles valid entries before one final result and reports par
 
 Known import/edit defects pending C8 include invalid-name dialog dismissal and replacement-length handling. Abbreviated displayed keys also require a full-key copy fix. Until repaired, inspect an exported profile when a copied key is unusable; do not paste a displayed ellipsis as a WireGuard key.
 
-ZIP export restores its control after loading/write failure or cancellation. Failed writes attempt to delete the incomplete output; failed cleanup remains attached to the primary error. Check Downloads for an incomplete export after failure. Output acquisition and provider deletion still have separate limits in [the export contract](backend-contracts.md#import-ordering-and-export); a restored control does not prove that every incomplete file was removed.
+ZIP export restores its control after loading, acquisition or write failure and cancellation. The saver closes and attempts to remove an owned incomplete output; rejected or zero-result cleanup stays attached to the primary error. Check Downloads after failure and remove any incomplete private export through your file manager. A cancelled operation can still leave a complete export if cancellation arrives after writing; it does not report success. Same-name export overwrites the previous copy and does not restore it after failure. See [the export contract](backend-contracts.md#import-ordering-and-export) and [synthetic verification limits](development.md#downloads-output-ownership--2026-10-07); actual storage-provider acceptance remains in G4.
 
 ## Home selection and deletion
 

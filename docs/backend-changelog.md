@@ -48,6 +48,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **Downloads output ownership (#28, source repair; physical-provider proof deferred to G4)**
+  `DownloadsFileSaver.save` keeps acquisition, metadata, writing and stream closure inside one IO scope and returns a completed path rather than handing off a live resource. `DownloadsFile.delete` reports zero/false outcomes; cleanup failures remain attached to the primary failure/cancellation/Error. Legacy paths become owned only after opening, preserving pre-existing paths on open failure. `ZipExporterPreference.exportZip` delegates write cleanup to the saver and preserves ZIP contents, overwrite policy and control restoration. See [contracts](backend-contracts.md#import-ordering-and-export) and [verification](development.md#downloads-output-ownership--2026-10-07).
+
 - **UDP warm-up compatibility decision — 2026-10-07**
   `GoBackend.sendUdpPreflight`/`setStateInternal` retain the merged endpoint-free, explicit ListenPort, best-effort I/O and liveness/teardown contract. #37 rejects the preserved mandatory/random-port variant and its candidate-only error/messages; no runtime code or resource change is needed. [Review evidence and native limits](reviews/2026-10-07-udp-compatibility-review.md) explain the decision; source review is not a packet or performance gain.
 
