@@ -268,4 +268,18 @@
     <string name="tunnl_add_sheet_qr_subtitle">Càmera</string>
     <string name="tunnl_add_sheet_file_subtitle">Des de fitxers</string>
     <string name="tunnl_add_sheet_manual_subtitle">Genera parell de claus · entrada manual</string>
+
+    <string name="tunnl_selection_delete">Suprimeix túnels seleccionats</string>
+    <string name="tunnl_selection_exit">Surt de la selecció</string>
+    <string name="tunnl_selection_mode">MODE SELECCIÓ</string>
+    <string name="tunnl_selection_status_empty">0 SELECCIONATS</string>
+    <string name="tunnl_selection_status_count">%1$d DE %2$d SELECCIONATS</string>
+    <plurals name="tunnl_selection_title">
+        <item quantity="one">%d SELECCIONATS</item>
+        <item quantity="other">%d SELECCIONATS</item>
+    </plurals>
+    <plurals name="tunnl_delete_sheet_title">
+        <item quantity="one">suprimir %d túnel?</item>
+        <item quantity="other">suprimir %d túnels?</item>
+    </plurals>
 </resources>

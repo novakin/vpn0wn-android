@@ -1,6 +1,6 @@
 # Tunnl UI Redesign Roadmap
 
-Last updated: 2026-10-06 (Europe/Paris).
+Last updated: 2026-10-07 (Europe/Paris).
 
 ## Design Source
 
@@ -402,6 +402,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
+- [x] Home selection/delete source recovery: TunnelListFragment now owns stable selected identities, count/select-all/close/delete controls, zero-selected mode and hidden switches/Add; a native scrolling confirmation lists selected tunnels and warns before deletion. Existing manager admission/rollback handles sequential deletion and partial/cancelled outcomes. Row status/peer labels remain one line with secondary ellipsis at narrow/large-text widths. Native controls check scrolling names/actions across six configurations; #36 physical acceptance remains open. See [source evidence and limits](development.md#home-selection-and-safe-delete-recovery--2026-10-07).
+
 - [x] **Add sheet and peer presentation recovery — 2026-10-06:** `AddTunnelsSheet` restores QR-first accent, file/manual ordering, localized subtitles, header and drag handle through the existing actions. Wrapping rows, native button semantics and a scrolling container accommodate large text and short screens; chevrons mirror in RTL. `tunnel_detail_peer.xml` binds separate localized RX/TX totals and handshake text from nullable peer snapshots, with 48dp copy targets. Missing/zero data and observed DOWN clear whole rows; selection/view/state guards reject stale peer projection. [Verification and pending phone acceptance](development.md#add-sheet-and-peer-presentation-recovery--2026-10-06) separate source recovery from device delivery.
 
 - [x] **Settings source recovery — 2026-10-06:** `SettingsActivity`, preference XML and row/category layouts recover the custom two-row header and supported native sections. Back has a labeled 48dp target and a mirrored chevron. Settings, Home and Creator reuse the same view-owned system-bar/cutout inset handler. Empty categories are removed after API/admin/backend filtering; the Connection section waits for backend/root eligibility. Seven labels are recovered in 36 resource sets; WireGuard version/link/branding and merged feedback owners remain intact. [Verification and remaining device proof](development.md#settings-presentation-recovery--2026-10-06) distinguish source recovery from delivery.
@@ -482,6 +484,8 @@ This is a historical implementation ledger, not newly executed build/device proo
 
 ### Fidelity Gaps — Remaining
 
+- [~] Home selection uses Android's configurable native long-click instead of the prototype's custom 600ms hold-progress/touch animation; this preserves native gesture and accessibility handling. The selected card/checkmark, count controls and destructive sheet are recovered; exact custom motion, sheet corner decorations and physical device/provider acceptance remain outside the current source proof (#36/G4).
+
 - Settings uses native category/row grouping for supported controls. The prototype's shared rounded card envelopes and unsupported demo feature controls are not ported; real Android preference behavior takes priority in this recovery slice. Physical output remains pending under Settings below.
 - [~] **Home search remains unimplemented** — `tunnel_list_fragment.xml` explicitly disables Search through DataBinding (`android:enabled="@{false}"`); the packaged literal flag alone left it enabled on the physical Android 16 phone. `TunnelListFragment` no longer exposes a no-op handler. Implement actual filtering through the existing list owner before enabling it. #22 keeps rendering geometry/paint values unchanged with local static exceptions; scoped [phone checks](development.md#phone-ui-and-throughput-follow-up--2026-10-06) do not establish the full screenshot/support matrix.
 
@@ -502,7 +506,6 @@ This is a historical implementation ledger, not newly executed build/device proo
 
 **Home:**
 - [ ] Make PSK badge + separator conditional on peer having PSK.
-- [ ] **Multi-select / bulk-delete presentation** — reuse `TunnelListFragment.ActionModeListener.checkedItems`, selection restore/toggle and existing bulk-delete paths. Reshape the presentation to `.design/index-selection.html`: 600ms long-press intent, selected card/checkmark treatment, selected-count TopBar with trash/close controls, hidden per-row toggles/add affordance, and strip text `0 SELECTED` or `N OF M SELECTED`. Add the prototype confirmation sheet and preserve cancellation/recovery; C6 transition/delete safety remains a prerequisite. Keep current select-all capability where appropriate without claiming the prototype includes an ALL/NONE button. Do not add parallel Boolean/Set selection ownership.
 - [ ] **Multi-tunnel active count in header** — with kernel mode enabled, show `N ACTIVE` and `M ERROR` from the shared tunnel-mode aggregation; retain binary behavior in userspace mode. Extend `BindingAdapters.homeHeaderSummary` and existing aggregation; `TunnelListFragment` collects relevant `UserKnobs.enableKernelModule` changes and invalidates bindings. Reuse current owners instead of adding a second header state model. Design reference: `.design/index-selection.html`.
 - [ ] **DEGRADED status for multi-tunnel partial failure** — with kernel mode enabled, ≥1 UP tunnel plus ≥1 ERROR/CONNECTING tunnel should show DEGRADED with an amber dot. Extend the existing presentation owner in `BindingAdapters.homeProtectionLabel`, `setHomeProtectionTunnels` and `protectionLabelRes`; `TunnelListFragment` collects relevant preference/state changes and invalidates bindings. Preserve single-tunnel behavior and do not treat an aggregate label as complete traffic-protection proof. Design reference: `.design/index-selection.html`.
 

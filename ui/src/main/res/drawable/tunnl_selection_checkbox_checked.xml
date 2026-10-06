@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="@color/tunnl_signal_deep" />
+            <corners android:radius="5dp" />
+        </shape>
+    </item>
+    <item
+        android:bottom="5dp"
+        android:left="4dp"
+        android:right="4dp"
+        android:top="5dp">
+        <vector
+            android:width="12dp"
+            android:height="10dp"
+            android:viewportWidth="12"
+            android:viewportHeight="10">
+            <path
+                android:fillColor="@android:color/transparent"
+                android:pathData="M1.5,5L4.5,8L10.5,2"
+                android:strokeColor="@color/tunnl_paper"
+                android:strokeLineCap="round"
+                android:strokeLineJoin="round"
+                android:strokeWidth="1.8" />
+        </vector>
+    </item>
+</layer-list>

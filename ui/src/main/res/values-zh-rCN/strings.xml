@@ -255,4 +255,18 @@
     <string name="tunnl_add_sheet_qr_subtitle">相机</string>
     <string name="tunnl_add_sheet_file_subtitle">从文件</string>
     <string name="tunnl_add_sheet_manual_subtitle">生成密钥对 · 手动输入</string>
+
+    <string name="tunnl_selection_delete">删除所选隧道</string>
+    <string name="tunnl_selection_exit">退出选择</string>
+    <string name="tunnl_selection_mode">选择模式</string>
+    <string name="tunnl_selection_status_empty">已选择 0 个</string>
+    <string name="tunnl_selection_status_count">已选择 %1$d/%2$d 个</string>
+    <plurals name="tunnl_selection_title">
+        <item quantity="one">已选择 %d 个</item>
+        <item quantity="other">已选择 %d 个</item>
+    </plurals>
+    <plurals name="tunnl_delete_sheet_title">
+        <item quantity="one">删除 %d 个隧道？</item>
+        <item quantity="other">删除 %d 个隧道？</item>
+    </plurals>
 </resources>

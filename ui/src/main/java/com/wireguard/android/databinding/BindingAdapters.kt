@@ -14,6 +14,7 @@ import android.os.SystemClock
 import android.text.InputFilter
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -52,6 +53,16 @@ import java.util.WeakHashMap
  * Static methods for use by generated code in the Android data binding library.
  */
 object BindingAdapters {
+    @JvmStatic
+    @BindingAdapter("tunnelSelectionInset")
+    fun setTunnelSelectionInset(view: View, selecting: Boolean) {
+        val params = view.layoutParams as? ViewGroup.MarginLayoutParams ?: return
+        val inset = view.resources.getDimensionPixelSize(if (selecting) R.dimen.tunnl_selection_text_inset else R.dimen.tunnl_card_text_inset)
+        if (params.marginStart == inset) return
+        params.marginStart = inset
+        view.layoutParams = params
+    }
+
     private const val SHORT_KEY_EDGE_LENGTH = 6
     private const val MIN_RATE_SAMPLE_INTERVAL_MS = 250L
     private data class RateSample(

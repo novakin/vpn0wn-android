@@ -294,4 +294,18 @@
     <string name="tunnl_add_sheet_qr_subtitle">Камера</string>
     <string name="tunnl_add_sheet_file_subtitle">З файлів</string>
     <string name="tunnl_add_sheet_manual_subtitle">Створити пару ключів · ввести вручну</string>
+
+    <string name="tunnl_selection_delete">Видалити вибрані тунелі</string>
+    <string name="tunnl_selection_exit">Вийти з вибору</string>
+    <string name="tunnl_selection_mode">РЕЖИМ ВИБОРУ</string>
+    <string name="tunnl_selection_status_empty">0 ВИБРАНО</string>
+    <string name="tunnl_selection_status_count">%1$d З %2$d ВИБРАНО</string>
+    <plurals name="tunnl_selection_title">
+        <item quantity="one">%d ВИБРАНО</item>
+        <item quantity="other">%d ВИБРАНО</item>
+    </plurals>
+    <plurals name="tunnl_delete_sheet_title">
+        <item quantity="one">видалити %d тунель?</item>
+        <item quantity="other">видалити %d тунелів?</item>
+    </plurals>
 </resources>

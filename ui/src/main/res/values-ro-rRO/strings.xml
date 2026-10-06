@@ -268,4 +268,18 @@
     <string name="tunnl_add_sheet_qr_subtitle">Cameră</string>
     <string name="tunnl_add_sheet_file_subtitle">Din fișiere</string>
     <string name="tunnl_add_sheet_manual_subtitle">Generează pereche de chei · introdu manual</string>
+
+    <string name="tunnl_selection_delete">Șterge tunelurile selectate</string>
+    <string name="tunnl_selection_exit">Ieși din selecție</string>
+    <string name="tunnl_selection_mode">MOD SELECȚIE</string>
+    <string name="tunnl_selection_status_empty">0 SELECTATE</string>
+    <string name="tunnl_selection_status_count">%1$d DIN %2$d SELECTATE</string>
+    <plurals name="tunnl_selection_title">
+        <item quantity="one">%d SELECTATE</item>
+        <item quantity="other">%d SELECTATE</item>
+    </plurals>
+    <plurals name="tunnl_delete_sheet_title">
+        <item quantity="one">șterge %d tunel?</item>
+        <item quantity="other">șterge %d tuneluri?</item>
+    </plurals>
 </resources>

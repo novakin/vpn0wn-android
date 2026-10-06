@@ -255,4 +255,18 @@
     <string name="tunnl_add_sheet_qr_subtitle">Kamera</string>
     <string name="tunnl_add_sheet_file_subtitle">Dari file</string>
     <string name="tunnl_add_sheet_manual_subtitle">Buat pasangan kunci · masukkan manual</string>
+
+    <string name="tunnl_selection_delete">Hapus tunnel terpilih</string>
+    <string name="tunnl_selection_exit">Keluar dari pilihan</string>
+    <string name="tunnl_selection_mode">MODE PILIH</string>
+    <string name="tunnl_selection_status_empty">0 TERPILIH</string>
+    <string name="tunnl_selection_status_count">%1$d DARI %2$d TERPILIH</string>
+    <plurals name="tunnl_selection_title">
+        <item quantity="one">%d TERPILIH</item>
+        <item quantity="other">%d TERPILIH</item>
+    </plurals>
+    <plurals name="tunnl_delete_sheet_title">
+        <item quantity="one">hapus %d tunnel?</item>
+        <item quantity="other">hapus %d tunnel?</item>
+    </plurals>
 </resources>

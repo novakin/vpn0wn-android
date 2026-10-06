@@ -1,6 +1,6 @@
 # Operations and recovery
 
-Last updated: 2026-10-06 (Europe/Paris).
+Last updated: 2026-10-07 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -25,6 +25,12 @@ File/ZIP importing settles valid entries before one final result and reports par
 Known import/edit defects pending C8 include invalid-name dialog dismissal and replacement-length handling. Abbreviated displayed keys also require a full-key copy fix. Until repaired, inspect an exported profile when a copied key is unusable; do not paste a displayed ellipsis as a WireGuard key.
 
 ZIP export restores its control after loading/write failure or cancellation. Failed writes attempt to delete the incomplete output; failed cleanup remains attached to the primary error. Check Downloads for an incomplete export after failure. Output acquisition and provider deletion still have separate limits in [the export contract](backend-contracts.md#import-ordering-and-export); a restored control does not prove that every incomplete file was removed.
+
+## Home selection and deletion
+
+Long-press a tunnel card to select it. Tap cards to toggle selection, use Select all for the current inventory, and Close or Back to leave selection. Zero selected remains a selection mode with Delete disabled. Add and per-row tunnel switches return on exit.
+
+Delete opens a confirmation listing the selected profiles and warning that active/changing tunnels will be stopped. Cancellation makes no deletion. Rotation/view recreation dismisses confirmation; inspect the restored selection and confirm again. Confirmed deletes settle through the manager one at a time. Failures retain surviving profiles and selection; feedback reports observed removed/remaining counts and the first error. Back during deletion cancels the remaining work, but an already admitted delete can finish before cancellation is reported. Deletion has no undo; keep an authorized export/QR backup when needed. Source recovery does not close [#36 physical acceptance](https://github.com/novakin/wireguard-android/issues/36).
 
 ## Permissions and backend changes
 

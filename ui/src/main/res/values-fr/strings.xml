@@ -444,4 +444,25 @@
     <string name="tunnl_add_sheet_qr_subtitle">Caméra</string>
     <string name="tunnl_add_sheet_file_subtitle">Depuis fichiers</string>
     <string name="tunnl_add_sheet_manual_subtitle">Générer clé · saisie manuelle</string>
+
+    <string name="tunnl_selection_delete">Supprimer les tunnels sélectionnés</string>
+    <string name="tunnl_selection_exit">Quitter la sélection</string>
+    <string name="tunnl_selection_mode">MODE SÉLECTION</string>
+    <string name="tunnl_selection_status_empty">0 SÉLECTIONNÉ</string>
+    <string name="tunnl_selection_status_count">%1$d SUR %2$d SÉLECTIONNÉS</string>
+    <plurals name="tunnl_selection_title">
+        <item quantity="one">%d SÉLECTIONNÉ</item>
+        <item quantity="other">%d SÉLECTIONNÉS</item>
+    </plurals>
+    <plurals name="tunnl_delete_sheet_title">
+        <item quantity="one">supprimer %d tunnel ?</item>
+        <item quantity="other">supprimer %d tunnels ?</item>
+    </plurals>
+
+    <string name="tunnl_delete_irreversible">DESTRUCTIF · IRRÉVERSIBLE</string>
+    <string name="tunnl_delete_no_undo">IMPOSSIBLE À ANNULER</string>
+    <string name="tunnl_delete_stop_warning">Ces tunnels actifs ou en transition seront arrêtés avant suppression :</string>
+    <string name="tunnl_delete_progress">%1$d tunnels supprimés sur %2$d sélectionnés. %3$d restants. %4$s</string>
+    <string name="tunnl_delete_cancelled">Suppression annulée.</string>
+    <string name="tunnl_delete_in_progress">SUPPRESSION…</string>
 </resources>

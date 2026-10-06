@@ -214,4 +214,18 @@
     <string name="tunnl_add_sheet_qr_subtitle">කැමරාව</string>
     <string name="tunnl_add_sheet_file_subtitle">ගොනු වලින්</string>
     <string name="tunnl_add_sheet_manual_subtitle">යතුරු යුගලය ජනනය කරන්න · අතින් ඇතුළත් කරන්න</string>
+
+    <string name="tunnl_selection_delete">තෝරාගත් ටනල් මකන්න</string>
+    <string name="tunnl_selection_exit">තේරීමෙන් පිටවන්න</string>
+    <string name="tunnl_selection_mode">තේරීම් ප්‍රකාරය</string>
+    <string name="tunnl_selection_status_empty">0 තෝරා ඇත</string>
+    <string name="tunnl_selection_status_count">%2$dන් %1$dක් තෝරා ඇත</string>
+    <plurals name="tunnl_selection_title">
+        <item quantity="one">%d තෝරා ඇත</item>
+        <item quantity="other">%d තෝරා ඇත</item>
+    </plurals>
+    <plurals name="tunnl_delete_sheet_title">
+        <item quantity="one">%d ටනලය මකන්නද?</item>
+        <item quantity="other">%d ටනල් මකන්නද?</item>
+    </plurals>
 </resources>

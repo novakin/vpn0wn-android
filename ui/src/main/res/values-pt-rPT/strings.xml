@@ -244,4 +244,18 @@
     <string name="tunnl_add_sheet_qr_subtitle">Câmara</string>
     <string name="tunnl_add_sheet_file_subtitle">De ficheiros</string>
     <string name="tunnl_add_sheet_manual_subtitle">Gerar par de chaves · introduzir manualmente</string>
+
+    <string name="tunnl_selection_delete">Eliminar túneis selecionados</string>
+    <string name="tunnl_selection_exit">Sair da seleção</string>
+    <string name="tunnl_selection_mode">MODO DE SELEÇÃO</string>
+    <string name="tunnl_selection_status_empty">0 SELECIONADOS</string>
+    <string name="tunnl_selection_status_count">%1$d DE %2$d SELECIONADOS</string>
+    <plurals name="tunnl_selection_title">
+        <item quantity="one">%d SELECIONADOS</item>
+        <item quantity="other">%d SELECIONADOS</item>
+    </plurals>
+    <plurals name="tunnl_delete_sheet_title">
+        <item quantity="one">eliminar %d túnel?</item>
+        <item quantity="other">eliminar %d túneis?</item>
+    </plurals>
 </resources>

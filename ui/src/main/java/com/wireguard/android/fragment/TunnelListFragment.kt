@@ -10,26 +10,22 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import android.content.Intent
 import android.app.Activity
-import android.content.res.Resources
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
-import android.view.Menu
-import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
-import android.view.animation.Animation
-import android.view.animation.AnimationUtils
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.addCallback
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.view.ActionMode
 import androidx.databinding.Observable
 import androidx.databinding.ObservableList
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
+import com.google.android.material.bottomsheet.BottomSheetBehavior
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.zxing.qrcode.QRCodeReader
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
@@ -44,6 +40,7 @@ import com.wireguard.android.databinding.ObservableKeyedRecyclerViewAdapter.RowC
 import com.wireguard.android.databinding.TunnelListFragmentBinding
 import com.wireguard.android.databinding.TunnelListItemBinding
 import com.wireguard.android.model.ObservableTunnel
+import com.wireguard.android.model.TunnelManager
 import com.wireguard.android.updater.SnackbarUpdateShower
 import com.wireguard.android.util.ErrorMessages
 import com.wireguard.android.util.QrCodeFromFileScanner
@@ -51,10 +48,9 @@ import com.wireguard.android.util.TunnelImporter
 import com.wireguard.android.util.tunnlStyle
 import com.wireguard.android.widget.MultiselectableRelativeLayout
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.supervisorScope
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
 
 /**
@@ -66,11 +62,16 @@ class TunnelListFragment : BaseFragment() {
         val message = result.data?.getStringExtra(TunnelCreatorActivity.EXTRA_SAVE_MESSAGE) ?: return@registerForActivityResult
         binding?.let { Snackbar.make(it.mainContainer, message, Snackbar.LENGTH_SHORT).tunnlStyle().show() }
     }
-    private val actionModeListener = ActionModeListener()
-    private var actionMode: ActionMode? = null
+    private val selectedTunnels = linkedSetOf<ObservableTunnel>()
+    private var selectionMode = false
+    private var deleteSheet: BottomSheetDialog? = null
+    private var deleteSnapshot = emptyList<ObservableTunnel>()
+    private var deleteJob: Job? = null
+    private var deleting = false
     private var backPressedCallback: OnBackPressedCallback? = null
     private var binding: TunnelListFragmentBinding? = null
     private var bindingInvalidatePending = false
+    private var selectionReconcilePending = false
     private var observedTunnels: ObservableList<ObservableTunnel>? = null
     private var statsJob: Job? = null
     private val tunnelStateCallback = object : Observable.OnPropertyChangedCallback() {
@@ -81,6 +82,7 @@ class TunnelListFragment : BaseFragment() {
             if (propertyId == BR.state && sender is ObservableTunnel && sender.state == Tunnel.State.UP) {
                 refreshTunnelStats(sender)
             }
+            if (propertyId == BR.state || propertyId == BR.name) refreshDeleteWarning()
         }
     }
     private val tunnelListCallback = object : ObservableList.OnListChangedCallback<ObservableList<ObservableTunnel>>() {
@@ -98,6 +100,7 @@ class TunnelListFragment : BaseFragment() {
 
         override fun onItemRangeMoved(sender: ObservableList<ObservableTunnel>, fromPosition: Int, toPosition: Int, itemCount: Int) {
             invalidateBindingSoon()
+            reconcileSelection(sender)
         }
 
         override fun onItemRangeRemoved(sender: ObservableList<ObservableTunnel>, positionStart: Int, itemCount: Int) {
@@ -150,12 +153,12 @@ class TunnelListFragment : BaseFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        if (savedInstanceState != null) {
-            val checkedItems = savedInstanceState.getIntegerArrayList(CHECKED_ITEMS)
-            if (checkedItems != null) {
-                for (i in checkedItems) actionModeListener.setItemChecked(i, true)
-            }
+        backPressedCallback = requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner) {
+            if (deleting) deleteJob?.cancel()
+            else if (deleteSheet != null) deleteSheet?.dismiss()
+            else exitSelectionMode()
         }
+        backPressedCallback?.isEnabled = selectionMode
     }
 
     override fun onCreateView(
@@ -194,9 +197,6 @@ class TunnelListFragment : BaseFragment() {
             executePendingBindings()
             snackbarUpdateShower.attach(mainContainer, createFab)
         }
-        backPressedCallback = requireActivity().onBackPressedDispatcher.addCallback(this) { actionMode?.finish() }
-        backPressedCallback?.isEnabled = false
-
         return binding?.root
     }
 
@@ -211,68 +211,71 @@ class TunnelListFragment : BaseFragment() {
     }
 
     override fun onDestroyView() {
+        deleteSheet?.dismiss()
         disconnectTunnelObservers()
+        backPressedCallback = null
         binding = null
+        bindingInvalidatePending = false
+        selectionReconcilePending = false
         super.onDestroyView()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        outState.putIntegerArrayList(CHECKED_ITEMS, actionModeListener.getCheckedItems())
+        outState.putBoolean(SELECTION_MODE, selectionMode)
+        outState.putStringArrayList(SELECTED_NAMES, ArrayList(selectedTunnels.map { it.name }))
     }
 
     override fun onSelectedTunnelChanged(oldTunnel: ObservableTunnel?, newTunnel: ObservableTunnel?) {
-        binding ?: return
-        lifecycleScope.launch {
+        val currentBinding = binding ?: return
+        viewLifecycleOwner.lifecycleScope.launch {
             val tunnels = Application.getTunnelManager().getTunnels()
+            if (binding !== currentBinding || selectionMode) return@launch
             if (newTunnel != null) viewForTunnel(newTunnel, tunnels)?.setSingleSelected(true)
             if (oldTunnel != null) viewForTunnel(oldTunnel, tunnels)?.setSingleSelected(false)
         }
     }
 
-    private fun onTunnelDeletionFinished(count: Int, throwable: Throwable?) {
-        val message: String
-        val ctx = activity ?: Application.get()
-        if (throwable == null) {
-            message = ctx.resources.getQuantityString(R.plurals.delete_success, count, count)
-        } else {
-            val error = ErrorMessages[throwable]
-            message = ctx.resources.getQuantityString(R.plurals.delete_error, count, count, error)
-            Log.e(TAG, message, throwable)
-        }
-        showSnackbar(message)
-    }
-
     override fun onViewStateRestored(savedInstanceState: Bundle?) {
         super.onViewStateRestored(savedInstanceState)
-        binding ?: return
-        binding!!.fragment = this
-        lifecycleScope.launch {
+        val currentBinding = binding ?: return
+        currentBinding.fragment = this
+        selectionMode = savedInstanceState?.getBoolean(SELECTION_MODE) ?: selectionMode
+        val restoredNames = savedInstanceState?.getStringArrayList(SELECTED_NAMES)
+        viewLifecycleOwner.lifecycleScope.launch {
             val tunnels = Application.getTunnelManager().getTunnels()
-            binding!!.tunnels = tunnels
+            if (binding !== currentBinding) return@launch
+            if (restoredNames != null) {
+                selectedTunnels.clear()
+                selectedTunnels.addAll(tunnels.filter { it.name in restoredNames })
+            }
+            currentBinding.tunnels = tunnels
             reconnectTunnelObservers(tunnels)
-            binding?.invalidateAll()
         }
-        binding!!.rowConfigurationHandler = object : RowConfigurationHandler<TunnelListItemBinding, ObservableTunnel> {
+        currentBinding.rowConfigurationHandler = object : RowConfigurationHandler<TunnelListItemBinding, ObservableTunnel> {
             override fun onConfigureRow(binding: TunnelListItemBinding, item: ObservableTunnel, position: Int) {
                 binding.fragment = this@TunnelListFragment
+                binding.selectionMode = selectionMode
+                binding.selected = item in selectedTunnels
                 binding.root.setOnClickListener {
-                    if (actionMode == null) {
+                    if (!selectionMode) {
                         selectedTunnel = item
                     } else {
-                        actionModeListener.toggleItemChecked(position)
+                        toggleItemSelection(item)
                     }
                 }
                 binding.root.setOnLongClickListener {
-                    actionModeListener.toggleItemChecked(position)
+                    toggleItemSelection(item)
                     true
                 }
-                if (actionMode != null)
-                    (binding.root as MultiselectableRelativeLayout).setMultiSelected(actionModeListener.checkedItems.contains(position))
+                if (selectionMode)
+                    (binding.root as MultiselectableRelativeLayout).setMultiSelected(item in selectedTunnels)
                 else
                     (binding.root as MultiselectableRelativeLayout).setSingleSelected(selectedTunnel == item)
+                binding.executePendingBindings()
             }
         }
+        updateSelectionUi()
     }
 
     private fun reconnectTunnelObservers(tunnels: ObservableList<ObservableTunnel>) {
@@ -292,6 +295,7 @@ class TunnelListFragment : BaseFragment() {
             refreshTunnelStats(tunnel)
         }
         binding?.invalidateAll()
+        reconcileSelection(tunnels)
     }
 
     private fun refreshTunnelStats(tunnel: ObservableTunnel) {
@@ -306,8 +310,14 @@ class TunnelListFragment : BaseFragment() {
         if (bindingInvalidatePending) return
         bindingInvalidatePending = true
         currentBinding.root.post {
+            if (binding !== currentBinding) return@post
             bindingInvalidatePending = false
-            if (binding === currentBinding) currentBinding.invalidateAll()
+            if (selectionReconcilePending) {
+                selectionReconcilePending = false
+                selectedTunnels.retainAll(observedTunnels.orEmpty().toSet())
+                updateSelectionUi()
+            }
+            currentBinding.invalidateAll()
         }
     }
 
@@ -358,7 +368,7 @@ class TunnelListFragment : BaseFragment() {
         val binding = binding
         if (binding != null)
             Snackbar.make(binding.mainContainer, message, Snackbar.LENGTH_LONG)
-                .setAnchorView(binding.createFab)
+                .setAnchorView(if (binding.createFab.visibility == View.VISIBLE) binding.createFab else null)
                 .tunnlStyle()
                 .show()
         else
@@ -377,140 +387,159 @@ class TunnelListFragment : BaseFragment() {
         return binding?.tunnelList?.findViewHolderForAdapterPosition(tunnels.indexOf(tunnel))?.itemView as? MultiselectableRelativeLayout
     }
 
-    private inner class ActionModeListener : ActionMode.Callback {
-        val checkedItems: MutableCollection<Int> = HashSet()
-        private var resources: Resources? = null
+    private fun toggleItemSelection(tunnel: ObservableTunnel) {
+        if (deleting || observedTunnels?.contains(tunnel) != true) return
+        selectionMode = true
+        if (tunnel in selectedTunnels) selectedTunnels.remove(tunnel) else selectedTunnels.add(tunnel)
+        updateSelectionUi()
+    }
 
-        fun getCheckedItems(): ArrayList<Int> {
-            return ArrayList(checkedItems)
+    private fun exitSelectionMode() {
+        if (deleting) return
+        deleteSheet?.dismiss()
+        selectionMode = false
+        selectedTunnels.clear()
+        updateSelectionUi()
+    }
+
+    fun onExitSelection(@Suppress("UNUSED_PARAMETER") view: View) = exitSelectionMode()
+
+    fun onSelectAll(@Suppress("UNUSED_PARAMETER") view: View) {
+        if (!selectionMode || deleting) return
+        selectedTunnels.addAll(observedTunnels.orEmpty())
+        updateSelectionUi()
+    }
+
+    fun onDeleteSelection(@Suppress("UNUSED_PARAMETER") view: View) {
+        if (deleting || selectedTunnels.isEmpty() || deleteSheet != null) return
+        val snapshot = selectedTunnels.filter { it in observedTunnels.orEmpty() }
+        if (snapshot.isEmpty()) return
+        val dialog = BottomSheetDialog(requireContext())
+        val sheet = layoutInflater.inflate(R.layout.tunnel_delete_bottom_sheet, null)
+        deleteSnapshot = snapshot
+        sheet.findViewById<TextView>(R.id.delete_sheet_title).text = resources.getQuantityString(
+            R.plurals.tunnl_delete_sheet_title, deleteSnapshot.size, deleteSnapshot.size)
+        sheet.findViewById<TextView>(R.id.delete_sheet_names).text = deleteSnapshot.joinToString("\n") { it.name }
+        sheet.findViewById<View>(R.id.delete_sheet_cancel).setOnClickListener { dialog.dismiss() }
+        sheet.findViewById<View>(R.id.delete_sheet_confirm).setOnClickListener {
+            if (deleteSheet !== dialog || !dialog.isShowing) return@setOnClickListener
+            dialog.dismiss()
+            deleteSelectedTunnels(snapshot)
         }
+        dialog.setContentView(sheet)
+        dialog.setOnDismissListener {
+            if (deleteSheet === dialog) {
+                deleteSheet = null
+                deleteSnapshot = emptyList()
+            }
+        }
+        deleteSheet = dialog
+        dialog.show()
+        dialog.behavior.state = BottomSheetBehavior.STATE_EXPANDED
+        refreshDeleteWarning()
+    }
 
-        // Backend/ConfigStore expose Exception; this operation reports their failures while cancellation and Errors propagate.
-        @Suppress("TooGenericExceptionCaught")
-        override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
-            return when (item.itemId) {
-                R.id.menu_action_delete -> {
-                    val activity = activity ?: return true
-                    val copyCheckedItems = HashSet(checkedItems)
-                    binding?.createFab?.apply {
-                        visibility = View.VISIBLE
-                        scaleX = 1f
-                        scaleY = 1f
+    private fun refreshDeleteWarning() {
+        val dialog = deleteSheet ?: return
+        dialog.findViewById<TextView>(R.id.delete_sheet_names)?.text = deleteSnapshot.joinToString("\n") { it.name }
+        val active = deleteSnapshot.filter { it.state != Tunnel.State.DOWN }
+        dialog.findViewById<TextView>(R.id.delete_sheet_warning)?.apply {
+            visibility = if (active.isEmpty()) View.GONE else View.VISIBLE
+            text = getString(R.string.tunnl_delete_stop_warning) + "\n" + active.joinToString("\n") { it.name }
+        }
+    }
+
+    private fun reconcileSelection(tunnels: List<ObservableTunnel>) {
+        if (deleteSnapshot.any { it !in tunnels }) deleteSheet?.dismiss()
+        refreshDeleteWarning()
+        selectionReconcilePending = true
+        invalidateBindingSoon()
+    }
+
+    private fun updateSelectionUi() {
+        backPressedCallback?.isEnabled = selectionMode
+        val currentBinding = binding ?: return
+        currentBinding.homeHeaderContainer.visibility = if (selectionMode) View.GONE else View.VISIBLE
+        currentBinding.homeStatusContainer.visibility = if (selectionMode) View.GONE else View.VISIBLE
+        currentBinding.selectionHeaderContainer.visibility = if (selectionMode) View.VISIBLE else View.GONE
+        currentBinding.selectionStatusContainer.visibility = if (selectionMode) View.VISIBLE else View.GONE
+        currentBinding.createFab.visibility = if (selectionMode) View.GONE else View.VISIBLE
+        currentBinding.selectionTitle.text = resources.getQuantityString(R.plurals.tunnl_selection_title, selectedTunnels.size, selectedTunnels.size)
+        currentBinding.selectionStatus.text = if (deleting) getString(R.string.tunnl_delete_in_progress)
+            else if (selectedTunnels.isEmpty()) getString(R.string.tunnl_selection_status_empty)
+            else getString(R.string.tunnl_selection_status_count, selectedTunnels.size, observedTunnels?.size ?: 0)
+        currentBinding.selectionDelete.isEnabled = selectedTunnels.isNotEmpty() && !deleting
+        currentBinding.selectionDelete.visibility = if (selectedTunnels.isEmpty()) View.INVISIBLE else View.VISIBLE
+        currentBinding.selectionClose.isEnabled = !deleting
+        currentBinding.selectionAll.isEnabled = !deleting && !observedTunnels.isNullOrEmpty()
+        currentBinding.tunnelList.adapter?.let { it.notifyItemRangeChanged(0, it.itemCount) }
+    }
+
+    // Backend/ConfigStore expose Exception; report each failed delete without abandoning successful siblings.
+    @Suppress("TooGenericExceptionCaught")
+    private fun deleteSelectedTunnels(snapshot: List<ObservableTunnel>) {
+        if (deleting || snapshot.isEmpty()) return
+        val inventory = observedTunnels ?: return
+        val currentBinding = binding ?: return
+        deleting = true
+        updateSelectionUi()
+        deleteJob = viewLifecycleOwner.lifecycleScope.launch {
+            var failure: Exception? = null
+            var completed = false
+            fun recordFailure(error: Exception) {
+                if (failure == null) failure = error
+                Log.e(TAG, "Tunnel deletion failed", error)
+            }
+            try {
+                for (tunnel in snapshot) {
+                    currentCoroutineContext().ensureActive()
+                    try {
+                        tunnel.deleteAsync()
+                    } catch (e: SecurityException) {
+                        recordFailure(e)
+                    } catch (e: TunnelManager.NotManagedException) {
+                        recordFailure(e)
+                    } catch (e: RuntimeException) {
+                        throw e
+                    } catch (e: Exception) {
+                        recordFailure(e)
                     }
-                    activity.lifecycleScope.launch {
-                        try {
-                            val tunnels = Application.getTunnelManager().getTunnels()
-                            val tunnelsToDelete = ArrayList<ObservableTunnel>()
-                            for (position in copyCheckedItems) tunnelsToDelete.add(tunnels[position])
-                            val deletedCount = supervisorScope {
-                                tunnelsToDelete.map { async { it.deleteAsync() } }.awaitAll().size
-                            }
-                            onTunnelDeletionFinished(deletedCount, null)
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            onTunnelDeletionFinished(0, e)
-                        }
+                }
+                completed = true
+            } catch (e: CancellationException) {
+                failure = e
+                throw e
+            } finally {
+                deleting = false
+                deleteJob = null
+                reconcileSelection(inventory)
+                if (binding === currentBinding && (completed || failure != null)) {
+                    val remaining = snapshot.count { it in inventory }
+                    val removed = snapshot.size - remaining
+                    if (failure == null && remaining == 0) {
+                        exitSelectionMode()
+                        showSnackbar(resources.getQuantityString(R.plurals.delete_success, removed, removed))
+                    } else {
+                        val reason = if (failure is CancellationException) getString(R.string.tunnl_delete_cancelled)
+                            else failure?.let { ErrorMessages[it] }.orEmpty()
+                        showSnackbar(getString(R.string.tunnl_delete_progress, removed, snapshot.size, remaining, reason))
                     }
-                    checkedItems.clear()
-                    mode.finish()
-                    true
                 }
-
-                R.id.menu_action_select_all -> {
-                    lifecycleScope.launch {
-                        val tunnels = Application.getTunnelManager().getTunnels()
-                        for (i in 0 until tunnels.size) {
-                            setItemChecked(i, true)
-                        }
-                    }
-                    true
-                }
-
-                else -> false
             }
         }
-
-        override fun onCreateActionMode(mode: ActionMode, menu: Menu): Boolean {
-            actionMode = mode
-            backPressedCallback?.isEnabled = true
-            if (activity != null) {
-                resources = activity!!.resources
+        val job = deleteJob ?: return
+        job.invokeOnCompletion {
+            if (deleteJob === job) {
+                deleteJob = null
+                deleting = false
+                updateSelectionUi()
             }
-            animateFab(binding?.createFab, false)
-            mode.menuInflater.inflate(R.menu.tunnel_list_action_mode, menu)
-            binding?.tunnelList?.adapter?.let { it.notifyItemRangeChanged(0, it.itemCount) }
-            return true
-        }
-
-        override fun onDestroyActionMode(mode: ActionMode) {
-            actionMode = null
-            backPressedCallback?.isEnabled = false
-            resources = null
-            animateFab(binding?.createFab, true)
-            checkedItems.clear()
-            binding?.tunnelList?.adapter?.let { it.notifyItemRangeChanged(0, it.itemCount) }
-        }
-
-        override fun onPrepareActionMode(mode: ActionMode, menu: Menu): Boolean {
-            updateTitle(mode)
-            return false
-        }
-
-        fun setItemChecked(position: Int, checked: Boolean) {
-            if (checked) {
-                checkedItems.add(position)
-            } else {
-                checkedItems.remove(position)
-            }
-            val adapter = if (binding == null) null else binding!!.tunnelList.adapter
-            if (actionMode == null && !checkedItems.isEmpty() && activity != null) {
-                (activity as AppCompatActivity).startSupportActionMode(this)
-            } else if (actionMode != null && checkedItems.isEmpty()) {
-                actionMode!!.finish()
-            }
-            adapter?.notifyItemChanged(position)
-            updateTitle(actionMode)
-        }
-
-        fun toggleItemChecked(position: Int) {
-            setItemChecked(position, !checkedItems.contains(position))
-        }
-
-        private fun updateTitle(mode: ActionMode?) {
-            if (mode == null) {
-                return
-            }
-            val count = checkedItems.size
-            if (count == 0) {
-                mode.title = ""
-            } else {
-                mode.title = resources?.getQuantityString(R.plurals.delete_title, count, count) ?: return
-            }
-        }
-
-        private fun animateFab(view: View?, show: Boolean) {
-            view ?: return
-            val animation = AnimationUtils.loadAnimation(
-                context, if (show) R.anim.scale_up else R.anim.scale_down
-            )
-            animation.setAnimationListener(object : Animation.AnimationListener {
-                override fun onAnimationRepeat(animation: Animation?) = Unit
-
-                override fun onAnimationEnd(animation: Animation?) {
-                    if (!show) view.visibility = View.GONE
-                }
-
-                override fun onAnimationStart(animation: Animation?) {
-                    if (show) view.visibility = View.VISIBLE
-                }
-            })
-            view.startAnimation(animation)
         }
     }
 
     companion object {
-        private const val CHECKED_ITEMS = "CHECKED_ITEMS"
+        private const val SELECTION_MODE = "SELECTION_MODE"
+        private const val SELECTED_NAMES = "SELECTED_NAMES"
         private const val TAG = "WireGuard/TunnelListFragment"
     }
 }

@@ -260,4 +260,18 @@
     <string name="tunnl_add_sheet_qr_subtitle">Camera</string>
     <string name="tunnl_add_sheet_file_subtitle">Uit bestanden</string>
     <string name="tunnl_add_sheet_manual_subtitle">Sleutelpaar genereren · handmatig invoeren</string>
+
+    <string name="tunnl_selection_delete">Geselecteerde tunnels verwijderen</string>
+    <string name="tunnl_selection_exit">Selectie verlaten</string>
+    <string name="tunnl_selection_mode">SELECTIEMODUS</string>
+    <string name="tunnl_selection_status_empty">0 GESELECTEERD</string>
+    <string name="tunnl_selection_status_count">%1$d VAN %2$d GESELECTEERD</string>
+    <plurals name="tunnl_selection_title">
+        <item quantity="one">%d GESELECTEERD</item>
+        <item quantity="other">%d GESELECTEERD</item>
+    </plurals>
+    <plurals name="tunnl_delete_sheet_title">
+        <item quantity="one">%d tunnel verwijderen?</item>
+        <item quantity="other">%d tunnels verwijderen?</item>
+    </plurals>
 </resources>

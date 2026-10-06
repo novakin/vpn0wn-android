@@ -461,4 +461,25 @@
     <string name="tunnl_add_sheet_manual_subtitle">Generate keypair · enter manually</string>
     <string name="tunnl_peer_rx_label" translatable="false">↓ RX</string>
     <string name="tunnl_peer_tx_label" translatable="false">↑ TX</string>
+
+    <string name="tunnl_selection_delete">Delete selected tunnels</string>
+    <string name="tunnl_selection_exit">Exit selection</string>
+    <string name="tunnl_selection_mode">SELECTION MODE</string>
+    <string name="tunnl_selection_status_empty">0 SELECTED</string>
+    <string name="tunnl_selection_status_count">%1$d OF %2$d SELECTED</string>
+    <plurals name="tunnl_selection_title">
+        <item quantity="one">%d SELECTED</item>
+        <item quantity="other">%d SELECTED</item>
+    </plurals>
+    <plurals name="tunnl_delete_sheet_title">
+        <item quantity="one">delete %d tunnel?</item>
+        <item quantity="other">delete %d tunnels?</item>
+    </plurals>
+
+    <string name="tunnl_delete_irreversible">DESTRUCTIVE · IRREVERSIBLE</string>
+    <string name="tunnl_delete_no_undo">CANNOT BE UNDONE</string>
+    <string name="tunnl_delete_stop_warning">These active or changing tunnels will be stopped before deletion:</string>
+    <string name="tunnl_delete_progress">Removed %1$d of %2$d selected tunnels. %3$d remain. %4$s</string>
+    <string name="tunnl_delete_cancelled">Deletion cancelled.</string>
+    <string name="tunnl_delete_in_progress">DELETING…</string>
 </resources>

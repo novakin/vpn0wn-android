@@ -1,6 +1,6 @@
 # Backend and provisioning contracts
 
-Last updated: 2026-10-06 (Europe/Paris).
+Last updated: 2026-10-07 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -80,6 +80,8 @@ The existing guarded shell boundary has a 30-second default execute/upload corou
 Command success is limited to the requested operation's effective postconditions. Interrupted or timed-out remote operations have uncertain outcomes until reconciled. Revocation must remove live access; installation results must match runtime config; uninstall/purge results must reflect observed removal. Rollback/recovery failures must remain visible.
 
 ## Persistence and presentation
+
+Home selection stores managed tunnel identities, not numeric row positions. Saved names are recreation inputs only; restored views require a new destructive confirmation. Rename preserves inventory membership during store I/O and synchronously reindexes the same instance on Main under the manager's mutation lock. A confirmation captures current instances, updates observed warnings and is dismissed when a snapshot member leaves inventory or its owning view is destroyed. Only the current, showing dialog can admit its captured snapshot; a dismissed callback cannot consume a later confirmation's intent. A same-name replacement is never admitted through the stale instance. The manager identifies stale ownership with internal NotManagedException, preserving the prior IllegalStateException superclass/message; other unexpected runtime defects propagate through bulk deletion. Confirmed bulk deletion reuses the manager's serialized delete/rollback contract sequentially; cancellation stops remaining work after admitted settlement. Partial feedback reports observed removed/remaining snapshot members, and survivors remain selected. No persistence format, multi-peer/config parsing or backend transition policy changes. See [Home source proof and physical limits](development.md#home-selection-and-safe-delete-recovery--2026-10-07).
 
 `FileConfigStore` preserves `.conf` names and wg-quick serialization. Its single app-owned instance serializes create/save/load/enumerate/rename/delete. Create/save write a unique private `.tmp` in the same directory, sync and close it, then atomically rename it to the target. Failed write/sync/rename reports IO failure and retains the prior profile; failed create publishes no profile. Rename rejects an existing destination without creating a marker. Temporary cleanup is attempted and failures log no profile payload. Process death can leave a private ignored `.tmp`; no automatic deletion of existing files or migration is performed. This does not establish directory durability under power loss or coordination with external writers/other store instances. See [architecture decision](architecture.md#local-profiles-commit-through-native-atomic-rename) and [focused evidence](development.md#atomic-local-profile-replacement--2026-10-06).
 

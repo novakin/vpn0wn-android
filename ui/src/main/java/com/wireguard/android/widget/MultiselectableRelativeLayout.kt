@@ -7,6 +7,8 @@ package com.wireguard.android.widget
 import android.content.Context
 import android.util.AttributeSet
 import android.view.View
+import android.view.accessibility.AccessibilityNodeInfo
+import android.widget.CheckBox
 import android.widget.RelativeLayout
 import com.wireguard.android.R
 
@@ -17,6 +19,15 @@ class MultiselectableRelativeLayout @JvmOverloads constructor(
     defStyleRes: Int = 0
 ) : RelativeLayout(context, attrs, defStyleAttr, defStyleRes) {
     private var multiselected = false
+
+    override fun onInitializeAccessibilityNodeInfo(info: AccessibilityNodeInfo) {
+        super.onInitializeAccessibilityNodeInfo(info)
+        if (multiselected) {
+            info.className = CheckBox::class.java.name
+            info.isCheckable = true
+            info.isChecked = isActivated
+        }
+    }
 
     override fun onCreateDrawableState(extraSpace: Int): IntArray {
         if (multiselected) {
