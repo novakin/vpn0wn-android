@@ -23,7 +23,7 @@ Decision/status, 2026-10-07 (Europe/Paris): retain the merged implementation; re
 
 The candidate closes its warm-up socket before native acquisition. That alone does not establish reliable port handoff, preserved NAT mapping, packet delivery or improved reconnect behavior. Extra random packets and sleeps are source-observed work, not measured speed or battery costs. Do not promote the retained APK into approval or claim a performance gain from this decision.
 
-The candidate-only UDP_PREFLIGHT_FAILURE reason and its missing 35-locale messages are not ported because their behavior is not accepted. Copying unused translations or duplicating config serialization would add unsupported surface. Original source/APKs remain preserved; no cleanup, history rewrite or migration is part of this decision.
+The candidate-only UDP_PREFLIGHT_FAILURE reason/messages are not ported because their behavior is not accepted. The preserved checkout has 36 strings.xml resource sets: default English and French contain the candidate message; the other 34 lack a translation and fall back to English. This corrects the initial 35-locale estimate in #37 rather than treating it as a current source count. Copying unused translations or duplicating config serialization would add unsupported surface. Original source/APKs remain preserved; no cleanup, history rewrite or migration is part of this decision.
 
 ## Verification and limits
 
