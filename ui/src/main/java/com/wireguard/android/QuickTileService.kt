@@ -4,6 +4,7 @@
  */
 package com.wireguard.android
 
+import kotlinx.coroutines.CancellationException
 import android.app.PendingIntent
 import android.content.Intent
 import android.graphics.Bitmap
@@ -40,16 +41,19 @@ class QuickTileService : TileService() {
     private var tunnel: ObservableTunnel? = null
 
     /* This works around an annoying unsolved frameworks bug some people are hitting. */
+    @Suppress("TooGenericExceptionCaught")
     override fun onBind(intent: Intent): IBinder? {
         var ret: IBinder? = null
         try {
             ret = super.onBind(intent)
-        } catch (e: Throwable) {
+        } catch (e: Exception) {
             Log.d(TAG, "Failed to bind to TileService", e)
         }
         return ret
     }
 
+    // Backend/ConfigStore expose Exception; this operation reports their failures while cancellation and Errors propagate.
+    @Suppress("TooGenericExceptionCaught")
     override fun onClick() {
         applicationScope.launch {
             if (tunnel == null) {
@@ -75,7 +79,9 @@ class QuickTileService : TileService() {
                             try {
                                 tunnel.setStateAsync(Tunnel.State.TOGGLE)
                                 updateTile()
-                            } catch (e: Throwable) {
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
                                 Log.d(TAG, "Failed to set state, so falling back", e)
                                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && !Settings.canDrawOverlays(this@QuickTileService)) {
                                     Log.d(TAG, "Need overlay permissions")

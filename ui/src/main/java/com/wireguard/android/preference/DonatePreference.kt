@@ -5,6 +5,7 @@
 
 package com.wireguard.android.preference
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -36,7 +37,9 @@ class DonatePreference(context: Context, attrs: AttributeSet?) : Preference(cont
         intent.data = "https://www.wireguard.com/donations/".toUri()
         try {
             context.startActivity(intent)
-        } catch (e: Throwable) {
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(context, ErrorMessages[e], Toast.LENGTH_SHORT).show()
+        } catch (e: SecurityException) {
             Toast.makeText(context, ErrorMessages[e], Toast.LENGTH_SHORT).show()
         }
     }

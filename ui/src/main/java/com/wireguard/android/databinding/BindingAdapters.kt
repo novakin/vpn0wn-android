@@ -4,6 +4,8 @@
  */
 package com.wireguard.android.databinding
 
+import java.util.concurrent.TimeUnit
+import kotlin.math.roundToInt
 import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.drawable.Drawable
@@ -50,6 +52,8 @@ import java.util.WeakHashMap
  * Static methods for use by generated code in the Android data binding library.
  */
 object BindingAdapters {
+    private const val SHORT_KEY_EDGE_LENGTH = 6
+    private const val MIN_RATE_SAMPLE_INTERVAL_MS = 250L
     private data class RateSample(
         val rx: Long,
         val tx: Long,
@@ -80,26 +84,28 @@ object BindingAdapters {
 
     private fun tunnelMode(tunnel: ObservableTunnel?, state: Tunnel.State?, statistics: Statistics?): TunnelSignalView.TunnelMode {
         val now = System.currentTimeMillis()
-        if (state == Tunnel.State.TOGGLE) return TunnelSignalView.TunnelMode.CONNECTING
-        if (state != Tunnel.State.UP) {
-            tunnel?.let { synchronized(connectingSince) { connectingSince.remove(it) } }
-            return TunnelSignalView.TunnelMode.DOWN
-        }
         val latest = statistics?.latestHandshakeMillis()
-        if (latest != null && now - latest < HANDSHAKE_STALE_MS) {
-            tunnel?.let { synchronized(connectingSince) { connectingSince.remove(it) } }
-            return TunnelSignalView.TunnelMode.UP
-        }
-        if (latest != null) return TunnelSignalView.TunnelMode.ERROR
-        val since = tunnel?.let {
-            synchronized(connectingSince) {
-                connectingSince.getOrPut(it) { now }
+        return when {
+            state == Tunnel.State.TOGGLE -> TunnelSignalView.TunnelMode.CONNECTING
+            state != Tunnel.State.UP -> {
+                tunnel?.let { synchronized(connectingSince) { connectingSince.remove(it) } }
+                TunnelSignalView.TunnelMode.DOWN
             }
-        } ?: now
-        return if (now - since < CONNECTING_GRACE_MS) {
-            TunnelSignalView.TunnelMode.CONNECTING
-        } else {
-            TunnelSignalView.TunnelMode.ERROR
+            latest != null && now - latest < HANDSHAKE_STALE_MS -> {
+                tunnel?.let { synchronized(connectingSince) { connectingSince.remove(it) } }
+                TunnelSignalView.TunnelMode.UP
+            }
+            latest != null -> TunnelSignalView.TunnelMode.ERROR
+            else -> {
+                val since = tunnel?.let {
+                    synchronized(connectingSince) { connectingSince.getOrPut(it) { now } }
+                } ?: now
+                if (now - since < CONNECTING_GRACE_MS) {
+                    TunnelSignalView.TunnelMode.CONNECTING
+                } else {
+                    TunnelSignalView.TunnelMode.ERROR
+                }
+            }
         }
     }
 
@@ -252,7 +258,7 @@ object BindingAdapters {
             return 0
         return try {
             Integer.parseInt(s)
-        } catch (_: Throwable) {
+        } catch (_: NumberFormatException) {
             0
         }
     }
@@ -271,7 +277,7 @@ object BindingAdapters {
 
     private fun aggregateMode(tunnels: Iterable<ObservableTunnel>?): TunnelSignalView.TunnelMode {
         var best = TunnelSignalView.TunnelMode.DOWN
-        for (tunnel in tunnels ?: return best) {
+        for (tunnel in tunnels ?: emptyList()) {
             when (tunnelMode(tunnel)) {
                 TunnelSignalView.TunnelMode.UP -> return TunnelSignalView.TunnelMode.UP
                 TunnelSignalView.TunnelMode.CONNECTING -> best = TunnelSignalView.TunnelMode.CONNECTING
@@ -352,7 +358,7 @@ object BindingAdapters {
             view.background = this
         }
         dot.setColor(fill)
-        dot.setStroke((view.resources.displayMetrics.density + 0.5f).toInt(), stroke)
+        dot.setStroke(view.resources.displayMetrics.density.roundToInt(), stroke)
     }
 
     @JvmStatic
@@ -426,7 +432,7 @@ object BindingAdapters {
             view.background = this
         }
         dot.setColor(color)
-        dot.setStroke((view.resources.displayMetrics.density + 0.5f).toInt(), color)
+        dot.setStroke(view.resources.displayMetrics.density.roundToInt(), color)
     }
 
     @JvmStatic
@@ -566,11 +572,11 @@ object BindingAdapters {
                 RateSample(rx, tx, now)
             } else {
                 val elapsed = now - previous.timeMs
-                if (elapsed < 250L) {
+                if (elapsed < MIN_RATE_SAMPLE_INTERVAL_MS) {
                     previous
                 } else {
-                    val rxRate = ((rx - previous.rx) * 1000L) / elapsed
-                    val txRate = ((tx - previous.tx) * 1000L) / elapsed
+                    val rxRate = ((rx - previous.rx) * TimeUnit.SECONDS.toMillis(1)) / elapsed
+                    val txRate = ((tx - previous.tx) * TimeUnit.SECONDS.toMillis(1)) / elapsed
                     RateSample(
                         rx,
                         tx,
@@ -684,7 +690,7 @@ object BindingAdapters {
     @JvmStatic
     fun shortKey(key: String?): String {
         if (key.isNullOrEmpty()) return "—"
-        return if (key.length > 12) key.take(6) + "…" + key.takeLast(6) else key
+        return if (key.length > SHORT_KEY_EDGE_LENGTH * 2) key.take(SHORT_KEY_EDGE_LENGTH) + "…" + key.takeLast(SHORT_KEY_EDGE_LENGTH) else key
     }
 
     @JvmStatic

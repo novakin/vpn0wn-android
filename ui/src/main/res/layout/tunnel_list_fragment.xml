@@ -70,7 +70,7 @@
                         android:layout_marginStart="6dp"
                         android:background="@android:color/transparent"
                         android:contentDescription="@string/search"
-                        android:onClick="@{fragment::onSearchPressed}"
+                        android:enabled="false"
                         android:padding="8dp"
                         app:srcCompat="@drawable/ic_tunnl_search"
                         app:tint="@color/tunnl_ink_2" />

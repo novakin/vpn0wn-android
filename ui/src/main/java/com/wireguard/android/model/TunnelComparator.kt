@@ -9,18 +9,12 @@ object TunnelComparator : Comparator<String> {
     private class NaturalSortString(originalString: String) {
         class NaturalSortToken(val maybeString: String?, val maybeNumber: Int?) : Comparable<NaturalSortToken> {
             override fun compareTo(other: NaturalSortToken): Int {
-                if (maybeString == null) {
-                    if (other.maybeString != null || maybeNumber!! < other.maybeNumber!!) {
-                        return -1
-                    } else if (maybeNumber > other.maybeNumber) {
-                        return 1
-                    }
-                } else if (other.maybeString == null || maybeString > other.maybeString) {
-                    return 1
-                } else if (maybeString < other.maybeString) {
-                    return -1
+                return when {
+                    maybeString == null && other.maybeString == null -> maybeNumber!!.compareTo(other.maybeNumber!!)
+                    maybeString == null -> -1
+                    other.maybeString == null -> 1
+                    else -> maybeString.compareTo(other.maybeString)
                 }
-                return 0
             }
         }
 
@@ -48,14 +42,12 @@ object TunnelComparator : Comparator<String> {
             return 0
         val na = NaturalSortString(a)
         val nb = NaturalSortString(b)
-        for (i in 0 until nb.tokens.size) {
-            if (i == na.tokens.size) {
-                return -1
-            }
+        for (i in 0 until minOf(na.tokens.size, nb.tokens.size)) {
             val c = na.tokens[i].compareTo(nb.tokens[i])
             if (c != 0)
                 return c
         }
-        return 1
+        val lengthOrder = na.tokens.size.compareTo(nb.tokens.size)
+        return if (lengthOrder != 0) lengthOrder else a.compareTo(b)
     }
 }

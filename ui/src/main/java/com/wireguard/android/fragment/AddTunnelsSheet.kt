@@ -23,8 +23,7 @@ class AddTunnelsSheet : BottomSheetDialogFragment() {
 
     private var behavior: BottomSheetBehavior<FrameLayout>? = null
     private val bottomSheetCallback = object : BottomSheetBehavior.BottomSheetCallback() {
-        override fun onSlide(bottomSheet: View, slideOffset: Float) {
-        }
+        override fun onSlide(bottomSheet: View, slideOffset: Float) = Unit
 
         override fun onStateChanged(bottomSheet: View, newState: Int) {
             if (newState == BottomSheetBehavior.STATE_COLLAPSED) {

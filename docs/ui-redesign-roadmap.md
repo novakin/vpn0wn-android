@@ -445,7 +445,7 @@ This is a historical implementation ledger, not newly executed build/device proo
 - [x] Home/editor fidelity pass: inactive tunnel rows now use the JSX-height 24dp mini-diagram strip, and remaining editor controls (`regen`, `configure`, `remove`, `ADD PEER`, exclude-private-IPs`) now use explicit JetBrains Mono button/checkbox styles instead of default Material typography.
 - [x] Home/log text pass: handshake age now uses compact neutral formatting (`7s`, `01m 23s`, `02h 04m`) instead of localized prose, the home status strip now shows the active peer endpoint host under `EXIT IP` without WAN lookup, and the log header now matches the JSX row structure more closely with back + `STREAM · TUNL0` on row 1, refresh/share on the right, and a translated `logs` title on row 2 with LIVE/PAUSED aligned right.
 - [x] Log filter behavior fixed: switching log categories now jumps to the latest matching line instead of leaving the list at an arbitrary older position.
-- [x] Home header controls added: the stock `WireGuard` action bar is hidden on the root list screen, and the custom summary row now carries the JSX-style Search (no-op), Logs, and Settings icon buttons.
+- [x] Home header controls added: the stock `WireGuard` action bar is hidden on the root list screen, and the custom summary row carries Search, Logs and Settings icons. #22 removes the no-op Search handler and disables the button until real filtering is implemented; see the remaining gap below.
 - [x] Launch/splash background aligned to Tunnl theme: the adaptive icon background color used on the launch screen now matches `tunnl_paper` instead of the old WireGuard red.
 - [x] Home top inset handling moved to code: the custom home header now applies status-bar padding internally via `WindowInsets`, instead of reserving a separate empty band above the header with `fitsSystemWindows`.
 - [x] Log header controls refined: refresh restart is generation-safe to avoid crashes when restarting `logcat`, and the share action now uses the JSX-style upload/share outline icon.
@@ -473,6 +473,8 @@ This is a historical implementation ledger, not newly executed build/device proo
 - [x] Binding status labels moved to resources: tunnel mode labels, detail status titles/subtitles, and home protection labels now use Android strings instead of hardcoded adapter text.
 
 ### Fidelity Gaps — Remaining
+
+- [~] **Home search remains unimplemented** — `tunnel_list_fragment.xml` disables the Search button and `TunnelListFragment` no longer exposes a no-op handler. Implement actual filtering through the existing list owner before enabling it. #22 keeps rendering geometry/paint values unchanged with local static exceptions; static/JVM checks do not establish screenshot, theme, size, RTL or device fidelity.
 
 - [~] **Canvas typography/static label gaps** — `TunnelThroughputView` still uses platform monospace, dp-based text sizes and hardcoded `MTU 1420`. Text-style features do not establish Canvas fidelity or large-font accessibility; C10 owns proof and correction.
 - [~] **Protection labels are heuristics** — home aggregation accepts any recent-handshake UP tunnel. It does not prove all peers, routes or multi-tunnel traffic are protected; C4/C10 and the multi-tunnel proposals retain this limit.

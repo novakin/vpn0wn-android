@@ -4,6 +4,7 @@
  */
 package com.wireguard.android.model
 
+import kotlinx.coroutines.CancellationException
 import android.util.Log
 import androidx.databinding.BaseObservable
 import androidx.databinding.Bindable
@@ -70,6 +71,8 @@ class ObservableTunnel internal constructor(
     private var cachedConfig = config
 
     @get:Bindable
+    // The asynchronous getter handles the generic ConfigStore/Backend contract.
+    @Suppress("TooGenericExceptionCaught")
     var config: Config?
         get() {
             if (cachedConfig == null)
@@ -77,7 +80,9 @@ class ObservableTunnel internal constructor(
                 applicationScope.launch {
                     try {
                         manager.getTunnelConfig(this@ObservableTunnel)
-                    } catch (e: Throwable) {
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
                         Log.e(TAG, "Failed to fetch tunnel config", e)
                     }
                 }
@@ -113,6 +118,8 @@ class ObservableTunnel internal constructor(
     private var cachedStatistics: Statistics? = null
 
     @get:Bindable
+    // The asynchronous getter handles the generic ConfigStore/Backend contract.
+    @Suppress("TooGenericExceptionCaught")
     var statistics: Statistics?
         get() {
             if (state == Tunnel.State.UP && (cachedStatistics == null || cachedStatistics?.isStale != false))
@@ -120,7 +127,9 @@ class ObservableTunnel internal constructor(
                 applicationScope.launch {
                     try {
                         manager.getTunnelStatistics(this@ObservableTunnel)
-                    } catch (e: Throwable) {
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
                         Log.e(TAG, "Failed to fetch tunnel statistics", e)
                     }
                 }

@@ -60,6 +60,8 @@ class VpsTopologyView(context: Context) : View(context) {
         super.onDetachedFromWindow()
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val server = server ?: return
@@ -106,6 +108,8 @@ class VpsTopologyView(context: Context) : View(context) {
         }
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun node(canvas: Canvas, x: Float, y: Float, label: String, sub: String, active: Boolean, colorRes: Int, big: Boolean) {
         val r = dp(if (big) 18 else 14).toFloat()
         paint.style = Paint.Style.FILL
@@ -170,6 +174,8 @@ class VpsQrCodeView(context: Context) : View(context) {
         invalidate()
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     override fun onDraw(canvas: Canvas) {
         val pad = dp(16).toFloat()
         val matrix = matrix
@@ -207,17 +213,20 @@ class VpsTerminalStreamView(context: Context) : TextView(context) {
             if (!running || visible >= lines.size) return
             visible++
             text = lines.take(visible).joinToString("\n")
-            postDelayed(this, 340)
+            postDelayed(this, LINE_REVEAL_INTERVAL_MS)
         }
     }
 
     init {
         typeface = ResourcesCompat.getFont(context, R.font.jetbrains_mono_regular) ?: Typeface.MONOSPACE
-        textSize = 10f
+        // Literal typography and spacing belong to this terminal presentation.
+        @Suppress("MagicNumber")
+        val terminalTextSize = 10f
+        textSize = terminalTextSize
         setTextColor(ContextCompat.getColor(context, R.color.tunnl_ink_2))
-        setBackgroundColor(Color.rgb(7, 13, 22))
-        val padH = dp(12)
-        val padV = dp(10)
+        setBackgroundColor(TERMINAL_BACKGROUND_COLOR)
+        @Suppress("MagicNumber") val padH = dp(12)
+        @Suppress("MagicNumber") val padV = dp(10)
         setPadding(padH, padV, padH, padV)
     }
 
@@ -227,13 +236,18 @@ class VpsTerminalStreamView(context: Context) : TextView(context) {
         this.running = running
         visible = if (running) 1 else lines.size
         text = lines.take(visible).joinToString("\n")
-        if (running) postDelayed(tick, 340)
+        if (running) postDelayed(tick, LINE_REVEAL_INTERVAL_MS)
     }
 
     override fun onDetachedFromWindow() {
         running = false
         removeCallbacks(tick)
         super.onDetachedFromWindow()
+    }
+
+    private companion object {
+        const val LINE_REVEAL_INTERVAL_MS = 340L
+        val TERMINAL_BACKGROUND_COLOR = Color.rgb(7, 13, 22)
     }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
@@ -247,6 +261,8 @@ class VpsSwitchGlyphView(context: Context) : View(context) {
         }
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     override fun onDraw(canvas: Canvas) {
         val r = height / 2f
         paint.style = Paint.Style.FILL
@@ -277,6 +293,8 @@ class VpsCornerLayout(context: Context) : LinearLayout(context) {
         setWillNotDraw(false)
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val size = dp(8).toFloat()

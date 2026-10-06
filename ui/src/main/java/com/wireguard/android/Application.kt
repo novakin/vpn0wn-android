@@ -4,6 +4,8 @@
  */
 package com.wireguard.android
 
+import com.wireguard.android.util.RootShell.RootShellException
+import java.io.IOException
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -68,17 +70,21 @@ class Application : android.app.Application() {
     private suspend fun determineBackend(): Backend {
         var backend: Backend? = null
         if (UserKnobs.enableKernelModule.first() && WgQuickBackend.hasKernelSupport()) {
-            try {
+            val rootAvailable = try {
                 rootShell.start()
+                true
+            } catch (_: IOException) {
+                false
+            } catch (_: RootShellException) {
+                false
+            }
+            if (rootAvailable) {
                 val wgQuickBackend = WgQuickBackend(applicationContext, rootShell, toolsInstaller)
                 wgQuickBackend.setMultipleTunnels(UserKnobs.multipleTunnels.first())
                 backend = wgQuickBackend
                 UserKnobs.multipleTunnels.onEach {
                     wgQuickBackend.setMultipleTunnels(it)
                 }.flowOn(Dispatchers.IO).launchIn(coroutineScope)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (ignored: Exception) {
             }
         }
         if (backend == null) {
@@ -88,6 +94,8 @@ class Application : android.app.Application() {
         return backend
     }
 
+    // The deferred backend must settle for any initialization Exception; cancellation is rethrown and Errors escape.
+    @Suppress("TooGenericExceptionCaught")
     override fun onCreate() {
         Log.i(TAG, USER_AGENT)
         super.onCreate()

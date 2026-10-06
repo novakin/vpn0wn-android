@@ -81,6 +81,7 @@ Record consequential architecture decisions in `docs/architecture.md` and operat
 - **No premature abstraction.** Reuse fitting helpers; consolidate duplicated ownership. Do not add parameters or layers for hypothetical future use.
 - **Readable code, no code golf.** Prefer clear names and straightforward control flow over dense one-liners, clever compression or nested conditional expressions. Optimize total complexity and ownership, not line count.
 - **No overengineering.** Add a helper, type, dependency or refactor only when the requested behavior or a concrete invariant needs it. Do not invent extension points, settings, adapters or services for hypothetical use.
+- **Static checks stay meaningful.** Keep Detekt's zero-issue gate. Fix defects at their owner; name meaningful durations, limits and protocol/state values. A narrow rule suppression needs a WHY at the affected declaration, such as unchanged drawing geometry or an existing generic Backend/ConfigStore contract. Do not hide findings with a blanket baseline, disabled analysis, `ignoreFailures` or exception-variable names. Keep cancellation/Error semantics and admitted mutation recovery intact; never reshape correct behavior merely to lower a rule count.
 - **No scope creep.** Implement the requested behavior and documented scope. UI fidelity follows JSX; functional fixes follow runtime contracts and the improvement plan.
 
 ## Verification and Completion

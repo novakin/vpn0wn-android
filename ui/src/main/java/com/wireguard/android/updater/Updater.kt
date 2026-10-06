@@ -37,6 +37,8 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.nio.charset.StandardCharsets
+import java.security.GeneralSecurityException
+import kotlinx.coroutines.CancellationException
 import java.security.InvalidKeyException
 import java.security.InvalidParameterException
 import java.security.MessageDigest
@@ -52,6 +54,19 @@ object Updater {
     private const val APK_NAME_SUFFIX = ".apk"
     private const val LATEST_FILE = "latest.sig"
     private const val RELEASE_PUBLIC_KEY_BASE64 = "RWTAzwGRYr3EC9px0Ia3fbttz8WcVN6wrOwWp2delz4el6SI8XmkKSMp"
+    private const val SHA256_DIGEST_BYTES = 32
+    private const val HEX_RADIX = 16
+    private const val SIGNIFY_HEADER_BYTES = 10
+    private const val ED25519_PUBLIC_KEY_BYTES = 32
+    private const val ED25519_SIGNATURE_BYTES = 64
+    private const val SIGNIFY_RECORD_LINES = 3
+    private const val FILE_LIST_LIMIT_BYTES = 512 * 1024
+    private const val DOWNLOAD_BUFFER_BYTES = 32 * 1024
+    private const val MAX_APK_BYTES = 100L * 1024L * 1024L
+    private const val INITIAL_POLL_INTERVAL_MINUTES = 15L
+    private const val POLL_INTERVAL_MINUTES = 45L
+    private const val MAX_FAST_RETRIES = 6
+    private const val FAST_RETRY_BACKOFF_SECONDS = 8L
     private val CURRENT_VERSION by lazy { Version(BuildConfig.VERSION_NAME) }
 
     private val updaterScope = CoroutineScope(Job() + Dispatchers.IO)
@@ -65,7 +80,11 @@ object Updater {
             @Suppress("DEPRECATION")
             pm.getInstallerPackageName(packageName) ?: ""
         }
-    } catch (_: Throwable) {
+    } catch (_: PackageManager.NameNotFoundException) {
+        ""
+    } catch (_: IllegalArgumentException) {
+        ""
+    } catch (_: SecurityException) {
         ""
     }
 
@@ -89,13 +108,11 @@ object Updater {
             private suspend fun installerActive(): Boolean {
                 if (mutableState.firstOrNull() != this@NeedsUserIntervention)
                     return true
-                try {
-                    if (Application.get().packageManager.packageInstaller.getSessionInfo(id)?.isActive == true)
-                        return true
+                return try {
+                    Application.get().packageManager.packageInstaller.getSessionInfo(id)?.isActive == true
                 } catch (_: SecurityException) {
-                    return true
+                    true
                 }
-                return false
             }
 
             fun markAsDone() {
@@ -136,9 +153,9 @@ object Updater {
         val bytes: ByteArray
 
         init {
-            if (hex.length != 64)
+            if (hex.length != SHA256_DIGEST_BYTES * 2)
                 throw InvalidParameterException("SHA256 hashes must be 32 bytes long")
-            bytes = hex.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+            bytes = hex.chunked(2).map { it.toInt(HEX_RADIX).toByte() }.toByteArray()
         }
     }
 
@@ -164,10 +181,8 @@ object Updater {
             for (i in 0 until max(parts.size, other.parts.size)) {
                 val lhsPart = if (i < parts.size) parts[i] else 0UL
                 val rhsPart = if (i < other.parts.size) other.parts[i] else 0UL
-                if (lhsPart > rhsPart)
-                    return 1
-                else if (lhsPart < rhsPart)
-                    return -1
+                val order = lhsPart.compareTo(rhsPart)
+                if (order != 0) return order
             }
             return 0
         }
@@ -180,32 +195,34 @@ object Updater {
             return null
         return try {
             Version(name.substring(APK_NAME_PREFIX.length, name.length - APK_NAME_SUFFIX.length))
-        } catch (_: Throwable) {
+        } catch (_: IllegalArgumentException) {
             null
         }
     }
 
+    // Distinct format, key, signer and signature rejections preserve the signed-list contract.
+    @Suppress("ThrowsCount")
     private fun verifySignedFileList(signifyDigest: String): List<Update> {
         val updates = ArrayList<Update>(1)
         val publicKeyBytes = Base64.decode(RELEASE_PUBLIC_KEY_BASE64, Base64.DEFAULT)
-        if (publicKeyBytes == null || publicKeyBytes.size != 32 + 10 || publicKeyBytes[0] != 'E'.code.toByte() || publicKeyBytes[1] != 'd'.code.toByte())
+        if (publicKeyBytes == null || publicKeyBytes.size != ED25519_PUBLIC_KEY_BYTES + SIGNIFY_HEADER_BYTES || publicKeyBytes[0] != 'E'.code.toByte() || publicKeyBytes[1] != 'd'.code.toByte())
             throw InvalidKeyException("Invalid public key")
-        val lines = signifyDigest.split("\n", limit = 3)
-        if (lines.size != 3)
+        val lines = signifyDigest.split("\n", limit = SIGNIFY_RECORD_LINES)
+        if (lines.size != SIGNIFY_RECORD_LINES)
             throw InvalidParameterException("Invalid signature format: too few lines")
         if (!lines[0].startsWith("untrusted comment: "))
             throw InvalidParameterException("Invalid signature format: missing comment")
         val signatureBytes = Base64.decode(lines[1], Base64.DEFAULT)
-        if (signatureBytes == null || signatureBytes.size != 64 + 10)
+        if (signatureBytes == null || signatureBytes.size != ED25519_SIGNATURE_BYTES + SIGNIFY_HEADER_BYTES)
             throw InvalidParameterException("Invalid signature format: wrong sized or missing signature")
-        for (i in 0..9) {
+        for (i in 0 until SIGNIFY_HEADER_BYTES) {
             if (signatureBytes[i] != publicKeyBytes[i])
                 throw InvalidParameterException("Invalid signature format: wrong signer")
         }
         if (!Ed25519.verify(
                 lines[2].toByteArray(StandardCharsets.UTF_8),
-                signatureBytes.sliceArray(10 until 10 + 64),
-                publicKeyBytes.sliceArray(10 until 10 + 32)
+                signatureBytes.sliceArray(SIGNIFY_HEADER_BYTES until SIGNIFY_HEADER_BYTES + ED25519_SIGNATURE_BYTES),
+                publicKeyBytes.sliceArray(SIGNIFY_HEADER_BYTES until SIGNIFY_HEADER_BYTES + ED25519_PUBLIC_KEY_BYTES)
             )
         )
             throw SecurityException("Invalid signature")
@@ -226,7 +243,7 @@ object Updater {
         connection.connect()
         if (connection.responseCode != HttpURLConnection.HTTP_OK)
             throw IOException(connection.responseMessage)
-        var fileListBytes = ByteArray(1024 * 512 /* 512 KiB */)
+        var fileListBytes = ByteArray(FILE_LIST_LIMIT_BYTES)
         connection.inputStream.use {
             val len = it.read(fileListBytes)
             if (len <= 0)
@@ -265,7 +282,7 @@ object Updater {
 
         var downloadedByteLen: ULong = 0UL
         val totalByteLen = connection.contentLengthLong.toULong()
-        val fileBytes = ByteArray(1024 * 32 /* 32 KiB */)
+        val fileBytes = ByteArray(DOWNLOAD_BUFFER_BYTES)
         val digest = MessageDigest.getInstance("SHA-256")
         emitProgress(Progress.Downloading(downloadedByteLen, totalByteLen), true)
 
@@ -292,7 +309,7 @@ object Updater {
                         downloadedByteLen += readLen.toUInt()
                         emitProgress(Progress.Downloading(downloadedByteLen, totalByteLen), true)
 
-                        if (downloadedByteLen >= 1024UL * 1024UL * 100UL /* 100 MiB */)
+                        if (downloadedByteLen >= MAX_APK_BYTES.toULong())
                             throw IOException("File too large")
                     }
                 }
@@ -317,13 +334,25 @@ object Updater {
         if (updating)
             return
         updating = true
+        suspend fun reportFailure(error: Exception) {
+            Log.e(TAG, "Update failure", error)
+            emitProgress(Progress.Failure(error))
+        }
         try {
             downloadAndUpdate()
-        } catch (e: Throwable) {
-            Log.e(TAG, "Update failure", e)
-            emitProgress(Progress.Failure(e))
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: IOException) {
+            reportFailure(e)
+        } catch (e: GeneralSecurityException) {
+            reportFailure(e)
+        } catch (e: SecurityException) {
+            reportFailure(e)
+        } catch (e: IllegalArgumentException) {
+            reportFailure(e)
+        } finally {
+            updating = false
         }
-        updating = false
     }
 
     private class InstallReceiver : BroadcastReceiver() {
@@ -367,6 +396,8 @@ object Updater {
         }
     }
 
+    // Eligibility guards avoid side effects; retry handlers accept only HTTP/crypto/format failures.
+    @Suppress("ReturnCount")
     fun monitorForUpdates() {
         if (BuildConfig.DEBUG)
             return
@@ -376,8 +407,7 @@ object Updater {
         /* Hello copy and paste artist! Before you go remove these next two lines,
          * I kindly ask that you actually think about what you're doing more globally,
          * and instead remove this entire file from your project. Thank you very much! */
-        if (!context.packageName.startsWith("com.wireguard."))
-            throw RuntimeException("Too much code got copy and pasted")
+        check(context.packageName.startsWith("com.wireguard.")) { "Too much code got copy and pasted" }
 
         if (installerIsGooglePlay(context))
             return
@@ -402,7 +432,13 @@ object Updater {
                 updaterScope.launch {
                     val update = try {
                         checkForUpdates()
-                    } catch (_: Throwable) {
+                    } catch (_: IOException) {
+                        null
+                    } catch (_: GeneralSecurityException) {
+                        null
+                    } catch (_: SecurityException) {
+                        null
+                    } catch (_: IllegalArgumentException) {
                         null
                     }
                     emitProgress(Progress.Corrupt(update?.fileName))
@@ -415,24 +451,32 @@ object Updater {
             if (UserKnobs.updaterNewerVersionSeen.firstOrNull()?.let { Version(it) > CURRENT_VERSION } == true)
                 return@launch
 
-            var waitTime = 15
+            var waitTime = INITIAL_POLL_INTERVAL_MINUTES
             var exceptionCount = 0
             while (true) {
-                try {
-                    val update = checkForUpdates() ?: throw Exception("No updates found")
-                    if (update.version > CURRENT_VERSION) {
+                val pollSucceeded = try {
+                    val update = checkForUpdates()
+                    if (update != null && update.version > CURRENT_VERSION) {
                         Log.i(TAG, "Update available: ${update.version}")
                         UserKnobs.setUpdaterNewerVersionSeen(update.version.toString())
                         return@launch
                     }
-                } catch (_: Throwable) {
-                    if (++exceptionCount <= 6) {
-                        delay((exceptionCount * 8).seconds)
-                        continue
-                    }
+                    update != null
+                } catch (_: IOException) {
+                    false
+                } catch (_: GeneralSecurityException) {
+                    false
+                } catch (_: SecurityException) {
+                    false
+                } catch (_: IllegalArgumentException) {
+                    false
+                }
+                if (!pollSucceeded && ++exceptionCount <= MAX_FAST_RETRIES) {
+                    delay((exceptionCount * FAST_RETRY_BACKOFF_SECONDS).seconds)
+                    continue
                 }
                 delay(waitTime.minutes)
-                waitTime = 45
+                waitTime = POLL_INTERVAL_MINUTES
                 exceptionCount = 0
             }
         }

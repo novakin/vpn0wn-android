@@ -4,6 +4,8 @@
  */
 package com.wireguard.android.activity
 
+import android.content.ActivityNotFoundException
+import kotlinx.coroutines.CancellationException
 import android.content.ComponentName
 import android.os.Build
 import android.os.Bundle
@@ -26,12 +28,16 @@ class TunnelToggleActivity : AppCompatActivity() {
     private val permissionActivityResultLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { toggleTunnelWithPermissionsResult() }
 
+    // Backend/ConfigStore expose Exception; this operation reports their failures while cancellation and Errors propagate.
+    @Suppress("TooGenericExceptionCaught")
     private fun toggleTunnelWithPermissionsResult() {
         val tunnel = Application.getTunnelManager().lastUsedTunnel ?: return
         lifecycleScope.launch {
             try {
                 tunnel.setStateAsync(Tunnel.State.TOGGLE)
-            } catch (e: Throwable) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
                 TileService.requestListeningState(this@TunnelToggleActivity, ComponentName(this@TunnelToggleActivity, QuickTileService::class.java))
                 val error = ErrorMessages[e]
                 val message = getString(R.string.toggle_error, error)
@@ -55,7 +61,9 @@ class TunnelToggleActivity : AppCompatActivity() {
                         permissionActivityResultLauncher.launch(intent)
                         return@launch
                     }
-                } catch (e: Exception) {
+                } catch (e: SecurityException) {
+                    Toast.makeText(this@TunnelToggleActivity, ErrorMessages[e], Toast.LENGTH_LONG).show()
+                } catch (e: ActivityNotFoundException) {
                     Toast.makeText(this@TunnelToggleActivity, ErrorMessages[e], Toast.LENGTH_LONG).show()
                 }
             }

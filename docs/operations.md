@@ -14,7 +14,11 @@ Review interface addresses, DNS, peer endpoints and AllowedIPs before connecting
 
 Current committed userspace preflight uses an explicit nonzero ListenPort and skips peers without resolved endpoints. It preserves the configured port; expected socket/send failure remains best effort. Failed socket protection prevents that send. UDP interruption or service destruction aborts activation; endpoint resolution can independently fail startup. See [the activation contract](backend-contracts.md#wireguard-configuration-and-tunnel-state). PR #25 merged lifecycle/interruption repair; repeated errors still need diagnosis rather than blind toggles.
 
-Known import/edit defects pending C8 include invalid-name dialog dismissal, QR image retry stream reuse and replacement-length handling. Abbreviated displayed keys also require a full-key copy fix. Until repaired, inspect an exported profile when a copied key is unusable; do not paste a displayed ellipsis as a WireGuard key.
+File/ZIP importing settles valid entries before one final result and reports partial success for invalid or duplicate entries. QR image retries reopen input and recycle decoded bitmaps; exhausted allocation pressure reports an import error. Cancelling those operations does not produce failure/success feedback. These local source/JVM repairs under #22 do not prove device/provider behavior; [contracts](backend-contracts.md#import-ordering-and-export) describes the exact boundaries.
+
+Known import/edit defects pending C8 include invalid-name dialog dismissal and replacement-length handling. Abbreviated displayed keys also require a full-key copy fix. Until repaired, inspect an exported profile when a copied key is unusable; do not paste a displayed ellipsis as a WireGuard key.
+
+ZIP export restores its control after loading/write failure or cancellation. Failed writes attempt to delete the incomplete output; failed cleanup remains attached to the primary error. Check Downloads for an incomplete export after failure. Output acquisition and provider deletion still have separate limits in [the export contract](backend-contracts.md#import-ordering-and-export); a restored control does not prove that every incomplete file was removed.
 
 ## Permissions and backend changes
 

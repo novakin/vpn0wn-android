@@ -8,6 +8,7 @@ package com.wireguard.android.util
 import com.wireguard.android.Application
 import com.wireguard.android.R
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 object QuantityFormatter {
     fun formatBytes(bytes: Long): String {
@@ -23,15 +24,15 @@ object QuantityFormatter {
     }
 
     fun formatEpochAgo(epochMillis: Long): String {
-        var span = (System.currentTimeMillis() - epochMillis) / 1000
+        var span = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis() - epochMillis)
         if (span <= 0L)
             return "0s"
-        val days = span / (24 * 60 * 60L)
-        span -= days * (24 * 60 * 60L)
-        val hours = span / (60 * 60L)
-        span -= hours * (60 * 60L)
-        val minutes = span / 60L
-        span -= minutes * 60L
+        val days = TimeUnit.SECONDS.toDays(span)
+        span -= TimeUnit.DAYS.toSeconds(days)
+        val hours = TimeUnit.SECONDS.toHours(span)
+        span -= TimeUnit.HOURS.toSeconds(hours)
+        val minutes = TimeUnit.SECONDS.toMinutes(span)
+        span -= TimeUnit.MINUTES.toSeconds(minutes)
         val seconds = span
         return when {
             days > 0L -> String.format(Locale.US, "%02dd %02dh", days, hours)

@@ -19,7 +19,9 @@ import com.wireguard.android.util.activity
 import com.wireguard.android.util.lifecycleScope
 import com.wireguard.android.util.tunnlStyle
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.launch
@@ -35,15 +37,17 @@ class ZipExporterPreference(context: Context, attrs: AttributeSet?) : Preference
     private var exportedFilePath: String? = null
     private val downloadsFileSaver = DownloadsFileSaver(activity)
 
+    // ConfigStore failures need user feedback; write cleanup must preserve even a primary Error/cancellation before rethrowing.
+    @Suppress("TooGenericExceptionCaught")
     private fun exportZip() {
         lifecycleScope.launch {
-            val tunnels = Application.getTunnelManager().getTunnels()
             try {
+                val tunnels = Application.getTunnelManager().getTunnels().toList()
                 exportedFilePath = withContext(Dispatchers.IO) {
-                    val configs = tunnels.map { async(SupervisorJob()) { it.getConfigAsync() } }.awaitAll()
-                    if (configs.isEmpty()) {
-                        throw IllegalArgumentException(context.getString(R.string.no_tunnels_error))
+                    val configs = supervisorScope {
+                        tunnels.map { async { it.getConfigAsync() } }.awaitAll()
                     }
+                    require(configs.isNotEmpty()) { context.getString(R.string.no_tunnels_error) }
                     val outputFile = downloadsFileSaver.save("wireguard-export.zip", "application/zip", true)
                     if (outputFile == null) {
                         withContext(Dispatchers.Main.immediate) {
@@ -60,13 +64,21 @@ class ZipExporterPreference(context: Context, attrs: AttributeSet?) : Preference
                             zip.closeEntry()
                         }
                     } catch (e: Throwable) {
-                        outputFile.delete()
+                        withContext(NonCancellable) {
+                            try {
+                                outputFile.delete()
+                            } catch (recovery: Throwable) {
+                                e.addSuppressed(recovery)
+                            }
+                        }
                         throw e
                     }
                     outputFile.fileName
                 }
                 notifyChanged()
-            } catch (e: Throwable) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
                 val error = ErrorMessages[e]
                 val message = context.getString(R.string.zip_export_error, error)
                 Log.e(TAG, message, e)
@@ -74,6 +86,7 @@ class ZipExporterPreference(context: Context, attrs: AttributeSet?) : Preference
                     activity.findViewById(android.R.id.content),
                     message, Snackbar.LENGTH_LONG
                 ).tunnlStyle().show()
+            } finally {
                 isEnabled = true
             }
         }

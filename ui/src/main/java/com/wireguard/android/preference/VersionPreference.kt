@@ -4,10 +4,13 @@
  */
 package com.wireguard.android.preference
 
+import kotlinx.coroutines.CancellationException
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.AttributeSet
+import android.util.Log
 import android.widget.Toast
 import androidx.preference.Preference
 import com.wireguard.android.Application
@@ -34,12 +37,15 @@ class VersionPreference(context: Context, attrs: AttributeSet?) : Preference(con
         intent.data = Uri.parse("https://www.wireguard.com/")
         try {
             context.startActivity(intent)
-        } catch (e: Throwable) {
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(context, ErrorMessages[e], Toast.LENGTH_SHORT).show()
+        } catch (e: SecurityException) {
             Toast.makeText(context, ErrorMessages[e], Toast.LENGTH_SHORT).show()
         }
     }
 
     companion object {
+        private const val TAG = "WireGuard/VersionPreference"
         private fun getBackendPrettyName(context: Context, backend: Backend) = when (backend) {
             is WgQuickBackend -> context.getString(R.string.type_name_kernel_module)
             is GoBackend -> context.getString(R.string.type_name_go_userspace)
@@ -52,11 +58,17 @@ class VersionPreference(context: Context, attrs: AttributeSet?) : Preference(con
             val backend = Application.getBackend()
             versionSummary = getContext().getString(R.string.version_summary_checking, getBackendPrettyName(context, backend).lowercase())
             notifyChanged()
-            versionSummary = try {
+            // Backend.getVersion declares Exception; retain the unknown-version fallback for those failures.
+            @Suppress("TooGenericExceptionCaught")
+            val checkedVersion = try {
                 getContext().getString(R.string.version_summary, getBackendPrettyName(context, backend), withContext(Dispatchers.IO) { backend.version })
-            } catch (_: Throwable) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to read backend version: ${e.javaClass.simpleName}")
                 getContext().getString(R.string.version_summary_unknown, getBackendPrettyName(context, backend).lowercase())
             }
+            versionSummary = checkedVersion
             notifyChanged()
         }
     }

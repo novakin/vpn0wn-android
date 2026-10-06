@@ -136,7 +136,7 @@ Required before merging UI or backend provisioning work.
 
 ## Source-inspected Coverage
 
-Source contains 20 test classes and 135 test methods: UI 17/119, tunnel 3/16, including #14/#13/#16 and the current #15 change. The shared TunnelTestEnvironment fixture is not a test suite. This is an inventory, not an execution total. Guard tests use fake execute calls for timeout, I/O failure and cancellation propagation; they do not prove an entered SSH command, upload timeout or actual channel/session closure. Robolectric also covers detail-fragment selection/destruction and kernel-preference failure recovery; whole-app navigation/rendered-row proof remains separate.
+Source contains 24 test classes and 149 test methods: UI 21/133, tunnel 3/16, including merged #14/#13/#16/#15 and the local #22 suites. The shared TunnelTestEnvironment fixture is not a test suite. This is an inventory, not an execution total. Guard tests use fake execute calls for timeout, I/O failure and cancellation propagation; they do not prove an entered SSH command, upload timeout or actual channel/session closure. Robolectric also covers detail-fragment selection/destruction and kernel-preference failure recovery; whole-app navigation/rendered-row proof remains separate.
 
 `TunnelManagerTest` covers admitted/queued transitions, deletion/config failure recovery, cancelled initialization, stale state snapshots/native notifications, restoration intent and backend-switch admission/rollback. `ApplicationBackendLifecycleTest` proves cancellation before initializer execution settles backend waiters. `TunnelDetailLifecycleTest` covers reversed/cleared config selections and destroyed views; delayed statistics guards are source reviewed without a dedicated regression. `KernelModuleEnablerPreferenceTest` checks failed shutdown restores its setting/control. `GoBackendLifecycleTest` covers prompt destruction while its lock is held, dead-service rejection/future replacement, cleanup identity/callback ordering and preflight compatibility/protection/interruption. Synthetic owner/native-call shadows exercise no successful native activation, real VPN traffic, process exit or device lifecycle. See [development evidence](development.md#tunnel-lifecycle-and-transition-settlement--2026-10-06).
 
@@ -159,6 +159,10 @@ The separate [Bash provisioning safety suite](../scripts/tests/provisioning_safe
 - `FileConfigStoreTest`
 - `TunnelManagerTest`, `ApplicationBackendLifecycleTest`, `TunnelDetailLifecycleTest`, `KernelModuleEnablerPreferenceTest`, `GoBackendLifecycleTest` — scoped #13 owner/lifecycle regressions.
 - `WgQuickBackendTransitionTest` — concurrent UP with disabled/enabled multiple mode, failed activation/shutdown/config update and visible rollback failure through a simulated command-serialized RootShell; the real Application mode collector stays responsive on Main while the backend monitor is held. No real tools or root run.
+- `TunnelComparatorTest` — natural-order controls, equal normalized-name antisymmetry and distinct inventory lookup.
+- `QrCodeFromFileScannerTest` — reopened/recycled retries, allocation recovery/exhaustion, first Reader failure and cancellation/programming errors.
+- `TunnelImporterTest` — cancellation/error propagation, category-only logs, one callback and mixed ZIP traversal/partial success with unchanged duplicate ownership.
+- `ZipExporterPreferenceTest` — failed writes retain the primary failure and thrown cleanup error; loading cancellation settles children and restores controls without success. No saver-acquisition, zero-delete, interrupted blocking-write or device/provider cleanup proof; #28 owns remaining Downloads boundaries.
 - `ConfigCompatibilityTest` — domain-only/mixed/address-only/empty DNS round trips, valid/omitted IPv4/IPv6 masks and typed rejected masks through both config fields.
 - `ConfigTest` and `BadConfigExceptionTest` — configuration/parser fixtures and error descriptions.
 

@@ -4,6 +4,8 @@
  */
 package com.wireguard.android.activity
 
+import com.wireguard.android.util.RootShell.RootShellException
+import java.io.IOException
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -49,6 +51,9 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     class SettingsFragment : PreferenceFragmentCompat() {
+        private companion object {
+            const val INITIAL_VISIBLE_SETTINGS = 5
+        }
 
         // Since this is pretty much abandoned by androidx, it never got updated for proper EdgeToEdge support,
         // which is enabled everywhere for API 35. So handle the insets manually here.
@@ -62,7 +67,7 @@ class SettingsActivity : AppCompatActivity() {
         override fun onCreatePreferences(savedInstanceState: Bundle?, key: String?) {
             preferenceManager.preferenceDataStore = PreferencesPreferenceDataStore(lifecycleScope, Application.getPreferencesDataStore())
             addPreferencesFromResource(R.xml.preferences)
-            preferenceScreen.initialExpandedChildrenCount = 5
+            preferenceScreen.initialExpandedChildrenCount = INITIAL_VISIBLE_SETTINGS
 
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || QuickTileService.isAdded) {
                 val quickTile = preferenceManager.findPreference<Preference>("quick_tile")
@@ -102,7 +107,9 @@ class SettingsActivity : AppCompatActivity() {
                     if (Application.getBackend() !is WgQuickBackend) {
                         try {
                             withContext(Dispatchers.IO) { Application.getRootShell().start() }
-                        } catch (_: Throwable) {
+                        } catch (_: IOException) {
+                            kernelModuleEnabler?.parent?.removePreference(kernelModuleEnabler)
+                        } catch (_: RootShellException) {
                             kernelModuleEnabler?.parent?.removePreference(kernelModuleEnabler)
                         }
                     }

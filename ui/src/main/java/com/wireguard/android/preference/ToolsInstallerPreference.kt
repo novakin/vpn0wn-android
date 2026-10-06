@@ -4,6 +4,8 @@
  */
 package com.wireguard.android.preference
 
+import com.wireguard.android.util.RootShell.RootShellException
+import java.io.IOException
 import android.content.Context
 import android.util.AttributeSet
 import androidx.preference.Preference
@@ -37,7 +39,7 @@ class ToolsInstallerPreference(context: Context, attrs: AttributeSet?) : Prefere
                     state and (ToolsInstaller.SYSTEM or ToolsInstaller.NO) == ToolsInstaller.SYSTEM or ToolsInstaller.NO -> setState(State.INITIAL_SYSTEM)
                     else -> setState(State.INITIAL)
                 }
-            } catch (_: Throwable) {
+            } catch (_: RootShellException) {
                 setState(State.INITIAL)
             }
         }
@@ -53,7 +55,11 @@ class ToolsInstallerPreference(context: Context, attrs: AttributeSet?) : Prefere
                     result and (ToolsInstaller.YES or ToolsInstaller.SYSTEM) == ToolsInstaller.YES or ToolsInstaller.SYSTEM -> setState(State.SUCCESS_SYSTEM)
                     else -> setState(State.FAILURE)
                 }
-            } catch (_: Throwable) {
+            } catch (_: RootShellException) {
+                setState(State.FAILURE)
+            } catch (_: IOException) {
+                setState(State.FAILURE)
+            } catch (_: SecurityException) {
                 setState(State.FAILURE)
             }
         }

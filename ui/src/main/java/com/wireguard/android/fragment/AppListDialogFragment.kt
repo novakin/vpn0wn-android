@@ -4,6 +4,7 @@
  */
 package com.wireguard.android.fragment
 
+import android.content.res.Resources
 import android.Manifest
 import android.app.Dialog
 import android.content.pm.PackageInfo
@@ -65,7 +66,14 @@ class AppListDialogFragment : DialogFragment() {
                     appData.addAll(applicationData)
                     setButtonText()
                 }
-            } catch (e: Throwable) {
+            } catch (e: SecurityException) {
+                withContext(Dispatchers.Main.immediate) {
+                    val error = ErrorMessages[e]
+                    val message = activity.getString(R.string.error_fetching_apps, error)
+                    Toast.makeText(activity, message, Toast.LENGTH_LONG).show()
+                    dismissAllowingStateLoss()
+                }
+            } catch (e: Resources.NotFoundException) {
                 withContext(Dispatchers.Main.immediate) {
                     val error = ErrorMessages[e]
                     val message = activity.getString(R.string.error_fetching_apps, error)

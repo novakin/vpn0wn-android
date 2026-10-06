@@ -4,6 +4,8 @@
  */
 package com.wireguard.android.fragment
 
+import android.content.ActivityNotFoundException
+import kotlinx.coroutines.CancellationException
 import android.content.Context
 import android.util.Log
 import android.view.View
@@ -63,9 +65,17 @@ abstract class BaseFragment : Fragment(), OnSelectedTunnelChangedListener {
         val tunnel = when (val binding = DataBindingUtil.findBinding<ViewDataBinding>(view)) {
             is TunnelDetailFragmentBinding -> binding.tunnel
             is TunnelListItemBinding -> binding.item
-            else -> return
+            else -> null
         } ?: return
         val activity = activity ?: return
+        fun reportPreparationFailure(error: Exception) {
+            val message = activity.getString(R.string.error_prepare, ErrorMessages[error])
+            Snackbar.make(view, message, Snackbar.LENGTH_LONG)
+                .setAnchorView(view.findViewById(R.id.create_fab))
+                .tunnlStyle()
+                .show()
+            Log.e(TAG, message, error)
+        }
         activity.lifecycleScope.launch {
             if (Application.getBackend() is GoBackend) {
                 try {
@@ -76,25 +86,26 @@ abstract class BaseFragment : Fragment(), OnSelectedTunnelChangedListener {
                         permissionActivityResultLauncher.launch(intent)
                         return@launch
                     }
-                } catch (e: Throwable) {
-                    val message = activity.getString(R.string.error_prepare, ErrorMessages[e])
-                    Snackbar.make(view, message, Snackbar.LENGTH_LONG)
-                        .setAnchorView(view.findViewById(R.id.create_fab))
-                        .tunnlStyle()
-                        .show()
-                    Log.e(TAG, message, e)
+                } catch (e: SecurityException) {
+                    reportPreparationFailure(e)
+                } catch (e: ActivityNotFoundException) {
+                    reportPreparationFailure(e)
                 }
             }
             setTunnelStateWithPermissionsResult(tunnel, checked)
         }
     }
 
+    // Backend/ConfigStore expose Exception; this operation reports their failures while cancellation and Errors propagate.
+    @Suppress("TooGenericExceptionCaught")
     private fun setTunnelStateWithPermissionsResult(tunnel: ObservableTunnel, checked: Boolean) {
         val activity = activity ?: return
         activity.lifecycleScope.launch {
             try {
                 tunnel.setStateAsync(Tunnel.State.of(checked))
-            } catch (e: Throwable) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
                 val error = ErrorMessages[e]
                 val messageResId = if (checked) R.string.error_up else R.string.error_down
                 val message = activity.getString(messageResId, error)

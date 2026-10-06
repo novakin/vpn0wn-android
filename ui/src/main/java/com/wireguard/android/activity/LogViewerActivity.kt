@@ -5,6 +5,7 @@
 
 package com.wireguard.android.activity
 
+import java.util.concurrent.TimeUnit
 import android.content.ClipDescription.compareMimeTypes
 import android.content.ContentProvider
 import android.content.ContentValues
@@ -68,9 +69,6 @@ class LogViewerActivity : AppCompatActivity() {
         yearFormatter.format(Date())
     }
 
-    private val timeFormatter by lazy { SimpleDateFormat("HH:mm:ss.SSS", Locale.US) }
-
-    private val colorInk by lazy { ResourcesCompat.getColor(resources, R.color.tunnl_ink, theme) }
     private val colorInk2 by lazy { ResourcesCompat.getColor(resources, R.color.tunnl_ink_2, theme) }
     private val colorInk3 by lazy { ResourcesCompat.getColor(resources, R.color.tunnl_ink_3, theme) }
     private val colorWarn by lazy { ResourcesCompat.getColor(resources, R.color.tunnl_warn, theme) }
@@ -208,6 +206,8 @@ class LogViewerActivity : AppCompatActivity() {
         }
     }
 
+    // EOF flush, generation invalidation and batch deferral have distinct exit/continue requirements.
+    @Suppress("LoopWithTooManyJumpStatements")
     private suspend fun streamLogcatProcess(generation: Int, useRestartTail: Boolean) {
         val command = mutableListOf("logcat", "-b", "all", "-v", "threadtime")
         if (useRestartTail) {
@@ -233,9 +233,7 @@ class LogViewerActivity : AppCompatActivity() {
             var timeLastNotify = System.nanoTime()
             var priorModified = false
             val bufferedLogLines = arrayListOf<LogLine>()
-            var timeout = 1000000000L / 2
-            val MAX_LINES = (1 shl 16) - 1
-            val MAX_BUFFERED_LINES = (1 shl 14) - 1
+            var timeout = INITIAL_LOG_FLUSH_INTERVAL_NS
 
             suspend fun flushBufferedLogLines() {
                 withContext(Dispatchers.Main.immediate) {
@@ -248,8 +246,8 @@ class LogViewerActivity : AppCompatActivity() {
                         priorModified = false
                     }
                     val fullLen = logLines.size() + bufferedLogLines.size
-                    if (fullLen >= MAX_LINES) {
-                        val numToRemove = fullLen - MAX_LINES + 1
+                    if (fullLen >= MAX_LOG_LINES) {
+                        val numToRemove = fullLen - MAX_LOG_LINES + 1
                         logLines.removeFromStart(numToRemove)
                         logAdapter.onLinesRemovedFromStart(numToRemove)
                         posStart -= numToRemove
@@ -276,7 +274,7 @@ class LogViewerActivity : AppCompatActivity() {
                 }
                 if (generation != logGeneration)
                     break
-                if (rawLogLines.size() >= MAX_LINES)
+                if (rawLogLines.size() >= MAX_LOG_LINES)
                     rawLogLines.popFirst()
                 rawLogLines.addLast(line)
                 val logLine = parseLine(line)
@@ -293,7 +291,7 @@ class LogViewerActivity : AppCompatActivity() {
                 val timeNow = System.nanoTime()
                 if (bufferedLogLines.size < MAX_BUFFERED_LINES && (timeNow - timeLastNotify) < timeout && stdout.ready())
                     continue
-                timeout = 1000000000L * 5 / 2
+                timeout = LOG_FLUSH_INTERVAL_NS
                 timeLastNotify = timeNow
 
                 flushBufferedLogLines()
@@ -321,7 +319,7 @@ class LogViewerActivity : AppCompatActivity() {
     private fun parseLine(line: String): LogLine? {
         val m: Matcher = THREADTIME_LINE.matcher(line)
         return if (m.matches()) {
-            LogLine(m.group(2)!!.toInt(), m.group(3)!!.toInt(), parseTime(m.group(1)!!), m.group(4)!!, m.group(5)!!, m.group(6)!!)
+            LogLine(m.group(THREADTIME_PID)!!.toInt(), m.group(THREADTIME_TID)!!.toInt(), parseTime(m.group(THREADTIME_TIME)!!), m.group(THREADTIME_LEVEL)!!, m.group(THREADTIME_TAG)!!, m.group(THREADTIME_MESSAGE)!!)
         } else {
             null
         }
@@ -349,6 +347,16 @@ class LogViewerActivity : AppCompatActivity() {
     private data class LogLine(val pid: Int, val tid: Int, val time: Date?, val level: String, val tag: String, var msg: String)
 
     companion object {
+        private const val MAX_LOG_LINES = (1 shl 16) - 1
+        private const val MAX_BUFFERED_LINES = (1 shl 14) - 1
+        private val INITIAL_LOG_FLUSH_INTERVAL_NS = TimeUnit.MILLISECONDS.toNanos(500)
+        private val LOG_FLUSH_INTERVAL_NS = TimeUnit.MILLISECONDS.toNanos(2500)
+        private const val THREADTIME_TIME = 1
+        private const val THREADTIME_PID = 2
+        private const val THREADTIME_TID = 3
+        private const val THREADTIME_LEVEL = 4
+        private const val THREADTIME_TAG = 5
+        private const val THREADTIME_MESSAGE = 6
         private val THREADTIME_LINE: Pattern =
             Pattern.compile("^(\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}.\\d{3})(?:\\s+[0-9A-Za-z]+)?\\s+(\\d+)\\s+(\\d+)\\s+([A-Z])\\s+(.+?)\\s*: (.*)$")
         private val LOGS: MutableMap<String, ByteArray> = ConcurrentHashMap()
@@ -358,6 +366,7 @@ class LogViewerActivity : AppCompatActivity() {
     }
 
     private inner class LogEntryAdapter : RecyclerView.Adapter<LogEntryAdapter.ViewHolder>() {
+        private val timeFormatter by lazy { SimpleDateFormat("HH:mm:ss.SSS", Locale.US) }
         private var levelFilter: Set<String>? = null
         private val visiblePositions = ArrayList<Int>()
 
@@ -499,7 +508,7 @@ class LogViewerActivity : AppCompatActivity() {
             return openPipeHelper(uri, "text/plain", null, log) { output, _, _, _, l ->
                 try {
                     FileOutputStream(output.fileDescriptor).write(l!!)
-                } catch (_: Throwable) {
+                } catch (_: IOException) {
                 }
             }
         }

@@ -65,6 +65,8 @@ object ErrorMessages {
         RootShellException.Reason.CREATE_TEMP_DIR_ERROR to R.string.create_temp_dir_error
     )
 
+    // Android's resource formatter accepts only varargs; the existing exception payload is already an array.
+    @Suppress("SpreadOperator")
     operator fun get(throwable: Throwable?): String {
         val resources = Application.get().resources
         if (throwable == null) return resources.getString(R.string.unknown_error)
@@ -112,46 +114,40 @@ object ErrorMessages {
         resources: Resources,
         bce: BadConfigException
     ): String {
-        if (bce.cause is KeyFormatException) {
-            val kfe = bce.cause as KeyFormatException?
-            if (kfe!!.type == KeyFormatException.Type.LENGTH) return resources.getString(KFE_FORMAT_MAP.getValue(kfe.format))
-        } else if (bce.cause is ParseException) {
-            val pe = bce.cause as ParseException?
-            if (pe!!.localizedMessage != null) return ": ${pe.localizedMessage}"
-        } else if (bce.location == BadConfigException.Location.LISTEN_PORT) {
-            return resources.getString(R.string.bad_config_explanation_udp_port)
-        } else if (bce.location == BadConfigException.Location.MTU) {
-            return resources.getString(R.string.bad_config_explanation_positive_number)
-        } else if (bce.location == BadConfigException.Location.PERSISTENT_KEEPALIVE) {
-            return resources.getString(R.string.bad_config_explanation_pka)
+        val cause = bce.cause
+        return when {
+            cause is KeyFormatException -> if (cause.type == KeyFormatException.Type.LENGTH) {
+                resources.getString(KFE_FORMAT_MAP.getValue(cause.format))
+            } else ""
+            cause is ParseException -> cause.localizedMessage?.let { ": $it" }.orEmpty()
+            bce.location == BadConfigException.Location.LISTEN_PORT -> resources.getString(R.string.bad_config_explanation_udp_port)
+            bce.location == BadConfigException.Location.MTU -> resources.getString(R.string.bad_config_explanation_positive_number)
+            bce.location == BadConfigException.Location.PERSISTENT_KEEPALIVE -> resources.getString(R.string.bad_config_explanation_pka)
+            else -> ""
         }
-        return ""
     }
 
     private fun getBadConfigExceptionReason(
         resources: Resources,
         bce: BadConfigException
     ): String {
-        if (bce.cause is KeyFormatException) {
-            val kfe = bce.cause as KeyFormatException?
-            return resources.getString(KFE_TYPE_MAP.getValue(kfe!!.type))
-        } else if (bce.cause is ParseException) {
-            val pe = bce.cause as ParseException?
-            val type = resources.getString((if (PE_CLASS_MAP.containsKey(pe!!.parsingClass)) PE_CLASS_MAP[pe.parsingClass] else R.string.parse_error_generic)!!)
-            return resources.getString(R.string.parse_error_reason, type, pe.text)
+        val cause = bce.cause
+        return when (cause) {
+            is KeyFormatException -> resources.getString(KFE_TYPE_MAP.getValue(cause.type))
+            is ParseException -> {
+                val type = resources.getString(PE_CLASS_MAP[cause.parsingClass] ?: R.string.parse_error_generic)
+                resources.getString(R.string.parse_error_reason, type, cause.text)
+            }
+            else -> resources.getString(BCE_REASON_MAP.getValue(bce.reason), bce.text)
         }
-        return resources.getString(BCE_REASON_MAP.getValue(bce.reason), bce.text)
     }
 
     private fun rootCause(throwable: Throwable): Throwable {
         var cause = throwable
-        while (cause.cause != null) {
-            if (cause is BadConfigException || cause is BackendException ||
-                cause is RootShellException
-            ) break
-            val nextCause = cause.cause!!
-            if (nextCause is RemoteException) break
-            cause = nextCause
+        while (cause.cause != null && cause !is BadConfigException && cause !is BackendException &&
+            cause !is RootShellException && cause.cause !is RemoteException
+        ) {
+            cause = cause.cause!!
         }
         return cause
     }
