@@ -48,6 +48,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **Transfer-speed/battery source investigation (#43, G2; no runtime optimization)**
+  Traced Fragment polling, ObservableTunnel/TunnelManager statistics, BindingAdapters rate samples, attached widget animators and Java/Go/native transfer ownership. Four local characterization controls confirm concurrent reads, late cache publication, hidden animator callbacks and covered Home lifecycle/polling. #47 tracks the G4 battery candidate; #48 is a separate correctness finding outside the current goal. Keep transfer behavior unchanged until measured bottleneck selection. See [ranked evidence and limits](reviews/2026-10-07-performance-source-investigation.md).
+
 - **Downloads output ownership (#28, source repair; physical-provider proof deferred to G4)**
   `DownloadsFileSaver.save` keeps acquisition, metadata, writing and stream closure inside one IO scope and returns a completed path rather than handing off a live resource. `DownloadsFile.delete` reports zero/false outcomes; cleanup failures remain attached to the primary failure/cancellation/Error. Legacy paths become owned only after opening, preserving pre-existing paths on open failure. `ZipExporterPreference.exportZip` delegates write cleanup to the saver and preserves ZIP contents, overwrite policy and control restoration. See [contracts](backend-contracts.md#import-ordering-and-export) and [verification](development.md#downloads-output-ownership--2026-10-07).
 
