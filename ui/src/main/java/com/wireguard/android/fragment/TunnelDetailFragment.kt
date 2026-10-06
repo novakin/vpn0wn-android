@@ -15,9 +15,6 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.MenuProvider
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
 import androidx.databinding.DataBindingUtil
 import androidx.databinding.Observable
 import androidx.lifecycle.Lifecycle
@@ -80,13 +77,6 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
         binding?.apply {
             val showBackButton = (activity as? MainActivity)?.shouldShowDetailBackButton() != false
             detailBackButton.visibility = if (showBackButton) View.VISIBLE else View.INVISIBLE
-            val baseHeaderTopPadding = detailHeaderContainer.paddingTop
-            ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
-                val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-                detailHeaderContainer.updatePadding(top = baseHeaderTopPadding + systemBars.top)
-                insets
-            }
-            ViewCompat.requestApplyInsets(root)
         }
         requireActivity().addMenuProvider(this, viewLifecycleOwner, Lifecycle.State.RESUMED)
     }

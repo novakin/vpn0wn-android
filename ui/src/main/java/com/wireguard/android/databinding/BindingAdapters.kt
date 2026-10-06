@@ -55,6 +55,7 @@ object BindingAdapters {
     private const val SHORT_KEY_EDGE_LENGTH = 6
     private const val MIN_RATE_SAMPLE_INTERVAL_MS = 250L
     private data class RateSample(
+        val statistics: Statistics,
         val rx: Long,
         val tx: Long,
         val timeMs: Long,
@@ -86,7 +87,7 @@ object BindingAdapters {
         val now = System.currentTimeMillis()
         val latest = statistics?.latestHandshakeMillis()
         return when {
-            state == Tunnel.State.TOGGLE -> TunnelSignalView.TunnelMode.CONNECTING
+            state == Tunnel.State.TOGGLE && tunnel?.transitionTarget != Tunnel.State.DOWN -> TunnelSignalView.TunnelMode.CONNECTING
             state != Tunnel.State.UP -> {
                 tunnel?.let { synchronized(connectingSince) { connectingSince.remove(it) } }
                 TunnelSignalView.TunnelMode.DOWN
@@ -113,13 +114,6 @@ object BindingAdapters {
     @BindingAdapter("checked")
     fun setChecked(view: ToggleSwitch, checked: Boolean) {
         view.setCheckedInternal(checked)
-    }
-
-    @JvmStatic
-    @BindingAdapter("tunnelCheckedState")
-    fun setTunnelCheckedState(view: ToggleSwitch, state: Tunnel.State?) {
-        view.setCheckedInternal(state == Tunnel.State.UP || state == Tunnel.State.TOGGLE)
-        view.isEnabled = state != Tunnel.State.TOGGLE
     }
 
     @JvmStatic
@@ -560,16 +554,19 @@ object BindingAdapters {
 
     private fun tunnelRate(tunnel: ObservableTunnel?, statistics: Statistics? = tunnel?.statistics): Pair<String, String> {
         tunnel ?: return "--" to "--"
-        val stats = statistics ?: return "--" to "--"
+        val stats = statistics ?: run {
+            synchronized(rateSamples) { rateSamples.remove(tunnel) }
+            return "--" to "--"
+        }
         val now = SystemClock.elapsedRealtime()
         val rx = stats.totalRx()
         val tx = stats.totalTx()
         val sample = synchronized(rateSamples) {
             val previous = rateSamples[tunnel]
-            val updated = if (previous != null && previous.rx == rx && previous.tx == tx) {
+            val updated = if (previous?.statistics === stats) {
                 previous
             } else if (previous == null || now <= previous.timeMs || rx < previous.rx || tx < previous.tx) {
-                RateSample(rx, tx, now)
+                RateSample(stats, rx, tx, now)
             } else {
                 val elapsed = now - previous.timeMs
                 if (elapsed < MIN_RATE_SAMPLE_INTERVAL_MS) {
@@ -578,6 +575,7 @@ object BindingAdapters {
                     val rxRate = ((rx - previous.rx) * TimeUnit.SECONDS.toMillis(1)) / elapsed
                     val txRate = ((tx - previous.tx) * TimeUnit.SECONDS.toMillis(1)) / elapsed
                     RateSample(
+                        stats,
                         rx,
                         tx,
                         now,
@@ -657,6 +655,8 @@ object BindingAdapters {
     @JvmStatic
     @BindingAdapter(requireAll = false, value = ["tunnelSwitchModeTunnel", "tunnelSwitchModeState", "tunnelSwitchModeStatistics"])
     fun setTunnelSwitchModeTunnel(view: ToggleSwitch, tunnel: ObservableTunnel?, state: Tunnel.State?, statistics: Statistics?) {
+        view.setCheckedInternal(state == Tunnel.State.UP || state == Tunnel.State.TOGGLE && tunnel?.transitionTarget != Tunnel.State.DOWN)
+        view.isEnabled = state != Tunnel.State.TOGGLE
         val mode = tunnelMode(tunnel, state, statistics)
         val track = when (mode) {
             TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_signal_deep

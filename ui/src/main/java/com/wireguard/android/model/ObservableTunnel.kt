@@ -51,15 +51,24 @@ class ObservableTunnel internal constructor(
     var state = state
         private set
 
+    var transitionTarget: Tunnel.State? = null
+        private set
+
+    fun onTransitionStarted(target: Tunnel.State) {
+        transitionTarget = target
+        onStateChanged(Tunnel.State.TOGGLE)
+    }
+
     override fun onStateChange(newState: Tunnel.State) {
         manager.onTunnelStateChange(this)
     }
 
     fun onStateChanged(state: Tunnel.State): Tunnel.State {
-        if (state != Tunnel.State.UP) onStatisticsChanged(null)
-        if (state == this.state) return state
+        if (state != Tunnel.State.TOGGLE) transitionTarget = null
+        val changed = state != this.state
         this.state = state
-        notifyPropertyChanged(BR.state)
+        if (state != Tunnel.State.UP) onStatisticsChanged(null)
+        if (changed) notifyPropertyChanged(BR.state)
         return state
     }
 

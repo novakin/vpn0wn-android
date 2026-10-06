@@ -315,7 +315,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
             return newState
         }
         var failure: Exception? = null
-        tunnel.onStateChanged(Tunnel.State.TOGGLE)
+        tunnel.onTransitionStarted(target)
         try {
             val config = if (target == Tunnel.State.DOWN) null else tunnel.getConfigAsync()
             newState = withContext(Dispatchers.IO) { backend.setState(tunnel, target, config) }

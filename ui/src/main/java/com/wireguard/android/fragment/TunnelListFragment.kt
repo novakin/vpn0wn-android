@@ -9,6 +9,7 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import android.content.Intent
+import android.app.Activity
 import android.content.res.Resources
 import android.os.Bundle
 import android.util.Log
@@ -27,9 +28,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.view.ActionMode
 import androidx.databinding.Observable
 import androidx.databinding.ObservableList
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
 import com.google.zxing.qrcode.QRCodeReader
@@ -63,6 +61,11 @@ import kotlinx.coroutines.launch
  * Fragment containing a list of known WireGuard tunnels. It allows creating and deleting tunnels.
  */
 class TunnelListFragment : BaseFragment() {
+    private val tunnelCreatorResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode != Activity.RESULT_OK) return@registerForActivityResult
+        val message = result.data?.getStringExtra(TunnelCreatorActivity.EXTRA_SAVE_MESSAGE) ?: return@registerForActivityResult
+        binding?.let { Snackbar.make(it.mainContainer, message, Snackbar.LENGTH_SHORT).tunnlStyle().show() }
+    }
     private val actionModeListener = ActionModeListener()
     private var actionMode: ActionMode? = null
     private var backPressedCallback: OnBackPressedCallback? = null
@@ -163,20 +166,13 @@ class TunnelListFragment : BaseFragment() {
         binding = TunnelListFragmentBinding.inflate(inflater, container, false)
         val bottomSheet = AddTunnelsSheet()
         binding?.apply {
-            val baseHeaderTopPadding = homeHeaderContainer.paddingTop
-            ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
-                val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-                homeHeaderContainer.updatePadding(top = baseHeaderTopPadding + systemBars.top)
-                insets
-            }
-            ViewCompat.requestApplyInsets(root)
             createFab.setOnClickListener {
                 if (childFragmentManager.findFragmentByTag("BOTTOM_SHEET") != null)
                     return@setOnClickListener
                 childFragmentManager.setFragmentResultListener(AddTunnelsSheet.REQUEST_KEY_NEW_TUNNEL, viewLifecycleOwner) { _, bundle ->
                     when (bundle.getString(AddTunnelsSheet.REQUEST_METHOD)) {
                         AddTunnelsSheet.REQUEST_CREATE -> {
-                            startActivity(Intent(requireActivity(), TunnelCreatorActivity::class.java))
+                            tunnelCreatorResultLauncher.launch(Intent(requireActivity(), TunnelCreatorActivity::class.java))
                         }
 
                         AddTunnelsSheet.REQUEST_IMPORT -> {

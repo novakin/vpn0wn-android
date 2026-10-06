@@ -13,9 +13,13 @@ import android.os.Build
 import android.util.AttributeSet
 import android.widget.Toast
 import androidx.annotation.RequiresApi
+import androidx.lifecycle.Lifecycle
 import androidx.preference.Preference
+import com.google.android.material.snackbar.Snackbar
 import com.wireguard.android.QuickTileService
 import com.wireguard.android.R
+import com.wireguard.android.util.activity
+import com.wireguard.android.util.tunnlStyle
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 class QuickTilePreference(context: Context, attrs: AttributeSet?) : Preference(context, attrs) {
@@ -42,8 +46,14 @@ class QuickTilePreference(context: Context, attrs: AttributeSet?) : Preference(c
                 StatusBarManager.TILE_ADD_REQUEST_ERROR_BAD_COMPONENT,
                 StatusBarManager.TILE_ADD_REQUEST_ERROR_NOT_CURRENT_USER,
                 StatusBarManager.TILE_ADD_REQUEST_ERROR_APP_NOT_IN_FOREGROUND,
-                StatusBarManager.TILE_ADD_REQUEST_ERROR_NO_STATUS_BAR_SERVICE ->
-                    Toast.makeText(context, context.getString(R.string.quick_settings_tile_add_failure, it), Toast.LENGTH_SHORT).show()
+                StatusBarManager.TILE_ADD_REQUEST_ERROR_NO_STATUS_BAR_SERVICE -> {
+                    val message = context.getString(R.string.quick_settings_tile_add_failure, it)
+                    if (activity.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+                        Snackbar.make(activity.findViewById(android.R.id.content), message, Snackbar.LENGTH_SHORT).tunnlStyle().show()
+                    } else {
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                    }
+                }
             }
         }
     }

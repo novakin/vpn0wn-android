@@ -16,7 +16,8 @@
         <item name="materialButtonStyle">@style/WireGuardTheme.MaterialButton</item>
         <item name="toolbarStyle">@style/WireGuardTheme.Toolbar</item>
         <item name="bottomSheetDialogTheme">@style/WireGuardTheme.BottomSheetDialog</item>
-        <item name="android:statusBarColor">?android:colorBackground</item>
+        <item name="android:windowBackground">@color/tunnl_paper_2</item>
+        <item name="android:statusBarColor">@color/tunnl_paper_2</item>
         <item name="android:navigationBarColor">@color/tunnl_paper</item>
         <item name="colorControlHighlight">@color/tunnl_paper_3</item>
         <item name="fontFamily">@font/inter_tight</item>

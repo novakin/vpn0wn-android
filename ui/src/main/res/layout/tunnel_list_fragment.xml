@@ -70,7 +70,7 @@
                         android:layout_marginStart="6dp"
                         android:background="@android:color/transparent"
                         android:contentDescription="@string/search"
-                        android:enabled="false"
+                        android:enabled="@{false}"
                         android:padding="8dp"
                         app:srcCompat="@drawable/ic_tunnl_search"
                         app:tint="@color/tunnl_ink_2" />
@@ -172,7 +172,7 @@
                     android:paddingStart="12dp"
                     android:paddingTop="12dp"
                     android:paddingEnd="12dp"
-                    android:paddingBottom="@{@dimen/design_fab_size_normal * 1.3f}"
+                    android:paddingBottom="12dp"
                     android:visibility="@{tunnels.size() > 0 ? android.view.View.VISIBLE : android.view.View.GONE}"
                     app:configurationHandler="@{rowConfigurationHandler}"
                     app:items="@{tunnels}"
@@ -207,24 +207,24 @@
                         android:text="@string/tunnel_list_placeholder" />
                 </LinearLayout>
             </FrameLayout>
-        </LinearLayout>
 
-        <TextView
-            android:id="@+id/create_fab"
-            style="@style/TunnlLabelText"
-            android:layout_width="match_parent"
-            android:layout_height="46dp"
-            android:layout_gravity="bottom"
-            android:layout_marginStart="12dp"
-            android:layout_marginEnd="12dp"
-            android:layout_marginBottom="10dp"
-            android:background="@drawable/tunnl_add_tunnel_background"
-            android:clickable="true"
-            android:focusable="true"
-            android:gravity="center"
-            android:nextFocusUp="@id/tunnel_list"
-            android:text="@string/tunnl_add_tunnel"
-            android:textColor="@color/tunnl_ink_3" />
+
+            <TextView
+                android:id="@+id/create_fab"
+                style="@style/TunnlLabelText"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="12dp"
+                android:layout_marginBottom="10dp"
+                android:background="@drawable/tunnl_add_tunnel_background"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:nextFocusUp="@id/tunnel_list"
+                android:text="@string/tunnl_add_tunnel"
+                android:textColor="@color/tunnl_ink_3" />
+        </LinearLayout>
 
     </androidx.coordinatorlayout.widget.CoordinatorLayout>
 </layout>

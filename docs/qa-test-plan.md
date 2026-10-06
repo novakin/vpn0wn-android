@@ -8,9 +8,13 @@ The layer lists below are target requirements, not a passing coverage report. [S
 
 ## Test Layers
 
+The [2026-10-06 phone follow-up](development.md#phone-ui-and-throughput-follow-up--2026-10-06) records a scoped physical Android 16 run. It does not install an Espresso/screenshot framework or replace the full support matrix below. Keep captures local: real profiles can expose private metadata even with secret fields masked. Before automation, confirm the current package/screen and protect unsaved user drafts; use synthetic inputs for writes. Restore temporary device settings and per-app locales after checks.
+
 ### JVM Unit Tests
 
 Use for deterministic logic that does not require a device.
+
+`TunnelPresentationTest` exercises manager-resolved pending UP/DOWN, observer ordering during statistics clearing, failed-disconnect restoration, burst/idle/burst rates, repeated snapshot reads, minimum sample interval, counter rollback and cleared-statistics reconnect baselines. `TunnelEditorHeaderTest` exercises the actual labeled Save click, actual Creator RESULT_OK/message publication on finish and failed-save preservation. The caller's activity-result/Snackbar path is source reviewed. `TunnlSnackbarTest` injects a contrasting Material tint and asserts the actual Material-owned tint is cleared; the negative control fails when the production clear is removed. These controls use synthetic state/configuration and do not establish native VPN traffic or rendered/keyboard layout.
 
 - Provisioning JSON parsing:
   - `detect`, `plan`, `install`, `sync-status`, `add-peer`, `remove-peer`, `revoke-peer`, `backup`, `uninstall`
@@ -136,7 +140,7 @@ Required before merging UI or backend provisioning work.
 
 ## Source-inspected Coverage
 
-Source contains 24 test classes and 149 test methods: UI 21/133, tunnel 3/16, including merged #14/#13/#16/#15 and the local #22 suites. The shared TunnelTestEnvironment fixture is not a test suite. This is an inventory, not an execution total. Guard tests use fake execute calls for timeout, I/O failure and cancellation propagation; they do not prove an entered SSH command, upload timeout or actual channel/session closure. Robolectric also covers detail-fragment selection/destruction and kernel-preference failure recovery; whole-app navigation/rendered-row proof remains separate.
+Source contains 27 test classes and 158 test methods: UI 24/142, tunnel 3/16, including merged #14/#13/#16/#15, the local #22 suites and the phone follow-up. The shared TunnelTestEnvironment fixture is not a test suite. This is an inventory, not an execution total. Guard tests use fake execute calls for timeout, I/O failure and cancellation propagation; they do not prove an entered SSH command, upload timeout or actual channel/session closure. Robolectric also covers detail-fragment selection/destruction and kernel-preference failure recovery; whole-app navigation/rendered-row proof remains separate.
 
 `TunnelManagerTest` covers admitted/queued transitions, deletion/config failure recovery, cancelled initialization, stale state snapshots/native notifications, restoration intent and backend-switch admission/rollback. `ApplicationBackendLifecycleTest` proves cancellation before initializer execution settles backend waiters. `TunnelDetailLifecycleTest` covers reversed/cleared config selections and destroyed views; delayed statistics guards are source reviewed without a dedicated regression. `KernelModuleEnablerPreferenceTest` checks failed shutdown restores its setting/control. `GoBackendLifecycleTest` covers prompt destruction while its lock is held, dead-service rejection/future replacement, cleanup identity/callback ordering and preflight compatibility/protection/interruption. Synthetic owner/native-call shadows exercise no successful native activation, real VPN traffic, process exit or device lifecycle. See [development evidence](development.md#tunnel-lifecycle-and-transition-settlement--2026-10-06).
 

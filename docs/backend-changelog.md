@@ -48,6 +48,12 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **Phone presentation and throughput follow-up — 2026-10-06**
+  `TunnelManager.changeTunnelState` publishes the resolved target through `ObservableTunnel.onTransitionStarted`; state changes precede statistics notifications. Pending disconnect now renders off rather than yellow CONNECTING, while failure restores observed state and controls. `BindingAdapters.tunnelRate` distinguishes repeated bindings from fresh idle snapshots and clears its baseline when statistics disappears. Existing switch-mode binding owns checked/enabled/tint together. See [contracts](backend-contracts.md#persistence-and-presentation) and [verification](development.md#phone-ui-and-throughput-follow-up--2026-10-06). Shared safe-area and status-background corrections are recorded in the UI roadmap.
+
+- **Save completion feedback ownership — 2026-10-06**
+  `TunnelEditorFragment.onFinished` shows successful saves on MainActivity's persistent content after leaving the editor. New-profile creation returns `TunnelCreatorActivity.EXTRA_SAVE_MESSAGE` with RESULT_OK before finish; `TunnelListFragment` displays it through its registered activity-result callback. Validation/failure keeps the editor and existing profile. Visible phone preferences and app-list loading errors reuse styled feedback; native fallbacks are documented in [operations](operations.md#import-edit-and-connect).
+
 - **Detekt source remediation and import/resource ownership — 2026-10-06**
   `config/detekt/detekt.yml` keeps the zero-issue gate, excludes guard clauses from ReturnCount and removes catch-name exemptions. Meaningful timing/limits/state/parser positions are named; drawing geometry retains narrow explained exceptions. Typed failures and cancellation handling preserve existing Backend/ConfigStore recovery. `TunnelComparator.compare` now orders distinct normalized names consistently. `QrCodeFromFileScanner.doScan` reopens input, recycles bitmaps and reports exhausted allocation pressure as recoverable input failure. `TunnelImporter.importTunnel` parents creation jobs, aggregates valid/invalid ZIP results once and logs categories only. `ZipExporterPreference.exportZip` parents loads, preserves primary write/cleanup failures and restores controls; Downloads acquisition/provider limits remain. `Updater.downloadAndUpdateWrapErrors` restores its busy flag in `finally` and preserves retry timing. The unused search handler is removed and its button disabled pending real filtering. See [contracts](backend-contracts.md#import-ordering-and-export), [UI gaps](ui-redesign-roadmap.md#fidelity-gaps--remaining) and [verification](development.md#detekt-source-remediation--2026-10-06). #22 publication remains separate from local proof.
 
@@ -109,7 +115,7 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 ### Statistics
 
 - **`ObservableTunnel` snapshots and `BindingAdapters` rate samples**
-  Home/detail refresh from observable callbacks plus lifecycle-bound jobs. `ObservableTunnel` owns cached snapshots/notifications; `BindingAdapters` owns per-tunnel RX/TX/time samples in a `WeakHashMap` and derives rates from deltas. The idle-rate defect remains C7.
+  Home/detail refresh from observable callbacks plus lifecycle-bound jobs. `ObservableTunnel` owns cached snapshots/notifications; `BindingAdapters` owns per-tunnel RX/TX/time samples in a `WeakHashMap` and derives rates from deltas. The earlier idle-rate defect is repaired in the 2026-10-06 phone follow-up above; broader C7 device/traffic proof remains separate.
 
 - **`BindingAdapters` — stat formatters**
   Added: `tunnelRx`, `tunnelTx`, `tunnelRxRate`, `tunnelTxRate`, `tunnelHandshake`, `tunnelCipher`, `tunnelRoute`, `tunnelPeerBadge`, `shortKey`.

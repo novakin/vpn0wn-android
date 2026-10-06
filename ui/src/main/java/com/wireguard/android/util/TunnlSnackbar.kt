@@ -25,6 +25,7 @@ object TunnlSnackbar {
             setStroke((1f * density).toInt().coerceAtLeast(1), ContextCompat.getColor(context, R.color.tunnl_rule_strong))
         }
 
+        snackbar.setBackgroundTintList(null)
         snackbar.view.background = background
         snackbar.view.elevation = 6f * density
         if (snackbar.view.layoutParams is ViewGroup.MarginLayoutParams) {

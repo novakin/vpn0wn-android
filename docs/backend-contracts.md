@@ -87,7 +87,9 @@ Command success is limited to the requested operation's effective postconditions
 
 `VpsDeployMapper` maps incomplete endpoint/CIDR to PROVISIONING. Complete records need a positive, nonfuture sync timestamp at most 600 seconds old: running true maps ONLINE, false OFFLINE and null ATTENTION. Missing, future or older timestamps map ATTENTION regardless of old running evidence. Recent-sync and running health checks express separate facts; stale running health is unknown. ONLINE means recently observed interface presence, not a successful handshake, route, NAT, DNS or packet test. Peer ACTIVE requires running true and a nonfuture positive handshake at most 180 seconds old; unavailable counters render as an em dash.
 
-UI presentation must use actual selected/view-owned data. Abbreviated keys remain display-only; copy/export/QR need the complete authorized payload. RX/TX rates depend on new snapshots and elapsed time; idle traffic cannot retain a prior nonzero rate indefinitely.
+UI presentation must use actual selected/view-owned data. Abbreviated keys remain display-only; copy/export/QR need the complete authorized payload. The manager publishes the resolved transition target before entering `TOGGLE`. A pending disconnect renders DOWN with its switch off and disabled; a pending connect renders CONNECTING with its switch on and disabled. Settlement clears the target, including failed-disconnect restoration to observed UP. State is updated before statistics-clear notifications so bindings cannot briefly classify a disconnect as connecting.
+
+RX/TX bindings share one cached result for each `Statistics` snapshot. A fresh snapshot with unchanged counters publishes zero after the minimum sample interval; repeated reads of that same snapshot retain its result. Rapid snapshots accumulate traffic until that interval, counter rollback restarts the baseline, and absent statistics clears the baseline for reconnect. These are display calculations, not packet-health proof. See [regression and device evidence](development.md#phone-ui-and-throughput-follow-up--2026-10-06).
 
 ## Verification boundaries
 
