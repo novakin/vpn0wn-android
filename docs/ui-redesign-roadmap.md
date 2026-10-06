@@ -6,7 +6,7 @@ Last updated: 2026-10-06 (Europe/Paris).
 
 Reference: `.design/` — React/JSX prototype for **Tunnl**, a WireGuard tunnel manager with an engineering-console visual language. Read-only. Never modify.
 
-Prototype sections below describe visual targets, not implemented Android guarantees. Current-source reconciliation uses committed `11d4a9b1`; the Done ledger also retains superseded implementation history. Read the explicit gaps and [full documentation review](reviews/2026-10-06-full-documentation-review.md) for evidence limits.
+Prototype sections below describe visual targets, not implemented Android guarantees. Initial committed-source reconciliation used `11d4a9b1`; the Done ledger also retains superseded implementation history. Read the explicit gaps and [full documentation review](reviews/2026-10-06-full-documentation-review.md) for evidence limits.
 
 | File | Contents |
 |------|----------|
@@ -447,7 +447,7 @@ This is a historical implementation ledger, not newly executed build/device proo
 - [x] Log filter behavior fixed: switching log categories now jumps to the latest matching line instead of leaving the list at an arbitrary older position.
 - [x] Home header controls added: the stock `WireGuard` action bar is hidden on the root list screen, and the custom summary row carries Search, Logs and Settings icons. #22 removes the no-op Search handler and disables the button until real filtering is implemented; see the remaining gap below.
 - [x] Launch/splash background aligned to Tunnl theme: the adaptive icon background color used on the launch screen now matches `tunnl_paper` instead of the old WireGuard red.
-- [x] Home top inset handling moved to code: the custom home header now applies status-bar padding internally via `WindowInsets`, instead of reserving a separate empty band above the header with `fitsSystemWindows`.
+- [x] Earlier Home inset handling moved status-bar padding into the header. Superseded by shared `BaseActivity.applySafeAreaInsets` ownership in the 2026-10-06 phone follow-up below.
 - [x] Log header controls refined: refresh restart is generation-safe to avoid crashes when restarting `logcat`, and the share action now uses the JSX-style upload/share outline icon.
 - [x] **4-state tunnel status system** — shared `BindingAdapters.tunnelMode()` drives labels, rails, status surfaces and animation: recent-handshake UP, TOGGLE/initial no-handshake grace, no-signal after grace or age ≥180s, and DOWN. These are display heuristics, not complete VPN-health proof. Connecting animation runs at 900ms and travels halfway; no-signal is static red.
 - [x] Tunnel list row state invalidation fixed: signal animation, rail, status label, stats visibility, and switch tint now explicitly bind to `item.state` and `item.statistics`, preventing recycled/stale rows from keeping the old tunnel's active animation or stats after switching servers.
@@ -457,6 +457,7 @@ This is a historical implementation ledger, not newly executed build/device proo
 - [x] **Editor header — 2026-10-06:** the editor retains its form/DataBinding/Fragment architecture and replaces the visible upstream `WireGuard β` ActionBar with the JSX `EditorScreen` header: EDIT or CREATE · MANUAL, current tunnel/new-tunnel title, Close, and labeled Save. Main/Creator hide the native bar; both save entry points use the same validation, cancellation and persistence callbacks. English/French labels are supplied; other locales fall back. Close/Save retain 48dp targets.
 - [x] **Home Add footer — 2026-10-06:** `tunnel_list_fragment.xml` reserves a fixed 48dp Add row beneath the weighted list instead of overlaying tunnel statistics. Shared activity insets keep the footer clear of gesture navigation; list content remains scrollable in short landscape configurations.
 - [x] **Readable, consistent phone feedback — 2026-10-06:** `TunnlSnackbar.style` clears Material's inverse-surface tint before installing the dark background. Save/create success is shown on the surviving Main/list view, including an activity-result message from Creator. Foreground settings launch/tile errors and app-list loading errors use the same style. TV, external actions, detached-view fallbacks, background tile results and the corrupt-updater exit flow retain native Toasts where an app Snackbar cannot reliably remain visible. See [feedback handling](operations.md#import-edit-and-connect) and [verification](development.md#phone-ui-and-throughput-follow-up--2026-10-06).
+- [x] **Home header accessibility — 2026-10-06:** the existing Search/Logs/Settings row and button bounds are 48dp, preserving the existing 16dp icon area. Extra inter-button margins are removed, and relative horizontal padding aligns the outer glyphs inward after the user reported excessive spacing. Visible centers remain 38dp apart, matching the earlier 32dp buttons plus 6dp gaps, while the 48dp native targets remain adjacent without overlapping. Search retains its accessible label and DataBinding-disabled state, with alpha 0.38 communicating unavailability. The larger native targets intentionally adapt the prototype's 32px buttons for Android; navigation and real Search implementation are unchanged. [Issue #30](https://github.com/novakin/wireguard-android/issues/30) owns delivery; [verification](development.md#home-header-touch-targets--2026-10-06) records actual proof and limits.
 - [x] Detail screen state invalidation fixed: topology mode, status card stroke/dot/title/subtitle, stats visibility, throughput animation, and detail switch tint now explicitly bind to `tunnel.state` and `tunnel.statistics` instead of relying on a single `tunnel` object reference.
 - [x] Home protection display now requires a recent newest-peer handshake rather than state UP alone; connecting/no-signal colors use amber/red. Aggregation accepts any qualifying tunnel and does not prove full traffic protection.
 - [x] Tunnl transient message styling added: app Snackbars now use the dark prototype toast treatment (`paper_2` surface, rule border, 8dp radius, mono text, signal dot, signal action text) via shared `TunnlSnackbar.tunnlStyle()`.
@@ -478,7 +479,6 @@ This is a historical implementation ledger, not newly executed build/device proo
 
 ### Fidelity Gaps — Remaining
 
-- [~] **Home header touch targets and disabled Search appearance** — the existing 32dp controls sit in a 24dp row. [Issue #30](https://github.com/novakin/wireguard-android/issues/30) owns unobscured 48dp targets and visibly disabled Search treatment; Search functionality remains separate.
 - [~] **Home search remains unimplemented** — `tunnel_list_fragment.xml` explicitly disables Search through DataBinding (`android:enabled="@{false}"`); the packaged literal flag alone left it enabled on the physical Android 16 phone. `TunnelListFragment` no longer exposes a no-op handler. Implement actual filtering through the existing list owner before enabling it. #22 keeps rendering geometry/paint values unchanged with local static exceptions; scoped [phone checks](development.md#phone-ui-and-throughput-follow-up--2026-10-06) do not establish the full screenshot/support matrix.
 
 - [~] **Canvas typography/static label gaps** — `TunnelThroughputView` still uses platform monospace, dp-based text sizes and hardcoded `MTU 1420`. Text-style features do not establish Canvas fidelity or large-font accessibility; C10 owns proof and correction.
@@ -519,7 +519,6 @@ This is a historical implementation ledger, not newly executed build/device proo
 - [ ] Add `ADD TUNNEL · CHOOSE SOURCE` header label and drag handle.
 
 **Editor:**
-- [ ] Custom TopBar with explicit × Close button (left) and SAVE pill button (right); hide ActionBar.
 - [ ] ADD PEER button: MaterialButton stroke is solid — true dashed border requires custom drawable background (minor gap).
 
 **Settings:**

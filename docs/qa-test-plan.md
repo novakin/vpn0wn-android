@@ -140,7 +140,9 @@ Required before merging UI or backend provisioning work.
 
 ## Source-inspected Coverage
 
-Source contains 27 test classes and 158 test methods: UI 24/142, tunnel 3/16, including merged #14/#13/#16/#15, the local #22 suites and the phone follow-up. The shared TunnelTestEnvironment fixture is not a test suite. This is an inventory, not an execution total. Guard tests use fake execute calls for timeout, I/O failure and cancellation propagation; they do not prove an entered SSH command, upload timeout or actual channel/session closure. Robolectric also covers detail-fragment selection/destruction and kernel-preference failure recovery; whole-app navigation/rendered-row proof remains separate.
+The phone presentation, Creator result and Snackbar tint suites are described under [JVM unit tests](#jvm-unit-tests); they are included in the inventory below.
+
+Source contains 27 test classes and 158 test methods: UI 24/142, tunnel 3/16, including merged #14/#13/#16/#15, the merged #22 suites and the phone follow-up. The shared TunnelTestEnvironment fixture is not a test suite. This is an inventory, not an execution total. Guard tests use fake execute calls for timeout, I/O failure and cancellation propagation; they do not prove an entered SSH command, upload timeout or actual channel/session closure. Robolectric also covers detail-fragment selection/destruction and kernel-preference failure recovery; whole-app navigation/rendered-row proof remains separate.
 
 `TunnelManagerTest` covers admitted/queued transitions, deletion/config failure recovery, cancelled initialization, stale state snapshots/native notifications, restoration intent and backend-switch admission/rollback. `ApplicationBackendLifecycleTest` proves cancellation before initializer execution settles backend waiters. `TunnelDetailLifecycleTest` covers reversed/cleared config selections and destroyed views; delayed statistics guards are source reviewed without a dedicated regression. `KernelModuleEnablerPreferenceTest` checks failed shutdown restores its setting/control. `GoBackendLifecycleTest` covers prompt destruction while its lock is held, dead-service rejection/future replacement, cleanup identity/callback ordering and preflight compatibility/protection/interruption. Synthetic owner/native-call shadows exercise no successful native activation, real VPN traffic, process exit or device lifecycle. See [development evidence](development.md#tunnel-lifecycle-and-transition-settlement--2026-10-06).
 
@@ -176,7 +178,7 @@ This roadmap covers the whole app, not only the VPS fleet. Do not move items fro
 
 ### Phase 1 — Stabilize Current Baseline
 
-- Keep runtime fixes and QA test additions separated by branch or commit so regressions can be bisected cleanly.
+- Keep each runtime fix with its focused regression controls and affected documentation. Separate unrelated QA framework or broad coverage expansion into another branch or commit.
 - Run `:ui:testDebugUnitTest` after test or runtime changes that affect app logic.
 - Run full `:ui:assembleDebug` only when explicitly requested, per project build policy.
 - Treat remaining untested behavior as residual regression risk; the current suite reduces risk but does not prove no regressions exist.

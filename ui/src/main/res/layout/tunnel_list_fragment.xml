@@ -50,7 +50,7 @@
 
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="24dp"
+                    android:layout_height="48dp"
                     android:gravity="center_vertical"
                     android:orientation="horizontal">
 
@@ -64,36 +64,39 @@
                         app:homeHeaderTunnels="@{tunnels}"
                         tools:text="Vpn0wn · 3 CONFIGURED · ACTIVE" />
 
+                    <!-- Keep compact glyph spacing without overlapping the 48dp native touch targets. -->
                     <androidx.appcompat.widget.AppCompatImageButton
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:layout_marginStart="6dp"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:alpha="0.38"
                         android:background="@android:color/transparent"
                         android:contentDescription="@string/search"
                         android:enabled="@{false}"
-                        android:padding="8dp"
+                        android:padding="16dp"
+                        android:paddingStart="26dp"
+                        android:paddingEnd="6dp"
                         app:srcCompat="@drawable/ic_tunnl_search"
                         app:tint="@color/tunnl_ink_2" />
 
                     <androidx.appcompat.widget.AppCompatImageButton
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:layout_marginStart="6dp"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
                         android:background="@android:color/transparent"
                         android:contentDescription="@string/log_viewer_title"
                         android:onClick="@{fragment::onOpenLogs}"
-                        android:padding="8dp"
+                        android:padding="16dp"
                         app:srcCompat="@drawable/ic_tunnl_logs"
                         app:tint="@color/tunnl_ink_2" />
 
                     <androidx.appcompat.widget.AppCompatImageButton
-                        android:layout_width="32dp"
-                        android:layout_height="32dp"
-                        android:layout_marginStart="6dp"
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
                         android:background="@android:color/transparent"
                         android:contentDescription="@string/settings"
                         android:onClick="@{fragment::onOpenSettings}"
-                        android:padding="8dp"
+                        android:padding="16dp"
+                        android:paddingStart="6dp"
+                        android:paddingEnd="26dp"
                         app:srcCompat="@drawable/ic_tunnl_settings"
                         app:tint="@color/tunnl_ink_2" />
                 </LinearLayout>
