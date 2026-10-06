@@ -36,6 +36,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -74,7 +75,7 @@ class Application : android.app.Application() {
                 backend = wgQuickBackend
                 UserKnobs.multipleTunnels.onEach {
                     wgQuickBackend.setMultipleTunnels(it)
-                }.launchIn(coroutineScope)
+                }.flowOn(Dispatchers.IO).launchIn(coroutineScope)
             } catch (e: CancellationException) {
                 throw e
             } catch (ignored: Exception) {

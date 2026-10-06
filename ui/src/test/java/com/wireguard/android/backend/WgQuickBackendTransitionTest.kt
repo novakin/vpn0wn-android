@@ -1,0 +1,297 @@
+package com.wireguard.android.backend
+
+import android.app.Application
+import android.content.Context
+import android.content.ContextWrapper
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
+import androidx.test.core.app.ApplicationProvider
+import com.wireguard.android.model.TunnelTestEnvironment
+import com.wireguard.android.util.RootShell
+import com.wireguard.android.util.ToolsInstaller
+import com.wireguard.android.util.UserKnobs
+import java.io.File
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.coroutines.Continuation
+import kotlin.coroutines.intrinsics.COROUTINE_SUSPENDED
+import kotlin.coroutines.resume
+import kotlin.coroutines.suspendCoroutine
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
+import org.junit.After
+import org.junit.Assert.*
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.Implementation
+import org.robolectric.annotation.Implements
+import org.robolectric.annotation.RealObject
+import org.robolectric.shadow.api.Shadow
+
+@RunWith(RobolectricTestRunner::class)
+@Config(application = Application::class, sdk = [28], shadows = [WgQuickBackendTransitionTest.ToolsShadow::class, WgQuickBackendTransitionTest.KernelSupportShadow::class])
+@OptIn(ExperimentalCoroutinesApi::class)
+class WgQuickBackendTransitionTest {
+    @get:Rule val folder = TemporaryFolder()
+    private lateinit var shell: SimulatedRootShell
+    private lateinit var backend: WgQuickBackend
+    private val profile = TunnelTestEnvironment.profile()
+
+    @After
+    fun resetMain() = Dispatchers.resetMain()
+
+    @Before
+    fun setUp() {
+        KernelSupportShadow.supported = true
+        ToolsShadow.calls.set(0)
+        ToolsShadow.blockAtCall = 0
+        ToolsShadow.entered = CountDownLatch(1)
+        ToolsShadow.release = CountDownLatch(1)
+        val context = object : ContextWrapper(ApplicationProvider.getApplicationContext<Context>()) {
+            override fun getCacheDir(): File = folder.root
+        }
+        assertTrue(File(folder.root, "tmp").mkdir())
+        shell = SimulatedRootShell(context)
+        backend = WgQuickBackend(context, shell, ToolsInstaller(context, shell))
+        assertSame(backend, Shadow.extract<KernelSupportShadow>(backend).realBackend)
+    }
+
+    @Test
+    fun concurrentUpKeepsOnlyOneTunnelWhenMultipleModeIsDisabled() = concurrentUp(false)
+
+    @Test
+    fun concurrentUpRetainsBothTunnelsWhenMultipleModeIsEnabled() = concurrentUp(true)
+
+    private fun concurrentUp(multiple: Boolean) {
+        backend.setMultipleTunnels(multiple)
+        ToolsShadow.blockAtCall = 2
+        val first = NamedTunnel("first")
+        val second = NamedTunnel("second")
+        val executor = Executors.newFixedThreadPool(2)
+        try {
+            val firstUp = executor.submit<Tunnel.State> { backend.setState(first, Tunnel.State.UP, profile) }
+            assertTrue(ToolsShadow.entered.await(5, TimeUnit.SECONDS))
+            val contenderStarted = CountDownLatch(1)
+            val secondUp = executor.submit<Tunnel.State> {
+                contenderStarted.countDown()
+                backend.setState(second, Tunnel.State.UP, profile)
+            }
+            assertTrue(contenderStarted.await(5, TimeUnit.SECONDS))
+            assertThrows(TimeoutException::class.java) { secondUp.get(500, TimeUnit.MILLISECONDS) }
+            ToolsShadow.release.countDown()
+            assertEquals(Tunnel.State.UP, firstUp.get(5, TimeUnit.SECONDS))
+            assertEquals(Tunnel.State.UP, secondUp.get(5, TimeUnit.SECONDS))
+            val expected = if (multiple) setOf("first", "second") else setOf("second")
+            assertEquals(expected, backend.runningTunnelNames)
+            assertEquals(if (multiple) Tunnel.State.UP else Tunnel.State.DOWN, backend.getState(first))
+            assertEquals(if (multiple) Tunnel.State.UP else Tunnel.State.DOWN, first.observedState)
+            assertEquals(Tunnel.State.UP, backend.getState(second))
+            assertEquals(Tunnel.State.UP, second.observedState)
+        } finally {
+            ToolsShadow.release.countDown()
+            executor.shutdownNow()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+        }
+    }
+
+    @Test
+    fun liveMultipleSettingDoesNotBlockMainBehindTransition() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val env = TunnelTestEnvironment(folder.root, backgroundScope)
+        val app = env.application
+        for ((name, value) in mapOf("rootShell" to shell, "toolsInstaller" to ToolsInstaller(app, shell)))
+            com.wireguard.android.Application::class.java.getDeclaredField(name)
+                .apply { isAccessible = true }.set(app, value)
+        UserKnobs.setEnableKernelModule(true)
+        val kernel = suspendCoroutine<Backend> { continuation ->
+            val result = com.wireguard.android.Application::class.java
+                .getDeclaredMethod("determineBackend", Continuation::class.java)
+                .apply { isAccessible = true }.invoke(app, continuation)
+            if (result !== COROUTINE_SUSPENDED) continuation.resume(result as Backend)
+        } as WgQuickBackend
+        assertEquals(1, shell.startCalls)
+        val held = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val executor = Executors.newSingleThreadExecutor()
+        val transition = executor.submit {
+            synchronized(kernel) {
+                held.countDown()
+                assertTrue(release.await(5, TimeUnit.SECONDS))
+            }
+        }
+        try {
+            assertTrue(withContext(Dispatchers.IO) { held.await(5, TimeUnit.SECONDS) })
+            val start = System.nanoTime()
+            com.wireguard.android.Application.getPreferencesDataStore().edit {
+                it[booleanPreferencesKey("multiple_tunnels")] = true
+            }
+            runCurrent()
+            withContext(Dispatchers.IO) { Thread.sleep(100) }
+            runCurrent()
+            assertTrue("Main blocked behind kernel transition", System.nanoTime() - start < TimeUnit.SECONDS.toNanos(1))
+            release.countDown()
+            withContext(Dispatchers.IO) { transition.get(5, TimeUnit.SECONDS) }
+            val setting = WgQuickBackend::class.java.getDeclaredField("multipleTunnels").apply { isAccessible = true }
+            assertTrue(withContext(Dispatchers.IO) {
+                val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2)
+                while (System.nanoTime() < deadline) {
+                    if (synchronized(kernel) { setting.getBoolean(kernel) }) return@withContext true
+                    Thread.sleep(10)
+                }
+                false
+            })
+        } finally {
+            release.countDown()
+            executor.shutdownNow()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+        }
+    }
+
+    @Test
+    fun failedActivationRestoresPreviousTunnel() {
+        val first = NamedTunnel("first")
+        val second = NamedTunnel("second")
+        backend.setState(first, Tunnel.State.UP, profile)
+        shell.failUp["second"] = 1
+        assertThrows(BackendException::class.java) { backend.setState(second, Tunnel.State.UP, profile) }
+        assertEquals(setOf("first"), backend.runningTunnelNames)
+        assertEquals(Tunnel.State.UP, backend.getState(first))
+        assertEquals(Tunnel.State.DOWN, backend.getState(second))
+        assertEquals(profile.toWgQuickString(), shell.applied["first"])
+    }
+
+    @Test
+    fun rollbackFailureIsAttachedAndObservedStateRemainsDown() {
+        val first = NamedTunnel("first")
+        val second = NamedTunnel("second")
+        backend.setState(first, Tunnel.State.UP, profile)
+        shell.failUp["second"] = 1
+        shell.failUp["first"] = 1
+        val failure = assertThrows(BackendException::class.java) { backend.setState(second, Tunnel.State.UP, profile) }
+        assertEquals(1, failure.suppressed.size)
+        assertTrue(failure.suppressed.single() is BackendException)
+        assertTrue(backend.runningTunnelNames.isEmpty())
+        assertEquals(Tunnel.State.DOWN, backend.getState(first))
+        assertEquals(Tunnel.State.DOWN, backend.getState(second))
+    }
+
+    @Test
+    fun failedShutdownDoesNotActivateReplacement() {
+        val first = NamedTunnel("first")
+        val second = NamedTunnel("second")
+        backend.setState(first, Tunnel.State.UP, profile)
+        shell.failDown["first"] = 1
+        assertThrows(BackendException::class.java) { backend.setState(second, Tunnel.State.UP, profile) }
+        assertEquals(setOf("first"), backend.runningTunnelNames)
+        assertEquals(Tunnel.State.UP, backend.getState(first))
+        assertEquals(Tunnel.State.DOWN, backend.getState(second))
+        assertFalse(shell.events.contains("up:second"))
+    }
+
+    @Test
+    fun failedConfigUpdateRestoresOriginalConfig() {
+        val tunnel = NamedTunnel("one")
+        backend.setState(tunnel, Tunnel.State.UP, profile)
+        shell.failUp["one"] = 1
+        val replacement = TunnelTestEnvironment.profile(51821)
+        assertThrows(BackendException::class.java) { backend.setState(tunnel, Tunnel.State.UP, replacement) }
+        assertEquals(setOf("one"), backend.runningTunnelNames)
+        assertEquals(profile.toWgQuickString(), shell.applied["one"])
+    }
+
+    private class NamedTunnel(private val name: String) : Tunnel {
+        var observedState = Tunnel.State.DOWN
+            private set
+        override fun getName(): String = name
+        override fun onStateChange(newState: Tunnel.State) {
+            observedState = newState
+        }
+    }
+
+    private class SimulatedRootShell(context: Context) : RootShell(context) {
+        private val commandLock = Any()
+        private val running = linkedSetOf<String>()
+        val applied = mutableMapOf<String, String>()
+        val failUp = mutableMapOf<String, Int>()
+        val failDown = mutableMapOf<String, Int>()
+        val events = mutableListOf<String>()
+        var startCalls = 0
+            private set
+
+        override fun start() {
+            startCalls++
+        }
+
+        override fun run(output: MutableCollection<String>?, command: String): Int = synchronized(commandLock) {
+            if (command == "wg show interfaces") {
+                if (running.isNotEmpty()) output?.add(running.joinToString(" "))
+                return@synchronized 0
+            }
+            val match = Regex("wg-quick (up|down) '([^']+)'").find(command)
+                ?: error("Unexpected fixture command")
+            val direction = match.groupValues[1]
+            val file = File(match.groupValues[2])
+            val name = file.name.removeSuffix(".conf")
+            events.add("$direction:$name")
+            val faults = if (direction == "up") failUp else failDown
+            val remaining = faults[name] ?: 0
+            if (remaining > 0) {
+                faults[name] = remaining - 1
+                return@synchronized 7
+            }
+            if (direction == "up") {
+                running.add(name)
+                applied[name] = file.readText()
+            } else {
+                running.remove(name)
+                applied.remove(name)
+            }
+            0
+        }
+    }
+
+    @Implements(ToolsInstaller::class)
+    class ToolsShadow {
+        @Implementation
+        fun ensureToolsAvailable() {
+            if (calls.incrementAndGet() == blockAtCall) {
+                entered.countDown()
+                assertTrue(release.await(5, TimeUnit.SECONDS))
+            }
+        }
+
+        companion object {
+            val calls = AtomicInteger()
+            var blockAtCall = 0
+            lateinit var entered: CountDownLatch
+            lateinit var release: CountDownLatch
+        }
+    }
+
+    @Implements(WgQuickBackend::class)
+    class KernelSupportShadow {
+        @RealObject
+        lateinit var realBackend: WgQuickBackend
+
+        companion object {
+            var supported = false
+            @Implementation
+            @JvmStatic
+            fun hasKernelSupport(): Boolean = supported
+        }
+    }
+}
