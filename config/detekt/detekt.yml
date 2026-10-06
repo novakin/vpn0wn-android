@@ -5,8 +5,6 @@ potential-bugs:
   active: true
   UnsafeCallOnNullableType:
     active: true
-  AvoidReferenceToMutableVar:
-    active: true
 
 exceptions:
   active: true
