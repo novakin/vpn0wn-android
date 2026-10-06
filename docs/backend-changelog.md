@@ -48,6 +48,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **Atomic local profile replacement — 2026-10-06**
+  `FileConfigStore.create`/`save` stage private writes, sync/close before native atomic rename and propagate commit errors. All store operations serialize through the existing owner; rename no longer creates a destination marker. Previous valid configs survive injected partial-write/rename failures, failed creates publish no profile, and conflicting mutations retain ownership. See [contracts](backend-contracts.md#persistence-and-presentation) and [development evidence](development.md#atomic-local-profile-replacement--2026-10-06). Android filesystem/power-loss proof remains separate.
+
 - **Detekt configuration validation — 2026-10-06**
   `config/detekt/detekt.yml` removes the unsupported `AvoidReferenceToMutableVar` property for pinned Detekt 1.23.8. Native analysis now runs and reports existing source findings instead of failing config validation. [Issue #22](https://github.com/novakin/wireguard-android/issues/22) owns the 538 findings; the source gate still exits 1. See [development evidence](development.md#detekt-configuration-repair--2026-10-06).
 

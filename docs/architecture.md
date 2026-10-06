@@ -20,6 +20,7 @@ Preserve the existing Android DataBinding/Fragment foundation and upstream WireG
 | [Provisioning client](../ui/src/main/java/com/wireguard/android/provisioning/TunnlProvisioningClient.kt), models and script bundle | Remote orchestration, argument construction, packaged script upload and typed result parsing. |
 | [Remote-shell boundary](../ui/src/main/java/com/wireguard/android/provisioning/RemoteShellClient.kt) | Transport factory and guarded execute/upload; concrete SSH/session implementation is still missing. |
 | [VPS store](../ui/src/main/java/com/wireguard/android/provisioning/VpsServerStore.kt), [mapper](../ui/src/main/java/com/wireguard/android/provisioning/VpsDeployMapper.kt) | Transactional non-secret fleet records and projection into UI models. |
+| [FileConfigStore](../ui/src/main/java/com/wireguard/android/configStore/FileConfigStore.kt) | Serialized local profile operations; private staged writes, file sync and native atomic rename preserve prior valid configs on failed updates. |
 | [Tunnl scripts](../third_party/wireguard-install/tunnl/README.md) | Ubuntu/Debian operations, C2–C3 ownership/serialized recovery and C4 producer/consumer contracts; real-server proof remains separate. |
 
 ## Runtime flows
@@ -52,7 +53,7 @@ The provisioning client and scripts exist, while concrete SSH, protected credent
 
 ## Boundaries and invariants
 
-These are required maintenance invariants, not guarantees that all current owners already meet them. `VpsServerStore` uses DataStore transactions and nullable observed running health; `FileConfigStore` currently writes files directly without atomic replacement or transaction serialization. Transition/cancellation and config-persistence repairs remain open in the improvement plan.
+These are required maintenance invariants, not guarantees that all current owners already meet them. `VpsServerStore` uses DataStore transactions and nullable observed running health; `FileConfigStore` serializes operations and commits synced staged files through native atomic rename. Transition/cancellation repairs remain open in the improvement plan; local profile guarantees and filesystem limits are defined below and in the backend contracts.
 
 - `.design/` supplies read-only visual intent; it does not establish runtime capability.
 - Config parsers and backends preserve supported WireGuard behavior. Do not invent another parser for generated/imported profiles.
@@ -66,6 +67,12 @@ These are required maintenance invariants, not guarantees that all current owner
 See [backend contracts](backend-contracts.md) for known divergences and [the plan](improvement-plan.md) for repair ownership.
 
 ## Consequential decisions
+
+### Local profiles commit through native atomic rename
+
+2026-10-06 (Europe/Paris), implemented for #14, pending merge. Truncating the sole `.conf` file can destroy a valid profile on write failure. The existing single FileConfigStore owner serializes all operations and stages writes in its private files directory; successful file sync/close precedes Android `Os.rename` on the same filesystem. Rename errors propagate as IO failures. Create publishes no marker; conflicting names retain existing data. Names and wg-quick file format do not migrate.
+
+Android/AndroidX AtomicFile helpers were considered, but their finish methods log some sync/rename failures without reporting them to the store caller. Native rename preserves observable commit failure at the existing owner without another persistence layer. Tests inject partial writes and rename failure through the existing Context and a Robolectric native-call shadow. This is JVM/file ordering proof, not Android filesystem or power-loss proof; directory durability, process death leaving an ignored private `.tmp`, external writers and multiple store instances remain outside the guarantee.
 
 ### Preserve the Android foundation
 
