@@ -64,8 +64,8 @@ class TunnlProvisioningClient(
         } finally {
             try {
                 client.execute("rm -rf ${remoteDir.shellQuote()}").requireSuccess()
-            } catch (e: ProvisioningException) {
-                Log.d(TAG, "Remote cleanup failed for provisioning temp dir", e)
+            } catch (_: ProvisioningException) {
+                Log.d(TAG, "Remote cleanup failed for provisioning temp dir")
             }
         }
     }

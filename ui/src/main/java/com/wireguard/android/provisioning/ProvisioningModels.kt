@@ -5,6 +5,7 @@
 package com.wireguard.android.provisioning
 
 import android.util.Log
+import org.json.JSONException
 import org.json.JSONObject
 
 data class VpsEndpoint(
@@ -37,9 +38,7 @@ data class ProvisioningCommandOutput(
 ) {
     fun requireSuccess(): ProvisioningCommandOutput {
         if (exitCode == 0) return this
-        val detail = stderr.ifBlank { stdout }.lineSequence().firstOrNull()?.take(180)
-        if (!detail.isNullOrBlank())
-            Log.d(TAG, "Command failed with exit code $exitCode: $detail")
+        Log.d(TAG, "Remote command failed with exit code $exitCode")
         throw ProvisioningException("Remote command failed with exit code $exitCode", this)
     }
 
@@ -248,9 +247,9 @@ object ProvisioningJson {
     private fun requireOk(stdout: String): JSONObject {
         val json = try {
             JSONObject(stdout.trim())
-        } catch (e: Throwable) {
-            Log.d(TAG, "Invalid JSON from server: ${stdout.take(180)}")
-            throw ProvisioningException("Remote command returned invalid JSON", cause = e)
+        } catch (_: JSONException) {
+            Log.d(TAG, "Remote command returned invalid JSON")
+            throw ProvisioningException("Remote command returned invalid JSON")
         }
         if (json.optBoolean("ok")) return json
         throw ProvisioningException("${json.optString("error")}: ${json.optString("message")}")

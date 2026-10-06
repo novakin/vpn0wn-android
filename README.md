@@ -1,8 +1,24 @@
 # Android GUI for [WireGuard](https://www.wireguard.com/)
 
-**[Download from the Play Store](https://play.google.com/store/apps/details?id=com.wireguard.android)**
+**[Official WireGuard app on the Play Store](https://play.google.com/store/apps/details?id=com.wireguard.android)**
 
 This is an Android GUI for [WireGuard](https://www.wireguard.com/). It [opportunistically uses the kernel implementation](https://git.zx2c4.com/android_kernel_wireguard/about/), and falls back to using the non-root [userspace implementation](https://git.zx2c4.com/wireguard-go/about/).
+
+This fork contains the Tunnl redesign and a partially implemented VPS fleet/provisioning flow. Native fleet screens render persisted records; concrete SSH transport and live provisioning actions remain unfinished. The official app link above does not distribute this fork.
+
+## Project documentation
+
+Tunnl redesign and functional work are tracked in:
+
+- [Architecture](docs/architecture.md): ownership, runtime flows and consequential decisions.
+- [Development](docs/development.md): setup, verification, issues, PR descriptions and merge workflow.
+- [Operations](docs/operations.md): current workflows, diagnostics and recovery limits.
+- [Backend contracts](docs/backend-contracts.md): configuration/transitions and provisioning arguments/results.
+- [Improvement plan](docs/improvement-plan.md): agent instructions, documentation/process, code repairs, reuse decisions and acceptance criteria.
+- [UI redesign roadmap](docs/ui-redesign-roadmap.md): visual specification, progress and fidelity gaps.
+- [Backend changelog](docs/backend-changelog.md): functional history and current integration gaps.
+- [QA test plan](docs/qa-test-plan.md): coverage requirements, verification layers and opt-in VPS validation.
+- [Font attribution](docs/font-attribution.md) and [provisioning upstream reference](third_party/wireguard-install/UPSTREAM.md).
 
 ## Building
 
