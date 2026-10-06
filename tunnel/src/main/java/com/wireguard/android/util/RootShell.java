@@ -90,7 +90,6 @@ public class RootShell {
             final String marker = UUID.randomUUID().toString();
             final String script = "echo " + marker + "; echo " + marker + " >&2; (" + command +
                     "); ret=$?; echo " + marker + " $ret; echo " + marker + " $ret >&2\n";
-            Log.v(TAG, "executing: " + command);
             stdin.write(script);
             stdin.flush();
             String line;
@@ -107,7 +106,6 @@ public class RootShell {
                 } else if (markersSeen > 0) {
                     if (output != null)
                         output.add(line);
-                    Log.v(TAG, "stdout: " + line);
                 }
             }
             while ((line = stderr.readLine()) != null) {
@@ -117,8 +115,6 @@ public class RootShell {
                         errnoStderr = Integer.valueOf(line.substring(marker.length() + 1));
                         break;
                     }
-                } else if (markersSeen > 2) {
-                    Log.v(TAG, "stderr: " + line);
                 }
             }
             if (markersSeen != 4)
@@ -161,13 +157,12 @@ public class RootShell {
                 // Check that the shell started successfully.
                 final String uid = stdout.readLine();
                 if (!"0".equals(uid)) {
-                    Log.w(TAG, "Root check did not return correct UID: " + uid);
+                    Log.w(TAG, "Root check did not return correct UID");
                     throw new RootShellException(Reason.NO_ROOT_ACCESS);
                 }
                 if (!isRunning()) {
                     String line;
                     while ((line = stderr.readLine()) != null) {
-                        Log.w(TAG, "Root check returned an error: " + line);
                         if (line.contains("Permission denied"))
                             throw new RootShellException(Reason.NO_ROOT_ACCESS);
                     }

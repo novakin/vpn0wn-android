@@ -38,6 +38,8 @@ Do not use invented success fixtures to hide producer/consumer drift. Add fixtur
 
 `ProvisioningCommandOutput` carries exit code/stdout/stderr. A zero exit passes `requireSuccess`; nonzero throws a category/exit-code exception while retaining the internal output for the responsible caller. Internal output may contain secrets and is not a diagnostic string.
 
+`RootShell.run()` preserves returned stdout, marker framing and exit status without logging commands or stream payloads. Root startup diagnostics also omit raw UID/error output. Provisioning command failures log only their exit code/category. Malformed JSON handling catches `JSONException` and throws a payload-free failure without retaining the parser cause, which may contain input. Cleanup warnings omit exception payloads and preserve the completed result. These boundaries are covered by the [C1 regression evidence](development.md#c1-secret-safe-logging--2026-10-06); arbitrary structured server error text and future transport diagnostics still need appropriate handling at their owner.
+
 JSON uses an `ok` Boolean. Structured failures use error/message fields; malformed JSON becomes a provisioning failure. Consumers currently use optional getters for many fields; missing data must not be mistaken for confirmed runtime health or completed mutations. C4 owns producer/consumer contract proof.
 
 The existing guarded shell boundary has a 30-second default execute/upload coroutine timeout, preserves cancellation and maps expected IO failures. Factory checks require a fingerprint when trust is disabled and at least one auth attempt. These are wrapper checks, not proof of host-key verification or real channel/session closure. C11 must implement and test those behaviors against the chosen SSH library.

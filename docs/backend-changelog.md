@@ -100,6 +100,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ### Runtime hardening
 
+- **`RootShell.run/start`, `ProvisioningCommandOutput.requireSuccess`, `ProvisioningJson.requireOk`, `TunnlProvisioningClient.withClient` — C1 secret-safe diagnostics**
+  Removed raw root-shell command/stdout/stderr and startup UID/error logging, provisioning failure output, malformed JSON payloads/parser causes and cleanup exception payloads. Returned output, successful profiles, marker protocol and exit behavior remain intact. Six synthetic logging regressions reproduced five baseline failures; repaired logging plus existing JSON/output tests passed all 21 tests without skips. See [development evidence](development.md#c1-secret-safe-logging--2026-10-06) for commands, environment and device/live limits. Previously written logs are not sanitized.
+
 - **Binding and log safety pass**
   `BindingAdapters.tunnelMode()` now synchronizes all access to the `connectingSince` `WeakHashMap`, home header/protection adapters share a single-pass tunnel mode aggregate, home exit labels avoid `InetEndpoint.resolved` DNS lookups on the main thread, and frequently updated status dot/rail drawables are reused through view tags. `LogViewerActivity` now marks `logProcess` volatile and revokes shared-log byte buffers with an explicit URI key guard.
 

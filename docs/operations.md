@@ -24,7 +24,7 @@ Switching the kernel/backend preference may shut down active tunnels before chan
 
 Use the in-app log viewer for relevant error categories and lifecycle events. A startup error, interface creation failure, service loss and lack of handshake have different causes. Record app revision, Android/backend, the triggering action and the smallest sanitized evidence.
 
-Never attach private keys, PSKs, passwords or a full generated/backup config to an issue. Existing root/provisioning logging defects are tracked by C1; historical exported logs may contain secret-bearing output. Review those logs before sharing. Fixing logging does not sanitize previously written files.
+Never attach private keys, PSKs, passwords or a full generated/backup config to an issue. C1 removes raw root-shell command/stdout/stderr logging, provisioning exit-failure payloads, malformed JSON payloads/parser causes and cleanup exception payloads. Internal command results still carry authorized output; do not stringify them into diagnostics. Historical log buffers and exported files may contain secret-bearing output. Review those logs before sharing; this fix does not sanitize previously written data or establish that every transport/server message is safe.
 
 Traffic-rate and selected-view races are tracked by C6–C7. A displayed nonzero rate or a recent sync alone cannot prove connectivity. Device/packet behavior needs relevant real observations; unit tests cannot supply that evidence.
 
