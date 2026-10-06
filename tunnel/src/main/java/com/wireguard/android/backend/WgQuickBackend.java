@@ -59,7 +59,7 @@ public final class WgQuickBackend implements Backend {
     }
 
     @Override
-    public Set<String> getRunningTunnelNames() {
+    public synchronized Set<String> getRunningTunnelNames() {
         final List<String> output = new ArrayList<>();
         // Don't throw an exception here or nothing will show up in the UI.
         try {
@@ -119,12 +119,12 @@ public final class WgQuickBackend implements Backend {
         return false;
     }
 
-    public void setMultipleTunnels(final boolean on) {
+    public synchronized void setMultipleTunnels(final boolean on) {
         multipleTunnels = on;
     }
 
     @Override
-    public State setState(final Tunnel tunnel, State state, @Nullable final Config config) throws Exception {
+    public synchronized State setState(final Tunnel tunnel, State state, @Nullable final Config config) throws Exception {
         final State originalState = getState(tunnel);
         final Config originalConfig = runningConfigs.get(tunnel);
         final Map<Tunnel, Config> runningConfigsSnapshot = new HashMap<>(runningConfigs);
@@ -148,7 +148,8 @@ public final class WgQuickBackend implements Backend {
                         for (final Pair<Tunnel, Config> entry : rewind) {
                             setStateInternal(entry.first, entry.second, State.UP);
                         }
-                    } catch (final Exception ignored) {
+                    } catch (final Exception recovery) {
+                        e.addSuppressed(recovery);
                     }
                     throw e;
                 }
@@ -167,7 +168,8 @@ public final class WgQuickBackend implements Backend {
                             setStateInternal(entry.getKey(), entry.getValue(), State.UP);
                         }
                     }
-                } catch (final Exception ignored) {
+                } catch (final Exception recovery) {
+                    e.addSuppressed(recovery);
                 }
                 throw e;
             }

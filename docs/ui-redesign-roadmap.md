@@ -402,7 +402,7 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
-- [x] Detail view/selection ownership — 2026-10-06: `TunnelDetailFragment` clears old config on selection, cancels view jobs on destruction and guards delayed config/statistics completions. #13 is implemented pending merge; this functional repair changes no visual specification. See [verification](development.md#tunnel-lifecycle-and-transition-settlement--2026-10-06).
+- [x] Detail view/selection ownership — 2026-10-06: `TunnelDetailFragment` clears old config on selection, cancels view jobs on destruction and guards delayed config/statistics completions. #13 merged in PR #25; this functional repair changes no visual specification. See [verification](development.md#tunnel-lifecycle-and-transition-settlement--2026-10-06).
 
 This is a historical implementation ledger, not newly executed build/device proof. Undated old build/XML/fidelity claims do not identify an independently reproducible revision/environment; retain that evidence limit rather than treating them as current validation.
 - [x] Created branch `ui-redesign`.
