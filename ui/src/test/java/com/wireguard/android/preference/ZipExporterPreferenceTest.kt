@@ -17,6 +17,7 @@ import java.io.File
 import java.io.IOException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.zip.ZipFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -46,6 +47,42 @@ class ZipExporterPreferenceTest {
     @After fun tearDown() = Dispatchers.resetMain()
 
     @Test
+    fun successfulExportPreservesProfilesAndRestoresControl() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val env = TunnelTestEnvironment(folder.root, backgroundScope)
+        val profile = TunnelTestEnvironment.profile()
+        env.manager.create("one", profile)
+        env.manager.create("two", profile)
+        val controller = Robolectric.buildActivity(SettingsActivity::class.java)
+        val activity = controller.get().apply { setTheme(R.style.AppTheme) }
+        controller.create()
+        val output = folder.newFile("export.zip")
+        val provider = ExportProvider(output, writable = true)
+        provider.attachInfo(activity, ProviderInfo().apply { authority = "media" })
+        ShadowContentResolver.registerProviderInternal("media", provider)
+        val preference = ZipExporterPreference(activity, null)
+        runCurrent()
+        try {
+            val priorJobs = activity.lifecycleScope.coroutineContext[Job]!!.children.toSet()
+            preference.isEnabled = false
+            ZipExporterPreference::class.java.getDeclaredMethod("exportZip")
+                .apply { isAccessible = true }.invoke(preference)
+            activity.lifecycleScope.coroutineContext[Job]!!.children.single { it !in priorJobs }.join()
+            assertTrue(preference.isEnabled)
+            assertEquals(activity.getString(R.string.zip_export_success, output.absolutePath), preference.summary)
+            ZipFile(output).use { zip ->
+                assertEquals(listOf("one.conf", "two.conf"), zip.entries().asSequence().map { it.name }.toList())
+                for (name in listOf("one.conf", "two.conf"))
+                    assertEquals(profile.toWgQuickString(), zip.getInputStream(zip.getEntry(name)).bufferedReader().use { it.readText() })
+            }
+            assertEquals(0, provider.cleanupAttempts)
+        } finally {
+            controller.destroy()
+            env.application.onTerminate()
+        }
+    }
+
+    @Test
     fun failedWriteRetainsPrimaryFailureAndCleanupErrorAndRestoresControl() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val env = TunnelTestEnvironment(folder.root, backgroundScope)
@@ -53,7 +90,7 @@ class ZipExporterPreferenceTest {
         val controller = Robolectric.buildActivity(SettingsActivity::class.java)
         val activity = controller.get().apply { setTheme(R.style.AppTheme) }
         controller.create()
-        val provider = FailingOutputProvider(folder.newFile("export.zip"))
+        val provider = ExportProvider(folder.newFile("export.zip"))
         provider.attachInfo(activity, ProviderInfo().apply { authority = "media" })
         ShadowContentResolver.registerProviderInternal("media", provider)
         val preference = ZipExporterPreference(activity, null)
@@ -122,14 +159,14 @@ class ZipExporterPreferenceTest {
         }
     }
 
-    private class FailingOutputProvider(private val file: File) : ContentProvider() {
+    private class ExportProvider(private val file: File, private val writable: Boolean = false) : ContentProvider() {
         private val uri = Uri.parse("content://media/external/downloads/1")
         var cleanupAttempts = 0
         override fun onCreate() = true
         override fun getType(uri: Uri) = "application/zip"
         override fun insert(uri: Uri, values: ContentValues?) = this.uri
         override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor =
-            ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
+            ParcelFileDescriptor.open(file, if (writable) ParcelFileDescriptor.MODE_WRITE_ONLY else ParcelFileDescriptor.MODE_READ_ONLY)
         override fun query(uri: Uri, projection: Array<out String>?, selection: String?, selectionArgs: Array<out String>?, sortOrder: String?): Cursor =
             MatrixCursor(arrayOf(MediaStore.MediaColumns.DATA)).apply { addRow(arrayOf(file.absolutePath)) }
         override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int {
