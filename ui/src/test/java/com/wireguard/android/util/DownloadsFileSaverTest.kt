@@ -15,7 +15,10 @@ import android.os.ParcelFileDescriptor
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.activity.ComponentActivity
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.app.ActivityOptionsCompat
 import java.io.File
 import java.io.IOException
 import java.io.OutputStream
@@ -34,6 +37,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertSame
+import org.junit.Assert.assertNotNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -340,6 +344,45 @@ class DownloadsFileSaverTest {
             retry.join()
             assertEquals(File(directory, "download.zip").absolutePath, result)
             assertTrue(File(directory, "download.zip").exists())
+        }
+    }
+
+    @Test
+    @Config(sdk = [28])
+    fun rejectedPermissionLaunchDoesNotLeaveRetryWaitingForever() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        withLegacy { saver, activity, directory ->
+            shadowOf(activity).denyPermissions(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            val field = DownloadsFileSaver::class.java.getDeclaredField("activityResult").apply { isAccessible = true }
+            @Suppress("UNCHECKED_CAST") val original = field.get(saver) as ActivityResultLauncher<String>
+            var attempts = 0
+            field.set(saver, object : ActivityResultLauncher<String>() {
+                override val contract: ActivityResultContract<String, *> = original.contract
+                override fun unregister() = original.unregister()
+                override fun launch(input: String, options: ActivityOptionsCompat?) {
+                    attempts++
+                    check(attempts != 1) { "fixture launch rejection" }
+                    original.launch(input, options)
+                }
+            })
+            val failure = failureOf { saver.save("download.zip", null, true) {} }
+            assertEquals("fixture launch rejection", failure.message)
+            var result: String? = "pending"
+            val retry = launch { result = saver.save("download.zip", null, true) {} }
+            runCurrent()
+            try {
+                val request = shadowOf(activity).lastRequestedPermission
+                assertNotNull(request)
+                val denied = Intent().putExtra(ActivityResultContracts.RequestMultiplePermissions.EXTRA_PERMISSIONS, arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE))
+                    .putExtra(ActivityResultContracts.RequestMultiplePermissions.EXTRA_PERMISSION_GRANT_RESULTS, intArrayOf(PackageManager.PERMISSION_DENIED))
+                activity.activityResultRegistry.dispatchResult(request.requestCode, Activity.RESULT_OK, denied)
+                retry.join()
+                assertEquals(2, attempts)
+                assertEquals(null, result)
+                assertFalse(File(directory, "download.zip").exists())
+            } finally {
+                retry.cancelAndJoin()
+            }
         }
     }
 

@@ -67,12 +67,19 @@ class DownloadsFileSaver(private val context: ComponentActivity) {
         }
     }
 
+    // A rejected launch must release the cached waiter before any failure propagates.
+    @Suppress("TooGenericExceptionCaught")
     private suspend fun requestPermission() = withContext(Dispatchers.Main.immediate) {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED)
             return@withContext true
         val grant = futureGrant ?: CompletableDeferred<Boolean>().also {
             futureGrant = it
-            activityResult.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            try {
+                activityResult.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            } catch (failure: Throwable) {
+                futureGrant = null
+                throw failure
+            }
         }
         grant.await()
     }
