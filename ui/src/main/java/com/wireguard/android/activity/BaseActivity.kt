@@ -5,11 +5,6 @@
 package com.wireguard.android.activity
 
 import android.os.Bundle
-import android.view.View
-import androidx.core.graphics.Insets
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
 import androidx.appcompat.app.AppCompatActivity
 import androidx.databinding.CallbackRegistry
 import androidx.databinding.CallbackRegistry.NotifierCallback
@@ -40,16 +35,6 @@ abstract class BaseActivity : AppCompatActivity() {
 
     fun addOnSelectedTunnelChangedListener(listener: OnSelectedTunnelChangedListener) {
         selectionChangeRegistry.add(listener)
-    }
-
-    protected fun applySafeAreaInsets(content: View) {
-        ViewCompat.setOnApplyWindowInsetsListener(content) { view, insets ->
-            val handled = WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout()
-            val safeArea = insets.getInsets(handled)
-            view.updatePadding(left = safeArea.left, top = safeArea.top, right = safeArea.right, bottom = safeArea.bottom)
-            WindowInsetsCompat.Builder(insets).setInsets(handled, Insets.NONE).build()
-        }
-        ViewCompat.requestApplyInsets(content)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

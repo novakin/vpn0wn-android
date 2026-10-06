@@ -135,4 +135,12 @@
     <string name="log_saver_activity_label">Lưu nhật ký</string>
     <string name="parse_error_inet_address">Địa chỉ IP</string>
     <string name="peer">Đồng trang lứa</string>
+
+    <string name="tunnl_settings_title">cài đặt</string>
+    <string name="tunnl_settings_subtitle">TOÀN CỤC · ĐIỀU KHIỂN ỨNG DỤNG</string>
+    <string name="tunnl_settings_section_connection">§01 KẾT NỐI · MẶC ĐỊNH</string>
+    <string name="tunnl_settings_section_control">§02 ĐIỀU KHIỂN · TỰ ĐỘNG HÓA</string>
+    <string name="tunnl_settings_section_data">§03 DỮ LIỆU · SAO LƯU</string>
+    <string name="tunnl_settings_section_appearance">§04 GIAO DIỆN · ỨNG DỤNG</string>
+    <string name="tunnl_settings_section_about">§05 GIỚI THIỆU · DỰ ÁN</string>
 </resources>

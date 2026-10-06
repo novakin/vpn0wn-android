@@ -39,7 +39,6 @@ class QuickTilePreference(context: Context, attrs: AttributeSet?) : Preference(c
                 StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED,
                 StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED -> {
                     parent?.removePreference(this)
-                    --preferenceManager.preferenceScreen.initialExpandedChildrenCount
                 }
                 StatusBarManager.TILE_ADD_REQUEST_ERROR_MISMATCHED_PACKAGE,
                 StatusBarManager.TILE_ADD_REQUEST_ERROR_REQUEST_IN_PROGRESS,

@@ -446,4 +446,12 @@
     <string name="tunnl_user_status_idle">◑ IDLE</string>
     <string name="tunnl_user_status_revoked">✕ REVOKED</string>
     <string name="tunnl_home_header_summary">Vpn0wn · %1$d CONFIGURED · %2$s</string>
+
+    <string name="tunnl_settings_title">settings</string>
+    <string name="tunnl_settings_subtitle">GLOBAL · APP CONTROL</string>
+    <string name="tunnl_settings_section_connection">§01 CONNECTION · DEFAULTS</string>
+    <string name="tunnl_settings_section_control">§02 CONTROL · AUTOMATION</string>
+    <string name="tunnl_settings_section_data">§03 DATA · BACKUP</string>
+    <string name="tunnl_settings_section_appearance">§04 APPEARANCE · APP</string>
+    <string name="tunnl_settings_section_about">§05 ABOUT · PROJECT</string>
 </resources>

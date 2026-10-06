@@ -255,4 +255,12 @@
     <string name="biometric_prompt_private_key_title">Autentifică-te pentru a vizualiza cheia privată</string>
     <string name="biometric_auth_error">Eroare la autentificare</string>
     <string name="biometric_auth_error_reason">Eroare la autentificare: %s</string>
+
+    <string name="tunnl_settings_title">setări</string>
+    <string name="tunnl_settings_subtitle">GLOBAL · CONTROL APLICAȚIE</string>
+    <string name="tunnl_settings_section_connection">§01 CONEXIUNE · IMPLICITE</string>
+    <string name="tunnl_settings_section_control">§02 CONTROL · AUTOMATIZARE</string>
+    <string name="tunnl_settings_section_data">§03 DATE · BACKUP</string>
+    <string name="tunnl_settings_section_appearance">§04 ASPECT · APLICAȚIE</string>
+    <string name="tunnl_settings_section_about">§05 DESPRE · PROIECT</string>
 </resources>

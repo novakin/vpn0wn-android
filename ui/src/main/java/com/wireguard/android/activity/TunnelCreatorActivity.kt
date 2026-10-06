@@ -4,6 +4,9 @@
  */
 package com.wireguard.android.activity
 
+import android.view.View
+import com.wireguard.android.util.applySafeAreaInsets
+
 import android.os.Bundle
 import com.wireguard.android.R
 import com.wireguard.android.model.ObservableTunnel
@@ -16,7 +19,7 @@ class TunnelCreatorActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.tunnel_creator_activity)
         supportActionBar?.hide()
-        applySafeAreaInsets(findViewById(R.id.main_activity_container))
+        findViewById<View>(R.id.main_activity_container).applySafeAreaInsets()
     }
 
     override fun onSelectedTunnelChanged(oldTunnel: ObservableTunnel?, newTunnel: ObservableTunnel?): Boolean {

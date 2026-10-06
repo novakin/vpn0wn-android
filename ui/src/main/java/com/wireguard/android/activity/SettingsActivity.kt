@@ -10,7 +10,6 @@ import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
-import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
@@ -18,6 +17,7 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.commit
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.Preference
+import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import com.wireguard.android.Application
 import com.wireguard.android.QuickTileService
@@ -25,6 +25,7 @@ import com.wireguard.android.R
 import com.wireguard.android.backend.WgQuickBackend
 import com.wireguard.android.preference.PreferencesPreferenceDataStore
 import com.wireguard.android.util.AdminKnobs
+import com.wireguard.android.util.applySafeAreaInsets
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -35,31 +36,20 @@ import kotlinx.coroutines.withContext
 class SettingsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (supportFragmentManager.findFragmentById(android.R.id.content) == null) {
+        setContentView(R.layout.settings_activity)
+        supportActionBar?.hide()
+        findViewById<View>(R.id.settings_root).applySafeAreaInsets()
+        findViewById<View>(R.id.settings_back).setOnClickListener { finish() }
+        if (supportFragmentManager.findFragmentById(R.id.settings_content) == null) {
             supportFragmentManager.commit {
-                add(android.R.id.content, SettingsFragment())
+                add(R.id.settings_content, SettingsFragment())
             }
         }
     }
 
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        if (item.itemId == android.R.id.home) {
-            finish()
-            return true
-        }
-        return super.onOptionsItemSelected(item)
-    }
-
     class SettingsFragment : PreferenceFragmentCompat() {
-        private companion object {
-            const val INITIAL_VISIBLE_SETTINGS = 5
-        }
-
-        // Since this is pretty much abandoned by androidx, it never got updated for proper EdgeToEdge support,
-        // which is enabled everywhere for API 35. So handle the insets manually here.
         override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
             val view = super.onCreateView(inflater, container, savedInstanceState)
-            view.fitsSystemWindows = true
             view.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.tunnl_paper))
             return view
         }
@@ -67,17 +57,14 @@ class SettingsActivity : AppCompatActivity() {
         override fun onCreatePreferences(savedInstanceState: Bundle?, key: String?) {
             preferenceManager.preferenceDataStore = PreferencesPreferenceDataStore(lifecycleScope, Application.getPreferencesDataStore())
             addPreferencesFromResource(R.xml.preferences)
-            preferenceScreen.initialExpandedChildrenCount = INITIAL_VISIBLE_SETTINGS
 
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || QuickTileService.isAdded) {
                 val quickTile = preferenceManager.findPreference<Preference>("quick_tile")
                 quickTile?.parent?.removePreference(quickTile)
-                --preferenceScreen.initialExpandedChildrenCount
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                 val darkTheme = preferenceManager.findPreference<Preference>("dark_theme")
                 darkTheme?.parent?.removePreference(darkTheme)
-                --preferenceScreen.initialExpandedChildrenCount
             }
             if (AdminKnobs.disableConfigExport) {
                 val zipExporter = preferenceManager.findPreference<Preference>("zip_exporter")
@@ -89,22 +76,24 @@ class SettingsActivity : AppCompatActivity() {
                 preferenceManager.findPreference<Preference>("multiple_tunnels")
             ).filterNotNull()
             wgQuickOnlyPrefs.forEach { it.isVisible = false }
-            lifecycleScope.launch {
-                if (Application.getBackend() is WgQuickBackend) {
-                    ++preferenceScreen.initialExpandedChildrenCount
-                    wgQuickOnlyPrefs.forEach { it.isVisible = true }
-                } else {
-                    wgQuickOnlyPrefs.forEach { it.parent?.removePreference(it) }
-                }
-            }
             preferenceManager.findPreference<Preference>("log_viewer")?.setOnPreferenceClickListener {
                 startActivity(Intent(requireContext(), LogViewerActivity::class.java))
                 true
             }
             val kernelModuleEnabler = preferenceManager.findPreference<Preference>("kernel_module_enabler")
-            if (WgQuickBackend.hasKernelSupport()) {
-                lifecycleScope.launch {
-                    if (Application.getBackend() !is WgQuickBackend) {
+            val hasKernelSupport = WgQuickBackend.hasKernelSupport()
+            if (!hasKernelSupport) {
+                kernelModuleEnabler?.parent?.removePreference(kernelModuleEnabler)
+            }
+            val connection = findPreference<PreferenceCategory>("settings_connection")
+            connection?.isVisible = false
+            removeEmptyCategories()
+            lifecycleScope.launch {
+                if (Application.getBackend() is WgQuickBackend) {
+                    wgQuickOnlyPrefs.forEach { it.isVisible = true }
+                } else {
+                    wgQuickOnlyPrefs.forEach { it.parent?.removePreference(it) }
+                    if (hasKernelSupport) {
                         try {
                             withContext(Dispatchers.IO) { Application.getRootShell().start() }
                         } catch (_: IOException) {
@@ -114,8 +103,17 @@ class SettingsActivity : AppCompatActivity() {
                         }
                     }
                 }
-            } else {
-                kernelModuleEnabler?.parent?.removePreference(kernelModuleEnabler)
+                connection?.isVisible = true
+                removeEmptyCategories()
+            }
+        }
+
+        private fun removeEmptyCategories() {
+            for (index in preferenceScreen.preferenceCount - 1 downTo 0) {
+                val category = preferenceScreen.getPreference(index) as? PreferenceCategory ?: continue
+                if (category.preferenceCount == 0) {
+                    preferenceScreen.removePreference(category)
+                }
             }
         }
     }

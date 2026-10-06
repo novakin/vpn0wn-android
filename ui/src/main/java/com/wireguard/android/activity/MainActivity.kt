@@ -4,6 +4,8 @@
  */
 package com.wireguard.android.activity
 
+import com.wireguard.android.util.applySafeAreaInsets
+
 import android.content.Intent
 import android.os.Bundle
 import android.view.Menu
@@ -59,7 +61,7 @@ class MainActivity : BaseActivity(), FragmentManager.OnBackStackChangedListener 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.main_activity)
-        applySafeAreaInsets(findViewById(R.id.main_activity_container))
+        findViewById<View>(R.id.main_activity_container).applySafeAreaInsets()
         actionBar = supportActionBar
         isTwoPaneLayout = findViewById<View?>(R.id.master_detail_wrapper) != null
         supportFragmentManager.addOnBackStackChangedListener(this)

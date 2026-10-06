@@ -380,8 +380,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 ### 7. Settings Screen
 - Current prototype groups: Connection, Security, Auto-connect exceptions, System and About.
 - The prototype contains connection/kernel controls, security controls and trusted-network exceptions. Those controls, including kernel-only expansion/UDP preflight, are visual/behavior targets rather than a claim of committed settings integration.
-- Existing Android preferences retain their current supported behavior until a scoped implementation changes them; inspect `screens-settings.jsx` and `res/xml/preferences.xml` before selecting controls to port.
-- Decide fate of Android-specific prefs not in JSX design: dark theme toggle, multiple tunnels, tools installer, remote control intents, donate.
+- The #34 native adaptation retains supported preferences in Connection, Control, Data, Appearance and About sections. API/admin/backend conditions can remove entire empty sections. Android-specific dark theme, multiple tunnels, tools installer, remote control and donate remain native controls/actions; unsupported prototype controls stay deferred.
+- Sections are always expanded, matching the prototype's scrollable groups; the old five-row expansion limit is intentionally removed. PreferenceFragmentCompat retains list/recreation ownership and persistent keys/defaults are unchanged. Native kernel switching remains an action requiring restart, not a Boolean toggle.
 
 ### 8. Extended Screens & Sheets *(design complete in JSX, implementation pending)*
 - `DiagnosticsScreen` — §01 Readouts (state, handshake, endpoint, resolved IP, MTU, last error) + §02 Actions (re-resolve, ping, reset stats with inline terminal output panel).
@@ -402,6 +402,7 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
+- [x] **Settings source recovery — 2026-10-06:** `SettingsActivity`, preference XML and row/category layouts recover the custom two-row header and supported native sections. Back has a labeled 48dp target and a mirrored chevron. Settings, Home and Creator reuse the same view-owned system-bar/cutout inset handler. Empty categories are removed after API/admin/backend filtering; the Connection section waits for backend/root eligibility. Seven labels are recovered in 36 resource sets; WireGuard version/link/branding and merged feedback owners remain intact. [Verification and remaining device proof](development.md#settings-presentation-recovery--2026-10-06) distinguish source recovery from delivery.
 - [x] Detail view/selection ownership — 2026-10-06: `TunnelDetailFragment` clears old config on selection, cancels view jobs on destruction and guards delayed config/statistics completions. #13 merged in PR #25; this functional repair changes no visual specification. See [verification](development.md#tunnel-lifecycle-and-transition-settlement--2026-10-06).
 
 This is a historical implementation ledger, not newly executed build/device proof. Undated old build/XML/fidelity claims do not identify an independently reproducible revision/environment; retain that evidence limit rather than treating them as current validation.
@@ -479,6 +480,7 @@ This is a historical implementation ledger, not newly executed build/device proo
 
 ### Fidelity Gaps — Remaining
 
+- Settings uses native category/row grouping for supported controls. The prototype's shared rounded card envelopes and unsupported demo feature controls are not ported; real Android preference behavior takes priority in this recovery slice. Physical output remains pending under Settings below.
 - [~] **Home search remains unimplemented** — `tunnel_list_fragment.xml` explicitly disables Search through DataBinding (`android:enabled="@{false}"`); the packaged literal flag alone left it enabled on the physical Android 16 phone. `TunnelListFragment` no longer exposes a no-op handler. Implement actual filtering through the existing list owner before enabling it. #22 keeps rendering geometry/paint values unchanged with local static exceptions; scoped [phone checks](development.md#phone-ui-and-throughput-follow-up--2026-10-06) do not establish the full screenshot/support matrix.
 
 - [~] **Canvas typography/static label gaps** — `TunnelThroughputView` still uses platform monospace, dp-based text sizes and hardcoded `MTU 1420`. Text-style features do not establish Canvas fidelity or large-font accessibility; C10 owns proof and correction.
@@ -522,8 +524,7 @@ This is a historical implementation ledger, not newly executed build/device proo
 - [ ] ADD PEER button: MaterialButton stroke is solid — true dashed border requires custom drawable background (minor gap).
 
 **Settings:**
-- [ ] Rebuild as 5 `SettingsGroup` sections with `§` section headers (see §7 in Roadmap above).
-- [ ] Resolve fate of Android-specific prefs not in JSX: dark theme toggle, multiple tunnels, tools installer, remote control intents, donate.
+- [ ] Inspect recovered #34 Settings on the physical phone before delivery: Back/cutout/gesture clearance, row/switch readability and navigation in portrait/landscape, both themes, large text and RTL. JVM rendering does not prove native system bars, TalkBack, root or Android tile/export behavior.
 
 **New screens (§8):**
 - [ ] `DiagnosticsScreen` — new screen.
