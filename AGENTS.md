@@ -2,15 +2,7 @@
 
 ## Source of Truth — Prompt Instructions
 
-**`CLAUDE.md` is the single source of truth for agent instructions.**
-`AGENTS.md` is an exact mirror kept in sync for Codex compatibility.
-
-When instructions change:
-1. Edit `CLAUDE.md`
-2. Copy verbatim to `AGENTS.md`
-3. Never edit `AGENTS.md` directly — changes will be overwritten
-
-If they diverge, `CLAUDE.md` wins.
+**`AGENTS.md` is the single source of truth for project agent instructions.** Edit this file directly when instructions change. Keep detailed workflow and runtime facts in their owning guides and update affected references in the same change.
 
 ## Project Context
 
@@ -92,7 +84,7 @@ Record consequential architecture decisions in `docs/architecture.md` and operat
 - Follow `docs/development.md` and `docs/qa-test-plan.md`. Run focused meaningful tests first; broaden for shared state, contracts or cross-cutting/high-risk changes.
 - Prefer injected command responses and temporary files to real root/network operations. Exercise failure, cancellation, compatibility and redaction boundaries when affected.
 - For UI changes, inspect actual output at supported sizes/themes and relevant font-scale/RTL configurations. JVM/static proof does not establish device or live-server behavior.
-- For documentation-only changes, check local links, fences, examples, source claims and the instruction mirror. Do not run unrelated runtime operations merely to update prose.
+- For documentation-only changes, check local links, fences, examples, source claims and consistency with `AGENTS.md`. Do not run unrelated runtime operations merely to update prose.
 - Use `Invoke-CodexQuiet` for noisy commands. Retain current-task and failed-task logs under ignored `.artifacts/codex-command-logs`; inspect failures progressively. Report status or at most 40 relevant failure lines.
 - Follow contribution/merge instructions and templates in `docs/development.md`. Commit only intentional files; preserve the user's existing index. Do not amend, rebase, reset or force-push unless requested.
 - Every PR, including drafts and API-created PRs, needs a meaningful description based on `.github/PULL_REQUEST_TEMPLATE.md`: problem/result, linked issue or action, scope/compatibility, actual verification and remaining limits. Review the complete final diff and filled description before publication; update title/body when scope changes and remove stale prompts.

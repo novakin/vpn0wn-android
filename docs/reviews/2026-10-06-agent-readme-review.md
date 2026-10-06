@@ -2,6 +2,8 @@
 
 [Documentation index](../../README.md#project-documentation) · Substantive documentation review, Europe/Paris.
 
+The initial review sections below describe the two-file instruction layout at checkpoint `584d0999d787c5ab6ad3a7db75e321a0f34c8a15`. The [single-file follow-up](#single-instruction-file-follow-up) records the user's subsequent consolidation request; historical mirror results and scores retain their original scope.
+
 ## Scope and acceptance
 
 [Issue #7](https://github.com/novakin/wireguard-android/issues/7) owns this review's acceptance. Integration base: `master` at `7e141dc39b256014cd5a8ce92a95ea5e4e2241a6`, the merged [PR #6](https://github.com/novakin/wireguard-android/pull/6). Review branch: `docs/agent-readme-review`. Seven intentional paths: `CLAUDE.md`, its verbatim `AGENTS.md` mirror, `README.md`, `docs/development.md`, `docs/improvement-plan.md`, `.github/PULL_REQUEST_TEMPLATE.md` and this record.
@@ -77,3 +79,13 @@ Preservation comparison covered 332 baseline paths outside the intentional docum
 No new Gradle test, APK, device/emulator, native-root, SSH, host audit or live/destructive VPS run was performed. Earlier C1 test results remain in [historical development evidence](../development.md#c1-secret-safe-logging--2026-10-06) with their original mixed-worktree environment. No tracked GitHub Actions workflow exists here; Server-Audit CI results are not this project's verification. External documentation URLs were not all fetched, and README's published-version placeholder needs consumer selection before use.
 
 Publication/merge state and the final reviewed/tested revision belong in the PR's current acceptance record. This record is a substantive documentation assessment, not a duplicate mutable delivery ledger.
+
+## Single instruction file follow-up
+
+2026-10-06 (Europe/Paris): the user requested removing CLAUDE.md and keeping only [AGENTS.md](../../AGENTS.md). AGENTS.md now owns project instructions and is edited directly. README, development guidance and the improvement plan use that owner; the old copy/mirror procedure and current mirror-check requirement were removed. All remaining CLAUDE.md/mirror mentions describe historical checkpoints, not active instructions or links to a removed file.
+
+This follow-up changes six paths, including the removed file; PR #8 still spans seven documentation paths from its integration base because the PR template was already changed in the earlier slice. All substantive instruction rules remain intact. No runtime, dependency, CI, template framework or Server-Audit change was added.
+
+The current rubric replaces the mirror criterion with sole AGENTS.md ownership and consistent active references/checks. Other criteria remain unchanged. Follow-up checks passed on Python 3.12.10/Windows: six live documents, 129 local links/fragments, fences/whitespace, absent duplicate file, sole ownership, 48 source assertions and scoped diff checks. Fresh preservation comparison passed for 333 unrelated paths, including 330 file hashes, one retained deletion and two unchanged gitlinks with clean submodule worktrees. Issue #7 acceptance was updated and read back for the requested ownership change.
+
+Independent ultra reasoning re-review found no material consolidation findings and confirmed the current documentation assessment remains **100/100** under the sole-ownership criterion. It independently checked retained substantive rules, references/history, source/link/fence/whitespace checks, preservation, submodules, unchanged PR template and live issue acceptance/metadata. Final committed revision and publication readback belong in the PR acceptance record. No runtime/APK/live operation was run or merge approval granted.

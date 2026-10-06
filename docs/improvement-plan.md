@@ -75,7 +75,7 @@ Minimal process work comes first. Urgent safety fixes need not wait for the enti
 
 ## A1 — Agent instruction contract
 
-Edit [CLAUDE.md](../CLAUDE.md) first, then copy it verbatim to [AGENTS.md](../AGENTS.md). Preserve the design map and token guidance, but route UI-specific requirements to UI tasks.
+Edit [AGENTS.md](../AGENTS.md) directly; it is the sole project agent-instruction file. Preserve the design map and token guidance, but route UI-specific requirements to UI tasks. The user requested this consolidation on 2026-10-06 (Europe/Paris); historical mirror checks describe the earlier layout.
 
 The revised contract must:
 
@@ -97,7 +97,7 @@ The revised contract must:
 - Preserve dirty worktrees, explicit-build/live-system restrictions, bounded command output and `Invoke-CodexQuiet` evidence handling.
 - State changed behavior/files, verification and residual risk at completion. Distinguish local work, commits, merges and releases.
 
-Acceptance: instruction files are byte-for-byte identical; every named path/command is valid; UI tasks retain JSX/token checks; functional tasks have an explicit route; no copied Server-Audit rule contradicts Tunnl behavior or existing authorization.
+Acceptance: AGENTS.md is the sole project instruction file and active references/checks use it; every named path/command is valid; UI tasks retain JSX/token checks; functional tasks have an explicit route; no copied Server-Audit rule contradicts Tunnl behavior or existing authorization.
 
 ## D1 — Documentation ownership
 
@@ -131,7 +131,7 @@ Keep merge instructions in `docs/development.md`. The PR template supplies the m
 
 The workflow is: inspect baseline and dirty scope; define bounded acceptance; reproduce the affected behavior; fix the responsible layer; run proportionate checks; update owning docs; review final diff/staged scope; record evidence. Merge requires reviewable scope, relevant proof and disclosed gaps. Commits and external actions follow the user's task and existing project rules.
 
-Add `.artifacts/` to ignore rules when implementing this action. Retain current-task and failed-task logs; do not clean unrelated artifacts. Use existing tools before introducing lint dependencies. Adapt useful fence checks from the VPS verifier; add link/mirror checks only as needed for repeatable maintenance.
+Add `.artifacts/` to ignore rules when implementing this action. Retain current-task and failed-task logs; do not clean unrelated artifacts. Use existing tools before introducing lint dependencies. Adapt useful fence checks from the VPS verifier; add link/instruction-consistency checks only as needed for repeatable maintenance.
 
 Acceptance: all three templates render correctly and collect useful evidence without requesting secrets; merge instructions name the relevant checks and limits; no default workflow invokes APK builds or destructive VPS tests; evidence artifacts cannot enter the intended source change accidentally.
 
@@ -160,7 +160,7 @@ C1–C10 are repairs or proof for reviewed behavior. C11–C12 complete existing
 
 Use existing repository checks appropriate to the touched owner:
 
-- Documentation: validate links, balanced fences, examples/claims and instruction mirror when affected; run `git diff --check`.
+- Documentation: validate links, balanced fences, examples/claims and consistency with AGENTS.md when affected; run `git diff --check`.
 - UI logic: focused tests within `:ui:testDebugUnitTest`; use Robolectric or existing coroutine-test facilities for affected Android/lifecycle behavior.
 - Config/backend logic: focused tests within `:tunnel:testDebugUnitTest`; retain existing config fixtures and controls.
 - Kotlin static analysis: existing Detekt task/config when affected. Broaden tests for shared helpers, contracts or cross-cutting changes.
@@ -187,7 +187,7 @@ Do not claim full completion while required commands are running or relevant pro
 | Opportunity | Trigger | Smallest next decision |
 | --- | --- | --- |
 | Android CI | A requested need for repeatable PR checks. | Reuse native unit/static tasks in one appropriate environment; keep APK/live/destructive checks separately scoped. Vpn0wn's Windows/.NET workflow is an example, not a portable implementation. |
-| Repeatable documentation checker | Repeated link/mirror/fence drift makes manual checking unreliable. | A small native script or existing lint tool covering the actual contract; no documentation platform migration. |
+| Repeatable documentation checker | Repeated link/instruction/fence drift makes manual checking unreliable. | A small native script or existing lint tool covering the actual contract; no documentation platform migration. |
 | Focused refactor | Added behavior exposes duplicated ownership or an obstructive structure. | Consolidate the responsible code while preserving behavior; no automatic Compose/MVVM, DI framework or controller rewrite. |
 | Packaging/release process | A requested distribution or rollback need. | Explicit artifacts, version locations, attribution and validation; no inferred publication or deployment. |
 

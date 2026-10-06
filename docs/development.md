@@ -2,7 +2,7 @@
 
 [Documentation index](../README.md#project-documentation) · Setup/process substantively updated 2026-10-06 (Europe/Paris); historical runtime evidence retains its original scope.
 
-Use focused changes, the existing Android architecture and explicit verification limits. [CLAUDE.md](../CLAUDE.md) owns agent instructions; [AGENTS.md](../AGENTS.md) is its verbatim mirror.
+Use focused changes, the existing Android architecture and explicit verification limits. [AGENTS.md](../AGENTS.md) is the sole project agent-instruction file; edit it directly when instructions change.
 
 ## Setup and source boundaries
 
@@ -80,7 +80,7 @@ Before merge:
 1. Confirm the intended base/head and inspect the complete PR diff, not only the latest commit.
 2. Check linked acceptance criteria, compatibility and affected failure/cancellation/recovery behavior.
 3. Require relevant local or applicable CI evidence on the current revision; disclose missing device/server proof and unresolved risks. A workflow file does not prove execution or branch enforcement. This repository has no tracked GitHub Actions workflow; Server-Audit CI is not Tunnl CI.
-4. Confirm owning docs and instruction mirrors agree with source and no secret/evidence artifacts are staged.
+4. Confirm owning docs and AGENTS.md agree with source and no secret/evidence artifacts are staged.
 5. Resolve review findings and conflicts without overwriting unrelated work.
 6. Merge only when requested and the review requirements are satisfied. Keep release/deployment state separate.
 
@@ -121,7 +121,7 @@ Invoke-CodexQuiet -Command 'wsl -- bash -c "cd /mnt/c/Users/Guillaume/Documents/
 
 Broaden tests for shared state, public/script contracts or cross-cutting/high-risk changes. Use deterministic clocks, synthetic profiles, injected commands and temporary files where they answer the question. Do not introduce a framework, CI or release pipeline merely to record proof.
 
-For documentation-only work, validate relative links, fences, examples/source claims, mirror equality and `git diff --check`. A search with no matches returns `rg` exit 1; exit 2 is a search error. An executed test suite with disclosed skips differs from source-inspected tests, and neither proves unperformed device or live-server behavior.
+For documentation-only work, validate relative links, fences, examples/source claims, consistency with AGENTS.md and `git diff --check`. A search with no matches returns `rg` exit 1; exit 2 is a search error. An executed test suite with disclosed skips differs from source-inspected tests, and neither proves unperformed device or live-server behavior.
 
 ## Evidence and completion
 
@@ -140,6 +140,8 @@ Use these meanings consistently:
 Do not end required work while commands or reviewers are still running. State behavior/files changed, commit/PR state, actual verification and residual risk. Update plan action states by linking here; keep broader unimplemented actions visible.
 
 ## Recorded verification
+
+2026-10-06 instruction ownership update (Europe/Paris): at the user's request, AGENTS.md became the sole project instruction file and CLAUDE.md was removed. Active onboarding, acceptance and verification guidance now use AGENTS.md directly. Earlier mirror checks below retain their original checkpoint scope; they are not a requirement for the current layout. Follow-up evidence is in the [agent/README review](reviews/2026-10-06-agent-readme-review.md#single-instruction-file-follow-up).
 
 2026-10-06 planning checkpoint `aa5feb94`: README and improvement plan were committed. Fifty local links resolved, fences/trailing whitespace and `git diff --check` passed, instruction mirrors matched, and the unrelated pre-existing content inventory was unchanged. This was documentation proof; no APK, device or live-server check was performed.
 

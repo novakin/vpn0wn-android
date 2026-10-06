@@ -27,11 +27,11 @@ For a local debug APK after setup:
 ./gradlew :ui:assembleDebug --console=plain
 ```
 
-The debug application ID has the `.debug` suffix. Build commands document operator actions; agent APK assembly still requires an explicit request under [agent instructions](CLAUDE.md). Local assembly does not publish a release or deploy to a server.
+The debug application ID has the `.debug` suffix. Build commands document operator actions; agent APK assembly still requires an explicit request under [agent instructions](AGENTS.md). Local assembly does not publish a release or deploy to a server.
 
 ## Contributing
 
-Start with [canonical agent instructions](CLAUDE.md), mirrored to [AGENTS.md](AGENTS.md), and the [development workflow](docs/development.md). Choose the owning guide and relevant tests, refresh the intended integration base, preserve unrelated work, and use a scoped branch/PR. Apply actual GitHub labels/assignee and fill the [PR template](.github/PULL_REQUEST_TEMPLATE.md) with the final change, documentation impact, executed checks and limits.
+Start with [AGENTS.md](AGENTS.md), the sole project agent-instruction file, and the [development workflow](docs/development.md). Choose the owning guide and relevant tests, refresh the intended integration base, preserve unrelated work, and use a scoped branch/PR. Apply actual GitHub labels/assignee and fill the [PR template](.github/PULL_REQUEST_TEMPLATE.md) with the final change, documentation impact, executed checks and limits.
 
 Use the [bug report](.github/ISSUE_TEMPLATE/bug_report.md) or [improvement](.github/ISSUE_TEMPLATE/improvement.md) template for concrete work. Keep keys, passwords and raw secret-bearing logs out of issues/PRs. Focused tests, UI/device proof and destructive disposable-VPS validation have separate boundaries in [development](docs/development.md#verification-commands-and-ownership); merge and deployment require their own authorization.
 
