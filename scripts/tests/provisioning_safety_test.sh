@@ -270,7 +270,7 @@ test_c3_strip_failure() {
 
 test_c3_candidate_copy_failure() {
   owned_config
-  printf '2' > "$TEST_STATE/fail-cp---"
+  printf '2' > "$TEST_STATE/fail-cp-copy"
   run_script add-peer --name laptop
   assert_failure write_failed
   assert_restored
@@ -278,7 +278,7 @@ test_c3_candidate_copy_failure() {
 
 test_c3_atomic_rename_failure() {
   owned_config
-  printf '1' > "$TEST_STATE/fail-mv--fT"
+  printf '1' > "$TEST_STATE/fail-mv-rename"
   run_script add-peer --name laptop
   assert_failure write_failed
   assert_restored
@@ -372,7 +372,7 @@ test_c3_revoke_apply_failure() {
 
 test_c3_revoke_archive_failure() {
   owned_config
-  printf '2' > "$TEST_STATE/fail-mv--fT"
+  printf '2' > "$TEST_STATE/fail-mv-rename"
   run_script revoke-peer --name existing
   assert_failure archive_failed
   assert_restored
@@ -489,7 +489,7 @@ test_c3_uninstall_ignored_stop() {
 
 test_c3_uninstall_delete_failure() {
   owned_config
-  printf '1' > "$TEST_STATE/fail-rm--f"
+  printf '1' > "$TEST_STATE/fail-rm-remove"
   run_script uninstall --confirm
   assert_failure write_failed
   assert_restored
@@ -519,7 +519,7 @@ test_c3_uninstall_partial_purge() {
 
 test_c3_revoke_cleanup_failure() {
   owned_config
-  printf '1' > "$TEST_STATE/fail-rm--rf"
+  printf '1' > "$TEST_STATE/fail-rm-cleanup"
   touch "$TEST_STATE/partial-cleanup"
   run_script revoke-peer --name existing
   assert_success
@@ -547,6 +547,30 @@ test_c3_install_unknown_service_bus() {
 test_c3_wrong_psk() {
   owned_config
   touch "$TEST_STATE/ignore-psk"
+  run_script add-peer --name laptop
+  assert_failure postcondition_failed
+  assert_restored
+}
+
+test_c3_wrong_server_key() {
+  owned_config
+  printf 'key' > "$TEST_STATE/wrong-runtime"
+  run_script add-peer --name laptop
+  assert_failure postcondition_failed
+  assert_restored
+}
+
+test_c3_wrong_listen_port() {
+  owned_config
+  printf 'port' > "$TEST_STATE/wrong-runtime"
+  run_script add-peer --name laptop
+  assert_failure postcondition_failed
+  assert_restored
+}
+
+test_c3_wrong_runtime_routes() {
+  owned_config
+  printf 'routes' > "$TEST_STATE/wrong-runtime"
   run_script add-peer --name laptop
   assert_failure postcondition_failed
   assert_restored
@@ -611,7 +635,7 @@ test_c3_restore_disk_failure() {
   owned_config
   printf '1' > "$TEST_STATE/fail-wg-syncconf"
   printf '1' > "$TEST_STATE/fail-systemctl-restart"
-  printf '2' > "$TEST_STATE/fail-mv--fT"
+  printf '2' > "$TEST_STATE/fail-mv-rename"
   run_script add-peer --name laptop
   assert_failure apply_failed
   [[ "$RESPONSE" == *'"recovery":"incomplete"'* ]]
@@ -680,6 +704,16 @@ test_c3_signal_recovery() {
   assert_restored
 }
 
+test_fixture_legacy_file_commands() {
+  printf 'synthetic fixture content\n' > "$TEST_ROOT/source"
+  cp "$TEST_ROOT/source" "$TEST_ROOT/copy"
+  cmp -s "$TEST_ROOT/source" "$TEST_ROOT/copy"
+  mv "$TEST_ROOT/copy" "$TEST_ROOT/moved"
+  [[ ! -e "$TEST_ROOT/copy" && -f "$TEST_ROOT/moved" ]]
+  rm "$TEST_ROOT/moved"
+  [[ ! -e "$TEST_ROOT/moved" ]]
+}
+
 if [[ ${1-} == --case ]]; then
   setup
   "$2"
@@ -707,6 +741,8 @@ tests=(
   test_c3_wrong_psk test_c3_residual_package_config test_c3_shared_host_lock test_c3_malformed_peer_markers
   test_c3_force_postcondition_rollback_hooks test_c3_new_postcondition_rollback_hooks
   test_c3_missing_wg_existing_interface test_c3_missing_wg_clean_install
+  test_fixture_legacy_file_commands
+  test_c3_wrong_server_key test_c3_wrong_listen_port test_c3_wrong_runtime_routes
 )
 passed=0
 failed=0

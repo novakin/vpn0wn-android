@@ -3,6 +3,13 @@ set -euo pipefail
 
 command_name=${0##*/}
 action=${1:-none}
+case "$command_name" in
+  cp) action=copy ;;
+  mv) action=rename ;;
+  rm)
+    if [[ "$action" == -*r* ]]; then action=cleanup; else action=remove; fi
+    ;;
+esac
 runtime_file="$TEST_STATE/runtime.conf"
 enabled_file="$TEST_STATE/enabled"
 address_file="$TEST_STATE/address"
@@ -30,7 +37,7 @@ fi
 /usr/bin/flock -u 9
 exec 9>&-
 if [[ "$fail" == true ]]; then
-  if [[ "$command_name" == rm && "$action" == -rf && -f "$TEST_STATE/partial-cleanup" ]]; then
+  if [[ "$command_name" == rm && "$action" == cleanup && -f "$TEST_STATE/partial-cleanup" ]]; then
     /bin/rm -f -- "${@: -1}/previous.conf"
   fi
   printf 'synthetic-secret-tool-diagnostic\n' >&2
@@ -42,6 +49,17 @@ public_key() {
   private=$(cat)
   decoded=$(printf '%s' "$private" | base64 -d)
   printf '%-32.32s' "PUBLIC-${decoded#PRIVATE-}" | base64 -w0
+}
+
+start_runtime() {
+  [[ -f "$WG_CONF" ]] || return 1
+  /bin/cp -- "$WG_CONF" "$runtime_file"
+  awk '$1 == "Address" {print $3}' "$WG_CONF" > "$address_file"
+  awk '/^# TUNNL_CIDR / {print $3}' "$WG_CONF" > "$nat_file"
+  if [[ -f "$TEST_STATE/wrong-address-once" ]]; then
+    printf '10.255.0.1/24' > "$address_file"
+    /bin/rm "$TEST_STATE/wrong-address-once"
+  fi
 }
 
 case "$command_name" in
@@ -59,6 +77,17 @@ case "$command_name" in
           awk '!/^PresharedKey = /' "$3" > "$runtime_file"
         else
           /bin/cp -- "$3" "$runtime_file"
+        fi
+        if [[ "$count" -eq 1 && -f "$TEST_STATE/wrong-runtime" ]]; then
+          case "$(cat "$TEST_STATE/wrong-runtime")" in
+            key)
+              wrong_key=$(printf '%-32.32s' PRIVATE-wrong | base64 -w0)
+              sed -i "s|^PrivateKey = .*|PrivateKey = $wrong_key|" "$runtime_file"
+              ;;
+            port) sed -i 's/^ListenPort = .*/ListenPort = 51999/' "$runtime_file" ;;
+            routes) sed -i 's|^AllowedIPs = .*|AllowedIPs = 10.255.255.99/32|' "$runtime_file" ;;
+            *) exit 2 ;;
+          esac
         fi
         ;;
       showconf)
@@ -116,9 +145,8 @@ case "$command_name" in
       show) [[ -f "$TEST_STATE/absent-template" ]] && printf 'not-found\n' || printf 'loaded\n' ;;
       enable)
         touch "$enabled_file"
-        if [[ " $* " == *' --now '* ]]; then
-          /bin/cp -- "$WG_CONF" "$runtime_file"
-          awk '$1 == "Address" {print $3}' "$WG_CONF" > "$address_file"
+        if [[ " $* " == *' --now '* && ! -f "$runtime_file" ]]; then
+          start_runtime
         fi
         ;;
       disable)
@@ -137,14 +165,7 @@ case "$command_name" in
         ;;
       start|restart)
         [[ ! -f "$TEST_STATE/ignore-restart" ]] || exit 0
-        [[ -f "$WG_CONF" ]] || exit 1
-        /bin/cp -- "$WG_CONF" "$runtime_file"
-        awk '$1 == "Address" {print $3}' "$WG_CONF" > "$address_file"
-        awk '/^# TUNNL_CIDR / {print $3}' "$WG_CONF" > "$nat_file"
-        if [[ -f "$TEST_STATE/wrong-address-once" ]]; then
-          printf '10.255.0.1/24' > "$address_file"
-          /bin/rm "$TEST_STATE/wrong-address-once"
-        fi
+        start_runtime
         ;;
       *) exit 2 ;;
     esac
