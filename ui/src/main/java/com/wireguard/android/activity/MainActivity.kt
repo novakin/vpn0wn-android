@@ -50,11 +50,7 @@ class MainActivity : BaseActivity(), FragmentManager.OnBackStackChangedListener 
         val backStackEntries = supportFragmentManager.backStackEntryCount
         backPressedCallback?.isEnabled = backStackEntries >= 1
         if (actionBar == null) return
-        if (backStackEntries <= 1) {
-            actionBar!!.hide()
-        } else {
-            actionBar!!.show()
-        }
+        actionBar!!.hide()
         // Do not show the home menu when the two-pane layout is at the detail view (see above).
         val minBackStackEntries = if (isTwoPaneLayout) 2 else 1
         actionBar!!.setDisplayHomeAsUpEnabled(backStackEntries >= minBackStackEntries)
@@ -63,6 +59,7 @@ class MainActivity : BaseActivity(), FragmentManager.OnBackStackChangedListener 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.main_activity)
+        applySafeAreaInsets(findViewById(R.id.main_activity_container))
         actionBar = supportActionBar
         isTwoPaneLayout = findViewById<View?>(R.id.master_detail_wrapper) != null
         supportFragmentManager.addOnBackStackChangedListener(this)
@@ -127,9 +124,7 @@ class MainActivity : BaseActivity(), FragmentManager.OnBackStackChangedListener 
         if (newTunnel == null) {
             // Clear everything off the back stack (all editors and detail fragments).
             fragmentManager.popBackStackImmediate(0, FragmentManager.POP_BACK_STACK_INCLUSIVE)
-            return true
-        }
-        if (backStackEntries == BACK_STACK_DETAIL_AND_EDITOR) {
+        } else if (backStackEntries == BACK_STACK_DETAIL_AND_EDITOR) {
             // Pop the editor off the back stack to reveal the detail fragment. Use the immediate
             // method to avoid the editor picking up the new tunnel while it is still visible.
             fragmentManager.popBackStackImmediate()

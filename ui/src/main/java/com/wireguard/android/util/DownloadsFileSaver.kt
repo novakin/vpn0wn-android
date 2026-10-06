@@ -41,7 +41,7 @@ class DownloadsFileSaver(private val context: ComponentActivity) {
         withContext(Dispatchers.IO) {
             val contentResolver = context.contentResolver
             if (overwriteExisting)
-                contentResolver.delete(MediaStore.Downloads.EXTERNAL_CONTENT_URI, String.format("%s = ?", MediaColumns.DISPLAY_NAME), arrayOf(name))
+                contentResolver.delete(MediaStore.Downloads.EXTERNAL_CONTENT_URI, "${MediaColumns.DISPLAY_NAME} = ?", arrayOf(name))
             val contentValues = ContentValues()
             contentValues.put(MediaColumns.DISPLAY_NAME, name)
             contentValues.put(MediaColumns.MIME_TYPE, mimeType)

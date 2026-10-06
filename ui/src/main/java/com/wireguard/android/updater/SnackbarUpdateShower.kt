@@ -5,6 +5,7 @@
 
 package com.wireguard.android.updater
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.view.View
@@ -26,6 +27,9 @@ import kotlinx.coroutines.launch
 import kotlin.time.Duration.Companion.seconds
 
 class SnackbarUpdateShower(private val fragment: Fragment) {
+    private companion object {
+        const val MAX_STATUS_LINES = 6
+    }
     private var lastUserIntervention: Updater.Progress.NeedsUserIntervention? = null
     private val intentLauncher = fragment.registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         lastUserIntervention?.markAsDone()
@@ -42,7 +46,7 @@ class SnackbarUpdateShower(private val fragment: Fragment) {
             if (anchor != null)
                 snackbar.anchorView = anchor
             snackbar.tunnlStyle()
-            snackbar.setTextMaxLines(6)
+            snackbar.setTextMaxLines(MAX_STATUS_LINES)
             snackbar.behavior = object : BaseTransientBottomBar.Behavior() {
                 override fun canSwipeDismissView(child: View): Boolean {
                     return false
@@ -157,7 +161,9 @@ class SnackbarUpdateShower(private val fragment: Fragment) {
                             intent.data = Uri.parse(progress.downloadUrl)
                             try {
                                 context.startActivity(intent)
-                            } catch (e: Throwable) {
+                            } catch (e: ActivityNotFoundException) {
+                                Toast.makeText(context, ErrorMessages[e], Toast.LENGTH_SHORT).show()
+                            } catch (e: SecurityException) {
                                 Toast.makeText(context, ErrorMessages[e], Toast.LENGTH_SHORT).show()
                             }
                         }.setCancelable(false).setOnDismissListener {

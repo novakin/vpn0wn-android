@@ -4,7 +4,12 @@
  */
 package com.wireguard.android.fragment
 
+import com.google.zxing.ReaderException
+import java.io.IOException
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
 import android.content.Intent
+import android.app.Activity
 import android.content.res.Resources
 import android.os.Bundle
 import android.util.Log
@@ -23,9 +28,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.view.ActionMode
 import androidx.databinding.Observable
 import androidx.databinding.ObservableList
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
 import com.google.zxing.qrcode.QRCodeReader
@@ -49,7 +51,7 @@ import com.wireguard.android.util.TunnelImporter
 import com.wireguard.android.util.tunnlStyle
 import com.wireguard.android.widget.MultiselectableRelativeLayout
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
@@ -59,6 +61,11 @@ import kotlinx.coroutines.launch
  * Fragment containing a list of known WireGuard tunnels. It allows creating and deleting tunnels.
  */
 class TunnelListFragment : BaseFragment() {
+    private val tunnelCreatorResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode != Activity.RESULT_OK) return@registerForActivityResult
+        val message = result.data?.getStringExtra(TunnelCreatorActivity.EXTRA_SAVE_MESSAGE) ?: return@registerForActivityResult
+        binding?.let { Snackbar.make(it.mainContainer, message, Snackbar.LENGTH_SHORT).tunnlStyle().show() }
+    }
     private val actionModeListener = ActionModeListener()
     private var actionMode: ActionMode? = null
     private var backPressedCallback: OnBackPressedCallback? = null
@@ -103,16 +110,28 @@ class TunnelListFragment : BaseFragment() {
         val contentResolver = activity.contentResolver ?: return@registerForActivityResult
         activity.lifecycleScope.launch {
             if (QrCodeFromFileScanner.validContentType(contentResolver, data)) {
-                try {
-                    val qrCodeFromFileScanner = QrCodeFromFileScanner(contentResolver, QRCodeReader())
-                    val result = qrCodeFromFileScanner.scan(data)
-                    TunnelImporter.importTunnel(parentFragmentManager, result.text) { showSnackbar(it) }
-                } catch (e: Exception) {
-                    val error = ErrorMessages[e]
-                    val message = activity.resources.getString(R.string.import_error, error)
-                    Log.e(TAG, message, e)
+                fun reportScanFailure(error: Exception) {
+                    val message = activity.resources.getString(R.string.import_error, ErrorMessages[error])
+                    Log.e(TAG, message, error)
                     showSnackbar(message)
                 }
+                val result = try {
+                    val qrCodeFromFileScanner = QrCodeFromFileScanner(contentResolver, QRCodeReader())
+                    qrCodeFromFileScanner.scan(data)
+                } catch (e: IOException) {
+                    reportScanFailure(e)
+                    return@launch
+                } catch (e: ReaderException) {
+                    reportScanFailure(e)
+                    return@launch
+                } catch (e: IllegalArgumentException) {
+                    reportScanFailure(e)
+                    return@launch
+                } catch (e: SecurityException) {
+                    reportScanFailure(e)
+                    return@launch
+                }
+                TunnelImporter.importTunnel(parentFragmentManager, result.text) { showSnackbar(it) }
             } else {
                 TunnelImporter.importTunnel(contentResolver, data) { showSnackbar(it) }
             }
@@ -147,20 +166,13 @@ class TunnelListFragment : BaseFragment() {
         binding = TunnelListFragmentBinding.inflate(inflater, container, false)
         val bottomSheet = AddTunnelsSheet()
         binding?.apply {
-            val baseHeaderTopPadding = homeHeaderContainer.paddingTop
-            ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
-                val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-                homeHeaderContainer.updatePadding(top = baseHeaderTopPadding + systemBars.top)
-                insets
-            }
-            ViewCompat.requestApplyInsets(root)
             createFab.setOnClickListener {
                 if (childFragmentManager.findFragmentByTag("BOTTOM_SHEET") != null)
                     return@setOnClickListener
                 childFragmentManager.setFragmentResultListener(AddTunnelsSheet.REQUEST_KEY_NEW_TUNNEL, viewLifecycleOwner) { _, bundle ->
                     when (bundle.getString(AddTunnelsSheet.REQUEST_METHOD)) {
                         AddTunnelsSheet.REQUEST_CREATE -> {
-                            startActivity(Intent(requireActivity(), TunnelCreatorActivity::class.java))
+                            tunnelCreatorResultLauncher.launch(Intent(requireActivity(), TunnelCreatorActivity::class.java))
                         }
 
                         AddTunnelsSheet.REQUEST_IMPORT -> {
@@ -309,7 +321,7 @@ class TunnelListFragment : BaseFragment() {
                         refreshTunnelStatsNow(tunnel)
                     }
                 }
-                delay(1000)
+                delay(TimeUnit.SECONDS.toMillis(1))
             }
         }
     }
@@ -319,11 +331,15 @@ class TunnelListFragment : BaseFragment() {
         statsJob = null
     }
 
+    // Backend/ConfigStore expose Exception; this operation reports their failures while cancellation and Errors propagate.
+    @Suppress("TooGenericExceptionCaught")
     private suspend fun refreshTunnelStatsNow(tunnel: ObservableTunnel) {
         if (!isResumed || tunnel.state != Tunnel.State.UP) return
         try {
             tunnel.getStatisticsAsync()
-        } catch (e: Throwable) {
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
             Log.w(TAG, "Stats refresh failed", e)
         }
     }
@@ -357,9 +373,6 @@ class TunnelListFragment : BaseFragment() {
         startActivity(Intent(requireContext(), SettingsActivity::class.java))
     }
 
-    fun onSearchPressed(@Suppress("UNUSED_PARAMETER") view: View) {
-    }
-
     private fun viewForTunnel(tunnel: ObservableTunnel, tunnels: List<*>): MultiselectableRelativeLayout? {
         return binding?.tunnelList?.findViewHolderForAdapterPosition(tunnels.indexOf(tunnel))?.itemView as? MultiselectableRelativeLayout
     }
@@ -372,6 +385,8 @@ class TunnelListFragment : BaseFragment() {
             return ArrayList(checkedItems)
         }
 
+        // Backend/ConfigStore expose Exception; this operation reports their failures while cancellation and Errors propagate.
+        @Suppress("TooGenericExceptionCaught")
         override fun onActionItemClicked(mode: ActionMode, item: MenuItem): Boolean {
             return when (item.itemId) {
                 R.id.menu_action_delete -> {
@@ -387,9 +402,13 @@ class TunnelListFragment : BaseFragment() {
                             val tunnels = Application.getTunnelManager().getTunnels()
                             val tunnelsToDelete = ArrayList<ObservableTunnel>()
                             for (position in copyCheckedItems) tunnelsToDelete.add(tunnels[position])
-                            val futures = tunnelsToDelete.map { async(SupervisorJob()) { it.deleteAsync() } }
-                            onTunnelDeletionFinished(futures.awaitAll().size, null)
-                        } catch (e: Throwable) {
+                            val deletedCount = supervisorScope {
+                                tunnelsToDelete.map { async { it.deleteAsync() } }.awaitAll().size
+                            }
+                            onTunnelDeletionFinished(deletedCount, null)
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
                             onTunnelDeletionFinished(0, e)
                         }
                     }
@@ -476,8 +495,7 @@ class TunnelListFragment : BaseFragment() {
                 context, if (show) R.anim.scale_up else R.anim.scale_down
             )
             animation.setAnimationListener(object : Animation.AnimationListener {
-                override fun onAnimationRepeat(animation: Animation?) {
-                }
+                override fun onAnimationRepeat(animation: Animation?) = Unit
 
                 override fun onAnimationEnd(animation: Animation?) {
                     if (!show) view.visibility = View.GONE

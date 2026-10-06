@@ -4,7 +4,11 @@
  */
 package com.wireguard.android.fragment
 
+import kotlinx.coroutines.CancellationException
+import com.wireguard.config.BadConfigException
 import android.content.Context
+import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 import android.text.InputType
 import android.util.Log
@@ -25,6 +29,8 @@ import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
 import com.wireguard.android.Application
 import com.wireguard.android.R
+import com.wireguard.android.activity.TunnelCreatorActivity
+import com.wireguard.android.activity.MainActivity
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.databinding.TunnelEditorFragmentBinding
 import com.wireguard.android.model.ObservableTunnel
@@ -53,8 +59,7 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
         if (throwable == null) {
             val message = ctx.getString(R.string.config_save_success, savedTunnel.name)
             Log.d(TAG, message)
-            Toast.makeText(ctx, message, Toast.LENGTH_SHORT).show()
-            onFinished()
+            onFinished(message)
         } else {
             val error = ErrorMessages[throwable]
             val message = ctx.getString(R.string.config_save_error, savedTunnel.name, error)
@@ -78,6 +83,7 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
         super.onCreateView(inflater, container, savedInstanceState)
         binding = TunnelEditorFragmentBinding.inflate(inflater, container, false)
         binding?.apply {
+            isNew = selectedTunnel == null
             executePendingBindings()
             privateKeyRegenButton.setOnClickListener { config?.`interface`?.generateKeyPair() }
         }
@@ -95,9 +101,12 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
         super.onDestroyView()
     }
 
-    private fun onFinished() {
+    private fun onFinished(message: String) {
         // Hide the keyboard; it rarely goes away on its own.
         val activity = activity ?: return
+        if (activity is TunnelCreatorActivity) {
+            activity.setResult(Activity.RESULT_OK, Intent().putExtra(TunnelCreatorActivity.EXTRA_SAVE_MESSAGE, message))
+        }
         val focusedView = activity.currentFocus
         if (focusedView != null) {
             val inputManager = activity.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
@@ -111,64 +120,81 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
         // If we just made a new one, save it to select the details page.
         if (selectedTunnel != tunnel)
             selectedTunnel = tunnel
+        if (activity is MainActivity) {
+            Snackbar.make(activity.findViewById(R.id.main_activity_container), message, Snackbar.LENGTH_SHORT).tunnlStyle().show()
+        }
     }
 
     override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
-        if (menuItem.itemId == R.id.menu_action_save) {
-            val binding = binding ?: return false
-            val config = binding.config ?: return false
-            val newConfig = try {
-                config.resolve()
-            } catch (e: Exception) {
-                val error = ErrorMessages[e]
-                val tunnelName = if (tunnel == null) binding.name else tunnel!!.name
-                val message = getString(R.string.config_save_error, tunnelName, error)
-                Log.e(TAG, message, e)
-                Snackbar.make(binding.mainContainer, error, Snackbar.LENGTH_LONG).tunnlStyle().show()
-                return false
-            }
-            val name = binding.name?.takeIf { it.isNotBlank() } ?: run {
-                Snackbar.make(binding.mainContainer, getString(R.string.tunnel_error_invalid_name), Snackbar.LENGTH_LONG).tunnlStyle().show()
-                return false
-            }
-            val activity = requireActivity()
-            val t = tunnel
-            activity.lifecycleScope.launch {
+        if (menuItem.itemId != R.id.menu_action_save) return false
+        saveConfig()
+        return true
+    }
+
+    fun onBackPressed(@Suppress("UNUSED_PARAMETER") view: View) {
+        requireActivity().onBackPressedDispatcher.onBackPressed()
+    }
+
+    fun onSavePressed(@Suppress("UNUSED_PARAMETER") view: View) {
+        saveConfig()
+    }
+
+    // Backend/ConfigStore expose Exception; this operation reports their failures while cancellation and Errors propagate.
+    @Suppress("TooGenericExceptionCaught")
+    private fun saveConfig() {
+        val binding = binding ?: return
+        val config = binding.config ?: return
+        val newConfig = try {
+            config.resolve()
+        } catch (e: BadConfigException) {
+            val error = ErrorMessages[e]
+            val tunnelName = if (tunnel == null) binding.name else tunnel!!.name
+            val message = getString(R.string.config_save_error, tunnelName, error)
+            Log.e(TAG, message, e)
+            Snackbar.make(binding.mainContainer, error, Snackbar.LENGTH_LONG).tunnlStyle().show()
+            return
+        }
+        val name = binding.name?.takeIf { it.isNotBlank() } ?: run {
+            Snackbar.make(binding.mainContainer, getString(R.string.tunnel_error_invalid_name), Snackbar.LENGTH_LONG).tunnlStyle().show()
+            return
+        }
+        val activity = requireActivity()
+        val t = tunnel
+        val renaming = t != null && t.name != name
+        activity.lifecycleScope.launch {
+            val createdTunnel = try {
                 when {
                     t == null -> {
                         Log.d(TAG, "Attempting to create new tunnel $name")
-                        val manager = Application.getTunnelManager()
-                        try {
-                            onTunnelCreated(manager.create(name, newConfig), null)
-                        } catch (e: Throwable) {
-                            onTunnelCreated(null, e)
-                        }
+                        Application.getTunnelManager().create(name, newConfig)
                     }
-
-                    t.name != name -> {
+                    renaming -> {
                         Log.d(TAG, "Attempting to rename tunnel to $name")
-                        try {
-                            t.setNameAsync(name)
-                            onTunnelRenamed(t, newConfig, null)
-                        } catch (e: Throwable) {
-                            onTunnelRenamed(t, newConfig, e)
-                        }
+                        t!!.setNameAsync(name)
+                        null
                     }
-
                     else -> {
-                        Log.d(TAG, "Attempting to save config of " + t.name)
-                        try {
-                            t.setConfigAsync(newConfig)
-                            onConfigSaved(t, null)
-                        } catch (e: Throwable) {
-                            onConfigSaved(t, e)
-                        }
+                        Log.d(TAG, "Attempting to save config of " + t!!.name)
+                        t.setConfigAsync(newConfig)
+                        null
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                when {
+                    t == null -> onTunnelCreated(null, e)
+                    renaming -> onTunnelRenamed(t, newConfig, e)
+                    else -> onConfigSaved(t, e)
+                }
+                return@launch
             }
-            return true
+            when {
+                t == null -> onTunnelCreated(createdTunnel, null)
+                renaming -> onTunnelRenamed(t, newConfig, null)
+                else -> onConfigSaved(t, null)
+            }
         }
-        return false
     }
 
     @Suppress("UNUSED_PARAMETER")
@@ -211,20 +237,28 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
         super.onSaveInstanceState(outState)
     }
 
+    // Backend/ConfigStore expose Exception; this operation reports their failures while cancellation and Errors propagate.
+    @Suppress("TooGenericExceptionCaught")
     override fun onSelectedTunnelChanged(
         oldTunnel: ObservableTunnel?,
         newTunnel: ObservableTunnel?
     ) {
         tunnel = newTunnel
+        binding?.isNew = newTunnel == null
         if (binding == null) return
         binding!!.config = ConfigProxy()
-        if (tunnel != null) {
-            binding!!.name = tunnel!!.name
+        if (newTunnel != null) {
+            binding!!.name = newTunnel.name
             lifecycleScope.launch {
-                try {
-                    onConfigLoaded(tunnel!!.getConfigAsync())
-                } catch (_: Exception) {
+                val config = try {
+                    newTunnel.getConfigAsync()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w(TAG, "Failed to load selected tunnel config: ${e.javaClass.simpleName}")
+                    return@launch
                 }
+                onConfigLoaded(config)
             }
         } else {
             binding!!.name = ""
@@ -237,8 +271,7 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
             tunnel = newTunnel
             val message = ctx.getString(R.string.tunnel_create_success, tunnel!!.name)
             Log.d(TAG, message)
-            Toast.makeText(ctx, message, Toast.LENGTH_SHORT).show()
-            onFinished()
+            onFinished(message)
         } else {
             val error = ErrorMessages[throwable]
             val message = ctx.getString(R.string.tunnel_create_error, error)
@@ -251,6 +284,8 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
         }
     }
 
+    // Backend/ConfigStore expose Exception; this operation reports their failures while cancellation and Errors propagate.
+    @Suppress("TooGenericExceptionCaught")
     private suspend fun onTunnelRenamed(
         renamedTunnel: ObservableTunnel, newConfig: Config,
         throwable: Throwable?
@@ -263,10 +298,13 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
             Log.d(TAG, "Attempting to save config of renamed tunnel " + tunnel!!.name)
             try {
                 renamedTunnel.setConfigAsync(newConfig)
-                onConfigSaved(renamedTunnel, null)
-            } catch (e: Throwable) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
                 onConfigSaved(renamedTunnel, e)
+                return
             }
+            onConfigSaved(renamedTunnel, null)
         } else {
             val error = ErrorMessages[throwable]
             val message = ctx.getString(R.string.tunnel_rename_error, error)

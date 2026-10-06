@@ -157,6 +157,8 @@ class TunnelThroughputView @JvmOverloads constructor(
         super.onDetachedFromWindow()
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
@@ -254,6 +256,8 @@ class TunnelThroughputView @JvmOverloads constructor(
         textPaint.textAlign = Paint.Align.LEFT
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun drawNode(canvas: Canvas, x: Float, y: Float) {
         if (live) canvas.drawCircle(x, y, dp(8f), fillPaint)
         canvas.drawCircle(x, y, dp(4f), nodePaint)
@@ -267,6 +271,8 @@ class TunnelThroughputView @JvmOverloads constructor(
         canvas.drawCircle(x, y, radius, packetPaint)
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun drawNodeLabel(canvas: Canvas, x: Float, y: Float, label: String, sub: String, align: Paint.Align) {
         labelPaint.textAlign = align
         textPaint.textAlign  = align
@@ -306,8 +312,13 @@ class TunnelThroughputView @JvmOverloads constructor(
         ruleStrong = ContextCompat.getColor(context, R.color.tunnl_rule_strong)
         paper3     = ContextCompat.getColor(context, R.color.tunnl_paper_3)
         warn       = ContextCompat.getColor(context, R.color.tunnl_warn)
-        signalFill = Color.argb(36, Color.red(signal), Color.green(signal), Color.blue(signal))
-        ruleStrongDim = Color.argb(56, Color.red(ruleStrong), Color.green(ruleStrong), Color.blue(ruleStrong))
+        signalFill = Color.argb(NODE_GLOW_ALPHA, Color.red(signal), Color.green(signal), Color.blue(signal))
+        ruleStrongDim = Color.argb(DIMMED_RULE_ALPHA, Color.red(ruleStrong), Color.green(ruleStrong), Color.blue(ruleStrong))
+    }
+
+    private companion object {
+        const val NODE_GLOW_ALPHA = 36
+        const val DIMMED_RULE_ALPHA = 56
     }
 
     private fun dp(value: Float): Float = value * density

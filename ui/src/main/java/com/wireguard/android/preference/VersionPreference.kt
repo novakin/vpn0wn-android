@@ -4,12 +4,15 @@
  */
 package com.wireguard.android.preference
 
+import kotlinx.coroutines.CancellationException
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.AttributeSet
-import android.widget.Toast
+import android.util.Log
 import androidx.preference.Preference
+import com.google.android.material.snackbar.Snackbar
 import com.wireguard.android.Application
 import com.wireguard.android.BuildConfig
 import com.wireguard.android.R
@@ -17,7 +20,9 @@ import com.wireguard.android.backend.Backend
 import com.wireguard.android.backend.GoBackend
 import com.wireguard.android.backend.WgQuickBackend
 import com.wireguard.android.util.ErrorMessages
+import com.wireguard.android.util.activity
 import com.wireguard.android.util.lifecycleScope
+import com.wireguard.android.util.tunnlStyle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -34,12 +39,15 @@ class VersionPreference(context: Context, attrs: AttributeSet?) : Preference(con
         intent.data = Uri.parse("https://www.wireguard.com/")
         try {
             context.startActivity(intent)
-        } catch (e: Throwable) {
-            Toast.makeText(context, ErrorMessages[e], Toast.LENGTH_SHORT).show()
+        } catch (e: ActivityNotFoundException) {
+            Snackbar.make(activity.findViewById(android.R.id.content), ErrorMessages[e], Snackbar.LENGTH_SHORT).tunnlStyle().show()
+        } catch (e: SecurityException) {
+            Snackbar.make(activity.findViewById(android.R.id.content), ErrorMessages[e], Snackbar.LENGTH_SHORT).tunnlStyle().show()
         }
     }
 
     companion object {
+        private const val TAG = "WireGuard/VersionPreference"
         private fun getBackendPrettyName(context: Context, backend: Backend) = when (backend) {
             is WgQuickBackend -> context.getString(R.string.type_name_kernel_module)
             is GoBackend -> context.getString(R.string.type_name_go_userspace)
@@ -52,11 +60,17 @@ class VersionPreference(context: Context, attrs: AttributeSet?) : Preference(con
             val backend = Application.getBackend()
             versionSummary = getContext().getString(R.string.version_summary_checking, getBackendPrettyName(context, backend).lowercase())
             notifyChanged()
-            versionSummary = try {
+            // Backend.getVersion declares Exception; retain the unknown-version fallback for those failures.
+            @Suppress("TooGenericExceptionCaught")
+            val checkedVersion = try {
                 getContext().getString(R.string.version_summary, getBackendPrettyName(context, backend), withContext(Dispatchers.IO) { backend.version })
-            } catch (_: Throwable) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to read backend version: ${e.javaClass.simpleName}")
                 getContext().getString(R.string.version_summary_unknown, getBackendPrettyName(context, backend).lowercase())
             }
+            versionSummary = checkedVersion
             notifyChanged()
         }
     }

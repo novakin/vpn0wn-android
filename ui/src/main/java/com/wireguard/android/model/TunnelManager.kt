@@ -88,6 +88,8 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         addToList(name, withContext(Dispatchers.IO) { configStore.create(name, config) }, Tunnel.State.DOWN)
     }
 
+    // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
+    @Suppress("TooGenericExceptionCaught")
     suspend fun delete(tunnel: ObservableTunnel) = mutate {
         requireManaged(tunnel)
         val backend = getBackend()
@@ -127,6 +129,8 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         tunnel.onConfigChanged(withContext(Dispatchers.IO) { configStore.load(tunnel.name) })!!
     }
 
+    // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
+    @Suppress("TooGenericExceptionCaught")
     fun onCreate() {
         if (haveLoaded || loadingJob?.isActive == true)
             return
@@ -169,6 +173,8 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         haveLoaded = true
     }
 
+    // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
+    @Suppress("TooGenericExceptionCaught")
     private fun refreshTunnelStates() {
         applicationScope.launch {
             try {
@@ -183,6 +189,8 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         }
     }
 
+    // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
+    @Suppress("TooGenericExceptionCaught")
     suspend fun restoreState(force: Boolean) {
         if (!haveLoaded || (!force && !UserKnobs.restoreOnBoot.first()))
             return
@@ -213,6 +221,8 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
             tunnel.onStateChanged(if (running.contains(tunnel.name)) Tunnel.State.UP else Tunnel.State.DOWN)
     }
 
+    // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
+    @Suppress("TooGenericExceptionCaught")
     suspend fun setTunnelConfig(tunnel: ObservableTunnel, config: Config): Config = mutate {
         requireManaged(tunnel)
         val previousConfig = tunnel.getConfigAsync()
@@ -233,6 +243,8 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         })!!
     }
 
+    // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
+    @Suppress("TooGenericExceptionCaught")
     suspend fun setTunnelName(tunnel: ObservableTunnel, name: String): String = mutate {
         requireManaged(tunnel)
         if (Tunnel.isNameInvalid(name))
@@ -288,6 +300,8 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         }
     }
 
+    // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
+    @Suppress("TooGenericExceptionCaught")
     private suspend fun changeTunnelState(tunnel: ObservableTunnel, state: Tunnel.State): Tunnel.State {
         val backend = getBackend()
         var newState = withContext(Dispatchers.IO) { backend.getState(tunnel) }
@@ -301,7 +315,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
             return newState
         }
         var failure: Exception? = null
-        tunnel.onStateChanged(Tunnel.State.TOGGLE)
+        tunnel.onTransitionStarted(target)
         try {
             val config = if (target == Tunnel.State.DOWN) null else tunnel.getConfigAsync()
             newState = withContext(Dispatchers.IO) { backend.setState(tunnel, target, config) }
@@ -331,6 +345,8 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     }
 
     class IntentReceiver : BroadcastReceiver() {
+        // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
+        @Suppress("TooGenericExceptionCaught")
         override fun onReceive(context: Context, intent: Intent?) {
             applicationScope.launch {
                 val manager = getTunnelManager()
@@ -352,7 +368,9 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
                 val tunnel = tunnels[tunnelName] ?: return@launch
                 try {
                     manager.setTunnelState(tunnel, state)
-                } catch (e: Throwable) {
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
                     Toast.makeText(context, ErrorMessages[e], Toast.LENGTH_LONG).show()
                 }
             }
@@ -364,6 +382,8 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         tunnel.onStateChanged(withContext(Dispatchers.IO) { getBackend().getState(tunnel) })
     }
 
+    // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
+    @Suppress("TooGenericExceptionCaught")
     internal fun onTunnelStateChange(tunnel: ObservableTunnel) {
         applicationScope.launch {
             try {

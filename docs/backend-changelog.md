@@ -48,8 +48,17 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **Phone presentation and throughput follow-up — 2026-10-06**
+  `TunnelManager.changeTunnelState` publishes the resolved target through `ObservableTunnel.onTransitionStarted`; state changes precede statistics notifications. Pending disconnect now renders off rather than yellow CONNECTING, while failure restores observed state and controls. `BindingAdapters.tunnelRate` distinguishes repeated bindings from fresh idle snapshots and clears its baseline when statistics disappears. Existing switch-mode binding owns checked/enabled/tint together. See [contracts](backend-contracts.md#persistence-and-presentation) and [verification](development.md#phone-ui-and-throughput-follow-up--2026-10-06). Shared safe-area and status-background corrections are recorded in the UI roadmap.
+
+- **Save completion feedback ownership — 2026-10-06**
+  `TunnelEditorFragment.onFinished` shows successful saves on MainActivity's persistent content after leaving the editor. New-profile creation returns `TunnelCreatorActivity.EXTRA_SAVE_MESSAGE` with RESULT_OK before finish; `TunnelListFragment` displays it through its registered activity-result callback. Validation/failure keeps the editor and existing profile. Visible phone preferences and app-list loading errors reuse styled feedback; native fallbacks are documented in [operations](operations.md#import-edit-and-connect).
+
+- **Detekt source remediation and import/resource ownership — 2026-10-06**
+  `config/detekt/detekt.yml` keeps the zero-issue gate, excludes guard clauses from ReturnCount and removes catch-name exemptions. Meaningful timing/limits/state/parser positions are named; drawing geometry retains narrow explained exceptions. Typed failures and cancellation handling preserve existing Backend/ConfigStore recovery. `TunnelComparator.compare` now orders distinct normalized names consistently. `QrCodeFromFileScanner.doScan` reopens input, recycles bitmaps and reports exhausted allocation pressure as recoverable input failure. `TunnelImporter.importTunnel` parents creation jobs, aggregates valid/invalid ZIP results once and logs categories only. `ZipExporterPreference.exportZip` parents loads, preserves primary write/cleanup failures and restores controls; Downloads acquisition/provider limits remain. `Updater.downloadAndUpdateWrapErrors` restores its busy flag in `finally` and preserves retry timing. The unused search handler is removed and its button disabled pending real filtering. See [contracts](backend-contracts.md#import-ordering-and-export), [UI gaps](ui-redesign-roadmap.md#fidelity-gaps--remaining) and [verification](development.md#detekt-source-remediation--2026-10-06). #22 publication remains separate from local proof.
+
 - **Complete kernel transitions — 2026-10-06**
-  `WgQuickBackend.setState`, `getRunningTunnelNames` and `setMultipleTunnels` share the existing backend instance monitor. Application collects live mode updates on IO so lock contention leaves Main responsive. The owner serializes snapshots, shutdown/apply/rollback and map/callback settlement; restoration errors attach to the primary failure. Controlled simultaneous-UP tests preserve disabled/enabled multiple-mode behavior and injected failures preserve/report observed recovery. #15 implementation is complete; delivery state is tracked by [issue #15](https://github.com/novakin/wireguard-android/issues/15). See [contracts](backend-contracts.md#wireguard-configuration-and-tunnel-state) and [verification](development.md#kernel-transition-serialization--2026-10-06). Real root/kernel traffic remains unproved.
+  `WgQuickBackend.setState`, `getRunningTunnelNames` and `setMultipleTunnels` share the existing backend instance monitor. Application collects live mode updates on IO so lock contention leaves Main responsive. The owner serializes snapshots, shutdown/apply/rollback and map/callback settlement; restoration errors attach to the primary failure. Controlled simultaneous-UP tests preserve disabled/enabled multiple-mode behavior and injected failures preserve/report observed recovery. #15 merged in PR #27; the issue is closed. See [contracts](backend-contracts.md#wireguard-configuration-and-tunnel-state) and [verification](development.md#kernel-transition-serialization--2026-10-06). Real root/kernel traffic remains unproved.
 
 - **DNS round trips and network-prefix validation — 2026-10-06**
   `Interface.toWgQuickString` retains DNS search domains when no DNS server is present. `InetNetwork.parse` distinguishes omitted masks from explicit negative masks and preserves valid IPv4/IPv6 controls. #16 merged in PR #26, with no new parser, format migration or user-file rewrite. See [contracts](backend-contracts.md#wireguard-configuration-and-tunnel-state) and [evidence](development.md#dns-round-trips-and-prefix-validation--2026-10-06).
@@ -61,7 +70,7 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
   `FileConfigStore.create`/`save` stage private writes, sync/close before native atomic rename and propagate commit errors. All store operations serialize through the existing owner; rename no longer creates a destination marker. Previous valid configs survive injected partial-write/rename failures, failed creates publish no profile, and conflicting mutations retain ownership. See [contracts](backend-contracts.md#persistence-and-presentation) and [development evidence](development.md#atomic-local-profile-replacement--2026-10-06). Android filesystem/power-loss proof remains separate.
 
 - **Detekt configuration validation — 2026-10-06**
-  `config/detekt/detekt.yml` removes the unsupported `AvoidReferenceToMutableVar` property for pinned Detekt 1.23.8. Native analysis now runs and reports existing source findings instead of failing config validation. [Issue #22](https://github.com/novakin/wireguard-android/issues/22) owns the 538 findings; the source gate still exits 1. See [development evidence](development.md#detekt-configuration-repair--2026-10-06).
+  `config/detekt/detekt.yml` removes the unsupported `AvoidReferenceToMutableVar` property for pinned Detekt 1.23.8. At that checkpoint native analysis ran and reported 538 existing source findings instead of failing config validation. The source remediation entry above supersedes that failed gate; [original development evidence](development.md#detekt-configuration-repair--2026-10-06) retains its historical scope.
 
 ### VPS provisioning
 
@@ -106,7 +115,7 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 ### Statistics
 
 - **`ObservableTunnel` snapshots and `BindingAdapters` rate samples**
-  Home/detail refresh from observable callbacks plus lifecycle-bound jobs. `ObservableTunnel` owns cached snapshots/notifications; `BindingAdapters` owns per-tunnel RX/TX/time samples in a `WeakHashMap` and derives rates from deltas. The idle-rate defect remains C7.
+  Home/detail refresh from observable callbacks plus lifecycle-bound jobs. `ObservableTunnel` owns cached snapshots/notifications; `BindingAdapters` owns per-tunnel RX/TX/time samples in a `WeakHashMap` and derives rates from deltas. The earlier idle-rate defect is repaired in the 2026-10-06 phone follow-up above; broader C7 device/traffic proof remains separate.
 
 - **`BindingAdapters` — stat formatters**
   Added: `tunnelRx`, `tunnelTx`, `tunnelRxRate`, `tunnelTxRate`, `tunnelHandshake`, `tunnelCipher`, `tunnelRoute`, `tunnelPeerBadge`, `shortKey`.
@@ -166,6 +175,6 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 2026-10-06 committed-source reconciliation (Europe/Paris): the [full documentation review](reviews/2026-10-06-full-documentation-review.md) corrects guarantees and ownership without rerunning historical tests. Remaining runtime repairs stay in the improvement plan and linked issues.
 
-- `GoBackend.java` — VPN tunnel backend wrapping Go WireGuard. Actual transitions use `setState`/`setStateInternal`; blocking work must stay off the main thread. Main-thread service destruction can still wait on the transition lock (C5).
+- `GoBackend.java` — VPN tunnel backend wrapping Go WireGuard. Actual transitions use `setState`/`setStateInternal`; blocking work stays off the main thread. PR #25 schedules identity-checked service cleanup away from Main; successful native activation/reacquisition and device traffic remain unproved.
 - `TunnelManager.kt` — owns the tunnel list, persists config to disk, manages backend lifecycle.
 - `ObservableTunnel.kt` — observable wrapper; `getStatisticsAsync()` and `getConfigAsync()` can return cached values, otherwise request backend/store data and update notifications.

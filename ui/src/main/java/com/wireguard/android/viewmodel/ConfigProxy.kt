@@ -15,6 +15,8 @@ import com.wireguard.config.Config
 import com.wireguard.config.Peer
 
 class ConfigProxy : Parcelable {
+    // Matches the WireGuard section and the existing DataBinding/Parcelable API.
+    @Suppress("VariableNaming")
     val `interface`: InterfaceProxy
     val peers: ObservableList<PeerProxy> = ObservableArrayList()
 

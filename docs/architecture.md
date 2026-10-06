@@ -21,6 +21,7 @@ Preserve the existing Android DataBinding/Fragment foundation and upstream WireG
 | [Remote-shell boundary](../ui/src/main/java/com/wireguard/android/provisioning/RemoteShellClient.kt) | Transport factory and guarded execute/upload; concrete SSH/session implementation is still missing. |
 | [VPS store](../ui/src/main/java/com/wireguard/android/provisioning/VpsServerStore.kt), [mapper](../ui/src/main/java/com/wireguard/android/provisioning/VpsDeployMapper.kt) | Transactional non-secret fleet records and projection into UI models. |
 | [FileConfigStore](../ui/src/main/java/com/wireguard/android/configStore/FileConfigStore.kt) | Serialized local profile operations; private staged writes, file sync and native atomic rename preserve prior valid configs on failed updates. |
+| [TunnelImporter](../ui/src/main/java/com/wireguard/android/util/TunnelImporter.kt), [QR scanner](../ui/src/main/java/com/wireguard/android/util/QrCodeFromFileScanner.kt), [ZIP exporter](../ui/src/main/java/com/wireguard/android/preference/ZipExporterPreference.kt) | Import result delivery, image retry/resource ownership and export children/output cleanup; models/stores retain profile ownership. |
 | [Tunnl scripts](../third_party/wireguard-install/tunnl/README.md) | Ubuntu/Debian operations, C2–C3 ownership/serialized recovery and C4 producer/consumer contracts; real-server proof remains separate. |
 
 ## Runtime flows
@@ -37,6 +38,12 @@ flowchart LR
 ```
 
 UI actions request model/backend changes; backend state/statistics return through observable data and bindings. Keep UI formatting separate from operation success, permission/service management and config parsing. Detail config/statistics jobs belong to the view lifecycle and guard completions by binding/selection identity. Manager admission owns state settlement; [the decision below](#tunnel-mutations-own-admission-and-settlement) describes #13's merged repairs and limits. #15's kernel transition decision is recorded below.
+
+`BaseActivity.applySafeAreaInsets` owns system-bar/display-cutout padding for MainActivity's single-/two-pane containers and TunnelCreatorActivity. It clears the handled inset types for descendants while preserving IME/gesture insets. Fragments do not add the same header inset again. The editor uses a DataBinding header inside its existing fragment, matching the prototype title/context, Close and Save controls; both host activities hide their native ActionBar. Save and the retained keyboard/menu entry call the same validated persistence owner. `ObservableTunnel` retains the manager's resolved pending target for presentation, and BindingAdapters shares each rate calculation by statistics snapshot. See [presentation contracts](backend-contracts.md#persistence-and-presentation) and [phone evidence](development.md#phone-ui-and-throughput-follow-up--2026-10-06).
+
+The Home vertical layout reserves its Add footer below the weighted list. Transient phone feedback reuses `TunnlSnackbar`, which clears the Material background tint before installing its local surface. Successful editor feedback belongs to the surviving Main/list view; Creator returns the message through the existing Android activity-result mechanism. Native Toasts remain only in the visibility contexts described in [operations](operations.md#import-edit-and-connect); no new feedback service or state model is introduced.
+
+Import/export children belong to their operation rather than the application scope. Valid ZIP entries settle independently through the existing manager; completion feedback runs once afterward. QR decoding owns each reopened input/bitmap. Narrow error handling preserves cancellation and exposes programming defects while existing generic Backend/ConfigStore boundaries retain needed reconciliation/reporting. [Import/export contracts](backend-contracts.md#import-ordering-and-export) records failure and output-acquisition limits; no new service, parser or dependency is introduced.
 
 ```mermaid
 flowchart LR

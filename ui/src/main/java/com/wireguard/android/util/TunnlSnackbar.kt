@@ -14,6 +14,8 @@ import com.google.android.material.snackbar.Snackbar
 import com.wireguard.android.R
 
 object TunnlSnackbar {
+    // Literal dimensions/type settings describe this local design, like XML layout values.
+    @Suppress("MagicNumber")
     fun style(snackbar: Snackbar): Snackbar {
         val context = snackbar.view.context
         val density = context.resources.displayMetrics.density
@@ -23,6 +25,7 @@ object TunnlSnackbar {
             setStroke((1f * density).toInt().coerceAtLeast(1), ContextCompat.getColor(context, R.color.tunnl_rule_strong))
         }
 
+        snackbar.setBackgroundTintList(null)
         snackbar.view.background = background
         snackbar.view.elevation = 6f * density
         if (snackbar.view.layoutParams is ViewGroup.MarginLayoutParams) {
@@ -52,6 +55,8 @@ object TunnlSnackbar {
         return snackbar
     }
 
+    // The dot's diameter is local drawing geometry, not a runtime threshold.
+    @Suppress("MagicNumber")
     private fun signalDot(context: android.content.Context, density: Float) =
         GradientDrawable().apply {
             shape = GradientDrawable.OVAL

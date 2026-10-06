@@ -4,6 +4,7 @@
  */
 package com.wireguard.android.fragment
 
+import java.util.concurrent.TimeUnit
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
@@ -14,9 +15,6 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.MenuProvider
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.updatePadding
 import androidx.databinding.DataBindingUtil
 import androidx.databinding.Observable
 import androidx.lifecycle.Lifecycle
@@ -79,13 +77,6 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
         binding?.apply {
             val showBackButton = (activity as? MainActivity)?.shouldShowDetailBackButton() != false
             detailBackButton.visibility = if (showBackButton) View.VISIBLE else View.INVISIBLE
-            val baseHeaderTopPadding = detailHeaderContainer.paddingTop
-            ViewCompat.setOnApplyWindowInsetsListener(root) { _, insets ->
-                val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-                detailHeaderContainer.updatePadding(top = baseHeaderTopPadding + systemBars.top)
-                insets
-            }
-            ViewCompat.requestApplyInsets(root)
         }
         requireActivity().addMenuProvider(this, viewLifecycleOwner, Lifecycle.State.RESUMED)
     }
@@ -115,6 +106,8 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
         (requireActivity() as? MainActivity)?.openTunnelEditor()
     }
 
+    // Backend/ConfigStore expose Exception; this operation reports their failures while cancellation and Errors propagate.
+    @Suppress("TooGenericExceptionCaught")
     override fun onSelectedTunnelChanged(oldTunnel: ObservableTunnel?, newTunnel: ObservableTunnel?) {
         val binding = binding ?: return
         configJob?.cancel()
@@ -127,16 +120,15 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
             binding.config = null
         } else {
             configJob = viewLifecycleOwner.lifecycleScope.launch {
-                try {
-                    val config = newTunnel.getConfigAsync()
-                    if (this@TunnelDetailFragment.binding === binding && observedTunnel === newTunnel)
-                        binding.config = config
+                val config = try {
+                    newTunnel.getConfigAsync()
                 } catch (e: CancellationException) {
                     throw e
                 } catch (_: Exception) {
-                    if (this@TunnelDetailFragment.binding === binding && observedTunnel === newTunnel)
-                        binding.config = null
+                    null
                 }
+                if (this@TunnelDetailFragment.binding === binding && observedTunnel === newTunnel)
+                    binding.config = config
             }
         }
         lastState = null
@@ -156,6 +148,8 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
         super.onViewStateRestored(savedInstanceState)
     }
 
+    // View/state guards prevent stale updates; Backend statistics failures are reported and cancellation propagates.
+    @Suppress("TooGenericExceptionCaught", "ReturnCount")
     private suspend fun updateStats() {
         val binding = binding ?: return
         val tunnel = binding.tunnel ?: return
@@ -167,37 +161,8 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
         }
         if (state != Tunnel.State.UP && lastState != null && lastState == state) return
         lastState = state
-        try {
-            val statistics = tunnel.getStatisticsAsync()
-            if (this.binding !== binding || binding.tunnel !== tunnel || !isResumed)
-                return
-            for (i in 0 until binding.peersLayout.childCount) {
-                val peer: TunnelDetailPeerBinding = DataBindingUtil.getBinding(binding.peersLayout.getChildAt(i))
-                    ?: continue
-                peer.peerTitle.text = "PEER #${(i + 1).toString().padStart(2, '0')}"
-                val publicKey = peer.item!!.publicKey
-                val peerStats = statistics.peer(publicKey)
-                if (peerStats == null || (peerStats.rxBytes == 0L && peerStats.txBytes == 0L)) {
-                    peer.transferLabel.visibility = View.GONE
-                    peer.transferText.visibility = View.GONE
-                } else {
-                    peer.transferText.text = getString(
-                        R.string.transfer_rx_tx,
-                        QuantityFormatter.formatBytes(peerStats.rxBytes),
-                        QuantityFormatter.formatBytes(peerStats.txBytes)
-                    )
-                    peer.transferLabel.visibility = View.VISIBLE
-                    peer.transferText.visibility = View.VISIBLE
-                }
-                if (peerStats == null || peerStats.latestHandshakeEpochMillis == 0L) {
-                    peer.latestHandshakeLabel.visibility = View.GONE
-                    peer.latestHandshakeText.visibility = View.GONE
-                } else {
-                    peer.latestHandshakeText.text = QuantityFormatter.formatEpochAgo(peerStats.latestHandshakeEpochMillis)
-                    peer.latestHandshakeLabel.visibility = View.VISIBLE
-                    peer.latestHandshakeText.visibility = View.VISIBLE
-                }
-            }
+        val statistics = try {
+            tunnel.getStatisticsAsync()
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -212,9 +177,41 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
                 peer.latestHandshakeLabel.visibility = View.GONE
                 peer.latestHandshakeText.visibility = View.GONE
             }
+            return
+        }
+        if (this.binding !== binding || binding.tunnel !== tunnel || !isResumed)
+            return
+        for (i in 0 until binding.peersLayout.childCount) {
+            val peer: TunnelDetailPeerBinding = DataBindingUtil.getBinding(binding.peersLayout.getChildAt(i))
+                ?: continue
+            peer.peerTitle.text = "PEER #${(i + 1).toString().padStart(2, '0')}"
+            val publicKey = peer.item!!.publicKey
+            val peerStats = statistics.peer(publicKey)
+            if (peerStats == null || (peerStats.rxBytes == 0L && peerStats.txBytes == 0L)) {
+                peer.transferLabel.visibility = View.GONE
+                peer.transferText.visibility = View.GONE
+            } else {
+                peer.transferText.text = getString(
+                    R.string.transfer_rx_tx,
+                    QuantityFormatter.formatBytes(peerStats.rxBytes),
+                    QuantityFormatter.formatBytes(peerStats.txBytes)
+                )
+                peer.transferLabel.visibility = View.VISIBLE
+                peer.transferText.visibility = View.VISIBLE
+            }
+            if (peerStats == null || peerStats.latestHandshakeEpochMillis == 0L) {
+                peer.latestHandshakeLabel.visibility = View.GONE
+                peer.latestHandshakeText.visibility = View.GONE
+            } else {
+                peer.latestHandshakeText.text = QuantityFormatter.formatEpochAgo(peerStats.latestHandshakeEpochMillis)
+                peer.latestHandshakeLabel.visibility = View.VISIBLE
+                peer.latestHandshakeText.visibility = View.VISIBLE
+            }
         }
     }
 
+    // Backend/ConfigStore expose Exception; this operation reports their failures while cancellation and Errors propagate.
+    @Suppress("TooGenericExceptionCaught")
     private fun refreshSelectedStats() {
         val tunnel = binding?.tunnel ?: return
         if (!isResumed || tunnel.state != Tunnel.State.UP) return
@@ -234,7 +231,7 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
         statsJob = viewLifecycleOwner.lifecycleScope.launch {
             while (true) {
                 updateStats()
-                delay(1000)
+                delay(TimeUnit.SECONDS.toMillis(1))
             }
         }
     }

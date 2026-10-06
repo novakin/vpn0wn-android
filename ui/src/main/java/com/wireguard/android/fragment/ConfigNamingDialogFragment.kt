@@ -4,6 +4,7 @@
  */
 package com.wireguard.android.fragment
 
+import kotlinx.coroutines.CancellationException
 import android.app.Dialog
 import android.os.Bundle
 import android.view.WindowManager
@@ -24,6 +25,8 @@ class ConfigNamingDialogFragment : DialogFragment() {
     private var binding: ConfigNamingDialogFragmentBinding? = null
     private lateinit var config: Config
 
+    // Backend/ConfigStore expose Exception; this operation reports their failures while cancellation and Errors propagate.
+    @Suppress("TooGenericExceptionCaught")
     private fun createTunnelAndDismiss() {
         val binding = binding ?: return
         val activity = activity ?: return
@@ -31,10 +34,13 @@ class ConfigNamingDialogFragment : DialogFragment() {
         activity.lifecycleScope.launch {
             try {
                 Application.getTunnelManager().create(name, config)
-                dismiss()
-            } catch (e: Throwable) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
                 binding.tunnelNameTextLayout.error = e.message
+                return@launch
             }
+            dismiss()
         }
     }
 
@@ -44,11 +50,10 @@ class ConfigNamingDialogFragment : DialogFragment() {
         val configBytes = configText!!.toByteArray(StandardCharsets.UTF_8)
         config = try {
             Config.parse(ByteArrayInputStream(configBytes))
-        } catch (e: Throwable) {
-            when (e) {
-                is BadConfigException, is IOException -> throw IllegalArgumentException("Invalid config passed to ${javaClass.simpleName}", e)
-                else -> throw e
-            }
+        } catch (e: BadConfigException) {
+            throw IllegalArgumentException("Invalid config passed to ${javaClass.simpleName}", e)
+        } catch (e: IOException) {
+            throw IllegalArgumentException("Invalid config passed to ${javaClass.simpleName}", e)
         }
     }
 

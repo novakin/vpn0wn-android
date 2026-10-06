@@ -15,10 +15,16 @@ class TunnelCreatorActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.tunnel_creator_activity)
+        supportActionBar?.hide()
+        applySafeAreaInsets(findViewById(R.id.main_activity_container))
     }
 
     override fun onSelectedTunnelChanged(oldTunnel: ObservableTunnel?, newTunnel: ObservableTunnel?): Boolean {
         finish()
         return true
+    }
+
+    companion object {
+        const val EXTRA_SAVE_MESSAGE = "save_message"
     }
 }

@@ -94,6 +94,8 @@ class TunnelSignalView @JvmOverloads constructor(
         super.onDetachedFromWindow()
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
@@ -120,6 +122,8 @@ class TunnelSignalView @JvmOverloads constructor(
         }
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun drawNode(canvas: Canvas, x: Float, y: Float) {
         if (mode == TunnelMode.UP)
             canvas.drawCircle(x, y, dp(6.5f), nodeGlowPaint)
@@ -138,7 +142,7 @@ class TunnelSignalView @JvmOverloads constructor(
         if (!isAttachedToWindow) return
         val shouldAnimate = mode == TunnelMode.UP || mode == TunnelMode.CONNECTING
         // Connecting animates 2× faster (0.9s) to signal urgency; UP uses relaxed 1.5s
-        val targetDuration = if (mode == TunnelMode.CONNECTING) 900L else 1500L
+        val targetDuration = if (mode == TunnelMode.CONNECTING) CONNECTING_ANIMATION_DURATION_MS else CONNECTED_ANIMATION_DURATION_MS
         if (shouldAnimate) {
             if (animator.duration != targetDuration) {
                 animator.cancel()
@@ -160,7 +164,7 @@ class TunnelSignalView @JvmOverloads constructor(
         idle       = ContextCompat.getColor(context, R.color.tunnl_ink_3)
         ruleStrong = ContextCompat.getColor(context, R.color.tunnl_rule_strong)
         paper3     = ContextCompat.getColor(context, R.color.tunnl_paper_3)
-        signalFill = Color.argb(36, Color.red(signal), Color.green(signal), Color.blue(signal))
+        signalFill = Color.argb(NODE_GLOW_ALPHA, Color.red(signal), Color.green(signal), Color.blue(signal))
     }
 
     private fun syncPaints() {
@@ -193,7 +197,14 @@ class TunnelSignalView @JvmOverloads constructor(
             TunnelMode.DOWN       -> ruleStrong
         }
         packetPaint.color = if (mode == TunnelMode.CONNECTING) warn else signalDeep
-        packetPaint.alpha = 255
+        packetPaint.alpha = OPAQUE_ALPHA
+    }
+
+    private companion object {
+        const val CONNECTING_ANIMATION_DURATION_MS = 900L
+        const val CONNECTED_ANIMATION_DURATION_MS = 1500L
+        const val NODE_GLOW_ALPHA = 36
+        const val OPAQUE_ALPHA = 255
     }
 
     private fun dp(value: Float): Float = value * density

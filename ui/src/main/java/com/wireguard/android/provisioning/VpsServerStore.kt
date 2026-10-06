@@ -90,7 +90,7 @@ class VpsServerStore(private val dataStore: DataStore<Preferences>) {
                         id = json.optString("id"),
                         name = json.optString("name"),
                         host = json.optString("host"),
-                        sshPort = json.optInt("sshPort", 22).coerceIn(1, 65_535),
+                        sshPort = json.optInt("sshPort", DEFAULT_SSH_PORT).coerceIn(1, MAX_PORT_NUMBER),
                         sshUser = json.optString("sshUser", "root"),
                         endpoint = json.optString("endpoint"),
                         listenPort = json.optString("listenPort"),
@@ -136,6 +136,8 @@ class VpsServerStore(private val dataStore: DataStore<Preferences>) {
     }
 
     companion object {
+        private const val DEFAULT_SSH_PORT = 22
+        private const val MAX_PORT_NUMBER = 65_535
         private const val TAG = "WireGuard/VpsServerStore"
         private val SERVERS = stringPreferencesKey("vps_servers")
     }

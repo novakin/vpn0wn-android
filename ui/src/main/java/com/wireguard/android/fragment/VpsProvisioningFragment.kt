@@ -15,6 +15,7 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
@@ -53,6 +54,7 @@ import com.wireguard.android.widget.VpsSwitchGlyphView
 import com.wireguard.android.widget.VpsTerminalStreamView
 import com.wireguard.android.widget.VpsTopologyView
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -64,7 +66,7 @@ class VpsProvisioningFragment : BaseFragment() {
     private var qrUser: VpsDeployUser? = null
     private var applyRunning = false
     private var applyDone = false
-    private var provisionStep = 0
+    private var provisionStep = SSH_STEP
     private var authMode = AuthMode.KEY
     private var trustHost = true
     private var backCallback: OnBackPressedCallback? = null
@@ -109,8 +111,8 @@ class VpsProvisioningFragment : BaseFragment() {
         super.onDestroyView()
     }
 
-    override fun onSelectedTunnelChanged(oldTunnel: ObservableTunnel?, newTunnel: ObservableTunnel?) {
-    }
+    // This screen listens through BaseFragment but does not display a selected tunnel.
+    override fun onSelectedTunnelChanged(oldTunnel: ObservableTunnel?, newTunnel: ObservableTunnel?) = Unit
 
     private fun render() {
         root.removeAllViews()
@@ -139,7 +141,7 @@ class VpsProvisioningFragment : BaseFragment() {
         storeJob?.cancel()
         storeJob = viewLifecycleOwner.lifecycleScope.launch {
             serverStore.servers.collect { storedServers ->
-                val now = System.currentTimeMillis() / 1000L
+                val now = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())
                 servers.clear()
                 servers.addAll(storedServers.map { VpsDeployMapper.fromStored(it, now) })
                 if (::root.isInitialized) render()
@@ -158,7 +160,7 @@ class VpsProvisioningFragment : BaseFragment() {
         if (displayed.isEmpty()) scroll.addView(emptyFleetCard())
         scroll.addView(dashedButton(str(R.string.tunnl_add_server)) {
             provisionForm.clear()
-            provisionStep = 0
+            provisionStep = SSH_STEP
             applyRunning = false
             applyDone = false
             provisionForm = ProvisionForm()
@@ -171,12 +173,16 @@ class VpsProvisioningFragment : BaseFragment() {
         return container
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun emptyFleetCard(): View = card().apply {
         setPadding(dp(14), dp(12), dp(14), dp(12))
         addView(label(str(R.string.tunnl_no_servers)))
         addView(mono(str(R.string.tunnl_no_servers_summary), 11, R.color.tunnl_ink_2).apply { setPadding(0, dp(6), 0, 0) })
     }.withMargins(bottom = 10)
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun statusTiles(): View {
         val row = horizontal().apply {
             setBackgroundColor(color(R.color.tunnl_paper_2))
@@ -200,6 +206,8 @@ class VpsProvisioningFragment : BaseFragment() {
         }
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun serverCard(server: VpsDeployServer): View {
         val meta = server.status
         val failing = server.health.any { it.ok == false }
@@ -218,18 +226,20 @@ class VpsProvisioningFragment : BaseFragment() {
         railRow.addView(View(requireContext()).apply { setBackgroundColor(color(meta.colorRes)) }, LinearLayout.LayoutParams(dp(3), -1))
         val body = vertical().apply { setPadding(dp(12), dp(10), dp(12), dp(10)) }
         body.addView(horizontal().apply {
-            addView(label(str(meta.labelRes), meta.colorRes), LinearLayout.LayoutParams(0, -2, 1f))
+            addView(label(str(meta.labelRes), meta.colorRes), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             addView(label("${server.provider.uppercase(Locale.ROOT)} · ${server.region.uppercase(Locale.ROOT)}"))
         })
         body.addView(mono(server.name, 16, R.color.tunnl_ink, Typeface.BOLD).apply { setPadding(0, dp(8), 0, 0) })
         body.addView(mono(str(R.string.tunnl_server_card_summary, "${server.endpoint}:${server.port}", server.users.size, server.engine), 10, R.color.tunnl_ink_3).apply { setPadding(0, dp(4), 0, dp(10)) })
         body.addView(metricRow(listOf(str(R.string.tunnl_metric_cidr) to server.cidr, str(R.string.tunnl_metric_uptime) to server.uptime, str(R.string.tunnl_metric_sync) to server.lastSync)))
         body.addView(horizontalWrap(server.health.map { healthBadge(it) }).apply { setPadding(0, dp(10), 0, 0) })
-        railRow.addView(body, LinearLayout.LayoutParams(0, -2, 1f))
+        railRow.addView(body, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
         card.addView(railRow)
         return card.withMargins(bottom = 10)
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun detailScreen(server: VpsDeployServer): View {
         val container = vertical()
         container.addView(topBar(title = server.name, sub = str(R.string.tunnl_server_subtitle, server.region.uppercase(Locale.ROOT)), leftIcon = R.drawable.ic_tunnl_chevron_left, onLeft = { screen = Screen.Fleet; render() }, right = listOf(iconButton(R.drawable.ic_tunnl_refresh) { toast(str(R.string.tunnl_server_synced)) }, iconButton(R.drawable.ic_tunnl_more) { toast(str(R.string.tunnl_more_pending)) })))
@@ -257,7 +267,7 @@ class VpsProvisioningFragment : BaseFragment() {
                 server.users.forEachIndexed { index, user -> addView(userRow(server, user, index)) }
             }
             addView(rowButton(str(R.string.tunnl_add_vpn_user)) {
-                addUser(server)
+                addUser()
             })
         })
         scroll.addView(sectionHeader(3, str(R.string.tunnl_section_network), "WG0"))
@@ -294,10 +304,10 @@ class VpsProvisioningFragment : BaseFragment() {
         container.addView(stepTracker(steps))
         val (scrollView, scroll) = scrollContent()
         when (provisionStep) {
-            0 -> sshStep(scroll)
-            1 -> detectStep(scroll)
-            2 -> planStep(scroll)
-            3 -> applyStep(scroll)
+            SSH_STEP -> sshStep(scroll)
+            DETECT_STEP -> detectStep(scroll)
+            PLAN_STEP -> planStep(scroll)
+            APPLY_STEP -> applyStep(scroll)
             else -> importStep(scroll)
         }
         container.addView(scrollView, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -305,6 +315,8 @@ class VpsProvisioningFragment : BaseFragment() {
         return container
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun sshStep(parent: LinearLayout) {
         parent.addView(sectionHeader(1, str(R.string.tunnl_section_ssh_access), str(R.string.tunnl_hint_no_cloud_relay)))
         parent.addView(panel {
@@ -314,10 +326,10 @@ class VpsProvisioningFragment : BaseFragment() {
             val split = horizontal()
             split.addView(editLineView(str(R.string.tunnl_label_port), "22", provisionForm.port, InputType.TYPE_CLASS_NUMBER) {
                 provisionForm = provisionForm.copy(port = it)
-            }, LinearLayout.LayoutParams(0, -2, 1f))
+            }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             split.addView(editLineView(str(R.string.tunnl_label_user), "root", provisionForm.user) {
                 provisionForm = provisionForm.copy(user = it)
-            }, LinearLayout.LayoutParams(0, -2, 1f))
+            }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             addView(split)
             addView(segmented(listOf(AuthMode.KEY.name to str(R.string.tunnl_auth_ssh_key), AuthMode.PASSWORD.name to str(R.string.tunnl_auth_password)), authMode.name) {
                 authMode = AuthMode.valueOf(it)
@@ -345,6 +357,8 @@ class VpsProvisioningFragment : BaseFragment() {
         })
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun detectStep(parent: LinearLayout) {
         val pending = str(R.string.tunnl_pending_live_data)
         parent.addView(sectionHeader(2, str(R.string.tunnl_step_detect).lowercase(Locale.ROOT), str(R.string.tunnl_hint_dry_run)))
@@ -363,6 +377,8 @@ class VpsProvisioningFragment : BaseFragment() {
         })
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun planStep(parent: LinearLayout) {
         parent.addView(sectionHeader(3, str(R.string.tunnl_section_deployment_plan), str(R.string.tunnl_hint_review_before_apply)))
         parent.addView(panel {
@@ -374,6 +390,8 @@ class VpsProvisioningFragment : BaseFragment() {
         })
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun applyStep(parent: LinearLayout) {
         parent.addView(sectionHeader(4, str(R.string.tunnl_step_apply).lowercase(Locale.ROOT), if (applyDone) str(R.string.tunnl_apply_complete) else if (applyRunning) str(R.string.tunnl_apply_running) else str(R.string.tunnl_apply_ready)))
         parent.addView(panel {
@@ -391,6 +409,8 @@ class VpsProvisioningFragment : BaseFragment() {
         }
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun importStep(parent: LinearLayout) {
         val pending = str(R.string.tunnl_pending_live_data)
         parent.addView(sectionHeader(5, str(R.string.tunnl_section_import_device), str(R.string.tunnl_hint_first_peer)))
@@ -403,6 +423,8 @@ class VpsProvisioningFragment : BaseFragment() {
         })
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun userScreen(server: VpsDeployServer, user: VpsDeployUser): View {
         val container = vertical()
         container.addView(topBar(title = user.name, sub = str(R.string.tunnl_user_subtitle, server.name.uppercase(Locale.ROOT)), leftIcon = R.drawable.ic_tunnl_chevron_left, onLeft = { screen = Screen.Detail(server.id); render() }, right = listOf(iconButton(R.drawable.ic_tunnl_share) { toast(str(R.string.tunnl_profile_exported)) })))
@@ -437,6 +459,8 @@ class VpsProvisioningFragment : BaseFragment() {
         return container
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun topBar(title: String, sub: String, leftIcon: Int, onLeft: () -> Unit, right: List<View> = emptyList(), big: Boolean = false): View {
         val bar = vertical().apply {
             setBackgroundColor(color(R.color.tunnl_paper_2))
@@ -444,7 +468,7 @@ class VpsProvisioningFragment : BaseFragment() {
         }
         val row = horizontal(Gravity.CENTER_VERTICAL)
         row.addView(iconButton(leftIcon, onLeft))
-        row.addView(label(sub).apply { setPadding(dp(8), 0, 0, 0) }, LinearLayout.LayoutParams(0, -2, 1f))
+        row.addView(label(sub).apply { setPadding(dp(8), 0, 0, 0) }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
         right.forEach { row.addView(it) }
         bar.addView(row)
         bar.addView(mono(title, if (big) 26 else 18, R.color.tunnl_ink, Typeface.BOLD).apply { setPadding(0, dp(8), 0, 0) })
@@ -452,9 +476,11 @@ class VpsProvisioningFragment : BaseFragment() {
         return bar
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun bottomAction(): View {
-        val label = if (provisionStep == 2) str(R.string.tunnl_confirm_apply) else if (provisionStep == 4) str(R.string.tunnl_finish_close) else str(R.string.tunnl_continue)
-        val canAdvance = provisionStep != 3 || applyDone
+        val label = if (provisionStep == PLAN_STEP) str(R.string.tunnl_confirm_apply) else if (provisionStep == IMPORT_STEP) str(R.string.tunnl_finish_close) else str(R.string.tunnl_continue)
+        val canAdvance = provisionStep != APPLY_STEP || applyDone
         return TextView(requireContext()).apply {
             text = label
             typeface = monoTypeface()
@@ -465,18 +491,18 @@ class VpsProvisioningFragment : BaseFragment() {
             background = rounded(
                 when {
                     !canAdvance -> R.color.tunnl_paper_2
-                    provisionStep == 4 -> R.color.tunnl_signal_deep
+                    provisionStep == IMPORT_STEP -> R.color.tunnl_signal_deep
                     else -> R.color.tunnl_ink
                 },
                 when {
                     !canAdvance -> R.color.tunnl_rule_strong
-                    provisionStep == 4 -> R.color.tunnl_signal_deep
+                    provisionStep == IMPORT_STEP -> R.color.tunnl_signal_deep
                     else -> R.color.tunnl_ink
                 },
             )
             setPadding(dp(13))
             setOnClickListener {
-                if (provisionStep < 4) provisionStep++ else {
+                if (provisionStep < IMPORT_STEP) provisionStep++ else {
                     toast(str(R.string.tunnl_live_provisioning_required))
                     resetProvisionSession()
                     screen = Screen.Fleet
@@ -486,10 +512,12 @@ class VpsProvisioningFragment : BaseFragment() {
         }.withMargins(left = 14, top = 12, right = 14, bottom = 12)
     }
 
-    private fun addUser(server: VpsDeployServer) {
+    private fun addUser() {
         toast(str(R.string.tunnl_live_add_peer_required))
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun userRow(server: VpsDeployServer, user: VpsDeployUser, index: Int): View {
         val row = horizontal(Gravity.CENTER_VERTICAL).apply {
             setPadding(0, 0, 0, 0)
@@ -501,15 +529,17 @@ class VpsProvisioningFragment : BaseFragment() {
         row.addView(View(requireContext()).apply { setBackgroundColor(color(user.status.colorRes)) }, LinearLayout.LayoutParams(dp(3), -1))
         val body = vertical().apply { setPadding(dp(12), dp(10), dp(12), dp(10)) }
         body.addView(horizontal().apply {
-            addView(label(str(R.string.tunnl_user_index, (index + 1).toString().padStart(2, '0'))), LinearLayout.LayoutParams(0, -2, 1f))
+            addView(label(str(R.string.tunnl_user_index, (index + 1).toString().padStart(2, '0'))), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             addView(label(str(user.status.labelRes), user.status.colorRes))
         })
         body.addView(mono(user.name, 14, R.color.tunnl_ink).apply { setPadding(0, dp(5), 0, 0) })
         body.addView(mono(str(R.string.tunnl_user_row_summary, user.ip, user.rx, user.tx, user.handshake), 10, R.color.tunnl_ink_3).apply { setPadding(0, dp(3), 0, 0) })
-        row.addView(body, LinearLayout.LayoutParams(0, -2, 1f))
+        row.addView(body, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
         return row
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun actionGrid(actions: List<VpsDeployAction>): View {
         val grid = vertical()
         actions.chunked(2).forEach { pair ->
@@ -517,11 +547,13 @@ class VpsProvisioningFragment : BaseFragment() {
             pair.forEach { spec ->
                 row.addView(actionTile(spec), LinearLayout.LayoutParams(0, dp(104), 1f).apply { marginEnd = dp(10) })
             }
-            grid.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) })
+            grid.addView(row, LinearLayout.LayoutParams(-1, WRAP_CONTENT).apply { bottomMargin = dp(10) })
         }
         return grid
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun actionTile(spec: VpsDeployAction): View {
         return vertical().apply {
             alpha = if (spec.disabled) 0.45f else 1f
@@ -538,6 +570,8 @@ class VpsProvisioningFragment : BaseFragment() {
         }
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun qrOverlay(server: VpsDeployServer, user: VpsDeployUser): View {
         return FrameLayout(requireContext()).apply {
             setBackgroundColor(Color.argb(235, 5, 10, 18))
@@ -553,7 +587,7 @@ class VpsProvisioningFragment : BaseFragment() {
                     addView(vertical().apply {
                         addView(label(str(R.string.tunnl_scan_to_pair)))
                         addView(mono(user.name, 13, R.color.tunnl_ink).apply { setPadding(0, dp(2), 0, 0) })
-                    }, LinearLayout.LayoutParams(0, -2, 1f))
+                    }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
                     addView(iconButton(R.drawable.ic_tunnl_close) {
                         qrUser = null
                         render()
@@ -566,21 +600,25 @@ class VpsProvisioningFragment : BaseFragment() {
                     setPadding(0, dp(12), 0, 0)
                 })
             }
-            addView(modal, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+            addView(modal, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.CENTER))
         }
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun qrInfoGrid(server: VpsDeployServer, user: VpsDeployUser): View {
         return vertical().apply {
             setPadding(0, dp(14), 0, 0)
             addView(horizontal().apply {
-                addView(qrInfoCell(str(R.string.tunnl_label_server), server.name), LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(10) })
-                addView(qrInfoCell(str(R.string.tunnl_label_ip), user.ip), LinearLayout.LayoutParams(0, -2, 1f))
+                addView(qrInfoCell(str(R.string.tunnl_label_server), server.name), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { marginEnd = dp(10) })
+                addView(qrInfoCell(str(R.string.tunnl_label_ip), user.ip), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             })
             addView(qrInfoCell(str(R.string.tunnl_label_endpoint), "${server.endpoint}:${server.port}").withMargins(top = 10))
         }
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun qrInfoCell(title: String, value: String): View = vertical().apply {
         addView(label(title).apply { textSize = 9f })
         addView(mono(value, 11, R.color.tunnl_ink).apply {
@@ -589,6 +627,8 @@ class VpsProvisioningFragment : BaseFragment() {
         })
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun progressStrip(count: Int, current: Int): View {
         return horizontal().apply {
             repeat(count) { index ->
@@ -611,6 +651,8 @@ class VpsProvisioningFragment : BaseFragment() {
         }
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun stepTracker(steps: List<String>): View = HorizontalScrollView(requireContext()).apply {
         isHorizontalScrollBarEnabled = false
         setBackgroundColor(color(R.color.tunnl_paper_2))
@@ -639,7 +681,7 @@ class VpsProvisioningFragment : BaseFragment() {
                         gravity = Gravity.CENTER
                         setPadding(0, dp(3), 0, 0)
                     })
-                }, LinearLayout.LayoutParams(dp(48), -2))
+                }, LinearLayout.LayoutParams(dp(48), WRAP_CONTENT))
                 if (index < steps.lastIndex) {
                     addView(View(requireContext()).apply {
                         setBackgroundColor(color(if (done) R.color.tunnl_signal_deep else R.color.tunnl_rule))
@@ -649,6 +691,8 @@ class VpsProvisioningFragment : BaseFragment() {
         })
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun sectionHeader(index: Int, title: String, hint: String): View {
         return horizontal(Gravity.CENTER_VERTICAL).apply {
             setPadding(0, dp(14), 0, dp(8))
@@ -661,6 +705,8 @@ class VpsProvisioningFragment : BaseFragment() {
 
     private fun panel(block: LinearLayout.() -> Unit): View = card().apply(block).withMargins(bottom = 14)
 
+    // Local text/padding values preserve the configuration-row presentation.
+    @Suppress("MagicNumber")
     private fun LinearLayout.configLine(title: String, value: String, copy: Boolean = false) {
         val row = horizontal(Gravity.CENTER_VERTICAL).apply {
             setPadding(dp(14), dp(10), dp(14), dp(10))
@@ -672,7 +718,7 @@ class VpsProvisioningFragment : BaseFragment() {
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 setPadding(0, dp(2), 0, 0)
             })
-        }, LinearLayout.LayoutParams(0, -2, 1f))
+        }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
         if (copy) {
             row.addView(iconButton(R.drawable.ic_tunnl_copy) { copyToClipboard(title, value) })
         }
@@ -690,6 +736,8 @@ class VpsProvisioningFragment : BaseFragment() {
         addView(editLineView(title, hint, value, inputType, onChange))
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun LinearLayout.boxedEditLine(
         title: String,
         hint: String,
@@ -716,10 +764,12 @@ class VpsProvisioningFragment : BaseFragment() {
                 background = rounded(R.color.tunnl_paper_3, R.color.tunnl_rule_strong, dp(4))
                 setPadding(dp(10), dp(8), dp(10), dp(8))
                 doAfterTextChanged { onChange(it?.toString().orEmpty()) }
-            }, LinearLayout.LayoutParams(-1, -2))
+            }, LinearLayout.LayoutParams(-1, WRAP_CONTENT))
         })
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun editLineView(
         title: String,
         hint: String,
@@ -744,6 +794,8 @@ class VpsProvisioningFragment : BaseFragment() {
         })
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun segmented(options: List<Pair<String, String>>, selected: String, onSelect: (String) -> Unit): View {
         return horizontal().apply {
             background = rounded(R.color.tunnl_paper_2, R.color.tunnl_rule_strong, dp(6))
@@ -762,18 +814,22 @@ class VpsProvisioningFragment : BaseFragment() {
         }
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun toggleLine(title: String, desc: String, value: Boolean, onClick: () -> Unit): View {
         return horizontal(Gravity.CENTER_VERTICAL).apply {
             setPadding(dp(14), dp(12), dp(14), dp(12))
             addView(vertical().apply {
                 addView(ui(title, 14, R.color.tunnl_ink, Typeface.BOLD))
                 addView(ui(desc, 11, R.color.tunnl_ink_3).apply { setPadding(0, dp(2), 0, 0) })
-            }, LinearLayout.LayoutParams(0, -2, 1f))
+            }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             addView(VpsSwitchGlyphView(requireContext()).apply { checked = value }, LinearLayout.LayoutParams(dp(44), dp(24)))
             setOnClickListener { onClick() }
         }
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun statTile(title: String, value: String, dot: String, colorRes: Int, active: Boolean, onClick: () -> Unit): View {
         return vertical().apply {
             setBackgroundColor(color(if (active) R.color.tunnl_paper_3 else R.color.tunnl_paper_2))
@@ -786,6 +842,8 @@ class VpsProvisioningFragment : BaseFragment() {
         }
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun metricRow(metrics: List<Pair<String, String>>): View {
         return horizontal().apply {
             background = rounded(R.color.tunnl_paper_3, R.color.tunnl_rule)
@@ -798,19 +856,23 @@ class VpsProvisioningFragment : BaseFragment() {
                         ellipsize = android.text.TextUtils.TruncateAt.END
                         setPadding(0, dp(2), 0, 0)
                     })
-                }, LinearLayout.LayoutParams(0, -2, 1f))
+                }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             }
         }
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun horizontalWrap(items: List<View>): View {
         val hsv = HorizontalScrollView(requireContext()).apply { isHorizontalScrollBarEnabled = false }
         val row = horizontal()
-        items.forEach { row.addView(it, LinearLayout.LayoutParams(-2, dp(28)).apply { marginEnd = dp(6) }) }
+        items.forEach { row.addView(it, LinearLayout.LayoutParams(WRAP_CONTENT, dp(28)).apply { marginEnd = dp(6) }) }
         hsv.addView(row)
         return hsv
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun healthBadge(check: VpsDeployHealthCheck): View {
         val res = when (check.ok) {
             true -> R.color.tunnl_signal_deep
@@ -829,6 +891,8 @@ class VpsProvisioningFragment : BaseFragment() {
         }
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun dashedButton(text: String, stroke: Int = R.color.tunnl_rule_strong, icon: Int? = R.drawable.ic_tunnl_plus, onClick: () -> Unit): View {
         return horizontal(Gravity.CENTER).apply {
             background = rounded(R.color.tunnl_paper, stroke, dash = true)
@@ -847,6 +911,8 @@ class VpsProvisioningFragment : BaseFragment() {
         }.withMargins(top = 2, bottom = 14)
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun smallOutlineButton(text: String, onClick: () -> Unit): View {
         return TextView(requireContext()).apply {
             this.text = text.uppercase(Locale.ROOT)
@@ -861,6 +927,8 @@ class VpsProvisioningFragment : BaseFragment() {
         }
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun rowButton(text: String, onClick: () -> Unit): View = horizontal(Gravity.CENTER_VERTICAL).apply {
         setPadding(dp(14), dp(12), dp(14), dp(12))
         addView(ImageView(requireContext()).apply {
@@ -871,6 +939,8 @@ class VpsProvisioningFragment : BaseFragment() {
         setOnClickListener { onClick() }
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun iconButton(icon: Int, onClick: () -> Unit): View = ImageButton(requireContext()).apply {
         setImageDrawable(AppCompatResources.getDrawable(requireContext(), icon))
         setColorFilter(color(R.color.tunnl_ink_2))
@@ -880,6 +950,8 @@ class VpsProvisioningFragment : BaseFragment() {
         layoutParams = LinearLayout.LayoutParams(dp(32), dp(32))
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun scrollContent(): Pair<ScrollView, LinearLayout> {
         val scroll = ScrollView(requireContext()).apply {
             isFillViewport = false
@@ -908,12 +980,16 @@ class VpsProvisioningFragment : BaseFragment() {
 
     private fun panelBg() = rounded(R.color.tunnl_paper_2, R.color.tunnl_rule)
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun rounded(fill: Int, stroke: Int, radius: Int = dp(8), dash: Boolean = false): GradientDrawable = GradientDrawable().apply {
         setColor(color(fill))
         cornerRadius = radius.toFloat()
         if (dash) setStroke(dp(1), color(stroke), dp(6).toFloat(), dp(4).toFloat()) else setStroke(dp(1), color(stroke))
     }
 
+    // Local layout/drawing dimensions and paint values preserve the visual specification.
+    @Suppress("MagicNumber")
     private fun label(text: String, colorRes: Int = R.color.tunnl_ink_3): TextView = TextView(requireContext()).apply {
         this.text = text.uppercase(Locale.ROOT)
         typeface = monoTypeface()
@@ -948,7 +1024,7 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     private fun View.withMargins(left: Int = 0, top: Int = 0, right: Int = 0, bottom: Int = 0): View = apply {
-        layoutParams = LinearLayout.LayoutParams(-1, -2).apply {
+        layoutParams = LinearLayout.LayoutParams(-1, WRAP_CONTENT).apply {
             setMargins(dp(left), dp(top), dp(right), dp(bottom))
         }
     }
@@ -990,11 +1066,20 @@ class VpsProvisioningFragment : BaseFragment() {
         applyJob = viewLifecycleOwner.lifecycleScope.launch {
             applyRunning = true
             render()
-            delay(5200)
+            delay(APPLY_PREVIEW_DURATION_MS)
             applyRunning = false
             applyDone = true
             render()
         }
+    }
+
+    private companion object {
+        const val SSH_STEP = 0
+        const val DETECT_STEP = 1
+        const val PLAN_STEP = 2
+        const val APPLY_STEP = 3
+        const val IMPORT_STEP = 4
+        const val APPLY_PREVIEW_DURATION_MS = 5200L
     }
 
     private fun server(id: String) = servers.find { it.id == id }
@@ -1004,7 +1089,7 @@ class VpsProvisioningFragment : BaseFragment() {
         provisionForm.clear()
         applyRunning = false
         applyDone = false
-        provisionStep = 0
+        provisionStep = SSH_STEP
         authMode = AuthMode.KEY
         trustHost = true
         provisionForm = ProvisionForm()

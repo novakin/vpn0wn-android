@@ -15,9 +15,13 @@ import com.google.zxing.DecodeHintType
 import com.google.zxing.NotFoundException
 import com.google.zxing.RGBLuminanceSource
 import com.google.zxing.Reader
+import com.google.zxing.ReaderException
 import com.google.zxing.Result
 import com.google.zxing.common.HybridBinarizer
+import java.io.IOException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 
 /**
@@ -39,28 +43,34 @@ class QrCodeFromFileScanner(
         return reader.decode(bBitmap, mapOf(DecodeHintType.TRY_HARDER to true))
     }
 
-    private fun doScan(data: Uri): Result {
+    private suspend fun doScan(data: Uri): Result {
         Log.d(TAG, "Starting to scan an image: $data")
-        contentResolver.openInputStream(data).use { inputStream ->
-            var bitmap: Bitmap? = null
-            var firstException: Throwable? = null
-            for (i in arrayOf(1, 2, 4, 8, 16, 32, 64, 128)) {
-                try {
-                    val options = BitmapFactory.Options()
-                    options.inSampleSize = i
-                    bitmap = BitmapFactory.decodeStream(inputStream, null, options)
-                        ?: throw IllegalArgumentException("Can't decode stream for bitmap")
-                    return scanBitmapForResult(bitmap)
-                } catch (e: Throwable) {
-                    bitmap?.recycle()
-                    System.gc()
-                    Log.e(TAG, "Original image scan at scale factor $i finished with error: $e")
-                    if (firstException == null)
-                        firstException = e
-                }
-            }
-            throw Exception(firstException)
+        var firstException: Throwable? = null
+        fun recordFailure(sampleSize: Int, failure: Throwable) {
+            Log.e(TAG, "Image scan at scale factor $sampleSize failed: $failure")
+            if (firstException == null) firstException = failure
         }
+        for (sampleSize in SAMPLE_SIZES) {
+            currentCoroutineContext().ensureActive()
+            var bitmap: Bitmap? = null
+            try {
+                val options = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+                bitmap = contentResolver.openInputStream(data).use { inputStream ->
+                    BitmapFactory.decodeStream(inputStream, null, options)
+                } ?: throw IllegalArgumentException("Can't decode stream for bitmap")
+                return scanBitmapForResult(bitmap)
+            } catch (e: ReaderException) {
+                recordFailure(sampleSize, e)
+            } catch (e: IllegalArgumentException) {
+                recordFailure(sampleSize, e)
+            } catch (e: OutOfMemoryError) {
+                // A smaller bitmap can recover from allocation pressure; other Errors propagate.
+                recordFailure(sampleSize, IOException("Unable to allocate image for QR decoding", e))
+            } finally {
+                bitmap?.recycle()
+            }
+        }
+        throw checkNotNull(firstException)
     }
 
     /**
@@ -72,6 +82,7 @@ class QrCodeFromFileScanner(
 
     companion object {
         private const val TAG = "QrCodeFromFileScanner"
+        private val SAMPLE_SIZES = intArrayOf(1, 2, 4, 8, 16, 32, 64, 128)
 
         /**
          * Given a reference to a file, check if this file could be parsed by this class

@@ -23,9 +23,9 @@ object ClipboardUtils {
         val data = when (view) {
             is TextInputEditText -> Pair(view.editableText, view.hint)
             is TextView -> Pair(view.text, view.contentDescription)
-            else -> return
+            else -> null
         }
-        if (data.first == null || data.first.isEmpty()) {
+        if (data == null || data.first.isNullOrEmpty()) {
             return
         }
         val service = view.context.getSystemService<ClipboardManager>() ?: return

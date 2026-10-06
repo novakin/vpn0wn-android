@@ -204,6 +204,9 @@
     <string name="restore_on_boot_summary_on">Will bring up enabled tunnels at boot</string>
     <string name="restore_on_boot_title">Restore on boot</string>
     <string name="save">Save</string>
+    <string name="tunnl_editor_create">CREATE · MANUAL</string>
+    <string name="tunnl_editor_edit">EDIT</string>
+    <string name="tunnl_editor_new_tunnel">new tunnel</string>
     <string name="search">Search</string>
     <string name="select_all">Select all</string>
     <string name="settings">Settings</string>

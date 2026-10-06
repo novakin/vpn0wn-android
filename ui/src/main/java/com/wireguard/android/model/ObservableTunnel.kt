@@ -4,6 +4,7 @@
  */
 package com.wireguard.android.model
 
+import kotlinx.coroutines.CancellationException
 import android.util.Log
 import androidx.databinding.BaseObservable
 import androidx.databinding.Bindable
@@ -50,15 +51,24 @@ class ObservableTunnel internal constructor(
     var state = state
         private set
 
+    var transitionTarget: Tunnel.State? = null
+        private set
+
+    fun onTransitionStarted(target: Tunnel.State) {
+        transitionTarget = target
+        onStateChanged(Tunnel.State.TOGGLE)
+    }
+
     override fun onStateChange(newState: Tunnel.State) {
         manager.onTunnelStateChange(this)
     }
 
     fun onStateChanged(state: Tunnel.State): Tunnel.State {
-        if (state != Tunnel.State.UP) onStatisticsChanged(null)
-        if (state == this.state) return state
+        if (state != Tunnel.State.TOGGLE) transitionTarget = null
+        val changed = state != this.state
         this.state = state
-        notifyPropertyChanged(BR.state)
+        if (state != Tunnel.State.UP) onStatisticsChanged(null)
+        if (changed) notifyPropertyChanged(BR.state)
         return state
     }
 
@@ -70,6 +80,8 @@ class ObservableTunnel internal constructor(
     private var cachedConfig = config
 
     @get:Bindable
+    // The asynchronous getter handles the generic ConfigStore/Backend contract.
+    @Suppress("TooGenericExceptionCaught")
     var config: Config?
         get() {
             if (cachedConfig == null)
@@ -77,7 +89,9 @@ class ObservableTunnel internal constructor(
                 applicationScope.launch {
                     try {
                         manager.getTunnelConfig(this@ObservableTunnel)
-                    } catch (e: Throwable) {
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
                         Log.e(TAG, "Failed to fetch tunnel config", e)
                     }
                 }
@@ -113,6 +127,8 @@ class ObservableTunnel internal constructor(
     private var cachedStatistics: Statistics? = null
 
     @get:Bindable
+    // The asynchronous getter handles the generic ConfigStore/Backend contract.
+    @Suppress("TooGenericExceptionCaught")
     var statistics: Statistics?
         get() {
             if (state == Tunnel.State.UP && (cachedStatistics == null || cachedStatistics?.isStale != false))
@@ -120,7 +136,9 @@ class ObservableTunnel internal constructor(
                 applicationScope.launch {
                     try {
                         manager.getTunnelStatistics(this@ObservableTunnel)
-                    } catch (e: Throwable) {
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
                         Log.e(TAG, "Failed to fetch tunnel statistics", e)
                     }
                 }

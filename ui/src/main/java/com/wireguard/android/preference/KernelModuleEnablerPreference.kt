@@ -4,6 +4,7 @@
  */
 package com.wireguard.android.preference
 
+import java.io.IOException
 import android.content.Context
 import android.content.Intent
 import android.util.AttributeSet
@@ -36,6 +37,8 @@ class KernelModuleEnablerPreference(context: Context, attrs: AttributeSet?) : Pr
 
     override fun getTitle() = if (state == State.UNKNOWN) "" else context.getString(state.titleResourceId)
 
+    // Backend transitions declare Exception; cancellation propagates and failed preference rollback remains visible.
+    @Suppress("TooGenericExceptionCaught")
     override fun onClick() {
         val previousState = state
         if (previousState != State.DISABLED && previousState != State.ENABLED)
@@ -62,7 +65,7 @@ class KernelModuleEnablerPreference(context: Context, attrs: AttributeSet?) : Pr
                 if (changingSetting) {
                     try {
                         Application.getTunnelManager().cancelBackendSwitch(previousSetting)
-                    } catch (recovery: Exception) {
+                    } catch (recovery: IOException) {
                         Log.e(TAG, "Failed to restore backend preference", recovery)
                     }
                 }

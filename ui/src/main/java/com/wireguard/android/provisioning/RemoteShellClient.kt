@@ -5,7 +5,6 @@
 package com.wireguard.android.provisioning
 
 import java.io.IOException
-import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 
@@ -37,8 +36,6 @@ class GuardedRemoteShellClient(
             throw ProvisioningException(timeoutMessage, cause = e)
         } catch (e: IOException) {
             throw ProvisioningException("$failureMessage: ${e.message.orEmpty()}".trim(), cause = e)
-        } catch (e: CancellationException) {
-            throw e
         }
     }
 

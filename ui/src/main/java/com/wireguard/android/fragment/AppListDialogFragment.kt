@@ -4,6 +4,7 @@
  */
 package com.wireguard.android.fragment
 
+import android.content.res.Resources
 import android.Manifest
 import android.app.Dialog
 import android.content.pm.PackageInfo
@@ -12,13 +13,13 @@ import android.content.pm.PackageManager.PackageInfoFlags
 import android.os.Build
 import android.os.Bundle
 import android.widget.Button
-import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.databinding.Observable
 import androidx.fragment.app.DialogFragment
 import androidx.fragment.app.setFragmentResult
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.tabs.TabLayout
 import com.wireguard.android.BR
 import com.wireguard.android.R
@@ -26,6 +27,7 @@ import com.wireguard.android.databinding.AppListDialogFragmentBinding
 import com.wireguard.android.databinding.ObservableKeyedArrayList
 import com.wireguard.android.model.ApplicationData
 import com.wireguard.android.util.ErrorMessages
+import com.wireguard.android.util.tunnlStyle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -65,11 +67,18 @@ class AppListDialogFragment : DialogFragment() {
                     appData.addAll(applicationData)
                     setButtonText()
                 }
-            } catch (e: Throwable) {
+            } catch (e: SecurityException) {
                 withContext(Dispatchers.Main.immediate) {
                     val error = ErrorMessages[e]
                     val message = activity.getString(R.string.error_fetching_apps, error)
-                    Toast.makeText(activity, message, Toast.LENGTH_LONG).show()
+                    Snackbar.make(activity.findViewById(android.R.id.content), message, Snackbar.LENGTH_LONG).tunnlStyle().show()
+                    dismissAllowingStateLoss()
+                }
+            } catch (e: Resources.NotFoundException) {
+                withContext(Dispatchers.Main.immediate) {
+                    val error = ErrorMessages[e]
+                    val message = activity.getString(R.string.error_fetching_apps, error)
+                    Snackbar.make(activity.findViewById(android.R.id.content), message, Snackbar.LENGTH_LONG).tunnlStyle().show()
                     dismissAllowingStateLoss()
                 }
             }

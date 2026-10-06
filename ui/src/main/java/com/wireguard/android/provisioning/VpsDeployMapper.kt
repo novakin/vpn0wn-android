@@ -4,6 +4,7 @@
  */
 package com.wireguard.android.provisioning
 
+import java.util.concurrent.TimeUnit
 import com.wireguard.android.util.QuantityFormatter
 import java.time.Instant
 import java.time.ZoneOffset
@@ -106,12 +107,12 @@ object VpsDeployMapper {
     }
 
     private fun formatDuration(seconds: Long): String {
-        if (seconds < 60L) return "${seconds}s"
-        val minutes = seconds / 60L
-        val remainingSeconds = seconds % 60L
-        if (minutes < 60L) return "${minutes.toString().padStart(2, '0')}m ${remainingSeconds.toString().padStart(2, '0')}s"
-        val hours = minutes / 60L
-        val remainingMinutes = minutes % 60L
+        if (seconds < TimeUnit.MINUTES.toSeconds(1)) return "${seconds}s"
+        val minutes = TimeUnit.SECONDS.toMinutes(seconds)
+        val remainingSeconds = seconds % TimeUnit.MINUTES.toSeconds(1)
+        if (minutes < TimeUnit.HOURS.toMinutes(1)) return "${minutes.toString().padStart(2, '0')}m ${remainingSeconds.toString().padStart(2, '0')}s"
+        val hours = TimeUnit.MINUTES.toHours(minutes)
+        val remainingMinutes = minutes % TimeUnit.HOURS.toMinutes(1)
         return "${hours.toString().padStart(2, '0')}h ${remainingMinutes.toString().padStart(2, '0')}m"
     }
 

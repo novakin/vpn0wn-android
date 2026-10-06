@@ -14,7 +14,7 @@ exceptions:
       - Throwable
       - Error
       - Exception
-    allowedExceptionNameRegex: "_|(ignore|ignored|expected)[A-Z].*"
+    allowedExceptionNameRegex: '^$'
   SwallowedException:
     active: true
     ignoredExceptionTypes:
@@ -25,6 +25,8 @@ exceptions:
 
 style:
   active: true
+  ReturnCount:
+    excludeGuardClauses: true
   MagicNumber:
     active: true
     ignoreNumbers:

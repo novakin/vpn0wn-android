@@ -47,6 +47,7 @@ internal class TunnelTestEnvironment(directory: File, scope: CoroutineScope) {
         private val states = ConcurrentHashMap<Tunnel, Tunnel.State>()
         val appliedConfigs = ConcurrentHashMap<Tunnel, Config>()
         var blockUp = false
+        var blockDown = false
         var failUp = false
         var failDown = false
         var singleActiveTunnel = false
@@ -55,6 +56,8 @@ internal class TunnelTestEnvironment(directory: File, scope: CoroutineScope) {
         val releaseStateRead = CountDownLatch(1)
         val upEntered = CountDownLatch(1)
         val releaseUp = CountDownLatch(1)
+        val downEntered = CountDownLatch(1)
+        val releaseDown = CountDownLatch(1)
         override fun getRunningTunnelNames(): Set<String> =
             states.filterValues { it == Tunnel.State.UP }.keys.map { it.name }.toSet()
         override fun getState(tunnel: Tunnel): Tunnel.State {
@@ -79,6 +82,11 @@ internal class TunnelTestEnvironment(directory: File, scope: CoroutineScope) {
                 upEntered.countDown()
                 if (!releaseUp.await(5, TimeUnit.SECONDS))
                     throw IOException("Activation fixture timed out")
+            }
+            if (target == Tunnel.State.DOWN && blockDown) {
+                downEntered.countDown()
+                if (!releaseDown.await(5, TimeUnit.SECONDS))
+                    throw IOException("Deactivation fixture timed out")
             }
             if (target == Tunnel.State.UP && failUp || target == Tunnel.State.DOWN && failDown)
                 throw IOException("Injected backend failure")

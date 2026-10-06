@@ -126,7 +126,7 @@ class PeerProxy : BaseObservable, Parcelable {
 
     override fun describeContents() = 0
 
-    private fun getAllowedIpsSet() = setOf(*Attribute.split(allowedIps))
+    private fun getAllowedIpsSet() = Attribute.split(allowedIps).toSet()
 
     // Replace the first instance of the wildcard with the public network list, or vice versa.
     // DNS servers only need to handled specially when we're excluding private IPs.
@@ -218,12 +218,9 @@ class PeerProxy : BaseObservable, Parcelable {
             val peerProxy = weakPeerProxy.get()
             if (peerProxy == null) {
                 sender.removeOnPropertyChangedCallback(this)
-                return
+            } else if (sender is InterfaceProxy && (propertyId == BR._all || propertyId == BR.dnsServers)) {
+                peerProxy.setInterfaceDns(sender.dnsServers)
             }
-            // This shouldn't be possible, but try to avoid a ClassCastException anyway.
-            if (sender !is InterfaceProxy) return
-            if (!(propertyId == BR._all || propertyId == BR.dnsServers)) return
-            peerProxy.setInterfaceDns(sender.dnsServers)
         }
     }
 

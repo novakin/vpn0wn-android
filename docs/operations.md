@@ -10,11 +10,17 @@ This guide describes current Android handling and known limits. The [UI roadmap]
 
 Use the add-tunnel flow to create a profile, import a file or scan a QR code. Existing import/config parsing owns profile validation and naming. Configs and QR payloads can contain private keys; handle them as credentials. Protect exported/downloaded copies and avoid sharing screenshots or logs containing keys.
 
+Successful create/save returns to the list/detail and shows the app's dark, bordered Snackbar. Validation or persistence failure leaves the editor available for correction and retains the last successfully saved configuration. An already-completed rename is not rolled back if a later config save fails. Foreground settings launch/tile failures and app-list loading failures share this feedback style. Native Toasts remain for TV, external toggle/receiver operations, detached views, tile callbacks while Settings is no longer visible and corrupt-updater launch errors followed by app exit. Those contexts cannot rely on a surviving foreground app view; they are deliberate visibility fallbacks.
+
 Review interface addresses, DNS, peer endpoints and AllowedIPs before connecting. Supported WireGuard config behavior belongs to [backend contracts](backend-contracts.md); do not infer traffic protection from a label alone. The userspace backend needs Android VPN permission and can own one active tunnel. Kernel behavior requires root and available kernel support; multiple-tunnel behavior also depends on existing settings.
 
 Current committed userspace preflight uses an explicit nonzero ListenPort and skips peers without resolved endpoints. It preserves the configured port; expected socket/send failure remains best effort. Failed socket protection prevents that send. UDP interruption or service destruction aborts activation; endpoint resolution can independently fail startup. See [the activation contract](backend-contracts.md#wireguard-configuration-and-tunnel-state). PR #25 merged lifecycle/interruption repair; repeated errors still need diagnosis rather than blind toggles.
 
-Known import/edit defects pending C8 include invalid-name dialog dismissal, QR image retry stream reuse and replacement-length handling. Abbreviated displayed keys also require a full-key copy fix. Until repaired, inspect an exported profile when a copied key is unusable; do not paste a displayed ellipsis as a WireGuard key.
+File/ZIP importing settles valid entries before one final result and reports partial success for invalid or duplicate entries. QR image retries reopen input and recycle decoded bitmaps; exhausted allocation pressure reports an import error. Cancelling those operations does not produce failure/success feedback. These local source/JVM repairs under #22 do not prove device/provider behavior; [contracts](backend-contracts.md#import-ordering-and-export) describes the exact boundaries.
+
+Known import/edit defects pending C8 include invalid-name dialog dismissal and replacement-length handling. Abbreviated displayed keys also require a full-key copy fix. Until repaired, inspect an exported profile when a copied key is unusable; do not paste a displayed ellipsis as a WireGuard key.
+
+ZIP export restores its control after loading/write failure or cancellation. Failed writes attempt to delete the incomplete output; failed cleanup remains attached to the primary error. Check Downloads for an incomplete export after failure. Output acquisition and provider deletion still have separate limits in [the export contract](backend-contracts.md#import-ordering-and-export); a restored control does not prove that every incomplete file was removed.
 
 ## Permissions and backend changes
 
@@ -28,7 +34,7 @@ Use the in-app log viewer for relevant error categories and lifecycle events. A 
 
 Never attach private keys, PSKs, passwords or a full generated/backup config to an issue. C1 removes raw root-shell command/stdout/stderr logging, provisioning exit-failure payloads, malformed JSON payloads/parser causes and cleanup exception payloads. Internal command results still carry authorized output; do not stringify them into diagnostics. Historical log buffers and exported files may contain secret-bearing output. Review those logs before sharing; this fix does not sanitize previously written data or establish that every transport/server message is safe.
 
-PR #25 prevents delayed detail config/statistics from updating another selection or a destroyed view. Idle-rate correction remains C7. A displayed nonzero rate or a recent sync alone cannot prove connectivity. Device/packet behavior needs relevant real observations; unit tests cannot supply that evidence.
+PR #25 prevents delayed detail config/statistics from updating another selection or a destroyed view. The C7 follow-up makes a fresh idle statistics snapshot show zero and clears the rate baseline when statistics disappears. Turning a tunnel off renders the pending disconnect as off, with the switch disabled until settlement; a failed disconnect restores observed UP. Yellow CONNECTING remains specific to activation/handshake. A displayed nonzero rate or a recent sync alone cannot prove connectivity. See [follow-up evidence](development.md#phone-ui-and-throughput-follow-up--2026-10-06) for local verification and device limits.
 
 ## VPS feature status
 

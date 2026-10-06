@@ -5,6 +5,8 @@
 
 package com.wireguard.android.activity
 
+import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.CancellationException
 import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Context
@@ -93,11 +95,15 @@ class TvMainActivity : AppCompatActivity() {
         pendingTunnel = null
     }
 
+    // Backend/ConfigStore expose Exception; this operation reports their failures while cancellation and Errors propagate.
+    @Suppress("TooGenericExceptionCaught")
     private fun setTunnelStateWithPermissionsResult(tunnel: ObservableTunnel) {
         lifecycleScope.launch {
             try {
                 tunnel.setStateAsync(Tunnel.State.TOGGLE)
-            } catch (e: Throwable) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
                 val error = ErrorMessages[e]
                 val message = getString(R.string.error_up, error)
                 Toast.makeText(this@TvMainActivity, message, Toast.LENGTH_LONG).show()
@@ -112,6 +118,8 @@ class TvMainActivity : AppCompatActivity() {
     private val files = ObservableKeyedArrayList<String, KeyedFile>()
     private val filesRoot = ObservableField("")
 
+    // Backend/ConfigStore expose Exception; this operation reports their failures while cancellation and Errors propagate.
+    @Suppress("TooGenericExceptionCaught")
     override fun onCreate(savedInstanceState: Bundle?) {
         if (AppCompatDelegate.getDefaultNightMode() != AppCompatDelegate.MODE_NIGHT_YES) {
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
@@ -149,7 +157,9 @@ class TvMainActivity : AppCompatActivity() {
                                 item.deleteAsync()
                                 if (this@TvMainActivity.binding.tunnels?.isEmpty() != false)
                                     isDeleting.set(false)
-                            } catch (e: Throwable) {
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
                                 val error = ErrorMessages[e]
                                 val message = getString(R.string.config_delete_error, error)
                                 Toast.makeText(this@TvMainActivity, message, Toast.LENGTH_LONG).show()
@@ -210,7 +220,7 @@ class TvMainActivity : AppCompatActivity() {
             } else {
                 try {
                     tunnelFileImportResultLauncher.launch(arrayOf("*/*"))
-                } catch (_: Throwable) {
+                } catch (_: ActivityNotFoundException) {
                     MaterialAlertDialogBuilder(binding.root.context).setMessage(R.string.tv_no_file_picker).setCancelable(false)
                         .setPositiveButton(android.R.string.ok) { _, _ ->
                             try {
@@ -218,9 +228,13 @@ class TvMainActivity : AppCompatActivity() {
                                     data = Uri.parse("https://play.google.com/store/apps/details?id=com.cxinventor.file.explorer")
                                     setPackage("com.android.vending")
                                 })
-                            } catch (_: Throwable) {
+                            } catch (_: ActivityNotFoundException) {
+                            } catch (_: SecurityException) {
                             }
                         }.show()
+                } catch (e: SecurityException) {
+                    val message = getString(R.string.import_error, ErrorMessages[e])
+                    Toast.makeText(this, message, Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -248,7 +262,7 @@ class TvMainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             while (true) {
                 updateStats()
-                delay(1000)
+                delay(TimeUnit.SECONDS.toMillis(1))
             }
         }
     }
@@ -325,7 +339,7 @@ class TvMainActivity : AppCompatActivity() {
                         else if (!a.file.isDirectory && b.file.isDirectory) 1
                         else a.file.compareTo(b.file)
                     }
-                } catch (e: Throwable) {
+                } catch (e: SecurityException) {
                     Log.e(TAG, "Failed to list files", e)
                 }
                 newFiles
@@ -357,24 +371,32 @@ class TvMainActivity : AppCompatActivity() {
         }
     }
 
+    // Backend/ConfigStore expose Exception; this operation reports their failures while cancellation and Errors propagate.
+    @Suppress("TooGenericExceptionCaught")
     private suspend fun updateStats() {
         binding.tunnelList.forEach { viewItem ->
             val listItem = DataBindingUtil.findBinding<TvTunnelListItemBinding>(viewItem)
                 ?: return@forEach
-            try {
-                val tunnel = listItem.item!!
-                if (tunnel.state != Tunnel.State.UP || isDeleting.get()) {
-                    throw Exception()
-                }
-                val statistics = tunnel.getStatisticsAsync()
-                val rx = statistics.totalRx()
-                val tx = statistics.totalTx()
-                listItem.tunnelTransfer.text = getString(R.string.transfer_rx_tx, QuantityFormatter.formatBytes(rx), QuantityFormatter.formatBytes(tx))
-                listItem.tunnelTransfer.visibility = View.VISIBLE
-            } catch (_: Throwable) {
+            val tunnel = listItem.item!!
+            if (tunnel.state != Tunnel.State.UP || isDeleting.get()) {
                 listItem.tunnelTransfer.visibility = View.GONE
                 listItem.tunnelTransfer.text = ""
+                return@forEach
             }
+            val statistics = try {
+                tunnel.getStatisticsAsync()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to read tunnel statistics: ${e.javaClass.simpleName}")
+                listItem.tunnelTransfer.visibility = View.GONE
+                listItem.tunnelTransfer.text = ""
+                return@forEach
+            }
+            val rx = statistics.totalRx()
+            val tx = statistics.totalTx()
+            listItem.tunnelTransfer.text = getString(R.string.transfer_rx_tx, QuantityFormatter.formatBytes(rx), QuantityFormatter.formatBytes(tx))
+            listItem.tunnelTransfer.visibility = View.VISIBLE
         }
     }
 

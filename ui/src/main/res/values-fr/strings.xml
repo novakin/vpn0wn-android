@@ -191,6 +191,9 @@
     <string name="restore_on_boot_summary_on">Les tunnels activés seront affichés au démarrage</string>
     <string name="restore_on_boot_title">Restaurer au démarrage</string>
     <string name="save">Enregistrer</string>
+    <string name="tunnl_editor_create">CRÉATION · MANUELLE</string>
+    <string name="tunnl_editor_edit">MODIFICATION</string>
+    <string name="tunnl_editor_new_tunnel">nouveau tunnel</string>
     <string name="select_all">Tout sélectionner</string>
     <string name="settings">Paramètres</string>
     <string name="shell_exit_status_read_error">L\'interpréteur de commande ne peut pas lire l\'état de sortie</string>
