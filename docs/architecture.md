@@ -16,6 +16,7 @@ Preserve the existing Android DataBinding/Fragment foundation and upstream WireG
 | [ObservableTunnel](../ui/src/main/java/com/wireguard/android/model/ObservableTunnel.kt), [TunnelManager](../ui/src/main/java/com/wireguard/android/model/TunnelManager.kt) | Observable tunnel data, config loading/persistence, selected operations and state notifications. |
 | [Config types](../tunnel/src/main/java/com/wireguard/config/Config.java) | WireGuard parsing/serialization, interfaces, peers, addresses and endpoints. |
 | [GoBackend](../tunnel/src/main/java/com/wireguard/android/backend/GoBackend.java), [WgQuickBackend](../tunnel/src/main/java/com/wireguard/android/backend/WgQuickBackend.java) | Userspace VPN/native activation and root/kernel command integration. |
+| [Native tunnel handles](../tunnel/tools/libwg-go/api-android.go), [UAPI server](../tunnel/tools/libwg-go/uapiserver/server.go) | Native device/listener ownership; accepted UAPI clients close and drain before device teardown. |
 | [RootShell](../tunnel/src/main/java/com/wireguard/android/util/RootShell.java) and native tools | Root command protocol and existing WireGuard tool execution. |
 | [Provisioning client](../ui/src/main/java/com/wireguard/android/provisioning/TunnlProvisioningClient.kt), models and script bundle | Remote orchestration, argument construction, packaged script upload and typed result parsing. |
 | [Remote-shell boundary](../ui/src/main/java/com/wireguard/android/provisioning/RemoteShellClient.kt) | Transport factory and guarded execute/upload; concrete SSH/session implementation is still missing. |
@@ -79,6 +80,16 @@ These are required maintenance invariants, not guarantees that all current owner
 See [backend contracts](backend-contracts.md) for known divergences and [the plan](improvement-plan.md) for repair ownership.
 
 ## Consequential decisions
+
+### Native UAPI client lifetime — 2026-10-07
+
+**Problem:** closing only the UAPI listener leaves accepted `IpcHandle` clients alive; partial requests can retain the device IPC lock. Initial failure paths also used inconsistent file/device cleanup.
+
+**Decision/status:** source repair on `fix/native-lifecycle-build`, tracked by [#64](https://github.com/novakin/wireguard-android/issues/64). The native handle owns a small `uapiserver.Server` using standard `net.Listener`/`net.Conn` and synchronization. Stop admission, close tracked clients, then drain handlers before device cleanup. Startup failures use the same ordering. Close the original UAPI descriptor after `UAPIListen` duplicates it; close the complete device after rejected initial settings.
+
+**Alternatives and consequences:** listener-only closure cannot cancel accepted reads. Device-only closure cannot release a client blocked while holding the IPC lock. No new transport, dependency or protocol is needed; client closure settles I/O without rolling back admitted settings. Native builds invoke cached `go build` each time so Go/JNI/helper edits participate in dependency checking. This costs dependency evaluation on an unchanged build and avoids maintaining a second incomplete source list.
+
+**Verification and limits:** race controls cover idle/partial requests, handler drain and concurrent close/admission; the partial-request fixture invokes the pinned real WireGuard handler. Native compilation covers all four supported ABI mappings, and a disposable source-edit fixture reproduces stale output before confirming a rebuild. No APK, phone, external peer or server operation establishes runtime delivery. See [executed checks](development.md#native-uapi-lifecycle-and-incremental-builds--2026-10-07).
 
 ### Retain compatible UDP warm-up behavior
 

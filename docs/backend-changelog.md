@@ -8,6 +8,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## In Progress
 
+- **Native UAPI teardown and incremental build repair — #64**
+  `uapiserver.Server.Close` stops native UAPI admission, closes accepted clients and waits for handlers before `api-android.go` closes the device. Startup failures use the same client cleanup; the original UAPI file closes after listener creation, and failed settings close the owned device. The Makefile evaluates Go's cached build graph on every native invocation, covering Go/JNI/helper edits instead of reusing a stale library. Host race tests and native-only compilation cover this source repair; integration remains tracked in [#64](https://github.com/novakin/wireguard-android/issues/64). No experimental warm-up, APK or phone/server operation is included. See [verification](development.md#native-uapi-lifecycle-and-incremental-builds--2026-10-07).
+
 - **Android SSH provisioning integration**
   Server-side Tunnl provisioning scripts now exist under `third_party/wireguard-install/tunnl/`, and the VPS fleet now reads persisted non-secret records from `VpsServerStore`. Remaining work: concrete Android SSH transport, SSH credential capture/storage, remote script upload/execution, progress parsing, live server status persistence, and user-management flow wiring.
 

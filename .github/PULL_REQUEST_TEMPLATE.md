@@ -1,4 +1,4 @@
-<!-- Template last updated: 2026-10-06 (Europe/Paris). -->
+<!-- Template last updated: 2026-10-07 (Europe/Paris). -->
 
 ## Problem and resulting behavior
 
@@ -32,6 +32,8 @@ Record only checks actually run. JVM/static success does not establish device, r
 Author self-review verdict: no in-scope blockers / changes required / verification incomplete. Select and substantiate the actual verdict; self-review is not independent approval.
 
 Independent review for cross-cutting agent/process changes: requested effort, findings/resolution and remaining limits, or why not applicable.
+
+Link the submitted GitHub PR review and record its reviewed commit and verdict. Publish independent ultra findings/verdicts as reviews; use inline comments for affected diff lines. Verify the published author, state, commit and findings. Same-account reviews use `COMMENT` and do not satisfy a required second-account approval. Keep prior reviews scoped to their original commit; re-review affected changes after edits.
 
 Keep one current acceptance record here. Reassess the affected delta after edits; earlier evidence retains its original scope. Comments are for material findings or changed decisions.
 

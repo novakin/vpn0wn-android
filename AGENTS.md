@@ -1,6 +1,6 @@
 # Tunnl — WireGuard Android
 
-Last updated: 2026-10-06 (Europe/Paris).
+Last updated: 2026-10-07 (Europe/Paris).
 
 ## Source of Truth — Prompt Instructions
 
@@ -98,6 +98,7 @@ Record consequential architecture decisions in `docs/architecture.md` and operat
 - Set and verify actual GitHub metadata under the work-tracking rules. Before reporting publication complete, confirm published revision, changed-file scope, issue/PR state and applicable checks. Existing CI may run automatically; a workflow file does not prove execution or enforcement, and Server-Audit's CI is not part of this project.
 - Use an account-linked author/committer identity and verify published commits map to the intended GitHub account. Resolve historical email association without rewriting history when possible.
 - Cross-cutting agent/process changes need an independent review of the final instructions, owning docs and templates. Follow the user's requested reviewer effort; record findings and their resolution before marking the work verified.
+- Publish independent ultra review findings and verdicts as GitHub PR reviews anchored to the reviewed commit; use inline comments when the affected lines are in the PR diff. Link the submitted review from the current PR acceptance record and verify its author, state, commit and findings after publication. Reviews submitted through the PR author's account use `COMMENT`; they do not satisfy a required approval from another GitHub account. Keep independently performed analysis distinct from author self-review, and retain earlier reviews with their original scope after edits.
 - Keep commit, issue and PR text free of connector attribution, generated-by footers and AI co-author trailers.
 - Do not push, publish, merge, deploy or alter live systems unless requested. APK builds require an explicit request; destructive VPS validation requires an explicitly authorized disposable target.
 - Finish or deliberately stop required commands before the final answer. State behavior/files changed, actual checks/results/skips and unresolved risks. Distinguish implementation, local verification, commit, merge and release/deployment.
