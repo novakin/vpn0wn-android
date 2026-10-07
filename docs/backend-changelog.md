@@ -8,6 +8,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## In Progress
 
+- **Protocol-level UDP preflight investigation — #61**
+  The maintainer requested a separate experiment on `experiment/protocol-preflight` and selected unchanged standard servers. The [proposal](reviews/2026-10-07-protocol-preflight-experiment.md) specifies sender-side native warm-up, shared protected socket/port ownership and pinned receiver behavior. Startup-only versus every-initiation timing remains a maintainer choice before implementation. No experimental code, interoperability result or DPI benefit is delivered; existing behavior and G4's installed build remain unchanged.
+
 - **Android SSH provisioning integration**
   Server-side Tunnl provisioning scripts now exist under `third_party/wireguard-install/tunnl/`, and the VPS fleet now reads persisted non-secret records from `VpsServerStore`. Remaining work: concrete Android SSH transport, SSH credential capture/storage, remote script upload/execution, progress parsing, live server status persistence, and user-management flow wiring.
 
