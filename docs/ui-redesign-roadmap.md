@@ -520,13 +520,13 @@ This is a historical implementation ledger, not newly executed build/device proo
 - [ ] `ShareSheet` bottom sheet (see §8).
 
 **Add Sheet:**
-- [ ] Complete recovered #35 Add/peer phone acceptance. [Scoped G4 captures](reviews/2026-10-07-g4-settings-add-debug-review.md) inspected Add output/order/native labels in portrait, landscape, system light-mode, 200% text and Arabic RTL. Import/manual/QR actions, cancellation/error feedback, camera absence, keyboard clearance, peer copying/live RX/TX and TalkBack remain pending; the matrix is partial and the app retains its dark palette in both system modes.
+- [ ] Complete recovered #35 Add/peer phone acceptance. [Initial G4 captures](reviews/2026-10-07-g4-settings-add-debug-review.md) inspected Add output/order/native labels in portrait, landscape, system light-mode, 200% text and Arabic RTL. [Candidate checks](reviews/2026-10-07-g4-candidate-device-review.md) add manual blank-save feedback/cancellation, native file import/error/cancellation and scanner navigation/Back. QR payloads/denial, camera absence, keyboard clearance, remaining providers, peer copying/live RX/TX and TalkBack remain pending; the matrix is partial and the app retains its dark palette in both system modes.
 
 **Editor:**
 - [ ] ADD PEER button: MaterialButton stroke is solid — true dashed border requires custom drawable background (minor gap).
 
 **Settings:**
-- [ ] Complete recovered #34 Settings phone acceptance. [Scoped G4 captures](reviews/2026-10-07-g4-settings-add-debug-review.md) inspected header/Back and row readability in portrait, landscape, system light-mode, 200% text and Arabic RTL. Full navigation/switch behavior, TalkBack, root and tile/export callbacks remain pending. #55 repairs the confirmed Main-thread filesystem probe in source; candidate-APK confirmation and resource-ID-zero diagnosis remain open in G4. This partial inspection does not deliver a distinct light theme or the full device matrix.
+- [ ] Complete recovered #34 Settings phone acceptance. [Initial G4 captures](reviews/2026-10-07-g4-settings-add-debug-review.md) inspected header/Back and row readability in portrait, landscape, system light-mode, 200% text and Arabic RTL. [Candidate checks](reviews/2026-10-07-g4-candidate-device-review.md) confirm Settings/Back and the observed #55 path without the disk warning; resource-ID-zero diagnosis remains open. Full navigation/switch behavior, TalkBack, root and tile/export callbacks remain pending. This partial inspection does not deliver a distinct light theme or the full device matrix.
 
 **New screens (§8):**
 - [ ] `DiagnosticsScreen` — new screen.
