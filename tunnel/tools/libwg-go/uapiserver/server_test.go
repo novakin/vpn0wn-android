@@ -19,9 +19,19 @@ import (
 
 const timeout = 5 * time.Second
 
+func socketPath(t *testing.T) string {
+	t.Helper()
+	directory, err := os.MkdirTemp("", "wg-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(directory) })
+	return filepath.Join(directory, "uapi.sock")
+}
+
 func listen(t *testing.T) net.Listener {
 	t.Helper()
-	l, err := listenSocket(filepath.Join(t.TempDir(), "fixture.sock"))
+	l, err := listenSocket(socketPath(t))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +192,7 @@ func TestUnixListenerRefusesActiveSocket(t *testing.T) {
 }
 
 func TestUnixListenerReusesStaleSocketAndUnlinks(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "fixture.sock")
+	path := socketPath(t)
 	stale, err := net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
 	if err != nil {
 		t.Fatal(err)
@@ -208,7 +218,7 @@ func TestUnixListenerReusesStaleSocketAndUnlinks(t *testing.T) {
 }
 
 func TestUnixListenerPreservesNonSocketPath(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "fixture.sock")
+	path := socketPath(t)
 	if err := os.WriteFile(path, []byte("preserve"), 0600); err != nil {
 		t.Fatal(err)
 	}
