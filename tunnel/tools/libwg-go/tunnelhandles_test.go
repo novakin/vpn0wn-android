@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"os"
 	"path/filepath"
 	"sync"
 	"sync/atomic"
@@ -56,7 +57,12 @@ func TestHandleTeardownCancelsPartialRequestBeforeQueryDrain(t *testing.T) {
 	h := testHandle(t)
 	table := handleTable{items: make(map[int32]*TunnelHandle)}
 	id := table.add(h)
-	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: filepath.Join(t.TempDir(), "uapi.sock"), Net: "unix"})
+	directory, err := os.MkdirTemp("", "wg-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(directory) })
+	listener, err := net.ListenUnix("unix", &net.UnixAddr{Name: filepath.Join(directory, "uapi.sock"), Net: "unix"})
 	if err != nil {
 		t.Fatal(err)
 	}
