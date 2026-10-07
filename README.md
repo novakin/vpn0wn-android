@@ -12,7 +12,7 @@ The redesign builds on existing tunnel import/edit/connect behavior. Native VPS 
 
 Read [operations and recovery](docs/operations.md) and [backend contracts](docs/backend-contracts.md) before relying on experimental provisioning scripts or runtime labels. The [improvement plan](docs/improvement-plan.md) tracks known safety, compatibility and lifecycle repairs; a UI label or successful command is not proof of VPN health. The source declares minimum Android API 24; executed device coverage is separate in the [QA plan](docs/qa-test-plan.md).
 
-On `experiment/protocol-preflight`, the userspace backend has a source draft for native UDP warm-up using the same protected socket as each outgoing handshake initiation. [The experiment record](docs/reviews/2026-10-07-protocol-preflight-experiment.md) owns policy, verification and limits. PR #63 stays draft/unmerged; no experimental APK, physical interoperability or DPI benefit is delivered.
+On `experiment/protocol-preflight`, the userspace backend has an experimental implementation of native UDP warm-up using the same protected socket as each outgoing handshake initiation. [The experiment record](docs/reviews/2026-10-07-protocol-preflight-experiment.md#authorized-local-apk-and-pixel-checks--2026-10-07) records the authorized local APK build and scoped Pixel 10a checks, followed by [forced deep Doze recovery](docs/reviews/2026-10-07-protocol-preflight-experiment.md#forced-deep-doze-recovery--2026-10-07). PR #63 stays draft/unmerged; hardware deep suspend, network rebind, warm-up packet capture, broader interoperability and DPI benefit remain unverified.
 
 ## Get started
 
