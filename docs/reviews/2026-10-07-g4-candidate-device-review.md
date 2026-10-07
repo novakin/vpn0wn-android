@@ -38,3 +38,5 @@ This record adds device evidence without changing source behavior, architecture,
 ## Subsequent source investigation — 2026-10-07 (Europe/Paris)
 
 The [Settings resource-ID investigation](2026-10-07-settings-resource-id-review.md) subsequently reproduced an invalid AndroidX preference root ID during API 36 framework structure capture and repaired initialization through the native preference API. This does not revise the nine messages or missing caller stack observed above. The installed source `4e2f473d` predates that repair; physical warning confirmation and remaining #34/#52 acceptance still need a new authorized candidate check.
+
+The later [candidate phone confirmation](2026-10-07-settings-resource-id-review.md#candidate-phone-confirmation--2026-10-07-europeparis) records replacement with verified source `5fa07cd0` and zero ID-zero messages in three Settings opens and landscape recreation. That supersedes the warning-confirmation handoff, while this record's original APK, captures and broader acceptance limits remain unchanged.
