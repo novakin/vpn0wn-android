@@ -12,13 +12,11 @@ import "C"
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"os/signal"
 	"runtime"
 	"runtime/debug"
 	"strings"
-	"sync"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
@@ -47,37 +45,10 @@ func (l AndroidLogger) Printf(format string, args ...interface{}) {
 	C.__android_log_write(l.level, l.tag, cstring(fmt.Sprintf(format, args...)))
 }
 
-type TunnelHandle struct {
-	mu      sync.Mutex
-	device  *device.Device
-	bind    *androidbind.Bind
-	uapi    *uapiserver.Server
-	context *C.struct_wg_context
-}
-
-var tunnelHandles = struct {
-	sync.Mutex
-	items map[int32]*TunnelHandle
-}{items: make(map[int32]*TunnelHandle)}
-
 func (h *TunnelHandle) close(env *C.JNIEnv) {
-	h.bind.Shutdown()
-	if h.uapi != nil {
-		h.uapi.Close()
-	}
-	h.device.Close()
+	h.closeNative()
 	C.wgRethrowException(env, h.context)
 	C.wgFreeContext(env, h.context)
-}
-
-func lockHandle(id int32) *TunnelHandle {
-	tunnelHandles.Lock()
-	h := tunnelHandles.items[id]
-	if h != nil {
-		h.mu.Lock()
-	}
-	tunnelHandles.Unlock()
-	return h
 }
 
 func init() {
@@ -152,36 +123,23 @@ func wgTurnOn(interfaceName string, tunFd int32, settings string, context *C.str
 	}
 	logger.Verbosef("Device started")
 
-	var i int32
-	tunnelHandles.Lock()
-	defer tunnelHandles.Unlock()
-	for i = 0; i < math.MaxInt32; i++ {
-		if _, exists := tunnelHandles.items[i]; !exists {
-			break
-		}
-	}
-	if i == math.MaxInt32 {
+	id := tunnelHandles.add(handle)
+	if id < 0 {
 		logger.Errorf("Unable to find empty handle")
 		handle.close(env)
 		return -1
 	}
-	tunnelHandles.items[i] = handle
-	return i
+	return id
 }
 
 //export wgTurnOff
 func wgTurnOff(tunnelHandle int32, env *C.JNIEnv) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	tunnelHandles.Lock()
-	handle := tunnelHandles.items[tunnelHandle]
-	delete(tunnelHandles.items, tunnelHandle)
-	tunnelHandles.Unlock()
+	handle := tunnelHandles.remove(tunnelHandle)
 	if handle == nil {
 		return
 	}
-	handle.mu.Lock()
-	defer handle.mu.Unlock()
 	handle.close(env)
 }
 
@@ -189,11 +147,11 @@ func wgTurnOff(tunnelHandle int32, env *C.JNIEnv) {
 func wgGetConfig(tunnelHandle int32, env *C.JNIEnv) *C.char {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	handle := lockHandle(tunnelHandle)
+	handle := tunnelHandles.acquire(tunnelHandle)
 	if handle == nil {
 		return nil
 	}
-	defer handle.mu.Unlock()
+	defer handle.queries.Done()
 	if C.wgRethrowException(env, handle.context) != 0 {
 		return nil
 	}

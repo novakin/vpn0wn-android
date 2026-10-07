@@ -39,6 +39,8 @@ class GoBackendLifecycleTest {
             .get(null) as AtomicReference<CompletableFuture<GoBackend.VpnService>>
         serviceRef.set(CompletableFuture())
         NativeShadow.failure = null
+        NativeShadow.query = null
+        NativeShadow.turnOff = null
     }
 
     @Test
@@ -255,6 +257,81 @@ class GoBackendLifecycleTest {
         assertFalse(serviceRef.get().isDone)
     }
 
+    @Test
+    fun disconnectCancelsBlockedStatisticsWithoutHoldingStateLock() {
+        assertStatisticsTeardown(false)
+    }
+
+    @Test
+    fun serviceCleanupCancelsBlockedStatisticsWithoutHoldingStateLock() {
+        assertStatisticsTeardown(true)
+    }
+
+    @Test
+    fun delayedStatisticsDiscardResultsAfterTunnelReplacement() {
+        val service = GoBackend.VpnService()
+        val tunnel = installOwnedTunnel(service, mutableListOf())
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        NativeShadow.query = { handle ->
+            assertEquals(7, handle)
+            entered.countDown()
+            assertTrue(release.await(5, TimeUnit.SECONDS))
+            "public_key=${"01".repeat(32)}\nrx_bytes=123\ntx_bytes=456\n"
+        }
+        val executor = Executors.newSingleThreadExecutor()
+        try {
+            val statistics = executor.submit<Statistics> { backend.getStatistics(tunnel) }
+            assertTrue(entered.await(5, TimeUnit.SECONDS))
+            val stateLock = GoBackend::class.java.getDeclaredField("stateLock").apply { isAccessible = true }.get(backend)
+            synchronized(stateLock) {
+                GoBackend::class.java.getDeclaredField("currentTunnelHandle").apply { isAccessible = true }.set(backend, 8)
+            }
+            release.countDown()
+            assertEquals(0, statistics.get(5, TimeUnit.SECONDS).totalRx())
+        } finally {
+            release.countDown()
+            executor.shutdownNow()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+        }
+    }
+
+    private fun assertStatisticsTeardown(serviceCleanup: Boolean) {
+        val service = GoBackend.VpnService()
+        val states = mutableListOf<Tunnel.State>()
+        val tunnel = installOwnedTunnel(service, states)
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        NativeShadow.query = { handle ->
+            assertEquals(7, handle)
+            entered.countDown()
+            assertTrue(release.await(5, TimeUnit.SECONDS))
+            "public_key=${"01".repeat(32)}\nrx_bytes=123\ntx_bytes=456\n"
+        }
+        NativeShadow.turnOff = { release.countDown() }
+        val executor = Executors.newFixedThreadPool(2)
+        try {
+            val statistics = executor.submit<Statistics> { backend.getStatistics(tunnel) }
+            assertTrue(entered.await(5, TimeUnit.SECONDS))
+            val teardown = executor.submit {
+                if (serviceCleanup) {
+                    GoBackend::class.java.getDeclaredMethod("handleServiceDestroyed", GoBackend.VpnService::class.java)
+                        .apply { isAccessible = true }.invoke(backend, service)
+                } else {
+                    backend.setState(tunnel, Tunnel.State.DOWN, null)
+                }
+            }
+            teardown.get(5, TimeUnit.SECONDS)
+            assertEquals(0, statistics.get(5, TimeUnit.SECONDS).totalRx())
+            assertEquals(Tunnel.State.DOWN, backend.getState(tunnel))
+            assertEquals(listOf(Tunnel.State.DOWN), states)
+        } finally {
+            release.countDown()
+            executor.shutdownNow()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+        }
+    }
+
     private fun installOwnedTunnel(service: GoBackend.VpnService, states: MutableList<Tunnel.State>): Tunnel {
         val tunnel = object : Tunnel {
             override fun getName(): String = "fixture"
@@ -286,10 +363,16 @@ class GoBackendLifecycleTest {
     class NativeShadow {
         companion object {
             var failure: Error? = null
+            var query: ((Int) -> String?)? = null
+            var turnOff: ((Int) -> Unit)? = null
+            @Implementation
+            @JvmStatic
+            fun wgGetConfig(handle: Int): String? = query?.invoke(handle)
             @Implementation
             @JvmStatic
             fun wgTurnOff(handle: Int) {
                 assertEquals(7, handle)
+                turnOff?.invoke(handle)
                 failure?.let { throw it }
             }
         }
