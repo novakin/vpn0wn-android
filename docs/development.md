@@ -63,6 +63,8 @@ Use an account-linked author/committer email and check the published GitHub auth
 
 Keep artifacts under ignored `.artifacts/`. Inspect personal/editor files before inclusion; do not add them merely because they are untracked. Retain current-task and failed-task command logs. Keep commit, issue and PR text free of connector attribution, generated-by footers and AI co-author trailers.
 
+Keep machine-specific editor preferences such as `.vscode/settings.json` local with repository-local `.git/info/exclude` when appropriate. That exclude is not tracked or propagated to another clone; preserve those files separately. The [dated local archival record](reviews/2026-10-06-local-work-recovery.md#local-archival-and-clean-checkout--2026-10-07) distinguishes preservation of old mixed source from reviewed integration and records the clean-checkout boundary. An archive is not permission to merge its old files wholesale.
+
 ## Pull requests and merge instructions
 
 ### Issue links and resolution
