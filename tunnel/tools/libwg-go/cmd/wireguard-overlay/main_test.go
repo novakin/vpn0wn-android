@@ -24,8 +24,8 @@ func pinnedDirectory(t *testing.T) string {
 func TestPinnedOverlayPreservesModuleSource(t *testing.T) {
 	directory := pinnedDirectory(t)
 	before := make(map[string][]byte)
-	for _, file := range []string{"device.go", "uapi.go"} {
-		source := filepath.Join(directory, "device", file)
+	for _, file := range []string{"device/device.go", "device/uapi.go", "conn/boundif_android.go"} {
+		source := filepath.Join(directory, file)
 		data, err := os.ReadFile(source)
 		if err != nil {
 			t.Fatal(err)
@@ -33,7 +33,7 @@ func TestPinnedOverlayPreservesModuleSource(t *testing.T) {
 		before[source] = data
 	}
 	output := t.TempDir()
-	if err := generate(output); err != nil {
+	if err := generate(output, false); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(filepath.Join(output, "overlay.json"))
@@ -61,15 +61,15 @@ func TestPinnedOverlayPreservesModuleSource(t *testing.T) {
 
 func TestOverlayRejectsChangedUpstreamSource(t *testing.T) {
 	directory := pinnedDirectory(t)
-	for _, file := range []string{"device.go", "uapi.go"} {
-		source, err := os.ReadFile(filepath.Join(directory, "device", file))
+	for _, file := range []string{"device/device.go", "device/uapi.go", "conn/boundif_android.go"} {
+		source, err := os.ReadFile(filepath.Join(directory, file))
 		if err != nil {
 			t.Fatal(err)
 		}
-		if _, err := patch(file, "changed upstream\n"+string(source)+string(source)); err == nil {
+		if _, err := patch(filepath.Base(file), "changed upstream\n"+string(source)+string(source)); err == nil {
 			t.Fatalf("%s duplicate upstream matches accepted", file)
 		}
-		if _, err := patch(file, "unmatched upstream"); err == nil {
+		if _, err := patch(filepath.Base(file), "unmatched upstream"); err == nil {
 			t.Fatalf("%s missing upstream match accepted", file)
 		}
 	}

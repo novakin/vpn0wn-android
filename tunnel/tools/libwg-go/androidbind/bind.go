@@ -152,7 +152,7 @@ func ProtectSockets(base conn.Bind, socketCount int, protect func(int) bool) err
 	protected := 0
 	for _, peek := range []func() (int, error){sockets.PeekLookAtSocketFd4, sockets.PeekLookAtSocketFd6} {
 		fd, err := peek()
-		// StdNetBind's unavailable family has a nil UDPConn; SyscallConn returns EINVAL.
+		// The pinned Android methods are overlaid to return EINVAL for an unavailable family.
 		if errors.Is(err, syscall.EINVAL) {
 			continue
 		}
