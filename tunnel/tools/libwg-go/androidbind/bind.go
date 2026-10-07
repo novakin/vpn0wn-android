@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"net"
 	"sync"
 	"sync/atomic"
@@ -110,8 +111,17 @@ func (b *Bind) Send(bufs [][]byte, endpoint conn.Endpoint) error {
 	if base == nil {
 		return net.ErrClosed
 	}
-	for _, packet := range bufs {
-		if b.warmup.Load() && isInitiation(packet) {
+	if !b.warmup.Load() {
+		return base.Send(bufs, endpoint)
+	}
+	start := 0
+	for i, packet := range bufs {
+		if isInitiation(packet) {
+			if i > start {
+				if err := base.Send(bufs[start:i], endpoint); err != nil {
+					return err
+				}
+			}
 			if !b.active() || !b.isCurrent(base) {
 				return net.ErrClosed
 			}
@@ -122,9 +132,42 @@ func (b *Bind) Send(bufs [][]byte, endpoint conn.Endpoint) error {
 			if !b.active() || !b.isCurrent(base) {
 				return net.ErrClosed
 			}
+			if err := base.Send(bufs[i:i+1], endpoint); err != nil {
+				return err
+			}
+			start = i + 1
 		}
 	}
-	return base.Send(bufs, endpoint)
+	if start < len(bufs) {
+		return base.Send(bufs[start:], endpoint)
+	}
+	return nil
+}
+
+func ProtectSockets(base conn.Bind, socketCount int, protect func(int) bool) error {
+	sockets, ok := base.(conn.PeekLookAtSocketFd)
+	if !ok {
+		return errors.New("bind has no Android socket descriptors")
+	}
+	protected := 0
+	for _, peek := range []func() (int, error){sockets.PeekLookAtSocketFd4, sockets.PeekLookAtSocketFd6} {
+		fd, err := peek()
+		// StdNetBind's unavailable family has a nil UDPConn; SyscallConn returns EINVAL.
+		if errors.Is(err, syscall.EINVAL) {
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if fd < 0 || !protect(fd) {
+			return errors.New("native UDP socket protection failed")
+		}
+		protected++
+	}
+	if protected != socketCount || protected == 0 {
+		return fmt.Errorf("protected %d sockets for %d receive functions", protected, socketCount)
+	}
+	return nil
 }
 
 func (b *Bind) isCurrent(base conn.Bind) bool {

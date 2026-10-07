@@ -2,17 +2,11 @@ package com.wireguard.android.backend
 
 import android.app.Application
 import android.content.Context
-import android.net.TrafficStats
 import androidx.test.core.app.ApplicationProvider
 import com.wireguard.android.model.TunnelTestEnvironment
 import com.wireguard.android.util.SharedLibraryLoader
 import com.wireguard.config.Config
-import com.wireguard.config.InetEndpoint
 import java.lang.reflect.InvocationTargetException
-import java.net.DatagramSocket
-import java.net.DatagramPacket
-import java.net.InetAddress
-import java.net.SocketException
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutionException
@@ -30,11 +24,9 @@ import org.robolectric.annotation.Config as RobolectricConfig
 import org.robolectric.annotation.Implementation
 import org.robolectric.annotation.Implements
 
-private const val CALLER_TRAFFIC_TAG = 42
-private const val PREFLIGHT_RECEIVE_TIMEOUT_MS = 1_000
 
 @RunWith(RobolectricTestRunner::class)
-@RobolectricConfig(application = Application::class, sdk = [28], shadows = [GoBackendLifecycleTest.LibraryShadow::class])
+@RobolectricConfig(application = Application::class, sdk = [28], shadows = [GoBackendLifecycleTest.LibraryShadow::class, GoBackendLifecycleTest.NativeShadow::class])
 class GoBackendLifecycleTest {
     private lateinit var backend: GoBackend
     private lateinit var serviceRef: AtomicReference<CompletableFuture<GoBackend.VpnService>>
@@ -46,6 +38,7 @@ class GoBackendLifecycleTest {
         serviceRef = GoBackend::class.java.getDeclaredField("vpnServiceRef").apply { isAccessible = true }
             .get(null) as AtomicReference<CompletableFuture<GoBackend.VpnService>>
         serviceRef.set(CompletableFuture())
+        NativeShadow.failure = null
     }
 
     @Test
@@ -147,15 +140,12 @@ class GoBackendLifecycleTest {
     }
 
     @Test
-    fun endpointFreeExplicitPortProfileSkipsPreflight() {
-        val service = PreflightService()
-        invokePreflight(TunnelTestEnvironment.profile(), service)
-        assertEquals(0, service.protectCalls)
+    fun endpointFreeProfilePreservesExplicitPort() {
         assertTrue(TunnelTestEnvironment.profile().toWgUserspaceString().contains("listen_port=51820"))
     }
 
     @Test
-    fun profileWithoutExplicitPortSkipsPreflight() {
+    fun profileWithoutExplicitPortPreservesAbsence() {
         val profile = Config.parse("""
             [Interface]
             PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
@@ -164,18 +154,22 @@ class GoBackendLifecycleTest {
             Endpoint = 192.0.2.1:51820
             AllowedIPs = 0.0.0.0/0
         """.trimIndent().byteInputStream())
-        val service = PreflightService()
-        invokePreflight(profile, service)
-        assertEquals(0, service.protectCalls)
+        assertFalse(profile.toWgUserspaceString().contains("listen_port="))
     }
 
     @Test
-    fun interruptionAbortsPreflightEvenWithoutEndpoints() {
+    fun nativeCallbackRejectsDestroyedService() {
+        val service = GoBackend.VpnService()
+        service.onDestroy()
+        val failure = assertThrows(InvocationTargetException::class.java) { invokeActive(service, null) }
+        assertTrue(failure.cause is BackendException)
+    }
+
+    @Test
+    fun nativeCallbackPreservesCallingThreadInterruption() {
         Thread.currentThread().interrupt()
         try {
-            val failure = assertThrows(InvocationTargetException::class.java) {
-                invokePreflight(TunnelTestEnvironment.profile(), PreflightService())
-            }
+            val failure = assertThrows(InvocationTargetException::class.java) { invokeActive(GoBackend.VpnService(), null) }
             assertTrue(failure.cause is InterruptedException)
             assertTrue(Thread.currentThread().isInterrupted)
         } finally {
@@ -184,66 +178,120 @@ class GoBackendLifecycleTest {
     }
 
     @Test
-    fun failedProtectionPreventsBindAndSend() {
-        val method = GoBackend::class.java.getDeclaredMethod("sendUdpPreflight", GoBackend.VpnService::class.java,
-            Int::class.javaPrimitiveType, InetAddress::class.java, Int::class.javaPrimitiveType, InetEndpoint::class.java)
-            .apply { isAccessible = true }
-        val service = PreflightService()
-        val previousTag = TrafficStats.getThreadStatsTag()
-        TrafficStats.setThreadStatsTag(CALLER_TRAFFIC_TAG)
+    fun nativeWorkerChecksOriginatingActivationThread() {
+        val waiting = CountDownLatch(1)
+        val gate = Any()
+        val startup = Thread {
+            Thread.currentThread().interrupt()
+            waiting.countDown()
+            synchronized(gate) { }
+        }
         try {
-            val failure = assertThrows(InvocationTargetException::class.java) {
-                method.invoke(backend, service, 51820, InetAddress.getByAddress(byteArrayOf(-64, 0, 2, 1)),
-                    51820, InetEndpoint.parse("192.0.2.1:51820"))
+            synchronized(gate) {
+                startup.start()
+                assertTrue(waiting.await(5, TimeUnit.SECONDS))
+                val failure = assertThrows(InvocationTargetException::class.java) { invokeActive(GoBackend.VpnService(), startup) }
+                assertTrue(failure.cause is InterruptedException)
+                assertTrue(startup.isInterrupted)
+                assertFalse(Thread.currentThread().isInterrupted)
             }
-            assertTrue(failure.cause is SocketException)
-            assertEquals(1, service.protectCalls)
-            assertEquals(0, service.trafficTag)
-            assertEquals(CALLER_TRAFFIC_TAG, TrafficStats.getThreadStatsTag())
         } finally {
-            TrafficStats.setThreadStatsTag(previousTag)
+            startup.join(TimeUnit.SECONDS.toMillis(5))
+            assertFalse(startup.isAlive)
         }
     }
 
     @Test
-    fun successfulPreflightTagsSocketAndRestoresUntaggedCaller() {
-        val previousTag = TrafficStats.getThreadStatsTag()
-        TrafficStats.clearThreadStatsTag()
-        try {
-            val address = InetAddress.getLoopbackAddress()
-            DatagramSocket(0, address).use { receiver ->
-                receiver.soTimeout = PREFLIGHT_RECEIVE_TIMEOUT_MS
-                val service = PreflightService().apply { allowProtection = true }
-                val method = GoBackend::class.java.getDeclaredMethod("sendUdpPreflight", GoBackend.VpnService::class.java,
-                    Int::class.javaPrimitiveType, InetAddress::class.java, Int::class.javaPrimitiveType, InetEndpoint::class.java)
-                    .apply { isAccessible = true }
-                method.invoke(backend, service, 0, address, receiver.localPort, InetEndpoint.parse("127.0.0.1:${receiver.localPort}"))
-                val packet = DatagramPacket(ByteArray(2), 2)
-                receiver.receive(packet)
-                assertEquals(1, packet.length)
-                assertEquals(0, packet.data[0].toInt())
-                assertEquals(1, service.protectCalls)
-                assertEquals(0, service.trafficTag)
-                assertEquals(-1, TrafficStats.getThreadStatsTag())
-            }
-        } finally {
-            TrafficStats.setThreadStatsTag(previousTag)
+    fun nativeProtectionKeepsOwningServiceAndDescriptor() {
+        val service = NativeService()
+        val callback = GoBackend.VpnService::class.java.getDeclaredMethod("protectNativeSocket", Int::class.javaPrimitiveType)
+            .apply { isAccessible = true }
+        assertFalse(callback.invoke(service, 42) as Boolean)
+        assertEquals(42, service.descriptor)
+        service.allowProtection = true
+        assertTrue(callback.invoke(service, 24) as Boolean)
+        assertEquals(24, service.descriptor)
+    }
+
+    @Test
+    fun nativeProtectionDoesNotSwallowProgrammingError() {
+        val service = NativeService()
+        val original = AssertionError("Synthetic callback defect")
+        service.failure = original
+        val callback = GoBackend.VpnService::class.java.getDeclaredMethod("protectNativeSocket", Int::class.javaPrimitiveType)
+            .apply { isAccessible = true }
+        val failure = assertThrows(InvocationTargetException::class.java) { callback.invoke(service, 42) }
+        assertSame(original, failure.cause)
+    }
+
+    @Test
+    fun nativeTeardownErrorStillClearsStateAndPublishesDown() {
+        val service = Robolectric.buildService(GoBackend.VpnService::class.java).create().get()
+        val states = mutableListOf<Tunnel.State>()
+        val tunnel = installOwnedTunnel(service, states)
+        val original = AssertionError("Synthetic teardown defect")
+        NativeShadow.failure = original
+        val failure = assertThrows(AssertionError::class.java) { backend.setState(tunnel, Tunnel.State.DOWN, null) }
+        assertSame(original, failure)
+        assertEquals(Tunnel.State.DOWN, backend.getState(tunnel))
+        assertEquals(listOf(Tunnel.State.DOWN), states)
+        assertFalse(serviceRef.get().isDone)
+    }
+
+    @Test
+    fun serviceCleanupErrorStillClearsStateAndPublishesDown() {
+        val service = Robolectric.buildService(GoBackend.VpnService::class.java).create().get()
+        val states = mutableListOf<Tunnel.State>()
+        val tunnel = installOwnedTunnel(service, states)
+        val original = AssertionError("Synthetic callback defect")
+        NativeShadow.failure = original
+        val failure = assertThrows(InvocationTargetException::class.java) {
+            GoBackend::class.java.getDeclaredMethod("handleServiceDestroyed", GoBackend.VpnService::class.java)
+                .apply { isAccessible = true }.invoke(backend, service)
+        }
+        assertSame(original, failure.cause)
+        assertEquals(Tunnel.State.DOWN, backend.getState(tunnel))
+        assertEquals(listOf(Tunnel.State.DOWN), states)
+        assertFalse(serviceRef.get().isDone)
+    }
+
+    private fun installOwnedTunnel(service: GoBackend.VpnService, states: MutableList<Tunnel.State>): Tunnel {
+        val tunnel = object : Tunnel {
+            override fun getName(): String = "fixture"
+            override fun onStateChange(newState: Tunnel.State) { states += newState }
+        }
+        for ((name, value) in mapOf("currentService" to service, "currentTunnel" to tunnel, "currentTunnelHandle" to 7))
+            GoBackend::class.java.getDeclaredField(name).apply { isAccessible = true }.set(backend, value)
+        return tunnel
+    }
+
+    private fun invokeActive(service: GoBackend.VpnService, startup: Thread?): Boolean =
+        GoBackend.VpnService::class.java.getDeclaredMethod("isNativeServiceActive", Thread::class.java)
+            .apply { isAccessible = true }.invoke(service, startup) as Boolean
+
+    private class NativeService : GoBackend.VpnService() {
+        var descriptor: Int? = null
+        var allowProtection = false
+        var failure: Error? = null
+        override fun protect(socket: Int): Boolean {
+            descriptor = socket
+            failure?.let { throw it }
+            return allowProtection
         }
     }
 
-    private fun invokePreflight(config: Config, service: GoBackend.VpnService) {
-        GoBackend::class.java.getDeclaredMethod("sendUdpPreflight", Config::class.java, GoBackend.VpnService::class.java)
-            .apply { isAccessible = true }.invoke(backend, config, service)
-    }
-
-    private class PreflightService : GoBackend.VpnService() {
-        var protectCalls = 0
-        var allowProtection = false
-        var trafficTag: Int? = null
-        override fun protect(socket: DatagramSocket): Boolean {
-            protectCalls++
-            trafficTag = TrafficStats.getThreadStatsTag()
-            return allowProtection
+    @Implements(value = GoBackend::class, isInAndroidSdk = false)
+    // Robolectric instantiates this shadow through a public no-argument constructor.
+    @Suppress("UtilityClassWithPublicConstructor")
+    class NativeShadow {
+        companion object {
+            var failure: Error? = null
+            @Implementation
+            @JvmStatic
+            fun wgTurnOff(handle: Int) {
+                assertEquals(7, handle)
+                failure?.let { throw it }
+            }
         }
     }
 

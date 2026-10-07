@@ -7,6 +7,7 @@ package main
 
 // #cgo LDFLAGS: -llog
 // #include <android/log.h>
+// #include "jni_context.h"
 import "C"
 
 import (
@@ -17,9 +18,11 @@ import (
 	"runtime"
 	"runtime/debug"
 	"strings"
+	"sync"
 	"unsafe"
 
 	"golang.org/x/sys/unix"
+	"golang.zx2c4.com/wireguard/android/androidbind"
 	"golang.zx2c4.com/wireguard/android/uapiserver"
 	"golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/device"
@@ -45,14 +48,39 @@ func (l AndroidLogger) Printf(format string, args ...interface{}) {
 }
 
 type TunnelHandle struct {
-	device *device.Device
-	uapi   *uapiserver.Server
+	mu      sync.Mutex
+	device  *device.Device
+	bind    *androidbind.Bind
+	uapi    *uapiserver.Server
+	context *C.struct_wg_context
 }
 
-var tunnelHandles map[int32]TunnelHandle
+var tunnelHandles = struct {
+	sync.Mutex
+	items map[int32]*TunnelHandle
+}{items: make(map[int32]*TunnelHandle)}
+
+func (h *TunnelHandle) close(env *C.JNIEnv) {
+	h.bind.Shutdown()
+	if h.uapi != nil {
+		h.uapi.Close()
+	}
+	h.device.Close()
+	C.wgRethrowException(env, h.context)
+	C.wgFreeContext(env, h.context)
+}
+
+func lockHandle(id int32) *TunnelHandle {
+	tunnelHandles.Lock()
+	h := tunnelHandles.items[id]
+	if h != nil {
+		h.mu.Lock()
+	}
+	tunnelHandles.Unlock()
+	return h
+}
 
 func init() {
-	tunnelHandles = make(map[int32]TunnelHandle)
 	signals := make(chan os.Signal)
 	signal.Notify(signals, unix.SIGUSR2)
 	go func() {
@@ -72,7 +100,9 @@ func init() {
 }
 
 //export wgTurnOn
-func wgTurnOn(interfaceName string, tunFd int32, settings string) int32 {
+func wgTurnOn(interfaceName string, tunFd int32, settings string, context *C.struct_wg_context, env *C.JNIEnv) int32 {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 	tag := cstring("WireGuard/GoBackend/" + interfaceName)
 	logger := &device.Logger{
 		Verbosef: AndroidLogger{level: C.ANDROID_LOG_DEBUG, tag: tag}.Printf,
@@ -82,22 +112,30 @@ func wgTurnOn(interfaceName string, tunFd int32, settings string) int32 {
 	tun, name, err := tun.CreateUnmonitoredTUNFromFD(int(tunFd))
 	if err != nil {
 		unix.Close(int(tunFd))
+		C.wgFreeContext(env, context)
 		logger.Errorf("CreateUnmonitoredTUNFromFD: %v", err)
 		return -1
 	}
 
 	logger.Verbosef("Attaching to interface %v", name)
-	device := device.NewDevice(tun, conn.NewStdNetBind(), logger)
+	bind := androidbind.New(func(base conn.Bind, socketCount int) error {
+		return androidbind.ProtectSockets(base, socketCount, func(fd int) bool {
+			return C.wgProtectSocket(context, C.int(fd)) != 0
+		})
+	}, func() bool { return C.wgServiceActive(context) != 0 })
+	device := device.NewDevice(tun, bind, logger)
+	handle := &TunnelHandle{device: device, bind: bind, context: context}
 
 	err = device.IpcSet(settings)
 	if err != nil {
-		device.Close()
+		handle.close(env)
 		logger.Errorf("IpcSet: %v", err)
 		return -1
 	}
 	device.DisableSomeRoamingForBrokenMobileSemantics()
 
 	uapi, err := uapiserver.Listen(name, device.IpcHandle)
+	handle.uapi = uapi
 	if err != nil {
 		logger.Errorf("UAPI listen: %v", err)
 	}
@@ -105,83 +143,58 @@ func wgTurnOn(interfaceName string, tunFd int32, settings string) int32 {
 	err = device.Up()
 	if err != nil {
 		logger.Errorf("Unable to bring up device: %v", err)
-		if uapi != nil {
-			uapi.Close()
-		}
-		device.Close()
+		handle.close(env)
+		return -1
+	}
+	if C.wgServiceActive(context) == 0 || C.wgFinishStartup(env, context) == 0 {
+		handle.close(env)
 		return -1
 	}
 	logger.Verbosef("Device started")
 
 	var i int32
+	tunnelHandles.Lock()
+	defer tunnelHandles.Unlock()
 	for i = 0; i < math.MaxInt32; i++ {
-		if _, exists := tunnelHandles[i]; !exists {
+		if _, exists := tunnelHandles.items[i]; !exists {
 			break
 		}
 	}
 	if i == math.MaxInt32 {
 		logger.Errorf("Unable to find empty handle")
-		if uapi != nil {
-			uapi.Close()
-		}
-		device.Close()
+		handle.close(env)
 		return -1
 	}
-	tunnelHandles[i] = TunnelHandle{device: device, uapi: uapi}
+	tunnelHandles.items[i] = handle
 	return i
 }
 
 //export wgTurnOff
-func wgTurnOff(tunnelHandle int32) {
-	handle, ok := tunnelHandles[tunnelHandle]
-	if !ok {
+func wgTurnOff(tunnelHandle int32, env *C.JNIEnv) {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	tunnelHandles.Lock()
+	handle := tunnelHandles.items[tunnelHandle]
+	delete(tunnelHandles.items, tunnelHandle)
+	tunnelHandles.Unlock()
+	if handle == nil {
 		return
 	}
-	delete(tunnelHandles, tunnelHandle)
-	if handle.uapi != nil {
-		handle.uapi.Close()
-	}
-	handle.device.Close()
-}
-
-//export wgGetSocketV4
-func wgGetSocketV4(tunnelHandle int32) int32 {
-	handle, ok := tunnelHandles[tunnelHandle]
-	if !ok {
-		return -1
-	}
-	bind, _ := handle.device.Bind().(conn.PeekLookAtSocketFd)
-	if bind == nil {
-		return -1
-	}
-	fd, err := bind.PeekLookAtSocketFd4()
-	if err != nil {
-		return -1
-	}
-	return int32(fd)
-}
-
-//export wgGetSocketV6
-func wgGetSocketV6(tunnelHandle int32) int32 {
-	handle, ok := tunnelHandles[tunnelHandle]
-	if !ok {
-		return -1
-	}
-	bind, _ := handle.device.Bind().(conn.PeekLookAtSocketFd)
-	if bind == nil {
-		return -1
-	}
-	fd, err := bind.PeekLookAtSocketFd6()
-	if err != nil {
-		return -1
-	}
-	return int32(fd)
+	handle.mu.Lock()
+	defer handle.mu.Unlock()
+	handle.close(env)
 }
 
 //export wgGetConfig
-func wgGetConfig(tunnelHandle int32) *C.char {
-	handle, ok := tunnelHandles[tunnelHandle]
-	if !ok {
+func wgGetConfig(tunnelHandle int32, env *C.JNIEnv) *C.char {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	handle := lockHandle(tunnelHandle)
+	if handle == nil {
+		return nil
+	}
+	defer handle.mu.Unlock()
+	if C.wgRethrowException(env, handle.context) != 0 {
 		return nil
 	}
 	settings, err := handle.device.IpcGet()

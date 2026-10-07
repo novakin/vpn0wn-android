@@ -9,7 +9,7 @@ struct wg_context *wgCreateContext(JNIEnv *env, jobject service, jobject activat
 int wgProtectSocket(struct wg_context *context, int fd);
 int wgServiceActive(struct wg_context *context);
 int wgFinishStartup(JNIEnv *env, struct wg_context *context);
-void wgRethrowException(JNIEnv *env, struct wg_context *context);
+int wgRethrowException(JNIEnv *env, struct wg_context *context);
 void wgFreeContext(JNIEnv *env, struct wg_context *context);
 
 #endif

@@ -20,7 +20,13 @@ static JNIEnv *callbackEnv(struct wg_context *context, int *attached)
 	*attached = 0;
 	jint result = (*context->vm)->GetEnv(context->vm, (void **)&env, JNI_VERSION_1_6);
 	if (result == JNI_EDETACHED) {
-		if ((*context->vm)->AttachCurrentThread(context->vm, (void **)&env, NULL) != JNI_OK)
+		/* Android and host JDK headers use different AttachCurrentThread output types. */
+#ifdef __ANDROID__
+		result = (*context->vm)->AttachCurrentThread(context->vm, &env, NULL);
+#else
+		result = (*context->vm)->AttachCurrentThread(context->vm, (void **)&env, NULL);
+#endif
+		if (result != JNI_OK)
 			return NULL;
 		*attached = 1;
 	} else if (result != JNI_OK) {
@@ -123,15 +129,18 @@ int wgFinishStartup(JNIEnv *env, struct wg_context *context)
 	return active;
 }
 
-void wgRethrowException(JNIEnv *env, struct wg_context *context)
+int wgRethrowException(JNIEnv *env, struct wg_context *context)
 {
 	pthread_mutex_lock(&context->mutex);
+	int raised = 0;
 	if (context->exception) {
 		(*env)->Throw(env, context->exception);
 		(*env)->DeleteGlobalRef(env, context->exception);
 		context->exception = NULL;
+		raised = 1;
 	}
 	pthread_mutex_unlock(&context->mutex);
+	return raised;
 }
 
 void wgFreeContext(JNIEnv *env, struct wg_context *context)
