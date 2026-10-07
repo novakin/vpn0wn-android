@@ -7,6 +7,7 @@ package com.wireguard.android.backend;
 
 import android.content.Context;
 import android.content.Intent;
+import android.net.TrafficStats;
 import android.os.Build;
 import android.os.ParcelFileDescriptor;
 import android.system.OsConstants;
@@ -277,8 +278,10 @@ public final class GoBackend implements Backend {
     }
 
     private void sendUdpPreflight(final VpnService service, final int listenPort,
-                                     final InetAddress addr, final int port,
-                                     final InetEndpoint resolved) throws IOException {
+                                  final InetAddress addr, final int port,
+                                  final InetEndpoint resolved) throws IOException {
+        final int previousTag = TrafficStats.getThreadStatsTag();
+        TrafficStats.setThreadStatsTag(0);
         try (final DatagramSocket socket = new DatagramSocket(null)) {
             socket.setReuseAddress(true);
             if (!service.protect(socket))
@@ -287,6 +290,8 @@ public final class GoBackend implements Backend {
             final byte[] payload = {0x00};
             socket.send(new DatagramPacket(payload, payload.length, addr, port));
             Log.d(TAG, "UDP preflight sent to " + resolved);
+        } finally {
+            TrafficStats.setThreadStatsTag(previousTag);
         }
     }
 
