@@ -54,6 +54,7 @@ Review meaning against source and the complete diff. Links, dates and checked bo
 - [ ] UI output was inspected at affected sizes/themes/configurations when relevant.
 - [ ] Final diff contains intentional files and preserves unrelated work/evidence.
 - [ ] Published head, file scope, body, actual metadata, issue relationship/state and applicable checks were read back.
+- [ ] Published account/app-attribution metadata was checked where exposed; personal credentials were used for publication.
 - [ ] Remaining risks, skips and operational requirements are stated below.
 
 ## Remaining risks and delivery state

@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 	"time"
@@ -19,7 +21,7 @@ const timeout = 5 * time.Second
 
 func listen(t *testing.T) net.Listener {
 	t.Helper()
-	l, err := net.Listen("tcp", "127.0.0.1:0")
+	l, err := listenSocket(filepath.Join(t.TempDir(), "fixture.sock"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +31,7 @@ func listen(t *testing.T) net.Listener {
 
 func connect(t *testing.T, l net.Listener) net.Conn {
 	t.Helper()
-	c, err := net.DialTimeout("tcp", l.Addr().String(), timeout)
+	c, err := net.DialTimeout(l.Addr().Network(), l.Addr().String(), timeout)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +148,7 @@ func TestConcurrentAdmissionAndClose(t *testing.T) {
 			go func() {
 				defer operations.Done()
 				<-start
-				c, err := net.DialTimeout("tcp", l.Addr().String(), timeout)
+				c, err := net.DialTimeout(l.Addr().Network(), l.Addr().String(), timeout)
 				if err == nil {
 					defer c.Close()
 					io.Copy(io.Discard, c)
@@ -164,5 +166,58 @@ func TestConcurrentAdmissionAndClose(t *testing.T) {
 		if len(s.clients) != 0 {
 			t.Fatal("concurrent close retained clients")
 		}
+	}
+}
+
+func TestUnixListenerRefusesActiveSocket(t *testing.T) {
+	l := listen(t)
+	if replacement, err := listenSocket(l.Addr().String()); err == nil {
+		replacement.Close()
+		t.Fatal("active UAPI socket was replaced")
+	}
+	if _, err := os.Stat(l.Addr().String()); err != nil {
+		t.Fatal("active socket path was removed", err)
+	}
+	connect(t, l)
+}
+
+func TestUnixListenerReusesStaleSocketAndUnlinks(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "fixture.sock")
+	stale, err := net.ListenUnix("unix", &net.UnixAddr{Name: path, Net: "unix"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	stale.SetUnlinkOnClose(false)
+	stale.Close()
+	l, err := listenSocket(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { l.Close() })
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != 0600 {
+		t.Fatalf("UAPI permissions %o; want 600", info.Mode().Perm())
+	}
+	l.Close()
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatal("closed UAPI socket path retained", err)
+	}
+}
+
+func TestUnixListenerPreservesNonSocketPath(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "fixture.sock")
+	if err := os.WriteFile(path, []byte("preserve"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if l, err := listenSocket(path); err == nil {
+		l.Close()
+		t.Fatal("regular file accepted as UAPI socket")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil || string(data) != "preserve" {
+		t.Fatal("regular file changed", err)
 	}
 }

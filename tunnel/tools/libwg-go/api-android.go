@@ -23,7 +23,6 @@ import (
 	"golang.zx2c4.com/wireguard/android/uapiserver"
 	"golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/device"
-	"golang.zx2c4.com/wireguard/ipc"
 	"golang.zx2c4.com/wireguard/tun"
 )
 
@@ -98,20 +97,9 @@ func wgTurnOn(interfaceName string, tunFd int32, settings string) int32 {
 	}
 	device.DisableSomeRoamingForBrokenMobileSemantics()
 
-	var uapi *uapiserver.Server
-
-	uapiFile, err := ipc.UAPIOpen(name)
+	uapi, err := uapiserver.Listen(name, device.IpcHandle)
 	if err != nil {
-		logger.Errorf("UAPIOpen: %v", err)
-	} else {
-		listener, listenErr := ipc.UAPIListen(name, uapiFile)
-		uapiFile.Close()
-		err = listenErr
-		if err != nil {
-			logger.Errorf("UAPIListen: %v", err)
-		} else {
-			uapi = uapiserver.New(listener, device.IpcHandle)
-		}
+		logger.Errorf("UAPI listen: %v", err)
 	}
 
 	err = device.Up()

@@ -3,9 +3,63 @@
 package uapiserver
 
 import (
+	"errors"
 	"net"
+	"os"
+	"path/filepath"
 	"sync"
+	"syscall"
+	"time"
 )
+
+var socketDirectory = "/var/run/wireguard"
+
+const socketProbeTimeout = time.Second
+
+func Listen(name string, handle func(net.Conn)) (*Server, error) {
+	if err := os.MkdirAll(socketDirectory, 0700); err != nil {
+		return nil, err
+	}
+	listener, err := listenSocket(filepath.Join(socketDirectory, name+".sock"))
+	if err != nil {
+		return nil, err
+	}
+	return New(listener, handle), nil
+}
+
+func listenSocket(path string) (*net.UnixListener, error) {
+	address := &net.UnixAddr{Name: path, Net: "unix"}
+	listener, err := net.ListenUnix("unix", address)
+	if errors.Is(err, syscall.EADDRINUSE) {
+		probe, probeErr := net.DialTimeout("unix", path, socketProbeTimeout)
+		if probeErr == nil {
+			probe.Close()
+			return nil, err
+		}
+		if !errors.Is(probeErr, syscall.ECONNREFUSED) {
+			return nil, probeErr
+		}
+		info, statErr := os.Lstat(path)
+		if statErr != nil {
+			return nil, statErr
+		}
+		if info.Mode()&os.ModeSocket == 0 {
+			return nil, errors.New("UAPI path is not a socket")
+		}
+		if removeErr := os.Remove(path); removeErr != nil {
+			return nil, removeErr
+		}
+		listener, err = net.ListenUnix("unix", address)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if err := os.Chmod(path, 0600); err != nil {
+		listener.Close()
+		return nil, err
+	}
+	return listener, nil
+}
 
 type Server struct {
 	listener net.Listener
