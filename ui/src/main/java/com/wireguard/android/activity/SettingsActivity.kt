@@ -19,6 +19,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
+import androidx.preference.PreferenceGroup
 import com.wireguard.android.Application
 import com.wireguard.android.QuickTileService
 import com.wireguard.android.R
@@ -57,6 +58,8 @@ class SettingsActivity : AppCompatActivity() {
         override fun onCreatePreferences(savedInstanceState: Bundle?, key: String?) {
             preferenceManager.preferenceDataStore = PreferencesPreferenceDataStore(lifecycleScope, Application.getPreferencesDataStore())
             addPreferencesFromResource(R.xml.preferences)
+            // AndroidX defaults row IDs to 0, which Android resolves as a resource during structure capture.
+            clearPreferenceViewIds(preferenceScreen)
 
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || QuickTileService.isAdded) {
                 val quickTile = preferenceManager.findPreference<Preference>("quick_tile")
@@ -105,6 +108,14 @@ class SettingsActivity : AppCompatActivity() {
                 }
                 connection?.isVisible = true
                 removeEmptyCategories()
+            }
+        }
+
+        private fun clearPreferenceViewIds(group: PreferenceGroup) {
+            for (index in 0 until group.preferenceCount) {
+                val preference = group.getPreference(index)
+                preference.setViewId(View.NO_ID)
+                if (preference is PreferenceGroup) clearPreferenceViewIds(preference)
             }
         }
 

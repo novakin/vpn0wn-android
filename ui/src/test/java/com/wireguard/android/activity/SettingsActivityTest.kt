@@ -1,6 +1,7 @@
 package com.wireguard.android.activity
 
 import android.app.Application
+import android.app.assist.AssistStructure
 import android.content.Context
 import android.content.ComponentName
 import android.content.RestrictionsManager
@@ -10,6 +11,7 @@ import android.graphics.drawable.Icon
 import android.os.Bundle
 import android.os.Looper
 import android.view.View
+import android.view.ViewStructure
 import android.widget.TextView
 import android.widget.ImageView
 import androidx.core.graphics.Insets
@@ -18,6 +20,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
+import androidx.preference.PreferenceGroupAdapter
 import androidx.preference.PreferenceViewHolder
 import androidx.preference.SwitchPreferenceCompat
 import com.wireguard.android.QuickTileService
@@ -98,6 +101,39 @@ class SettingsActivityTest {
         val activity = openSettings()
         settle(activity)
         assertEquals(false, KernelSupport.probedOnMain)
+    }
+
+    @Test @Config(sdk = [36]) fun preferenceStructuresHaveNoInvalidResourceIdsAfterRecreation() = runTest {
+        val env = environment()
+        KernelSupport.available = true
+        val shell = ProbeShell(env.application)
+        val tools = ToolsInstaller(env.application, shell)
+        setApplicationField(env, "toolsInstaller", tools)
+        setApplicationField(env, "futureBackend", CompletableDeferred<Backend>(WgQuickBackend(env.application, shell, tools)))
+        openSettings()
+        repeat(2) { pass ->
+            if (pass > 0) controllers.last().recreate()
+            val activity = controllers.last().get()
+            settle(activity)
+            val list = fragment(activity).listView
+            val adapter = list.adapter as PreferenceGroupAdapter
+            assertTrue(adapter.itemCount > 0)
+            for (position in 0 until adapter.itemCount) {
+                val holder = adapter.createViewHolder(list, adapter.getItemViewType(position))
+                adapter.bindViewHolder(holder, position)
+                val width = activity.resources.displayMetrics.widthPixels
+                holder.itemView.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
+                holder.itemView.layout(0, 0, width, holder.itemView.measuredHeight)
+                val structure = Class.forName("android.app.assist.AssistStructure\$ViewNodeBuilder")
+                    .getDeclaredConstructor().newInstance() as ViewStructure
+                holder.itemView.dispatchProvideStructure(structure)
+                val node = structure.javaClass.getMethod("getViewNode").invoke(structure) as AssistStructure.ViewNode
+                assertTrue("Preference structure must retain its children", node.childCount > 0)
+                assertValidStructureIds(node)
+                assertEquals(adapter.getItemId(position), holder.itemId)
+            }
+        }
     }
 
     @Test @Config(sdk = [33]) fun modernAndroidKeepsTileAndRemovesEmptyAppearance() = runTest {
@@ -306,6 +342,11 @@ class SettingsActivityTest {
         if (view is TextView) return listOf(view)
         if (view !is android.view.ViewGroup) return emptyList()
         return (0 until view.childCount).flatMap { textViews(view.getChildAt(it)) }
+    }
+
+    private fun assertValidStructureIds(node: AssistStructure.ViewNode) {
+        assertNotEquals("Invalid resource ID in ${node.className}", 0, node.id)
+        for (index in 0 until node.childCount) assertValidStructureIds(node.getChildAt(index))
     }
 
     private data class LayoutCase(val name: String, val width: Int, val height: Int, val fontScale: Float, val locale: String, val night: Boolean)
