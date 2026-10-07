@@ -10,6 +10,12 @@ The layer lists below are target requirements, not a passing coverage report. [S
 
 The [2026-10-06 phone follow-up](development.md#phone-ui-and-throughput-follow-up--2026-10-06) records a scoped physical Android 16 run. It does not install an Espresso/screenshot framework or replace the full support matrix below. Keep captures local: real profiles can expose private metadata even with secret fields masked. Before automation, confirm the current package/screen and protect unsaved user drafts; use synthetic inputs for writes. Restore temporary device settings and per-app locales after checks.
 
+### CI coverage and APK boundary
+
+The [Android workflow](../.github/workflows/android.yml) executes all UI/tunnel debug unit tests and Detekt on the actual PR head, `master` pushes and manual dispatch. Check the final-head run and XML/Detekt reports; a declared workflow or old passing revision is insufficient. Reports expire after seven days and may be unavailable after setup failure. The [development guide](development.md#android-ci-and-debug-apk-artifacts) owns toolchain, cancellation, artifact provenance and signing/install instructions.
+
+PR/push runs and default manual dispatch do not assemble an APK. Explicit `build_apk=true` dispatch runs checks before debug assembly/upload; actual APK execution/artifact proof remains G4 until requested. CI does not run instrumented/device, benchmark, native VPN/root or live/destructive VPS checks. It does not establish the support matrix below or configure branch protection. Keep #28/#34/#35/#36 physical acceptance open independently of CI success.
+
 ### JVM Unit Tests
 
 The #33 log recovery adds `LogLineParserTest` (threadtime/UID, continuation/malformed headers, dates and severity sets), `LogcatStreamTest` (sparse/continuous deadlines, bounded bursts/EOF, blocked/full-channel cancellation, destroy-induced I/O masking and genuine I/O/programming failure), `LogBufferTest` (filtered/unfiltered eviction, oversized batches, continuation character bounds, snapshots and refresh) and Robolectric `LogViewerPublicationTest`/`LogExportTest` (stale generation, actual adapter notifications, overlapping share ownership/revocation, UTF-8, write/close I/O and cancellation/defect propagation). Stream fixtures use synthetic text; a native `/bin/sh` process control is skipped when that executable is absent. [Executed evidence and limits](development.md#log-pipeline-recovery--2026-10-06) distinguish these controls from Android logcat, actual pipe/chooser behavior and rendered-screen proof.

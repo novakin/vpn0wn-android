@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-07 (Europe/Paris).
 
-[Documentation index](../README.md#project-documentation) · Setup/process substantively updated 2026-10-06 (Europe/Paris); historical runtime evidence retains its original scope.
+[Documentation index](../README.md#project-documentation) · Setup/process substantively updated 2026-10-07 (Europe/Paris); historical runtime evidence retains its original scope.
 
 Use focused changes, the existing Android architecture and explicit verification limits. [AGENTS.md](../AGENTS.md) is the sole project agent-instruction file; edit it directly when instructions change.
 
@@ -10,7 +10,7 @@ Use focused changes, the existing Android architecture and explicit verification
 
 The [Gradle wrapper](../gradle/wrapper/gradle-wrapper.properties) pins Gradle 9.3.1; the [version catalog](../gradle/libs.versions.toml) pins AGP 9.1.0 and dependencies. Both [UI](../ui/build.gradle.kts) and [tunnel](../tunnel/build.gradle.kts) modules compile against SDK 36, target Java 17 source compatibility and declare minimum API 24. Source compatibility is separate from the JDK running Gradle. Use a wrapper/AGP-compatible JDK; the historical local run below used OpenJDK 21.0.10, not proof of every JDK combination. These declarations are not an executed device support matrix.
 
-Clone the fork with `git clone --recurse-submodules https://github.com/novakin/wireguard-android.git`, or run `git submodule update --init --recursive` in an existing checkout. Install Android SDK Platform 36, compatible Android build tools, NDK and CMake. This checkout does not pin an NDK/CMake package version; record the versions actually used instead of inventing a tested matrix. Keep SDK paths in ignored `local.properties`; do not commit machine-specific paths, signing material or credentials.
+Clone the fork with `git clone --recurse-submodules https://github.com/novakin/wireguard-android.git`, or run `git submodule update --init --recursive` in an existing checkout. Install Android SDK Platform 36 and Build Tools 36.0.0; the [tunnel module](../tunnel/build.gradle.kts) pins NDK 28.2.13676358 and CMake 3.22.1, matching the existing local native toolchain. CI uses Temurin Java 21. Keep SDK paths in ignored `local.properties`; do not commit machine-specific paths, signing material or credentials. These declared versions define the check/build recipe, not a tested device matrix or byte-identical APK guarantee.
 
 Native builds use the [CMake configuration](../tunnel/tools/CMakeLists.txt) and [Go Makefile](../tunnel/tools/libwg-go/Makefile): host C compiler, NDK make, POSIX shell/tools, `flock`, `curl`, `tar`, `patch` and SHA256 verification. The Makefile downloads pinned Go 1.24.3; downloading Gradle/dependencies and Go needs network access on a cold cache. macOS needs [flock](https://github.com/discoteq/flock) and the required command-line tools. Use a configured Linux/macOS or WSL Linux toolchain. The clean repository tracks `gradlew`, not `gradlew.bat`; native Windows execution is not established by opening Android Studio. A Windows SDK path is not necessarily usable inside WSL; check the environment that runs Gradle before diagnosing build failures.
 
@@ -87,7 +87,7 @@ Before merge:
 
 1. Confirm the intended base/head and inspect the complete PR diff, not only the latest commit.
 2. Check linked acceptance criteria, compatibility and affected failure/cancellation/recovery behavior.
-3. Require relevant local or applicable CI evidence on the current revision; disclose missing device/server proof and unresolved risks. A workflow file does not prove execution or branch enforcement. This repository has no tracked GitHub Actions workflow; Server-Audit CI is not Tunnl CI.
+3. Require relevant local and applicable CI evidence on the current revision; disclose missing device/server proof and unresolved risks. The [Android workflow](#android-ci-and-debug-apk-artifacts) runs repository-native unit/static checks; confirm its actual final-head result. A workflow file does not prove execution or branch enforcement. Server-Audit CI is not Tunnl CI.
 4. Confirm owning docs and AGENTS.md agree with source and no secret/evidence artifacts are staged.
 5. Resolve review findings and conflicts without overwriting unrelated work.
 6. Merge only when requested and the review requirements are satisfied. Keep release/deployment state separate.
@@ -142,6 +142,18 @@ Invoke-CodexQuiet -Command 'wsl -- bash -c "cd /mnt/c/Users/Guillaume/Documents/
 Broaden tests for shared state, public/script contracts or cross-cutting/high-risk changes. Use deterministic clocks, synthetic profiles, injected commands and temporary files where they answer the question. Do not introduce a framework, CI or release pipeline merely to record proof.
 
 For documentation-only work, validate relative links, fences, examples/source claims, consistency with AGENTS.md, date presence/actual edit date and `git diff --check`. Keep historical event/test/review dates separate from the latest edit marker. A search with no matches returns `rg` exit 1; exit 2 is a search error. An executed test suite with disclosed skips differs from source-inspected tests, and neither proves unperformed device or live-server behavior.
+
+## Android CI and debug APK artifacts
+
+The [Android checks workflow](../.github/workflows/android.yml) runs `:ui:testDebugUnitTest :tunnel:testDebugUnitTest :ui:detekt` on pull requests, pushes to `master` and manual dispatch. It checks out the actual PR head SHA rather than the synthetic merge revision, initializes recursive native submodules and uses Ubuntu 24.04, Temurin Java 21 and the Android toolchain above. Actions use reviewed commit pins; token permissions are `contents: read`, checkout credentials are not persisted and no repository secrets are configured. PR/push checks never assemble an APK. Unit/static checks do not establish native VPN execution or device behavior.
+
+The `Native checks` job fails when Gradle fails and retains available synthetic JUnit XML/Detekt reports for seven days, including on failure. Reports may be absent if setup/compilation fails; inspect the job log in that case. Superseded PR/push runs are canceled; manual runs are not automatically canceled. Require successful checks covering the final reviewed head before merge under the authorized goal. Read the actual run and source revision; automatic execution alone does not configure required branch checks or prove enforcement. Repository protection settings are not changed by this workflow.
+
+For an explicitly requested debug APK, manually dispatch `android.yml` on the intended branch/ref with `build_apk=true`. The input defaults to false; ordinary dispatch runs checks only. Assembly and upload execute only after the checks succeed. This dispatch is an APK build authorization boundary, not an install, release or deployment action. Actual APK execution/artifact acceptance remains G4 of the [active goal](improvement-plan.md#active-enhancement-and-performance-goal).
+
+The `debug-apk-<source SHA>` artifact retains `ui-debug.apk`, `ui-debug.apk.sha256` and `source-revision.txt` for seven days; a missing APK fails upload. After extraction, run `sha256sum -c ui-debug.apk.sha256` from that directory and compare `source-revision.txt` with the accepted revision and run. Checksum/provenance identifies the output; it does not certify VPN health or make builds byte-identical. Download the accepted artifact before retention expires.
+
+The `.debug` package uses an ephemeral runner's debug signing key. Different CI runs and the existing local APK can have incompatible signatures, so an in-place update is not assured. Do not uninstall the working app or erase its data to resolve this: preserve/export personal configs first and obtain explicit install/device authorization. This workflow stores no release key and performs no installation, root/VPS operation, publication or deployment. Its pinned recipe supports repeatable builds; signing and build metadata still prevent a promise of identical bytes.
 
 ## Evidence and completion
 

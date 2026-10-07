@@ -1,0 +1,74 @@
+name: Android checks
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      build_apk:
+        description: Build and retain a debug APK after checks
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_dispatch' }}
+
+jobs:
+  native-checks:
+    name: Native checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out tested source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          submodules: recursive
+          persist-credentials: false
+      - name: Set up Java
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@be39fa834029ff78f1a44aa3bb0819b8fc2bd8fd # v4.0.4
+      - name: Install declared Android toolchain
+        run: sdkmanager --install 'platforms;android-36' 'build-tools;36.0.0' 'ndk;28.2.13676358' 'cmake;3.22.1'
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+      - name: Run unit and static checks
+        run: ./gradlew :ui:testDebugUnitTest :tunnel:testDebugUnitTest :ui:detekt --console=plain
+      - name: Retain check reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: native-checks-${{ github.run_id }}
+          path: |
+            ui/build/test-results/testDebugUnitTest/*.xml
+            tunnel/build/test-results/testDebugUnitTest/*.xml
+            ui/build/reports/detekt/
+          retention-days: 7
+          if-no-files-found: warn
+      - name: Assemble explicitly requested debug APK
+        if: github.event_name == 'workflow_dispatch' && inputs.build_apk
+        run: |
+          ./gradlew :ui:assembleDebug --console=plain
+          git rev-parse HEAD > ui/build/outputs/apk/debug/source-revision.txt
+          cd ui/build/outputs/apk/debug
+          sha256sum ui-debug.apk > ui-debug.apk.sha256
+      - name: Retain debug APK
+        if: github.event_name == 'workflow_dispatch' && inputs.build_apk
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: debug-apk-${{ github.sha }}
+          path: |
+            ui/build/outputs/apk/debug/ui-debug.apk
+            ui/build/outputs/apk/debug/ui-debug.apk.sha256
+            ui/build/outputs/apk/debug/source-revision.txt
+          retention-days: 7
+          if-no-files-found: error
