@@ -402,6 +402,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
+- [x] Settings structure-ID source repair — 2026-10-07: `SettingsFragment` uses native unassigned IDs for category/row roots, avoiding ID-zero resource lookup without changing presentation or preference behavior. [Regression and pending phone confirmation](reviews/2026-10-07-settings-resource-id-review.md) retain #34/#52 acceptance limits.
+
 - [x] Home selection/delete source recovery: TunnelListFragment now owns stable selected identities, count/select-all/close/delete controls, zero-selected mode and hidden switches/Add; a native scrolling confirmation lists selected tunnels and warns before deletion. Existing manager admission/rollback handles sequential deletion and partial/cancelled outcomes. Row status/peer labels remain one line with secondary ellipsis at narrow/large-text widths. Native controls check scrolling names/actions across six configurations; #36 physical acceptance remains open. See [source evidence and limits](development.md#home-selection-and-safe-delete-recovery--2026-10-07).
 
 - [x] **Add sheet and peer presentation recovery — 2026-10-06:** `AddTunnelsSheet` restores QR-first accent, file/manual ordering, localized subtitles, header and drag handle through the existing actions. Wrapping rows, native button semantics and a scrolling container accommodate large text and short screens; chevrons mirror in RTL. `tunnel_detail_peer.xml` binds separate localized RX/TX totals and handshake text from nullable peer snapshots, with 48dp copy targets. Missing/zero data and observed DOWN clear whole rows; selection/view/state guards reject stale peer projection. [Verification and pending phone acceptance](development.md#add-sheet-and-peer-presentation-recovery--2026-10-06) separate source recovery from device delivery.
@@ -526,7 +528,7 @@ This is a historical implementation ledger, not newly executed build/device proo
 - [ ] ADD PEER button: MaterialButton stroke is solid — true dashed border requires custom drawable background (minor gap).
 
 **Settings:**
-- [ ] Complete recovered #34 Settings phone acceptance. [Initial G4 captures](reviews/2026-10-07-g4-settings-add-debug-review.md) inspected header/Back and row readability in portrait, landscape, system light-mode, 200% text and Arabic RTL. [Candidate checks](reviews/2026-10-07-g4-candidate-device-review.md) confirm Settings/Back and the observed #55 path without the disk warning; resource-ID-zero diagnosis remains open. Full navigation/switch behavior, TalkBack, root and tile/export callbacks remain pending. This partial inspection does not deliver a distinct light theme or the full device matrix.
+- [ ] Complete recovered #34 Settings phone acceptance. [Initial G4 captures](reviews/2026-10-07-g4-settings-add-debug-review.md) inspected header/Back and row readability in portrait, landscape, system light-mode, 200% text and Arabic RTL. [Candidate checks](reviews/2026-10-07-g4-candidate-device-review.md) confirm Settings/Back and the observed #55 path without the disk warning. The [resource-ID source repair](reviews/2026-10-07-settings-resource-id-review.md) needs new phone confirmation. Full navigation/switch behavior, TalkBack, root and tile/export callbacks remain pending. This partial inspection does not deliver a distinct light theme or the full device matrix.
 
 **New screens (§8):**
 - [ ] `DiagnosticsScreen` — new screen.

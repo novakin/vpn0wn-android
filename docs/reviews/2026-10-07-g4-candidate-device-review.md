@@ -34,3 +34,7 @@ Eight checked device values matched their initial state: font scale, auto rotati
 #55's candidate paths now have bounded physical warning confirmation. #28/#34/#35/#36/#47/#52 remain open: Downloads output/failure boundaries, remaining Settings/native actions, peer copy/live-counter checks, TalkBack and wider affected configurations, resource-error diagnosis and controlled performance work are incomplete. LTE and USB charging were observed, so no Wi-Fi or idle-energy baseline was attempted. Re-establish the authorized fixed-profile path before any later load trial; the prior blocking report still applies.
 
 This record adds device evidence without changing source behavior, architecture, dependencies, agent instructions or process. Historical captures keep their original scope. Independent ultra review and final documentation checks/publication belong in the current PR acceptance record; merging this evidence does not complete G4 or close its partial-delivery issues.
+
+## Subsequent source investigation — 2026-10-07 (Europe/Paris)
+
+The [Settings resource-ID investigation](2026-10-07-settings-resource-id-review.md) subsequently reproduced an invalid AndroidX preference root ID during API 36 framework structure capture and repaired initialization through the native preference API. This does not revise the nine messages or missing caller stack observed above. The installed source `4e2f473d` predates that repair; physical warning confirmation and remaining #34/#52 acceptance still need a new authorized candidate check.
