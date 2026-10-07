@@ -43,6 +43,18 @@ func generate() error {
 	if module.Version != "v0.0.0-20250521234502-f333402bd9cb" || len(module.Replace) != 0 {
 		return fmt.Errorf("descriptor guards require the pinned, unmodified WireGuard module")
 	}
+	if module.Dir == "" {
+		download, err := exec.Command("go", "mod", "download", "-json", "golang.zx2c4.com/wireguard@"+module.Version).Output()
+		if err != nil {
+			return fmt.Errorf("download pinned WireGuard source: %w", err)
+		}
+		if err := json.Unmarshal(download, &module); err != nil {
+			return err
+		}
+	}
+	if module.Dir == "" {
+		return fmt.Errorf("pinned WireGuard source directory unavailable")
+	}
 	source, err := os.ReadFile(filepath.Join(module.Dir, "conn", "boundif_android.go"))
 	if err != nil {
 		return err
