@@ -18,7 +18,7 @@ This is a reproduced source mechanism consistent with the phone symptom. The ear
 
 ## Regression and limits
 
-`SettingsActivityTest.preferenceStructuresHaveNoInvalidResourceIdsAfterRecreation` runs API 36 with the existing synthetic kernel backend fixture. It binds every real `PreferenceGroupAdapter` row, captures the Android framework assist structure, checks roots/descendants for invalid ID zero and retains stable adapter identity across recreation. The test fails against unchanged production with `Invalid resource ID in android.widget.LinearLayout. Actual: 0` and passes after the owner fix.
+`SettingsActivityTest.preferenceStructuresHaveNoInvalidResourceIdsAfterRecreation` runs API 36 with the existing synthetic kernel backend fixture. It binds and lays out every real `PreferenceGroupAdapter` row, captures the Android framework assist structure and checks roots/descendants for invalid ID zero before and after recreation. Each adapter must enable stable IDs; bound holders must have a non-`NO_ID` item identity matching that adapter. This does not assert ID equality across separate adapter instances. The initial regression fails against unchanged production with `Invalid resource ID in android.widget.LinearLayout. Actual: 0` and passes after the owner fix.
 
 Focused Settings tests and Detekt cover the affected source; the current PR owns final-head results, independent ultra review and integration. Existing native raster checks retain supported layout configurations. JVM source/structure proof does not establish physical accessibility, content-capture service behavior, actual kernel support or the complete Settings/device matrix.
 

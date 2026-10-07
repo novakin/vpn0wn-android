@@ -23,6 +23,7 @@ import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceGroupAdapter
 import androidx.preference.PreferenceViewHolder
 import androidx.preference.SwitchPreferenceCompat
+import androidx.recyclerview.widget.RecyclerView
 import com.wireguard.android.QuickTileService
 import com.wireguard.android.R
 import com.wireguard.android.backend.Backend
@@ -118,6 +119,7 @@ class SettingsActivityTest {
             val list = fragment(activity).listView
             val adapter = list.adapter as PreferenceGroupAdapter
             assertTrue(adapter.itemCount > 0)
+            assertTrue(adapter.hasStableIds())
             for (position in 0 until adapter.itemCount) {
                 val holder = adapter.createViewHolder(list, adapter.getItemViewType(position))
                 adapter.bindViewHolder(holder, position)
@@ -131,6 +133,7 @@ class SettingsActivityTest {
                 val node = structure.javaClass.getMethod("getViewNode").invoke(structure) as AssistStructure.ViewNode
                 assertTrue("Preference structure must retain its children", node.childCount > 0)
                 assertValidStructureIds(node)
+                assertNotEquals(RecyclerView.NO_ID, holder.itemId)
                 assertEquals(adapter.getItemId(position), holder.itemId)
             }
         }
