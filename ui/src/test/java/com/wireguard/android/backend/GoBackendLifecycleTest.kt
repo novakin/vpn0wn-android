@@ -2,6 +2,7 @@ package com.wireguard.android.backend
 
 import android.app.Application
 import android.content.Context
+import android.net.TrafficStats
 import androidx.test.core.app.ApplicationProvider
 import com.wireguard.android.model.TunnelTestEnvironment
 import com.wireguard.android.util.SharedLibraryLoader
@@ -9,6 +10,7 @@ import com.wireguard.config.Config
 import com.wireguard.config.InetEndpoint
 import java.lang.reflect.InvocationTargetException
 import java.net.DatagramSocket
+import java.net.DatagramPacket
 import java.net.InetAddress
 import java.net.SocketException
 import java.util.concurrent.CompletableFuture
@@ -27,6 +29,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config as RobolectricConfig
 import org.robolectric.annotation.Implementation
 import org.robolectric.annotation.Implements
+
+private const val CALLER_TRAFFIC_TAG = 42
+private const val PREFLIGHT_RECEIVE_TIMEOUT_MS = 1_000
 
 @RunWith(RobolectricTestRunner::class)
 @RobolectricConfig(application = Application::class, sdk = [28], shadows = [GoBackendLifecycleTest.LibraryShadow::class])
@@ -143,7 +148,7 @@ class GoBackendLifecycleTest {
 
     @Test
     fun endpointFreeExplicitPortProfileSkipsPreflight() {
-        val service = RejectingService()
+        val service = PreflightService()
         invokePreflight(TunnelTestEnvironment.profile(), service)
         assertEquals(0, service.protectCalls)
         assertTrue(TunnelTestEnvironment.profile().toWgUserspaceString().contains("listen_port=51820"))
@@ -159,7 +164,7 @@ class GoBackendLifecycleTest {
             Endpoint = 192.0.2.1:51820
             AllowedIPs = 0.0.0.0/0
         """.trimIndent().byteInputStream())
-        val service = RejectingService()
+        val service = PreflightService()
         invokePreflight(profile, service)
         assertEquals(0, service.protectCalls)
     }
@@ -169,7 +174,7 @@ class GoBackendLifecycleTest {
         Thread.currentThread().interrupt()
         try {
             val failure = assertThrows(InvocationTargetException::class.java) {
-                invokePreflight(TunnelTestEnvironment.profile(), RejectingService())
+                invokePreflight(TunnelTestEnvironment.profile(), PreflightService())
             }
             assertTrue(failure.cause is InterruptedException)
             assertTrue(Thread.currentThread().isInterrupted)
@@ -183,13 +188,47 @@ class GoBackendLifecycleTest {
         val method = GoBackend::class.java.getDeclaredMethod("sendUdpPreflight", GoBackend.VpnService::class.java,
             Int::class.javaPrimitiveType, InetAddress::class.java, Int::class.javaPrimitiveType, InetEndpoint::class.java)
             .apply { isAccessible = true }
-        val service = RejectingService()
-        val failure = assertThrows(InvocationTargetException::class.java) {
-            method.invoke(backend, service, 51820, InetAddress.getByAddress(byteArrayOf(-64, 0, 2, 1)),
-                51820, InetEndpoint.parse("192.0.2.1:51820"))
+        val service = PreflightService()
+        val previousTag = TrafficStats.getThreadStatsTag()
+        TrafficStats.setThreadStatsTag(CALLER_TRAFFIC_TAG)
+        try {
+            val failure = assertThrows(InvocationTargetException::class.java) {
+                method.invoke(backend, service, 51820, InetAddress.getByAddress(byteArrayOf(-64, 0, 2, 1)),
+                    51820, InetEndpoint.parse("192.0.2.1:51820"))
+            }
+            assertTrue(failure.cause is SocketException)
+            assertEquals(1, service.protectCalls)
+            assertEquals(0, service.trafficTag)
+            assertEquals(CALLER_TRAFFIC_TAG, TrafficStats.getThreadStatsTag())
+        } finally {
+            TrafficStats.setThreadStatsTag(previousTag)
         }
-        assertTrue(failure.cause is SocketException)
-        assertEquals(1, service.protectCalls)
+    }
+
+    @Test
+    fun successfulPreflightTagsSocketAndRestoresUntaggedCaller() {
+        val previousTag = TrafficStats.getThreadStatsTag()
+        TrafficStats.clearThreadStatsTag()
+        try {
+            val address = InetAddress.getLoopbackAddress()
+            DatagramSocket(0, address).use { receiver ->
+                receiver.soTimeout = PREFLIGHT_RECEIVE_TIMEOUT_MS
+                val service = PreflightService().apply { allowProtection = true }
+                val method = GoBackend::class.java.getDeclaredMethod("sendUdpPreflight", GoBackend.VpnService::class.java,
+                    Int::class.javaPrimitiveType, InetAddress::class.java, Int::class.javaPrimitiveType, InetEndpoint::class.java)
+                    .apply { isAccessible = true }
+                method.invoke(backend, service, 0, address, receiver.localPort, InetEndpoint.parse("127.0.0.1:${receiver.localPort}"))
+                val packet = DatagramPacket(ByteArray(2), 2)
+                receiver.receive(packet)
+                assertEquals(1, packet.length)
+                assertEquals(0, packet.data[0].toInt())
+                assertEquals(1, service.protectCalls)
+                assertEquals(0, service.trafficTag)
+                assertEquals(-1, TrafficStats.getThreadStatsTag())
+            }
+        } finally {
+            TrafficStats.setThreadStatsTag(previousTag)
+        }
     }
 
     private fun invokePreflight(config: Config, service: GoBackend.VpnService) {
@@ -197,11 +236,14 @@ class GoBackendLifecycleTest {
             .apply { isAccessible = true }.invoke(backend, config, service)
     }
 
-    private class RejectingService : GoBackend.VpnService() {
+    private class PreflightService : GoBackend.VpnService() {
         var protectCalls = 0
+        var allowProtection = false
+        var trafficTag: Int? = null
         override fun protect(socket: DatagramSocket): Boolean {
             protectCalls++
-            return false
+            trafficTag = TrafficStats.getThreadStatsTag()
+            return allowProtection
         }
     }
 

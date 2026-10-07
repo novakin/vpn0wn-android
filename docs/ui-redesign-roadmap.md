@@ -520,13 +520,13 @@ This is a historical implementation ledger, not newly executed build/device proo
 - [ ] `ShareSheet` bottom sheet (see §8).
 
 **Add Sheet:**
-- [ ] Inspect recovered #35 Add/peer output on the physical phone: each import/manual action, dismissal and cancellation/error feedback, camera absence, keyboard/cutout/gesture clearance, copying and live RX/TX clearing in both themes, rotation, large text and RTL. Native JVM content previews do not prove those platform/VPN boundaries.
+- [ ] Complete recovered #35 Add/peer phone acceptance. [Scoped G4 captures](reviews/2026-10-07-g4-settings-add-debug-review.md) inspected Add output/order/native labels in portrait, landscape, system light-mode, 200% text and Arabic RTL. Import/manual/QR actions, cancellation/error feedback, camera absence, keyboard clearance, peer copying/live RX/TX and TalkBack remain pending; the matrix is partial and the app retains its dark palette in both system modes.
 
 **Editor:**
 - [ ] ADD PEER button: MaterialButton stroke is solid — true dashed border requires custom drawable background (minor gap).
 
 **Settings:**
-- [ ] Inspect recovered #34 Settings on the physical phone before delivery: Back/cutout/gesture clearance, row/switch readability and navigation in portrait/landscape, both themes, large text and RTL. JVM rendering does not prove native system bars, TalkBack, root or Android tile/export behavior.
+- [ ] Complete recovered #34 Settings phone acceptance. [Scoped G4 captures](reviews/2026-10-07-g4-settings-add-debug-review.md) inspected header/Back and row readability in portrait, landscape, system light-mode, 200% text and Arabic RTL. Full navigation/switch behavior, TalkBack, root and tile/export callbacks remain pending. #55 repairs the confirmed Main-thread filesystem probe in source; candidate-APK confirmation and resource-ID-zero diagnosis remain open in G4. This partial inspection does not deliver a distinct light theme or the full device matrix.
 
 **New screens (§8):**
 - [ ] `DiagnosticsScreen` — new screen.

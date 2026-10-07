@@ -8,6 +8,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.Icon
 import android.os.Bundle
+import android.os.Looper
 import android.view.View
 import android.widget.TextView
 import android.widget.ImageView
@@ -68,6 +69,7 @@ class SettingsActivityTest {
 
     @Before fun resetPlatform() {
         KernelSupport.available = false
+        KernelSupport.probedOnMain = null
         setTileAdded(false)
     }
 
@@ -89,6 +91,13 @@ class SettingsActivityTest {
         assertNotNull(fragment.findPreference<Preference>("version"))
         assertEquals(Int.MAX_VALUE, fragment.preferenceScreen.initialExpandedChildrenCount)
         assertNonemptyCategories(fragment)
+    }
+
+    @Test fun kernelSupportFilesystemProbeRunsOffMain() = runTest {
+        environment()
+        val activity = openSettings()
+        settle(activity)
+        assertEquals(false, KernelSupport.probedOnMain)
     }
 
     @Test @Config(sdk = [33]) fun modernAndroidKeepsTileAndRemovesEmptyAppearance() = runTest {
@@ -363,7 +372,11 @@ class SettingsActivityTest {
         @Implementation fun getVersion() = "fixture"
         companion object {
             var available = false
-            @JvmStatic @Implementation fun hasKernelSupport() = available
+            var probedOnMain: Boolean? = null
+            @JvmStatic @Implementation fun hasKernelSupport(): Boolean {
+                probedOnMain = Looper.myLooper() == Looper.getMainLooper()
+                return available
+            }
         }
     }
 

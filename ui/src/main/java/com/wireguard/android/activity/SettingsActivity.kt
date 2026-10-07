@@ -81,14 +81,14 @@ class SettingsActivity : AppCompatActivity() {
                 true
             }
             val kernelModuleEnabler = preferenceManager.findPreference<Preference>("kernel_module_enabler")
-            val hasKernelSupport = WgQuickBackend.hasKernelSupport()
-            if (!hasKernelSupport) {
-                kernelModuleEnabler?.parent?.removePreference(kernelModuleEnabler)
-            }
             val connection = findPreference<PreferenceCategory>("settings_connection")
             connection?.isVisible = false
             removeEmptyCategories()
             lifecycleScope.launch {
+                val hasKernelSupport = withContext(Dispatchers.IO) { WgQuickBackend.hasKernelSupport() }
+                if (!hasKernelSupport) {
+                    kernelModuleEnabler?.parent?.removePreference(kernelModuleEnabler)
+                }
                 if (Application.getBackend() is WgQuickBackend) {
                     wgQuickOnlyPrefs.forEach { it.isVisible = true }
                 } else {
