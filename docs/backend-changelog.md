@@ -8,9 +8,6 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## In Progress
 
-- **G3 repository-native CI and manual APK gate — #50**
-  `.github/workflows/android.yml` runs existing UI/tunnel unit tests and Detekt on PR heads, `master` pushes and manual dispatch; `tunnel/build.gradle.kts` pins the existing NDK 28.2.13676358/CMake 3.22.1 toolchain. Debug assembly/upload requires explicit manual `build_apk=true` and passing checks. Final-head CI, ultra acceptance and integration are pending; APK/artifact proof stays G4. See [workflow and signing limits](development.md#android-ci-and-debug-apk-artifacts).
-
 - **Android SSH provisioning integration**
   Server-side Tunnl provisioning scripts now exist under `third_party/wireguard-install/tunnl/`, and the VPS fleet now reads persisted non-secret records from `VpsServerStore`. Remaining work: concrete Android SSH transport, SSH credential capture/storage, remote script upload/execution, progress parsing, live server status persistence, and user-management flow wiring.
 
@@ -50,6 +47,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 - [x] Add opt-in destructive end-to-end test path against a disposable Ubuntu/Debian VPS.
 
 ## Done
+
+- **G3 repository-native CI and manual APK gate — #50**
+  `.github/workflows/android.yml` runs existing UI/tunnel unit tests and Detekt on PR heads, `master` pushes and manual dispatch; `tunnel/build.gradle.kts` pins the existing NDK 28.2.13676358/CMake 3.22.1 toolchain. PR #51 merged at `a2d9ba55` after independent ultra acceptance and successful actual PR-head CI; #50 closed. Debug assembly/upload requires explicit manual `build_apk=true` and passing checks. APK/artifact and physical-performance proof remain [G4/#52](https://github.com/novakin/wireguard-android/issues/52). See [workflow and signing limits](development.md#android-ci-and-debug-apk-artifacts).
 
 - **Transfer-speed/battery source investigation (#43, G2; no runtime optimization)**
   Traced Fragment polling, ObservableTunnel/TunnelManager statistics, BindingAdapters rate samples, attached widget animators and Java/Go/native transfer ownership. Four local characterization controls confirm concurrent reads, late cache publication, hidden animator callbacks and covered Home lifecycle/polling. #47 tracks the G4 battery candidate; #48 is a separate correctness finding outside the current goal. Keep transfer behavior unchanged until measured bottleneck selection. See [ranked evidence and limits](reviews/2026-10-07-performance-source-investigation.md).
