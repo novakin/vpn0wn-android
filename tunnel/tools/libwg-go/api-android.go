@@ -12,7 +12,6 @@ import "C"
 import (
 	"fmt"
 	"math"
-	"net"
 	"os"
 	"os/signal"
 	"runtime"
@@ -21,9 +20,9 @@ import (
 	"unsafe"
 
 	"golang.org/x/sys/unix"
+	"golang.zx2c4.com/wireguard/android/uapiserver"
 	"golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/device"
-	"golang.zx2c4.com/wireguard/ipc"
 	"golang.zx2c4.com/wireguard/tun"
 )
 
@@ -47,7 +46,7 @@ func (l AndroidLogger) Printf(format string, args ...interface{}) {
 
 type TunnelHandle struct {
 	device *device.Device
-	uapi   net.Listener
+	uapi   *uapiserver.Server
 }
 
 var tunnelHandles map[int32]TunnelHandle
@@ -92,39 +91,23 @@ func wgTurnOn(interfaceName string, tunFd int32, settings string) int32 {
 
 	err = device.IpcSet(settings)
 	if err != nil {
-		unix.Close(int(tunFd))
+		device.Close()
 		logger.Errorf("IpcSet: %v", err)
 		return -1
 	}
 	device.DisableSomeRoamingForBrokenMobileSemantics()
 
-	var uapi net.Listener
-
-	uapiFile, err := ipc.UAPIOpen(name)
+	uapi, err := uapiserver.Listen(name, device.IpcHandle)
 	if err != nil {
-		logger.Errorf("UAPIOpen: %v", err)
-	} else {
-		uapi, err = ipc.UAPIListen(name, uapiFile)
-		if err != nil {
-			uapiFile.Close()
-			logger.Errorf("UAPIListen: %v", err)
-		} else {
-			go func() {
-				for {
-					conn, err := uapi.Accept()
-					if err != nil {
-						return
-					}
-					go device.IpcHandle(conn)
-				}
-			}()
-		}
+		logger.Errorf("UAPI listen: %v", err)
 	}
 
 	err = device.Up()
 	if err != nil {
 		logger.Errorf("Unable to bring up device: %v", err)
-		uapiFile.Close()
+		if uapi != nil {
+			uapi.Close()
+		}
 		device.Close()
 		return -1
 	}
@@ -138,7 +121,9 @@ func wgTurnOn(interfaceName string, tunFd int32, settings string) int32 {
 	}
 	if i == math.MaxInt32 {
 		logger.Errorf("Unable to find empty handle")
-		uapiFile.Close()
+		if uapi != nil {
+			uapi.Close()
+		}
 		device.Close()
 		return -1
 	}
