@@ -6,6 +6,8 @@ Last updated: 2026-10-07 (Europe/Paris).
 
 On 2026-10-07, the maintainer requested UDP preflight in the protocol itself and a separate experimental branch, then selected **unchanged standard servers**. [#61](https://github.com/novakin/wireguard-android/issues/61) owns this investigation on `experiment/protocol-preflight`, refreshed to master `4c2e5850`. That compatibility choice selects sender-side native warm-up before an ordinary WireGuard handshake. A new recognized or acknowledged protocol message would require receiver support and is excluded. No experimental code or APK is delivered by this proposal; G4's installed build and measurements remain separate.
 
+On the same date, the maintainer instructed that all experiment code, tests and documentation stay on this branch and [PR #63](https://github.com/novakin/wireguard-android/pull/63) remain draft and unmerged. A future merge requires an explicit instruction; G4's earlier autonomous merge authority does not apply to this experiment.
+
 The earlier [#37 compatibility decision](2026-10-07-udp-compatibility-review.md) rejected the preserved mandatory/random-port variant. The new request does not authorize that variant's config, retry or failure-policy changes.
 
 ## Current source boundaries
@@ -34,7 +36,7 @@ The proposed Android-owned bind protects every available IPv4/IPv6 socket synchr
 
 Protection ordering requires a bind-owned send boundary, not reliance on device locking alone. The pinned `Peer.SendBuffers` takes `device.net.RLock`, but `SendHandshakeCookie` calls `bind.Send` without that lock. Specify socket-generation ownership, readiness during `Open`, concurrent sends, close/reopen and descriptor/reference lifetime before implementing the wrapper. No send may reach a newly opened socket before protection succeeds; cleanup must unblock pending I/O/waits and prevent old operations from using a replacement socket. Exercise cookie sends during open/rebind as well as normal peer traffic.
 
-Remove the separate Java warm-up only when the native replacement and cross-language cleanup are verified. Preserve the service-identity checks around native activation and the transition owner. Specify and test cancellation during startup, warm-up retries, service destruction and bind closure; no thread may remain waiting for protection or an acknowledgment. Preserve the current five-attempt, 200 ms expected-I/O retry policy unless a separate change is justified and approved. Exact placement and wake/rekey eligibility depend on the timing choice below. Do not introduce a user setting or multiple production strategies to avoid that choice.
+Remove the separate Java warm-up only when the native replacement and cross-language cleanup are verified. Preserve the service-identity checks around native activation and the transition owner. Specify and test cancellation during startup, the selected send policy, service destruction and bind closure; no thread may remain waiting for protection or an acknowledgment. The existing Java five-attempt, 200 ms expected-I/O retry policy remains current behavior. The recommended native policy below deliberately changes that timing and needs the maintainer's selection before implementation. Do not introduce a user setting or multiple production strategies to avoid that choice.
 
 ## Port and deep-sleep behavior
 
@@ -46,16 +48,33 @@ The maintainer asked whether warm-up would run after phone deep sleep. Sleep alo
 
 | Timing option — maintainer choice pending | Behavior and limits |
 | --- | --- |
-| Before every outgoing handshake initiation | Emit warm-up immediately before each type-1 initiation, including ordinary retries and rekeys after wake when an initiation is generated. Do not prepend it to responses, cookies, keepalives or data packets. It does not wake the phone or guarantee a handshake on every resume. Additional sends and retry delays need functional/performance controls. |
+| Before every outgoing handshake initiation — recommended, not yet approved | Attempt one warm-up in the same send path before each type-1 initiation, including ordinary retries and rekeys after wake when an initiation is generated. Do not prepend it to responses, cookies, keepalives or data packets. It does not wake the phone or guarantee a handshake on every resume. The proposed best-effort policy below adds no separate retry loop or deliberate delay. |
 | Only at tunnel startup | Emit warm-up during initial activation for eligible configured endpoints before peers can send. No automatic repeat on wake, rekey or handshake retry. Later socket opens still need protection. This preserves the existing activation-only eligibility. |
 
 Implementation remains gated on that timing choice and independent design review. Kernel backend behavior is unchanged: this experiment targets the Android userspace native transport.
 
+## Recommended send policy and bounded delivery
+
+The recommendation is one one-byte zero datagram attempt before each eligible outgoing initiation, followed by the unchanged initiation on the same protected socket generation and destination. Expected warm-up I/O failure must still allow the ordinary initiation; failed protection, service cancellation or a closed socket must not be converted into success. Unexpected programming defects retain their error meaning. WireGuard's existing handshake timers own subsequent retries and rekeys; do not add sleeps, acknowledgment waits, a timer, a wake lock or a separate retry worker. No deliberate delay does not mean the underlying send cannot block: closure/cancellation must release any affected I/O.
+
+This is a proposed policy change from activation-only Java warm-up with up to five attempts and 200 ms retry sleeps. Repeating that loop inside every native initiation would add latency and teardown contention to the handshake path. The maintainer has approved unchanged servers and branch isolation, but has not yet selected per-initiation timing or this retry-policy change. Preserve the existing runtime until that selection and the concrete lifecycle review are complete.
+
+Ordering is per initiation send path: the warm-up attempt precedes its corresponding ordinary initiation. Concurrent peer/control traffic may interleave on a shared socket; do not promise global packet adjacency or add global send serialization solely to make that claim. Socket generation and endpoint identity must remain the same across the pair, including during rebind/close races.
+
+Deliver in order, entirely on the experimental branch:
+
+1. Select timing/send policy and specify bind readiness, generation ownership, JNI reference/exception teardown and configured-port recovery. Obtain independent ultra review of that concrete design.
+2. Implement at the existing Android native bind/JNI owners and replace the Java warm-up once the replacement is complete. Keep the pinned handshake/crypto, config/persistence and kernel backend intact; add no mode selector or server change.
+3. Run meaningful native failure/concurrency tests, ordinary-peer authenticated loopback traffic, Android JNI/native compilation and affected JVM/static checks. Update contracts, architecture decision and changelog with the actual implementation; obtain final-head ultra review and CI before reporting source verification.
+4. Build/install an experimental APK only after an explicit request. Separately verify Android protection, startup/wake/rebind, standard-server interoperability and authorized cellular comparisons against the unchanged build. Freeze trial/rejection criteria before traffic tests; a compatibility/lifecycle regression or inconclusive benefit retains the baseline.
+
+Local/source verification does not complete physical or DPI acceptance. Keep #61 open while its acceptance remains unmet, keep PR #63 draft and unmerged, and preserve personal configs, retained APKs and the G4 baseline throughout.
+
 ## Experiment gates
 
-Before implementation, resolve the timing choice and review the concrete lifecycle design. Use a single selected policy with the existing one-byte payload, explicit-port/endpoint-free compatibility, expected-I/O policy and secret-safe diagnostics. Keep standard authenticated messages and config/persistence contracts intact.
+Before implementation, resolve the timing/send-policy choice and review the concrete lifecycle design. Use a single selected policy with the existing one-byte payload, explicit-port/endpoint-free compatibility and secret-safe diagnostics. Keep standard authenticated messages and config/persistence contracts intact.
 
-Focused proof must cover protection before the first send and every rebind, both address families and unavailable-family handling, failed protection cleanup, explicit/absent/zero ports, endpoint-free profiles, selected packet order/cardinality, retries/exhaustion, interruption/service destruction and close/reopen settlement. A real userspace loopback peer must complete the standard handshake and exchange authenticated traffic after discarding warm-up. Test pure native logic with the pinned Go toolchain and compile the Android JNI/native boundary without APK assembly; JVM tests alone cannot prove that boundary. Actual Android VPN protection, deep-sleep behavior and kernel-server interoperability remain separately authorized device/network proof.
+Focused proof must cover protection before the first send and every rebind, both address families and unavailable-family handling, failed protection cleanup, explicit/absent/zero ports, endpoint-free profiles, selected packet order/cardinality, expected warm-up failure with ordinary initiation preserved, interruption/service destruction and close/reopen settlement. For the recommended policy, prove one attempt per eligible initiation, no extra sends for other message types and no separate sleep/retry worker; include retry/rekey and concurrent cookie/control sends. A real userspace loopback peer must complete the standard handshake and exchange authenticated traffic after discarding warm-up. Test pure native logic with the pinned Go toolchain and compile the Android JNI/native boundary without APK assembly; JVM tests alone cannot prove that boundary. Actual Android VPN protection, deep-sleep behavior and kernel-server interoperability remain separately authorized device/network proof.
 
 DPI effectiveness needs repeated, authorized observations on a path where the classifier can see the relevant handshake. Before running, record the unchanged-build control, fixed configuration/path, trials, observed handshake/connectivity outcomes and rejection criteria. Reject a compatibility/lifecycle regression or a result that does not reproduce above baseline variation; successful local sends alone never pass the gate. An extra datagram may affect a classifier that only considers the first packet; subsequent ordinary WireGuard packets remain visible. Moving code or naming a message cannot bypass an existing IP block.
 
