@@ -11,7 +11,6 @@ import "C"
 
 import (
 	"fmt"
-	"math"
 	"os"
 	"os/signal"
 	"runtime"
@@ -44,15 +43,7 @@ func (l AndroidLogger) Printf(format string, args ...interface{}) {
 	C.__android_log_write(l.level, l.tag, cstring(fmt.Sprintf(format, args...)))
 }
 
-type TunnelHandle struct {
-	device *device.Device
-	uapi   *uapiserver.Server
-}
-
-var tunnelHandles map[int32]TunnelHandle
-
 func init() {
-	tunnelHandles = make(map[int32]TunnelHandle)
 	signals := make(chan os.Signal)
 	signal.Notify(signals, unix.SIGUSR2)
 	go func() {
@@ -87,17 +78,20 @@ func wgTurnOn(interfaceName string, tunFd int32, settings string) int32 {
 	}
 
 	logger.Verbosef("Attaching to interface %v", name)
-	device := device.NewDevice(tun, conn.NewStdNetBind(), logger)
+	bind := &tunnelBind{base: conn.NewStdNetBind()}
+	device := device.NewDevice(tun, bind, logger)
+	handle := &TunnelHandle{device: device, bind: bind}
 
 	err = device.IpcSet(settings)
 	if err != nil {
-		device.Close()
+		handle.closeNative()
 		logger.Errorf("IpcSet: %v", err)
 		return -1
 	}
 	device.DisableSomeRoamingForBrokenMobileSemantics()
 
 	uapi, err := uapiserver.Listen(name, device.IpcHandle)
+	handle.uapi = uapi
 	if err != nil {
 		logger.Errorf("UAPI listen: %v", err)
 	}
@@ -105,87 +99,43 @@ func wgTurnOn(interfaceName string, tunFd int32, settings string) int32 {
 	err = device.Up()
 	if err != nil {
 		logger.Errorf("Unable to bring up device: %v", err)
-		if uapi != nil {
-			uapi.Close()
-		}
-		device.Close()
+		handle.closeNative()
 		return -1
 	}
 	logger.Verbosef("Device started")
 
-	var i int32
-	for i = 0; i < math.MaxInt32; i++ {
-		if _, exists := tunnelHandles[i]; !exists {
-			break
-		}
-	}
-	if i == math.MaxInt32 {
+	id := tunnelHandles.add(handle)
+	if id < 0 {
 		logger.Errorf("Unable to find empty handle")
-		if uapi != nil {
-			uapi.Close()
-		}
-		device.Close()
+		handle.closeNative()
 		return -1
 	}
-	tunnelHandles[i] = TunnelHandle{device: device, uapi: uapi}
-	return i
+	return id
 }
 
 //export wgTurnOff
 func wgTurnOff(tunnelHandle int32) {
-	handle, ok := tunnelHandles[tunnelHandle]
-	if !ok {
+	handle := tunnelHandles.remove(tunnelHandle)
+	if handle == nil {
 		return
 	}
-	delete(tunnelHandles, tunnelHandle)
-	if handle.uapi != nil {
-		handle.uapi.Close()
-	}
-	handle.device.Close()
+	handle.closeNative()
 }
 
 //export wgGetSocketV4
 func wgGetSocketV4(tunnelHandle int32) int32 {
-	handle, ok := tunnelHandles[tunnelHandle]
-	if !ok {
-		return -1
-	}
-	bind, _ := handle.device.Bind().(conn.PeekLookAtSocketFd)
-	if bind == nil {
-		return -1
-	}
-	fd, err := bind.PeekLookAtSocketFd4()
-	if err != nil {
-		return -1
-	}
-	return int32(fd)
+	return tunnelHandles.socketV4(tunnelHandle)
 }
 
 //export wgGetSocketV6
 func wgGetSocketV6(tunnelHandle int32) int32 {
-	handle, ok := tunnelHandles[tunnelHandle]
-	if !ok {
-		return -1
-	}
-	bind, _ := handle.device.Bind().(conn.PeekLookAtSocketFd)
-	if bind == nil {
-		return -1
-	}
-	fd, err := bind.PeekLookAtSocketFd6()
-	if err != nil {
-		return -1
-	}
-	return int32(fd)
+	return tunnelHandles.socketV6(tunnelHandle)
 }
 
 //export wgGetConfig
 func wgGetConfig(tunnelHandle int32) *C.char {
-	handle, ok := tunnelHandles[tunnelHandle]
+	settings, ok := tunnelHandles.config(tunnelHandle)
 	if !ok {
-		return nil
-	}
-	settings, err := handle.device.IpcGet()
-	if err != nil {
 		return nil
 	}
 	return C.CString(settings)

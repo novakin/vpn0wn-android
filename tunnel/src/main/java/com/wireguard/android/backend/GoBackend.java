@@ -148,11 +148,16 @@ public final class GoBackend implements Backend {
     @Override
     public Statistics getStatistics(final Tunnel tunnel) {
         final Statistics stats = new Statistics();
-        final String config;
+        final int handle;
         synchronized (stateLock) {
             if (tunnel != currentTunnel || currentTunnelHandle == -1)
                 return stats;
-            config = wgGetConfig(currentTunnelHandle);
+            handle = currentTunnelHandle;
+        }
+        final String config = wgGetConfig(handle);
+        synchronized (stateLock) {
+            if (tunnel != currentTunnel || currentTunnelHandle != handle)
+                return stats;
         }
         if (config == null)
             return stats;
