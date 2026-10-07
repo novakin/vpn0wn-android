@@ -1,6 +1,6 @@
 # Preserved local work and recovery boundaries
 
-Last updated: 2026-10-06 (Europe/Paris).
+Last updated: 2026-10-07 (Europe/Paris).
 
 ## Scope and revision
 
@@ -41,3 +41,15 @@ The 36 changed default/locale string files span several UI slices. Port reviewed
 Executed here: refreshed Git comparison, file/patch/history preservation, before/copy/after SHA-256 checks, Git bundle verification, status/index readback, installed/local APK identity checks and GitHub duplicate/tracking inspection. The focused preservation helper and command logs remain ignored local evidence.
 
 No Gradle runtime/static suite, APK assembly, app reinstall, UI interaction, VPN control, root/SSH or live-server operation ran for this preservation task. Preserved parser test source is not an executed result. Each recovery PR needs current tests/Detekt and relevant actual-output proof, updated owning guidance and explicit remaining limits. Implementation, verification, merge and any eventual cleanup remain separate states.
+
+## Local archival and clean checkout — 2026-10-07
+
+The maintainer requested an end to the dirty checkout. The [recovery plan](../improvement-plan.md#preserved-local-work-recovery) now records reviewed source integration for Logs, Settings, Add/peer and Home, plus the decision to reject the mandatory/random-port UDP variant. The 76 source/documentation paths below include translations and older implementations; they are not 76 pending features or a new accepted runtime change.
+
+Before changing checkout state, all 355 snapshot files were verified against the original manifest; all 352 source copies still matched the original checkout, including its expected menu deletion. The index remained empty. A credential-pattern scan identified only the two localized PEM header placeholders, with no key payload. The existing preservation snapshot remains unchanged apart from its local recovery guide's dated clarification.
+
+All 56 tracked changes, including the deletion, and 20 untracked source/test/resource additions are preserved in local branch `archive/preserved-local-work-2026-10-07`, signed commit `592e1ddd73e4f1ab29cd044d637698da0a951fe4`. Windows Git verified its SSH signature against the configured public signing key. This is an unreviewed archival tree, not integration of its old implementations. The branch was not pushed. A separately verified complete-history bundle under ignored `.artifacts/local-work-cleanup-20261007/` includes the archive and captured master `48e9310151c347beeb33bbf816924dbb1602c4d6`. Raw snapshots retain original file bytes where Git normalizes line endings; keep both forms.
+
+The original checkout was switched to `master` and fast-forwarded to that captured revision. All ten registered worktrees then reported zero tracked, staged or untracked status entries. `.vscode/settings.json` remains byte-for-byte unchanged and is excluded through repository-local `.git/info/exclude`; it was not added to source history. All 17 read-only design files still match the snapshot, and the original checkout's retained APK keeps its recorded SHA256. Existing branches, worktrees, APKs, snapshots and current-task evidence were retained; no reset, rebase, force-push or deletion of unique work occurred.
+
+Private verification summaries, archival path lists, bundle and local recovery guidance remain ignored. They are local recovery on the same disk, not an independent backup. Inspect old source with `git show archive/preserved-local-work-2026-10-07:<path>` or reconstruct it separately under the local recovery guide; use current master for new work and recover any useful remaining hunk through the normal reviewed PR workflow. Physical acceptance remains open under #28/#34/#35/#36/#52; archive preservation does not complete those gates. No local Gradle run, APK build/install, phone action or server operation was needed for this cleanup. The documentation PR owns its final review, CI and integration state.
