@@ -18,19 +18,22 @@ import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 
 internal class TunnelTestEnvironment(directory: File, scope: CoroutineScope) {
     val backend = ControlledBackend()
     val store = MemoryStore()
     val application = Application()
+    val applicationScope = CoroutineScope(scope.coroutineContext + SupervisorJob(scope.coroutineContext[Job]))
     val manager: TunnelManager
 
     init {
         Application::class.java.getDeclaredMethod("attachBaseContext", Context::class.java)
             .apply { isAccessible = true }.invoke(application, ApplicationProvider.getApplicationContext<Context>())
-        setField("coroutineScope", scope)
+        setField("coroutineScope", applicationScope)
         setField("preferencesDataStore", PreferenceDataStoreFactory.create(
-            scope = CoroutineScope(scope.coroutineContext + Dispatchers.IO)
+            scope = CoroutineScope(applicationScope.coroutineContext + Dispatchers.IO)
         ) { File(directory, "settings.preferences_pb") })
         @Suppress("UNCHECKED_CAST")
         val future = Application::class.java.getDeclaredField("futureBackend").apply { isAccessible = true }
@@ -42,6 +45,10 @@ internal class TunnelTestEnvironment(directory: File, scope: CoroutineScope) {
 
     private fun setField(name: String, value: Any) {
         Application::class.java.getDeclaredField(name).apply { isAccessible = true }.set(application, value)
+    }
+
+    fun replaceBackend(backend: Backend) {
+        setField("futureBackend", CompletableDeferred(backend))
     }
 
     class ControlledBackend : Backend {
@@ -59,6 +66,9 @@ internal class TunnelTestEnvironment(directory: File, scope: CoroutineScope) {
         val releaseUp = CountDownLatch(1)
         val downEntered = CountDownLatch(1)
         val releaseDown = CountDownLatch(1)
+        var statisticsReader: (Tunnel) -> Statistics = {
+            Statistics::class.java.getDeclaredConstructor().apply { isAccessible = true }.newInstance()
+        }
         override fun getRunningTunnelNames(): Set<String> =
             states.filterValues { it == Tunnel.State.UP }.keys.map { it.name }.toSet()
         override fun getState(tunnel: Tunnel): Tunnel.State {
@@ -70,8 +80,7 @@ internal class TunnelTestEnvironment(directory: File, scope: CoroutineScope) {
             }
             return snapshot
         }
-        override fun getStatistics(tunnel: Tunnel): Statistics =
-            Statistics::class.java.getDeclaredConstructor().apply { isAccessible = true }.newInstance()
+        override fun getStatistics(tunnel: Tunnel): Statistics = statisticsReader(tunnel)
         override fun getVersion(): String = "fixture"
         override fun isAlwaysOn(): Boolean = false
         override fun isLockdownEnabled(): Boolean = false

@@ -1,6 +1,6 @@
 # Tunnl UI Redesign Roadmap
 
-Last updated: 2026-10-07 (Europe/Paris).
+Last updated: 2026-10-08 (Europe/Paris).
 
 ## Design Source
 
@@ -419,7 +419,7 @@ This is a historical implementation ledger, not newly executed build/device proo
 - [x] Dark-first palette and azure base accents added. Current Application follows system/pre-Q preference and registers DynamicColors; TV has its own night-mode policy.
 - [x] Inter Tight (UI) and JetBrains Mono (data/keys) font resources added.
 - [x] Home tunnel card: card structure, signal rail, Tunnl-styled background, mono tunnel name, address→endpoint sub-text, PSK badge row, stats (↓ IN / ↑ OUT / HANDSHAKE) with real data binding.
-- [x] Tunnel statistics binding: `ObservableTunnel` supplies snapshots; `BindingAdapters.tunnelRate` owns delta samples. Idle-rate correction remains C7.
+- [x] Tunnel statistics binding: `ObservableTunnel` supplies snapshots; `BindingAdapters.tunnelRate` owns delta samples. The 2026-10-06 idle-rate correction preserves broader C7 device/traffic acceptance.
 - [x] `TunnelSignalView` implemented (home card mini-diagram): animated packet, state-driven colors.
 - [x] Initial Add tunnel bottom sheet used three outlined `MaterialButton` tiles. Superseded by the localized, wrapping source rows in the 2026-10-06 recovery above.
 - [x] Log viewer: `ChipGroup` level filters (ALL / DEBUG / INFO / WARN / ERROR), dark background, JetBrains Mono entries.
@@ -481,7 +481,8 @@ This is a historical implementation ledger, not newly executed build/device proo
 - [x] VPS custom view performance/security pass: `VpsTopologyView` now caches density/typeface, avoids repeated grid `dp()` work, and only animates non-offline servers; `VpsQrCodeView` now renders a real ZXing QR matrix instead of a pseudo-QR pattern; `VpsProvisioningFragment` clears SSH form secrets when leaving the wizard, reuses cached bold typefaces, and uses the shared key-shortening helper.
 - [x] VPS deploy fidelity pass: fleet filter strip now sits under the TopBar with active bottom rails, server card borders follow health/provisioning escalation, normal deploy TopBars use 18sp titles, More action icon is restored, `CHECKS` and empty-peer states are rendered, listen port shows `UDP`, add rows use plus icons and dashed treatment, provisioning has the step tracker, key/password fields use boxed prototype inputs, apply bottom action disables until apply completes, QR info uses the 2-column layout, deploy panels/action cards draw `eng-corners`, and topology lines use separate animation speeds with the VPS outer ring.
 - [x] VPS fleet store wiring: `VpsProvisioningFragment` now collects `VpsServerStore.servers` and renders persisted non-secret server records through `VpsDeployMapper`; mapper/test fixtures cover online, provisioning, attention, active peer, idle peer, and empty-peer states for future visual regression tests.
-- [x] Stats refresh lifecycle pass: `TunnelListFragment` and `TunnelDetailFragment` observe `ObservableTunnel` state/statistics changes for binding invalidation and run lifecycle-bound refresh jobs with a one-second delay after each iteration. Resumed eligibility does not mean uncovered visibility; the [G2 investigation](reviews/2026-10-07-performance-source-investigation.md) records covered Home and hidden attached animation work under #47, plus the shared-statistics gap under #48. Source/fixture evidence is not measured energy/throughput improvement.
+- [x] Stats refresh lifecycle pass: `TunnelListFragment` and `TunnelDetailFragment` observe `ObservableTunnel` state/statistics changes for binding invalidation and run lifecycle-bound refresh jobs with a one-second delay after each iteration. Resumed eligibility does not mean uncovered visibility; the [G2 investigation](reviews/2026-10-07-performance-source-investigation.md) records covered Home and hidden attached animation work under #47 and the historical shared-statistics gap under #48. Source/fixture evidence is not measured energy/throughput improvement.
+- [x] Shared statistics consumer handling — 2026-10-08: `ObservableTunnel` binding reads are cache-only, while existing pollers use nullable manager-owned shared reads; `TvMainActivity.updateStats` clears/hides unavailable transfer rows. This #48 source repair changes no visual specification or polling cadence; [contracts](backend-contracts.md#persistence-and-presentation) and its PR own checks/review/delivery, with no APK/device proof claimed.
 - [x] Binding status labels moved to resources: tunnel mode labels, detail status titles/subtitles, and home protection labels now use Android strings instead of hardcoded adapter text.
 
 ### Fidelity Gaps — Remaining

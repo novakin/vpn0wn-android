@@ -17,6 +17,7 @@ import com.wireguard.android.Application.Companion.getBackend
 import com.wireguard.android.Application.Companion.getTunnelManager
 import com.wireguard.android.BR
 import com.wireguard.android.R
+import com.wireguard.android.backend.Backend
 import com.wireguard.android.backend.Statistics
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.configStore.ConfigStore
@@ -28,6 +29,7 @@ import com.wireguard.config.Config
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
@@ -37,6 +39,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -54,6 +57,18 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     private val tunnelMap: ObservableSortedKeyedArrayList<String, ObservableTunnel> = ObservableSortedKeyedArrayList(TunnelComparator)
     private var haveLoaded = false
     private var backendSwitchPending = false
+    private val statisticsScope = applicationScope
+    private val statisticsRequests = mutableMapOf<ObservableTunnel, StatisticsRequest>()
+
+    private class StatisticsRequest(
+        val generation: Long,
+        val backend: Backend,
+        val name: String,
+        val read: Deferred<Statistics>,
+    ) {
+        var readers = 0
+        val obsoleteCause = CancellationException("Tunnel statistics session changed")
+    }
 
     private fun addToList(name: String, config: Config?, state: Tunnel.State): ObservableTunnel {
         val tunnel = ObservableTunnel(this, name, config, state)
@@ -94,6 +109,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     @Suppress("TooGenericExceptionCaught")
     suspend fun delete(tunnel: ObservableTunnel) = mutate {
         requireManaged(tunnel)
+        tunnel.invalidateStatistics()
         val backend = getBackend()
         val originalState = withContext(Dispatchers.IO) { backend.getState(tunnel) }
         val wasLastUsed = tunnel == lastUsedTunnel
@@ -227,6 +243,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     @Suppress("TooGenericExceptionCaught")
     suspend fun setTunnelConfig(tunnel: ObservableTunnel, config: Config): Config = mutate {
         requireManaged(tunnel)
+        tunnel.invalidateStatistics()
         val previousConfig = tunnel.getConfigAsync()
         val backend = getBackend()
         tunnel.onConfigChanged(withContext(Dispatchers.IO) {
@@ -254,6 +271,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         if (tunnelMap.containsKey(name)) {
             throw IllegalArgumentException(context.getString(R.string.tunnel_error_already_exists, name))
         }
+        tunnel.invalidateStatistics()
         val backend = getBackend()
         val originalState = withContext(Dispatchers.IO) { backend.getState(tunnel) }
         val wasLastUsed = tunnel == lastUsedTunnel
@@ -289,6 +307,8 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     }
 
     suspend fun prepareBackendSwitch(enableKernel: Boolean) = mutate {
+        for (tunnel in tunnelMap)
+            tunnel.invalidateStatistics()
         for (tunnel in tunnelMap)
             changeTunnelState(tunnel, Tunnel.State.DOWN)
         UserKnobs.setEnableKernelModule(enableKernel)
@@ -388,6 +408,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     @Suppress("TooGenericExceptionCaught")
     internal fun onTunnelStateChange(tunnel: ObservableTunnel) {
         applicationScope.launch {
+            tunnel.discardObsoleteStatistics()
             try {
                 mutate {
                     if (tunnelMap[tunnel.name] === tunnel) {
@@ -402,8 +423,70 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         }
     }
 
-    suspend fun getTunnelStatistics(tunnel: ObservableTunnel): Statistics = withContext(Dispatchers.Main.immediate) {
-        tunnel.onStatisticsChanged(withContext(Dispatchers.IO) { getBackend().getStatistics(tunnel) })!!
+    suspend fun getTunnelStatistics(tunnel: ObservableTunnel): Statistics? = withContext(Dispatchers.Main.immediate) {
+        requireManaged(tunnel)
+        if (backendSwitchPending || tunnel.state != Tunnel.State.UP) return@withContext null
+        val request = operationLock.withLock {
+            requireManaged(tunnel)
+            if (backendSwitchPending || tunnel.state != Tunnel.State.UP) return@withContext null
+            val backend = getBackend()
+            if (tunnel.statisticsBackend != null && tunnel.statisticsBackend !== backend)
+                tunnel.invalidateStatistics()
+            val cached = tunnel.peekStatistics()
+            if (cached != null && !cached.isStale && tunnel.statisticsBackend === backend)
+                return@withContext cached
+            var current = statisticsRequests[tunnel]
+            if (current != null && current.backend !== backend) {
+                tunnel.invalidateStatistics()
+                current = null
+            }
+            if (current != null && current.generation != tunnel.statisticsGeneration) {
+                invalidateTunnelStatistics(tunnel)
+                current = null
+            }
+            if (current == null || current.read.isCancelled) {
+                current = StatisticsRequest(tunnel.statisticsGeneration, backend, tunnel.name,
+                    statisticsScope.async(Dispatchers.IO) {
+                        runInterruptible { backend.getStatistics(tunnel) }
+                    })
+                statisticsRequests[tunnel] = current
+            }
+            current.readers++
+            current
+        }
+        try {
+            val statistics = request.read.await()
+            currentCoroutineContext().ensureActive()
+            statisticsScope.coroutineContext.ensureActive()
+            if (!isCurrentStatisticsRequest(tunnel, request)) return@withContext null
+            tunnel.onStatisticsChanged(statistics, request.backend, request.generation)
+        } catch (e: CancellationException) {
+            currentCoroutineContext().ensureActive()
+            statisticsScope.coroutineContext.ensureActive()
+            if (e !== request.obsoleteCause && e.cause !== request.obsoleteCause) throw e
+            null
+        } finally {
+            request.readers--
+            if (request.readers == 0) {
+                if (statisticsRequests[tunnel] === request) statisticsRequests.remove(tunnel)
+                request.read.cancel()
+            }
+        }
+    }
+
+    private suspend fun isCurrentStatisticsRequest(tunnel: ObservableTunnel, request: StatisticsRequest): Boolean {
+        if (getBackend() !== request.backend) return false
+        if (backendSwitchPending || tunnel.state != Tunnel.State.UP) return false
+        if (tunnel.statisticsGeneration != request.generation || tunnel.name != request.name) return false
+        if (statisticsRequests[tunnel] !== request || tunnelMap[tunnel.name] !== tunnel) return false
+        return true
+    }
+
+    internal fun invalidateTunnelStatistics(tunnel: ObservableTunnel) {
+        val request = statisticsRequests[tunnel] ?: return
+        if (request.generation == tunnel.statisticsGeneration) return
+        statisticsRequests.remove(tunnel)
+        request.read.cancel(request.obsoleteCause)
     }
 
     companion object {

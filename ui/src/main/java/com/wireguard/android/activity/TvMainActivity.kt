@@ -393,6 +393,11 @@ class TvMainActivity : AppCompatActivity() {
                 listItem.tunnelTransfer.text = ""
                 return@forEach
             }
+            if (statistics == null) {
+                listItem.tunnelTransfer.visibility = View.GONE
+                listItem.tunnelTransfer.text = ""
+                return@forEach
+            }
             val rx = statistics.totalRx()
             val tx = statistics.totalTx()
             listItem.tunnelTransfer.text = getString(R.string.transfer_rx_tx, QuantityFormatter.formatBytes(rx), QuantityFormatter.formatBytes(tx))
