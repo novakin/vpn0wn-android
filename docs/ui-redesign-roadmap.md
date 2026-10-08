@@ -27,6 +27,35 @@ Prototype sections below describe visual targets, not implemented Android guaran
 
 ---
 
+### Home visual handoff — 2026-10-08
+
+The [Home mockup](assets/home-ui-2026-10-08.png) and [editable HTML reference](assets/home-ui-2026-10-08.html) preserve the selected palette and requested Home refinements from the 2026-10-08 (Europe/Paris) design work. The stored reference uses `example.net`, documentation address `198.51.100.42` and synthetic client address `10.8.0.2/32`; it is illustrative, not a host report. The HTML uses the repository fonts and can be opened locally.
+
+<img src="assets/home-ui-2026-10-08.png" alt="Selected Home mockup with the locked palette, LAST HANDSHAKE label and refined Add footer" width="420">
+
+This is a single active-tunnel visual reference. Author self-review is satisfied with this mockup; independent visual review found no clipping or overlap. It does not establish whole-app “100/100” quality, native Android implementation, device acceptance or broader branding approval. Existing multi-tunnel aggregation and DEGRADED-state requirements remain open below.
+
+The selected Home target keeps the compact two-row wordmark/count/title header, a document-style Logs icon, a flat connection-status band, the compact tunnel card and its dotted encrypted-segment enclosure. Use `VPN connected` instead of the broad `Device protected` claim. The right-hand `Exit IP` label is appropriate only for an observed public IP; current Android presentation uses the active peer endpoint host and performs no WAN lookup. Preserve that contract and use a truthful endpoint label when no observed public IP exists; this handoff does not request a new lookup.
+
+Use lighter tunnel-name and stat-value typography, readable value/unit spacing, and `LAST HANDSHAKE` with a relative age such as `14s ago`. The HTML uses Inter Tight for some data text to approximate the selected raster; it does not supersede the native semantic font roles below. Apply the weight/spacing intent through existing native styles and compare actual Android output. Keep Add anchored above the bottom safe area: full width, 48dp design height, solid thin border, existing card-surface fill, 13sp regular JetBrains Mono with modest tracking, a 14dp plus icon, an 8dp label gap, and the prototype's small top-left/bottom-right engineering corner ticks.
+
+Generative edits drifted in color, so the retained reference is rendered from fixed role colors sampled from the selected image. These are preview samples, not changes to Android's existing resources; reconcile them through the existing semantic tokens during implementation. Keep the separate diagram, button and switch blues.
+
+| Preview role | Fixed color |
+| --- | --- |
+| Page and stats background | `#071220` |
+| Card and Add surface | `#0A1727` |
+| Borders | `#233B54` |
+| Primary text | `#FAFAFA` |
+| Secondary text and corner ticks | `#94AECB` |
+| Add label/icon | `#2ABFF7` |
+| Diagram nodes | `#20B2FD` |
+| Diagram line/enclosure | `#63DAFC` |
+| Switch | `#68C6FD` |
+| Connection dot | `#05DE6A` |
+
+Local proof covers an 840×1872 browser render of a 420×936 design canvas, loaded repository fonts, label fit, footer geometry and sampled exported colors. Flat fills and font rendering differ from the earlier generated raster. Android source is unchanged; no APK, phone, VPN or whole-app runtime checks were performed for this handoff. Native Home application is pending, and the existing Redesign QA list below owns the remaining app-wide review.
+
 ## Design System
 
 ### Typography
@@ -342,11 +371,11 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 ### 2. Home / Tunnel List
 - Replace plain list rows with card-like tunnel rows.
 - Card: `◆ ACTIVE` / `◑ CONNECTING` / `✕ NO SIGNAL` / `● INACTIVE` status label, conditional PSK badge, mono tunnel name, address→endpoint sub-text, left signal rail.
-- Stats row (↓ IN / ↑ OUT / HANDSHAKE) visible only when tunnel is live.
+- Stats row (↓ IN / ↑ OUT / LAST HANDSHAKE) visible only when tunnel is live; the selected Home target presents handshake age as relative time.
 - Animated packet/signal strip (`TunnelSignalView`) — 2 endpoint nodes, dashed rect encrypted segment overlay.
-- Custom two-row top bar (no root ActionBar): row 1 = `Vpn0wn · {n} CONFIGURED · ACTIVE/INACTIVE` + Search / Logs / Settings icons; row 2 = large `tunnels` title.
-- PROTECTED / UNPROTECTED status strip (dot + status text + active peer endpoint host) between header and list; no WAN IP lookup.
-- Dashed `+ ADD TUNNEL` affordance at bottom (keep current flat bar, no FAB).
+- Custom two-row top bar (no root ActionBar): selected single-tunnel target uses `vpnøwn · {n} configured` + Search / document-style Logs / Settings icons, then the `tunnels` title. Preserve the separately tracked multi-tunnel summary requirements.
+- Flat connection-status strip between header and list, following the [dated Home handoff](#home-visual-handoff--2026-10-08). Current Android data is an active peer endpoint host, with no WAN IP lookup; the mockup does not change that runtime contract.
+- Full-width `+ ADD TUNNEL` footer target uses a solid thin outline, subtle existing surface fill, mono label and engineering corner ticks; retain bottom anchoring and safe-area clearance.
 
 ### 3. Detail Screen
 - Wire-topology `TunnelThroughputView` hero: DEVICE node (actual tunnel address), PEER node (actual peer endpoint), animated bidirectional packets, dashed encrypted segment rect, eng-corners bracket marks.
@@ -401,6 +430,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 ## Progress
 
 ### Done
+
+- [x] Home visual reference — 2026-10-08: retained the selected palette, lighter typography, `LAST HANDSHAKE` wording and refined Add footer in a portable synthetic-data [mockup and handoff](#home-visual-handoff--2026-10-08). Browser visual checks only; native implementation and whole-app acceptance remain pending.
 
 - [x] Settings structure-ID repair — 2026-10-07: `SettingsFragment` uses native unassigned IDs for category/row roots without changing presentation or preference behavior. Source merged in PR #59; [regression and bounded phone confirmation](reviews/2026-10-07-settings-resource-id-review.md) show nine old errors versus zero in three candidate openings and landscape recreation. Full #34/#52 acceptance remains separate.
 
@@ -508,6 +539,7 @@ This is a historical implementation ledger, not newly executed build/device proo
 ### Pending
 
 **Home:**
+- [ ] Apply the [2026-10-08 Home visual reference](#home-visual-handoff--2026-10-08) to native layouts/styles/bindings under [issue #80](https://github.com/novakin/wireguard-android/issues/80), preserving runtime state/IP semantics, existing multi-tunnel requirements and the current architecture. Complete relevant native output, interaction and accessibility checks under Redesign QA before marking this source work delivered.
 - [ ] Make PSK badge + separator conditional on peer having PSK.
 - [ ] **Multi-tunnel active count in header** — with kernel mode enabled, show `N ACTIVE` and `M ERROR` from the shared tunnel-mode aggregation; retain binary behavior in userspace mode. Extend `BindingAdapters.homeHeaderSummary` and existing aggregation; `TunnelListFragment` collects relevant `UserKnobs.enableKernelModule` changes and invalidates bindings. Reuse current owners instead of adding a second header state model. Design reference: `.design/index-selection.html`.
 - [ ] **DEGRADED status for multi-tunnel partial failure** — with kernel mode enabled, ≥1 UP tunnel plus ≥1 ERROR/CONNECTING tunnel should show DEGRADED with an amber dot. Extend the existing presentation owner in `BindingAdapters.homeProtectionLabel`, `setHomeProtectionTunnels` and `protectionLabelRes`; `TunnelListFragment` collects relevant preference/state changes and invalidates bindings. Preserve single-tunnel behavior and do not treat an aggregate label as complete traffic-protection proof. Design reference: `.design/index-selection.html`.
@@ -540,6 +572,7 @@ This is a historical implementation ledger, not newly executed build/device proo
 - [ ] `ShareSheet` — new bottom sheet.
 
 **Redesign QA:**
+- [ ] Complete app-wide review of palette/typography consistency, navigation, interaction feedback, loading/empty/error states and accessibility across Home, Add, detail/peer, editor, logs, settings and VPS surfaces. Use actual Android output at supported sizes/themes, large text and RTL under the [QA plan](qa-test-plan.md); Home mockup satisfaction alone does not complete this review.
 - [ ] Add screenshot regression coverage for the main redesigned surfaces: home tunnel list, add tunnel sheet, detail, peer cards, editor, log viewer, settings, and VPS fleet/provision/detail/user views. VPS mapper fixtures now provide deterministic online/provisioning/attention/user states for this work.
 - [ ] Add mandatory dark-mode goldens with fixed font scale and deterministic data.
 - [ ] Add RTL screenshot variants for custom rows, active rails, section headers, bottom sheets, and QR overlays.

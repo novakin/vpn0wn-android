@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>vpnøwn — Home mockup (synthetic data)</title>
+<style>
+@font-face{font-family:InterTight;src:url('../../ui/src/main/res/font/inter_tight.ttf') format('truetype');font-weight:100 900;font-display:block}
+@font-face{font-family:JetBrainsMono;src:url('../../ui/src/main/res/font/jetbrains_mono_regular.ttf') format('truetype');font-weight:400;font-display:block}
+:root{--paper:#071220;--surface:#0A1727;--rule:#233B54;--ink:#FAFAFA;--muted:#94AECB;--accent:#2ABFF7;--diagram-dot:#20B2FD;--diagram-line:#63DAFC;--switch:#68C6FD;--status-green:#05DE6A}
+*{box-sizing:border-box}
+html,body{margin:0;width:840px;height:1872px;overflow:hidden;background:var(--paper);color:var(--ink)}
+body{font-family:InterTight,Arial,sans-serif;font-weight:400;-webkit-font-smoothing:antialiased}
+.phone{position:relative;width:420px;height:936px;background:var(--paper);transform:scale(2);transform-origin:top left}
+svg{display:block;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.os-time{position:absolute;left:27px;top:16px;font-size:16px;font-weight:650;line-height:20px;letter-spacing:.1px}
+.os-icons{position:absolute;right:23px;top:17px;height:18px;display:flex;align-items:center;gap:6px;font-size:17px;font-weight:650}
+.os-dot{width:5px;height:5px;border-radius:50%;background:var(--ink);margin-right:7px}
+.bed{width:15px;height:14px}
+.lte{letter-spacing:-.5px}
+.reception{width:19px;height:15px;display:flex;align-items:flex-end;gap:2px}
+.reception i{width:3px;background:var(--ink);border-radius:1px}
+.reception i:nth-child(1){height:6px}.reception i:nth-child(2){height:9px}.reception i:nth-child(3){height:12px}.reception i:nth-child(4){height:15px}
+.battery{display:flex;align-items:center;gap:1px;font-size:15px;line-height:16px;font-weight:550}
+.battery span{background:var(--status-green);border-radius:4px;padding:0px 5px 1px;color:var(--paper)}
+.branding{position:absolute;left:18px;top:55px;height:24px;display:flex;align-items:center}
+.wordmark{font-size:22px;font-weight:650;letter-spacing:-.6px;line-height:26px}
+.wordmark em{color:var(--accent);font-style:normal}
+.brand-rule{width:1px;height:15px;margin:0 16px;background:var(--muted)}
+.configured{font-size:12px;color:var(--muted);white-space:nowrap;line-height:18px}
+.header-actions{position:absolute;right:15px;top:55px;display:flex;align-items:center;gap:17px;color:var(--ink)}
+.header-icon{width:24px;height:24px;display:grid;place-items:center}
+.header-icon svg{width:23px;height:23px}
+.title{position:absolute;left:18px;top:94px;margin:0;font-size:30px;line-height:36px;font-weight:550;letter-spacing:-.35px}
+.connection{position:absolute;left:0;top:136px;width:420px;height:51px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);background:var(--paper)}
+.connection-dot{position:absolute;left:19px;top:17px;width:15px;height:15px;border-radius:50%;background:var(--status-green)}
+.connection-label{position:absolute;left:50px;top:15px;font-size:15px;line-height:21px;font-weight:500}
+.connection-divider{position:absolute;left:210px;top:12px;width:1px;height:26px;background:var(--rule)}
+.exit-label{position:absolute;left:266px;top:8px;color:var(--muted);font-size:12px;line-height:16px}
+.exit-value{position:absolute;left:266px;top:25px;font-family:JetBrainsMono,monospace;font-size:13px;line-height:17px;letter-spacing:-.15px}
+.external{position:absolute;right:19px;top:17px;width:18px;height:18px}
+.tunnel-card{position:absolute;left:14px;top:199px;width:393px;height:176px;border:1px solid var(--rule);border-radius:9px;overflow:hidden;background:var(--surface)}
+.protocol{position:absolute;left:21px;top:12px;display:flex;align-items:center;gap:8px;font-size:11px;line-height:15px;color:var(--muted)}
+.diamond{width:8px;height:8px;transform:rotate(45deg);background:var(--switch);margin:0 1px}
+.active{color:var(--switch)}
+.separator{margin:0 1px}
+.tunnel-name{position:absolute;left:21px;top:30px;font-size:18px;line-height:23px;font-weight:400;letter-spacing:0}
+.endpoint{position:absolute;left:21px;top:55px;font-size:12px;line-height:16px;color:var(--muted);white-space:nowrap}
+.endpoint .arrow{padding:0 5px}
+.toggle{position:absolute;right:13px;top:25px;width:52px;height:32px;border-radius:20px;background:var(--switch)}
+.toggle:after{content:"";position:absolute;right:4px;top:4px;width:24px;height:24px;border-radius:50%;background:var(--paper)}
+.diagram{position:absolute;left:17px;top:79px;width:360px;height:19px;stroke:var(--diagram-line);stroke-width:1.25;overflow:visible}
+.diagram .node{fill:var(--diagram-dot);stroke:none}
+.diagram .enclosure{stroke-width:.85;stroke-dasharray:1.6 2.2}
+.metrics{position:absolute;left:0;bottom:0;width:100%;height:68px;border-top:1px solid var(--rule);display:grid;grid-template-columns:130px 132px 1fr;background:var(--paper)}
+.metric{padding:10px 12px 0 13px;min-width:0}
+.metric+.metric{border-left:1px solid var(--rule)}
+.metric-label{font-size:12px;line-height:15px;color:var(--muted);white-space:nowrap;letter-spacing:-.1px}
+.metric-label .arrow{display:inline-block;margin-right:6px}
+.metric-value{font-size:16px;line-height:20px;font-weight:400;white-space:nowrap;letter-spacing:0;word-spacing:1px;margin-top:1px}
+.metric-rate{font-size:12px;line-height:16px;color:var(--muted);margin-top:0}
+.metric.last{padding-left:13px}
+.metric.last .metric-label{font-size:11px;letter-spacing:-.12px}
+.add-tunnel{position:absolute;left:15px;top:844px;width:390px;height:48px;border:1px solid var(--rule);border-radius:8px;background:var(--surface);color:var(--accent);display:flex;align-items:center;justify-content:center;gap:8px;font-family:JetBrainsMono,monospace;font-size:13px;line-height:20px;font-weight:400;letter-spacing:.04em}
+.add-tunnel svg{width:14px;height:14px;stroke-width:1.4}
+.add-tunnel::before,.add-tunnel::after{content:"";position:absolute;width:8px;height:8px;border:0 solid var(--muted);pointer-events:none}
+.add-tunnel::before{top:-1px;left:-1px;border-top-width:1px;border-left-width:1px}
+.add-tunnel::after{bottom:-1px;right:-1px;border-bottom-width:1px;border-right-width:1px}
+.gesture{position:absolute;left:149px;bottom:13px;width:123px;height:5px;background:var(--ink);border-radius:4px}
+</style>
+</head>
+<body>
+<main class="phone" aria-label="vpnøwn home screen visual preview">
+  <div class="os-time">00:39</div>
+  <div class="os-icons" aria-label="LTE, battery 80 percent">
+    <span class="os-dot"></span>
+    <svg class="bed" viewBox="0 0 20 17" aria-hidden="true"><path d="M1 14V2M1 10h18v4M5 6h4v4H5zM10 5h7l2 3v2H10z"/><path d="M1 12h18"/></svg>
+    <span class="lte">LTE</span><span class="reception"><i></i><i></i><i></i><i></i></span>
+    <span class="battery"><span>80</span>%</span>
+  </div>
+  <div class="branding"><span class="wordmark">vpn<em>ø</em>wn</span><span class="brand-rule"></span><span class="configured">1 configured</span></div>
+  <div class="header-actions" aria-hidden="true">
+    <div class="header-icon"><svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="7.5"/><path d="m15.5 15.5 6 6"/></svg></div>
+    <div class="header-icon"><svg viewBox="0 0 24 24"><path d="M5 2h11l5 5v15H5zM16 2v5h5M8.5 6l2 2-2 2M13 10h3M8.5 14H17M8.5 18H17"/></svg></div>
+    <div class="header-icon"><svg viewBox="0 0 24 24"><path d="m10 1-.8 3.2-2 .9-3-1L1.7 8l2.5 2.3v2.2L1.7 15l2.5 4 3.2-1 1.9 1L10 22h4l.8-3.1 1.9-1 3.2 1 2.4-4-2.5-2.5v-2.2L22.3 8l-2.5-3.9-3 1-2-.9L14 1z"/><circle cx="12" cy="11.5" r="3.2"/></svg></div>
+  </div>
+  <h1 class="title">tunnels</h1>
+  <section class="connection" aria-label="VPN connected, exit IP 198.51.100.42">
+    <span class="connection-dot"></span><span class="connection-label">VPN connected</span><span class="connection-divider"></span>
+    <span class="exit-label">Exit IP</span><span class="exit-value">198.51.100.42</span>
+    <svg class="external" viewBox="0 0 20 20" aria-hidden="true"><path d="M9 3H3a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1v-6M11 2h8v8M19 2l-9 9"/></svg>
+  </section>
+  <article class="tunnel-card" aria-label="example.net, active tunnel">
+    <div class="protocol"><span class="diamond"></span><span class="active">ACTIVE</span><span class="separator">·</span><span>ChaCha20 + PSK</span></div>
+    <div class="tunnel-name">example.net</div>
+    <div class="endpoint">10.8.0.2/32<span class="arrow">→</span>198.51.100.42:51820</div>
+    <div class="toggle" role="img" aria-label="Tunnel enabled"></div>
+    <svg class="diagram" viewBox="0 0 360 19" aria-hidden="true">
+      <path d="M1 8.5H358"/><rect class="enclosure" x="111.5" y="1.5" width="133" height="14"/>
+      <circle class="node" cx="1" cy="8.5" r="4.2"/><circle class="node" cx="83" cy="8.5" r="2.3"/><circle class="node" cx="167" cy="8.5" r="3.2"/><circle class="node" cx="319" cy="8.5" r="2.8"/><circle class="node" cx="356" cy="8.5" r="4.2"/>
+    </svg>
+    <div class="metrics">
+      <div class="metric"><div class="metric-label"><span class="arrow">↓</span>IN</div><div class="metric-value">8,26 MB</div><div class="metric-rate">0 B/S</div></div>
+      <div class="metric"><div class="metric-label"><span class="arrow">↑</span>OUT</div><div class="metric-value">1,86 MB</div><div class="metric-rate">0 B/S</div></div>
+      <div class="metric last"><div class="metric-label">LAST HANDSHAKE</div><div class="metric-value">14s ago</div></div>
+    </div>
+  </article>
+  <div class="add-tunnel"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v12M2 8h12"/></svg><span>ADD TUNNEL</span></div>
+  <div class="gesture" aria-hidden="true"></div>
+</main>
+</body>
+</html>
