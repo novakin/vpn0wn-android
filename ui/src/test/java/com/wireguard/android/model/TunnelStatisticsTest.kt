@@ -583,14 +583,14 @@ class TunnelStatisticsTest {
             awaitEntered(blocked)
             val obsolete = async { fixture.tunnel.getStatisticsAsync() }
             runCurrent()
+            val nextRead = CountDownLatch(1)
+            val snapshot = statistics(30)
+            fixture.env.backend.statisticsReader = { nextRead.countDown(); snapshot }
             fixture.tunnel.setConfigAsync(TunnelTestEnvironment.profile(51821))
             assertNull(obsolete.await())
             runCurrent()
             assertTrue(fragment.isResumed)
             assertTrue(polling.isActive)
-            val nextRead = CountDownLatch(1)
-            val snapshot = statistics(30)
-            fixture.env.backend.statisticsReader = { nextRead.countDown(); snapshot }
             advanceTimeBy(1000)
             runCurrent()
             assertTrue(withContext(Dispatchers.IO) { nextRead.await(5, TimeUnit.SECONDS) })
