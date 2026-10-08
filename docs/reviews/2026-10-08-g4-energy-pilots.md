@@ -22,7 +22,7 @@ Interface snapshots bracket a wider interval than the battery/CPU samples and in
 
 ## Retained diagnostic endpoints and exclusions
 
-Retain noisy observations and excluded raw records; do not discard a window merely because its charge result is inconvenient. Six foreground pilots completed. Independent ultra boundary review verified Home 2/3/4 and Detail 1/2's observed surfaces; it did not establish exclusive device use or controlled energy. Detail 3 changed from the upper hero viewport to Interface/Peers and cannot serve as a comparable fixed-view repeat. The available evidence does not establish who caused that viewport change, the notification-shade interruption or any particular traffic event.
+Retain noisy observations and excluded raw records; do not discard a window merely because its charge result is inconvenient. Seven foreground endpoint pairs completed; six are retained as diagnostics after excluding Home 1. Independent ultra boundary review verified Home 2/3/4 and Detail 1/2's observed surfaces; it did not establish exclusive device use or controlled energy. Detail 3 changed from the upper hero viewport to Interface/Peers and cannot serve as a comparable fixed-view repeat. The available evidence does not establish who caused that viewport change, the notification-shade interruption or any particular traffic event.
 
 | Pilot | CPU seconds | Charge depletion, mAh | Approximate whole-device mWh | Current boundary status |
 | --- | ---: | ---: | ---: | --- |
