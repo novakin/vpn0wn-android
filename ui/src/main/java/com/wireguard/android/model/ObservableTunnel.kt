@@ -9,11 +9,13 @@ import android.util.Log
 import androidx.databinding.BaseObservable
 import androidx.databinding.Bindable
 import com.wireguard.android.BR
+import com.wireguard.android.backend.Backend
 import com.wireguard.android.backend.Statistics
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.databinding.Keyed
 import com.wireguard.android.util.applicationScope
 import com.wireguard.config.Config
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -60,6 +62,8 @@ class ObservableTunnel internal constructor(
     }
 
     override fun onStateChange(newState: Tunnel.State) {
+        // Backend callbacks can precede Main's already-queued statistics publication.
+        statisticsEpoch.incrementAndGet()
         manager.onTunnelStateChange(this)
     }
 
@@ -67,7 +71,8 @@ class ObservableTunnel internal constructor(
         if (state != Tunnel.State.TOGGLE) transitionTarget = null
         val changed = state != this.state
         this.state = state
-        if (state != Tunnel.State.UP) onStatisticsChanged(null)
+        if (changed) invalidateStatistics()
+        else if (state != Tunnel.State.UP) onStatisticsChanged(null)
         if (changed) notifyPropertyChanged(BR.state)
         return state
     }
@@ -126,45 +131,49 @@ class ObservableTunnel internal constructor(
 
     private var cachedStatistics: Statistics? = null
 
+    private val statisticsEpoch = AtomicLong()
+    private var cachedStatisticsGeneration = 0L
+
+    internal val statisticsGeneration: Long
+        get() = statisticsEpoch.get()
+
+    internal var statisticsBackend: Backend? = null
+        private set
+
     @get:Bindable
-    // The asynchronous getter handles the generic ConfigStore/Backend contract.
-    @Suppress("TooGenericExceptionCaught")
     var statistics: Statistics?
-        get() {
-            if (state == Tunnel.State.UP && (cachedStatistics == null || cachedStatistics?.isStale != false))
-            // Opportunistically fetch this if we don't have a cached one, and rely on data bindings to update it eventually
-                applicationScope.launch {
-                    try {
-                        manager.getTunnelStatistics(this@ObservableTunnel)
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to fetch tunnel statistics", e)
-                    }
-                }
-            return cachedStatistics
-        }
+        get() = cachedStatistics.takeIf { cachedStatisticsGeneration == statisticsGeneration }
         private set(value) {
             cachedStatistics = value
         }
 
-    suspend fun getStatisticsAsync(): Statistics = withContext(Dispatchers.Main.immediate) {
-        cachedStatistics.let {
-            if (it == null || it.isStale)
-                manager.getTunnelStatistics(this@ObservableTunnel)
-            else
-                it
-        }
-    }
+    suspend fun getStatisticsAsync(): Statistics? = manager.getTunnelStatistics(this)
 
-    fun onStatisticsChanged(statistics: Statistics?): Statistics? {
+    fun onStatisticsChanged(
+        statistics: Statistics?,
+        backend: Backend? = null,
+        generation: Long = statisticsGeneration,
+    ): Statistics? {
+        statisticsBackend = backend
+        cachedStatisticsGeneration = generation
         if (statistics === cachedStatistics) return statistics
         this.statistics = statistics
         notifyPropertyChanged(BR.statistics)
         return statistics
     }
 
-    fun peekStatistics(): Statistics? = cachedStatistics
+    fun peekStatistics(): Statistics? = statistics
+
+    internal fun invalidateStatistics() {
+        statisticsEpoch.incrementAndGet()
+        manager.invalidateTunnelStatistics(this)
+        onStatisticsChanged(null)
+    }
+
+    internal fun discardObsoleteStatistics() {
+        manager.invalidateTunnelStatistics(this)
+        if (cachedStatisticsGeneration != statisticsGeneration) onStatisticsChanged(null)
+    }
 
 
     suspend fun deleteAsync() = manager.delete(this)
