@@ -57,6 +57,7 @@ Tunnl redesign and functional work are tracked in:
 - [QA test plan](docs/qa-test-plan.md): coverage requirements, verification layers and opt-in VPS validation.
 - [Agent/README review](docs/reviews/2026-10-06-agent-readme-review.md): bounded quality criteria, fixes, reused process and review evidence.
 - [Full documentation review](docs/reviews/2026-10-06-full-documentation-review.md): committed-source reconciliation, coverage limits and confirmed runtime handoff.
+- [WG Tunnel comparison](docs/reviews/2026-10-08-wgtunnel-comparison.md): versioned feature/ownership assessment, current native/statistics repair status and bounded reuse/refactoring advice.
 - [Font attribution](docs/font-attribution.md) and [provisioning upstream reference](third_party/wireguard-install/UPSTREAM.md).
 
 ## Embedding
