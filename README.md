@@ -1,6 +1,6 @@
 # Tunnl — WireGuard Android
 
-Last updated: 2026-10-07 (Europe/Paris).
+Last updated: 2026-10-08 (Europe/Paris).
 
 Tunnl is [novakin's WireGuard Android fork](https://github.com/novakin/wireguard-android), adding an engineering-console redesign and a partial VPS fleet/provisioning flow to the existing Android DataBinding/Fragment architecture.
 
@@ -12,7 +12,7 @@ The redesign builds on existing tunnel import/edit/connect behavior. Native VPS 
 
 Read [operations and recovery](docs/operations.md) and [backend contracts](docs/backend-contracts.md) before relying on experimental provisioning scripts or runtime labels. The [improvement plan](docs/improvement-plan.md) tracks known safety, compatibility and lifecycle repairs; a UI label or successful command is not proof of VPN health. The source declares minimum Android API 24; executed device coverage is separate in the [QA plan](docs/qa-test-plan.md).
 
-On `experiment/protocol-preflight`, the userspace backend has an experimental implementation of native UDP warm-up using the same protected socket as each outgoing handshake initiation. [The experiment record](docs/reviews/2026-10-07-protocol-preflight-experiment.md#authorized-local-apk-and-pixel-checks--2026-10-07) records the authorized local APK build and scoped Pixel 10a checks, followed by [forced deep Doze recovery](docs/reviews/2026-10-07-protocol-preflight-experiment.md#forced-deep-doze-recovery--2026-10-07). PR #63 stays draft/unmerged; hardware deep suspend, network rebind, warm-up packet capture, broader interoperability and DPI benefit remain unverified.
+The userspace source uses native UDP warm-up on the same protected socket as each outgoing handshake initiation. An explicit nonzero ListenPort enables one best-effort one-byte zero datagram attempt before each initiation; absent/zero ListenPort disables it. Native protection covers socket creation/rebind, and the WireGuard protocol remains unchanged. On 2026-10-08 (Europe/Paris), the maintainer authorized adoption through [PR #63](https://github.com/novakin/wireguard-android/pull/63). PR #63 records exact-head review/checks and actual delivery state. The maintainer reported sleep/wake recovery without manual action. [The experiment record](docs/reviews/2026-10-07-protocol-preflight-experiment.md#authorized-local-apk-and-pixel-checks--2026-10-07) retains scoped Pixel 10a checks and the measured [195-second forced deep Doze recovery](docs/reviews/2026-10-07-protocol-preflight-experiment.md#forced-deep-doze-recovery--2026-10-07). The new report is not a new measured trial. [#61](https://github.com/novakin/wireguard-android/issues/61) remains open for physical lifecycle, unchanged-server interoperability and DPI acceptance; hardware deep suspend, network rebind, warm-up packet capture and broader interoperability remain unverified. No DPI, speed or battery gain is established.
 
 ## Get started
 

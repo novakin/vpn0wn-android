@@ -1,6 +1,6 @@
 # Protocol-level preflight experiment
 
-Last updated: 2026-10-07 (Europe/Paris).
+Last updated: 2026-10-08 (Europe/Paris).
 
 ## Request and status
 
@@ -8,9 +8,19 @@ On 2026-10-07, the maintainer requested UDP preflight in the protocol itself and
 
 The baseline source paragraphs below describe master `4c2e5850` before this draft; their linked files now contain the experimental replacement. They are historical inspection evidence, not claims that removed Java helpers remain present.
 
-On the same date, the maintainer instructed that all experiment code, tests and documentation stay on this branch and [PR #63](https://github.com/novakin/wireguard-android/pull/63) remain draft and unmerged. A future merge requires an explicit instruction; G4's earlier autonomous merge authority does not apply to this experiment.
+On the same date, the maintainer instructed that all experiment code, tests and documentation stay on this branch and [PR #63](https://github.com/novakin/wireguard-android/pull/63) remain draft and unmerged. That restriction remained in force until the separately recorded 2026-10-08 merge authorization; G4's earlier autonomous merge authority did not cover this experiment.
+
+The original proposal/design/gate sections below retain their 2026-10-07 scope. Their draft-only integration restrictions are historical and superseded by the dated adoption decision; compatibility, evidence limits and separate APK/device/server authorization boundaries still apply.
 
 The earlier [#37 compatibility decision](2026-10-07-udp-compatibility-review.md) rejected the preserved mandatory/random-port variant. The new request does not authorize that variant's config, retry or failure-policy changes.
+
+## Merge authorization — 2026-10-08
+
+The maintainer requested merging [PR #63](https://github.com/novakin/wireguard-android/pull/63), reporting that the installed candidate worked after phone sleep without further action. This supersedes the 2026-10-07 requirement to keep this PR draft/unmerged. The report is user-observed recovery; no new test was run, and the sleep state, duration, packet emission and server implementation were not independently captured.
+
+Decision: adopt the existing native same-socket protection/warm-up implementation through the normal final-head ultra-review and CI gates. This delivery update changes documentation only; runtime source remains identical to the already accepted and installed candidate. The separate Java preflight and late ignored native protection calls are replaced in current source. Explicit nonzero ListenPort enables one best-effort one-byte zero datagram before each outgoing initiation; absent/zero disables warm-up. Standard WireGuard messages, configuration persistence and the kernel backend remain unchanged.
+
+Earlier source reviews, APK evidence and the 195-second forced framework-Doze trial retain their dated revision and scope. The user report adds no claim of hardware deep suspend, new post-wake initiation/preflight emission, network rebind, separately compiled unmodified-peer interoperability, battery savings or DPI benefit. [#61](https://github.com/novakin/wireguard-android/issues/61) stays open for remaining physical/interoperability/DPI acceptance; #48 and the G4 measurements remain separate. This merge request authorizes no new APK, device, server or release operation. PR #63 owns the exact reviewed head, applicable checks and actual merge/readback state.
 
 ## Baseline source inspected before implementation
 
@@ -86,7 +96,7 @@ No experiment APK/install, live peer/protocol change or traffic trial follows fr
 
 ## Documentation impact and limits
 
-The initial documentation checkpoint changed only proposal/changelog/plan pointers. The current source draft also updates README, architecture, contracts, development, QA and operator guidance. Existing AGENTS/templates already enforce its review/publication/authorization boundaries; UI intent and unrelated provisioning behavior are unchanged. Source approval is recorded, while final implementation acceptance and physical/DPI proof remain in #61/#63. #52 retains its separate G4 gates.
+The initial documentation checkpoint changed only proposal/changelog/plan pointers. The native transport implementation updates README, architecture, contracts, development, QA and operator guidance. Existing AGENTS/templates already enforce its review/publication/authorization boundaries; UI intent and unrelated provisioning behavior are unchanged. Source acceptance and the later merge authorization are recorded separately; #63 owns final integration checks and #61 retains broader physical/interoperability/DPI acceptance. #52 retains its separate G4 gates.
 
 ## First source draft and local verification — 2026-10-07
 
@@ -136,7 +146,7 @@ The physical observations in the following table are retained from the preceding
 
 Initial probes failed on both APKs while phone navigation/tunnel state changed between ADB steps; a guessed private gateway also did not answer. Those captures remain retained as inconclusive. They do not establish an experiment regression or a DPI cause. Active-screen UIAutomator dumps could not obtain an idle state; stale dumps were excluded from acceptance. Controlled checks used current screenshots, service/handshake evidence and successful traffic after the maintainer confirmed the phone was idle.
 
-At that local APK checkpoint, the candidate remained installed with the selected VPN active. Private configs, backups, host/network reports and screenshots stay outside tracked source. README and this owning record described the local APK/device proof; existing architecture, contracts, development/QA recipes, operational authorization and templates were unchanged. Earlier source-only evidence retains its original scope. PR #63 remains draft/unmerged and #61 remains open. That checkpoint did not claim controlled DPI classification, warm-up packet capture, server implementation verification, family/network rebind, deep sleep, sustained load or battery proof. The separately authorized forced Doze trial follows below.
+At that local APK checkpoint, the candidate remained installed with the selected VPN active. Private configs, backups, host/network reports and screenshots stay outside tracked source. README and this owning record described the local APK/device proof; existing architecture, contracts, development/QA recipes, operational authorization and templates were unchanged. Earlier source-only evidence retains its original scope. PR #63 remained draft/unmerged and #61 remained open. That checkpoint did not claim controlled DPI classification, warm-up packet capture, server implementation verification, family/network rebind, deep sleep, sustained load or battery proof. The separately authorized forced Doze trial follows below.
 
 ## Forced deep Doze recovery — 2026-10-07
 
@@ -154,4 +164,4 @@ The VPN network used `tun0`, covered shell UID 2000 in its declared 0–99999 UI
 
 Two setup attempts were excluded from runtime acceptance: the first expected an absent `shared_prefs` directory; the second read display state before screen-off propagation completed. Both attempts ran cleanup. The corrected run completed successfully; ignored evidence is retained under the root checkout's `.artifacts/deep-doze-20261007/` and quiet-command log `20261007-230509-866-c74fc421415f406cb2edb735bced47f2.log`. The successful trial ran from 23:05:10 to 23:08:35 Europe/Paris. No failed setup is classified as an app defect.
 
-Result: one forced deep Doze recovery trial passes. USB connection and framework idle overrides do not establish hardware deep suspend. The retained log window did not establish a new post-wake initiation; this trial therefore does not prove warm-up emission, its source port on the wire, deep-sleep rekey, network rebind or DPI benefit. No comparison, sustained-load or battery result is added. README and QA now point to this scoped result; architecture/config/transport behavior, operations policy, AGENTS and templates need no change. Independent documentation review/publication remain separate. #61 stays open and #63 draft/unmerged.
+Result: one forced deep Doze recovery trial passes. USB connection and framework idle overrides do not establish hardware deep suspend. The retained log window did not establish a new post-wake initiation; this trial therefore does not prove warm-up emission, its source port on the wire, deep-sleep rekey, network rebind or DPI benefit. No comparison, sustained-load or battery result is added. README and QA now point to this scoped result; architecture/config/transport behavior, operations policy, AGENTS and templates need no change. Independent documentation review/publication remain separate. At that trial checkpoint, #61 stayed open and #63 remained draft/unmerged; later merge authorization is recorded above.
