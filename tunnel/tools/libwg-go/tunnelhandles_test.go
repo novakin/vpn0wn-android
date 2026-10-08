@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"golang.zx2c4.com/wireguard/android/androidbind"
 	"golang.zx2c4.com/wireguard/android/uapiserver"
 	"golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/device"
@@ -23,7 +24,7 @@ func testHandle(t *testing.T) *TunnelHandle {
 	t.Helper()
 	tunnel := tuntest.NewChannelTUN()
 	<-tunnel.TUN().Events()
-	bind := &tunnelBind{base: conn.NewStdNetBind()}
+	bind := androidbind.New(func(conn.Bind, int) error { return nil }, func() bool { return true })
 	wg := device.NewDevice(tunnel.TUN(), bind, device.NewLogger(device.LogLevelSilent, ""))
 	t.Cleanup(func() { bind.Shutdown(); wg.Close() })
 	return &TunnelHandle{device: wg, bind: bind}
@@ -79,8 +80,13 @@ func TestHandleTeardownCancelsPartialRequestBeforeQueryDrain(t *testing.T) {
 		t.Fatal(err)
 	}
 	awaitHandle(t, blocked)
+	query := table.acquire(id)
 	queryDone := make(chan struct{})
-	go func() { table.config(id); close(queryDone) }()
+	go func() {
+		defer close(queryDone)
+		defer query.queries.Done()
+		query.device.IpcGet()
+	}()
 	select {
 	case <-queryDone:
 		t.Fatal("partial request did not block native query")

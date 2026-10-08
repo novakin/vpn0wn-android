@@ -12,18 +12,14 @@ import (
 func TestTunnlAndroidDescriptorsMissingFamilyAndClose(t *testing.T) {
 	for _, family := range []string{"udp4", "udp6"} {
 		t.Run(family, func(t *testing.T) {
-			socket, err := net.ListenUDP(family, nil)
+			bind, err := NewTunnlTestFamilyBind(family)
 			if err != nil {
 				t.Fatal(err)
 			}
-			t.Cleanup(func() { socket.Close() })
-			bind := &StdNetBind{}
+			t.Cleanup(func() { bind.Close() })
 			available := bind.PeekLookAtSocketFd4
 			missing := bind.PeekLookAtSocketFd6
-			if family == "udp4" {
-				bind.ipv4 = socket
-			} else {
-				bind.ipv6 = socket
+			if family == "udp6" {
 				available, missing = missing, available
 			}
 			if fd, err := available(); fd < 0 || err != nil {
@@ -42,6 +38,20 @@ func TestTunnlAndroidDescriptorsMissingFamilyAndClose(t *testing.T) {
 			}
 		})
 	}
+}
+
+func NewTunnlTestFamilyBind(family string) (*StdNetBind, error) {
+	socket, err := net.ListenUDP(family, nil)
+	if err != nil {
+		return nil, err
+	}
+	bind := &StdNetBind{}
+	if family == "udp4" {
+		bind.ipv4 = socket
+	} else {
+		bind.ipv6 = socket
+	}
+	return bind, nil
 }
 
 func TestTunnlAndroidDescriptorsUnopened(t *testing.T) {

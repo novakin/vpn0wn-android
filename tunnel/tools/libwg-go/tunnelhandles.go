@@ -2,18 +2,23 @@
 
 package main
 
+// struct wg_context;
+import "C"
+
 import (
 	"math"
 	"sync"
 
+	"golang.zx2c4.com/wireguard/android/androidbind"
 	"golang.zx2c4.com/wireguard/android/uapiserver"
 	"golang.zx2c4.com/wireguard/device"
 )
 
 type TunnelHandle struct {
 	device  *device.Device
-	bind    *tunnelBind
+	bind    *androidbind.Bind
 	uapi    *uapiserver.Server
+	context *C.struct_wg_context
 	queries sync.WaitGroup
 }
 
@@ -40,7 +45,7 @@ func (t *handleTable) add(h *TunnelHandle) int32 {
 	if t.nextID > math.MaxInt32 {
 		return -1
 	}
-	// Never reuse an ID: a delayed JNI lookup must not acquire a replacement device.
+	// Never reuse an ID: a delayed JNI lookup must not acquire a replacement context.
 	id := int32(t.nextID)
 	t.nextID++
 	t.items[id] = h
@@ -63,43 +68,4 @@ func (t *handleTable) remove(id int32) *TunnelHandle {
 	h := t.items[id]
 	delete(t.items, id)
 	return h
-}
-
-func (t *handleTable) config(id int32) (string, bool) {
-	h := t.acquire(id)
-	if h == nil {
-		return "", false
-	}
-	defer h.queries.Done()
-	settings, err := h.device.IpcGet()
-	if err != nil {
-		return "", false
-	}
-	return settings, true
-}
-
-func (t *handleTable) socketV4(id int32) int32 {
-	h := t.acquire(id)
-	if h == nil {
-		return -1
-	}
-	defer h.queries.Done()
-	fd, err := h.bind.PeekLookAtSocketFd4()
-	if err != nil {
-		return -1
-	}
-	return int32(fd)
-}
-
-func (t *handleTable) socketV6(id int32) int32 {
-	h := t.acquire(id)
-	if h == nil {
-		return -1
-	}
-	defer h.queries.Done()
-	fd, err := h.bind.PeekLookAtSocketFd6()
-	if err != nil {
-		return -1
-	}
-	return int32(fd)
 }
