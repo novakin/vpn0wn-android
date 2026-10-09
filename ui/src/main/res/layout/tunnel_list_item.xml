@@ -129,14 +129,13 @@
 
             <TextView
                 android:id="@+id/tunnel_name"
-                style="@style/TunnlMonoValueText"
+                style="@style/TunnlHomeTunnelNameText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="3dp"
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:text="@{key}"
-                android:textSize="16sp"
                 tools:text="@sample/interface_names.json/names/names/name" />
 
             <TextView
@@ -204,11 +203,10 @@
                         android:text="@string/tunnl_in" />
 
                     <TextView
-                        style="@style/TunnlMonoValueText"
+                        style="@style/TunnlHomeStatValueText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:textSize="13sp"
                         android:text="@{BindingAdapters.tunnelRx(item.statistics)}"
                         tools:text="19.8 MB" />
 
@@ -242,11 +240,10 @@
                         android:text="@string/tunnl_out" />
 
                     <TextView
-                        style="@style/TunnlMonoValueText"
+                        style="@style/TunnlHomeStatValueText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:textSize="13sp"
                         android:text="@{BindingAdapters.tunnelTx(item.statistics)}"
                         tools:text="973 KB" />
 
@@ -277,15 +274,14 @@
                         style="@style/TunnlLabelText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/tunnl_handshake" />
+                        android:text="@string/tunnl_last_handshake" />
 
                     <TextView
-                        style="@style/TunnlMonoValueText"
+                        style="@style/TunnlHomeStatValueText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:textSize="13sp"
-                        android:text="@{BindingAdapters.tunnelHandshake(item.statistics)}"
+                        app:homeHandshakeStatistics="@{item.statistics}"
                         tools:text="2m 32s ago" />
 
                     <TextView

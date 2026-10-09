@@ -1,6 +1,6 @@
 # Backend & Functional Changelog
 
-Last updated: 2026-10-08 (Europe/Paris).
+Last updated: 2026-10-09 (Europe/Paris).
 
 Tracks non-UI changes: backend logic, data layer, permissions, networking, build config, and any functional behavior changes. Separate from `ui-redesign-roadmap.md` which covers visual/layout work only.
 
@@ -50,6 +50,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 - [x] Add opt-in destructive end-to-end test path against a disposable Ubuntu/Debian VPS.
 
 ## Done
+
+- **Home endpoint and relative-age wording — 2026-10-09**
+  `BindingAdapters.homeEndpointHost` replaces the misleading `EXIT IP` prefix with a separately labeled endpoint host, still reading the first recent-handshake active tunnel's first configured peer without DNS or WAN lookup. `homeProtectionLabel` reports `VPN connected`/`VPN disconnected` through the unchanged aggregate heuristic. `setHomeHandshakeStatistics` adds a localized age phrase to the existing latest-positive-handshake formatter, preserving `--` when unavailable and leaving Detail formatting unchanged. `homeHeaderSummary` now presents the preserved `Vpn0wn` wordmark and configured count; multi-tunnel status expansion remains separate. No backend transition, configuration or persistence behavior changes. Source controls and native acceptance are tracked under [#80](https://github.com/novakin/wireguard-android/issues/80).
 
 - **WG Tunnel comparative source assessment — 2026-10-08**
   The [comparison](reviews/2026-10-08-wgtunnel-comparison.md) preserves the original release/core and Tunnl source pins, then reconciles merged native protection and statistics repairs. It records feature/ownership tradeoffs and bounded reuse/refactoring advice. This is documentation/source analysis only; #72 remains planning, #47 still requires measured baselines/targets and no comparative performance or security winner is claimed.

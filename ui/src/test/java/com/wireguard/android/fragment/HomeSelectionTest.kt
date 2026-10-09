@@ -359,6 +359,24 @@ class HomeSelectionTest {
                 runCurrent()
                 layout(f.binding, case.width, case.height)
                 assertEquals(Tunnel.State.UP, f.binding.tunnels!!["charlie"]!!.state)
+                val targets = listOf(f.binding.homeSearch, f.binding.homeLogs, f.binding.homeSettings)
+                val targetBounds = targets.map { target ->
+                    assertTrue("${case.name}: Home action width", target.width >= 48 * target.resources.displayMetrics.density)
+                    assertTrue("${case.name}: Home action height", target.height >= 48 * target.resources.displayMetrics.density)
+                    Rect().also { target.getGlobalVisibleRect(it) }
+                }
+                for (index in 1 until targetBounds.size) {
+                    assertFalse("${case.name}: Home actions overlap", Rect.intersects(targetBounds[index - 1], targetBounds[index]))
+                }
+                assertFalse(f.binding.homeSearch.isEnabled)
+                assertTextFits(f.binding.homeHeaderContainer, case.name)
+                val summaryLayout = f.binding.homeHeaderSummary.layout
+                val wordmark = f.binding.root.context.getString(R.string.tunnl_home_wordmark)
+                assertEquals("${case.name}: wordmark stays together", summaryLayout.getLineForOffset(0),
+                    summaryLayout.getLineForOffset(wordmark.length - 1))
+                assertTextFits(f.binding.homeStatusContainer, case.name)
+                assertTextFits(f.binding.createFab, case.name)
+                assertTrue("${case.name}: Add target", f.binding.createFab.height >= 48 * f.binding.createFab.resources.displayMetrics.density)
                 assertSingleLineBadge(f.binding, case.name)
                 save(f.binding.root, "home-${case.name}")
                 f.binding.tunnelList.scrollBy(0, f.binding.tunnelList.computeVerticalScrollRange())
@@ -413,6 +431,20 @@ class HomeSelectionTest {
                 controllers.remove(f.controller)
             }
         }
+    }
+
+    @Test fun homeHeaderActionsKeepExistingNavigationAndDisabledSearch() = runHomeTest {
+        val f = host("bravo")
+        assertFalse(f.binding.homeSearch.isEnabled)
+        assertEquals("Vpn0wn · 1 configured", f.binding.homeHeaderSummary.text.toString())
+        f.binding.homeLogs.performClick()
+        assertEquals("com.wireguard.android.activity.LogViewerActivity",
+            shadowOf(f.controller.get()).nextStartedActivity.component!!.className)
+        f.binding.homeSettings.performClick()
+        assertEquals("com.wireguard.android.activity.SettingsActivity",
+            shadowOf(f.controller.get()).nextStartedActivity.component!!.className)
+        f.binding.createFab.performClick()
+        assertNotNull(f.fragment.childFragmentManager.findFragmentByTag("BOTTOM_SHEET"))
     }
 
     private fun assertTextFits(view: View, name: String) {

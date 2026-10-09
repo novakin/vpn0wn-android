@@ -137,6 +137,10 @@ Baseline requirements:
 - Tunnel list row states, including rail color and stats-row visibility
 - Detail peer card transfer/handshake visual states
 
+### Home reference source checks
+
+The #80 Home source controls add cached endpoint-host semantics, latest/missing/future handshake ages and English/French wording in `BindingAdaptersTest`. `HomeSelectionTest` adds existing Add/Logs/Settings navigation, disabled Search, non-overlapping 48dp action targets and normal header/status/footer content checks to its six native preview configurations. Compact landscape and narrow-portrait dimensions preserve font scaling; verify the wordmark stays together and the final tunnel name remains scrollable and clear at 640×320dp with 2× text. Run these controls and inspect the resulting content before recording source acceptance; physical safe-area, TalkBack, real tunnel-state and provider acceptance remain separate requirements.
+
 ### Security Regression Tests
 
 - Passwords are not included in snackbars, logs, exceptions, or copied text.

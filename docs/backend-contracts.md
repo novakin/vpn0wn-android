@@ -1,6 +1,6 @@
 # Backend and provisioning contracts
 
-Last updated: 2026-10-08 (Europe/Paris).
+Last updated: 2026-10-09 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -94,6 +94,8 @@ The existing guarded shell boundary has a 30-second default execute/upload corou
 Command success is limited to the requested operation's effective postconditions. Interrupted or timed-out remote operations have uncertain outcomes until reconciled. Revocation must remove live access; installation results must match runtime config; uninstall/purge results must reflect observed removal. Rollback/recovery failures must remain visible.
 
 ## Persistence and presentation
+
+Home's `VPN connected` label retains the existing recent-handshake aggregate heuristic; it does not prove routing, leak protection or all-peer health. The right-hand Endpoint value is the first configured peer's hostname from the first tunnel presented as active, without DNS resolution or public-IP discovery; absent data displays `—`. Home `LAST HANDSHAKE` adds a localized relative-age phrase to the newest positive observed peer timestamp, preserves `--` when missing and clamps future timestamps to the existing `0s` formatter result. Detail keeps the compact age without the phrase. The configured header count and preserved `Vpn0wn` wordmark add no backend state or identity migration.
 
 `ObservableTunnel.statistics` is a cache-only bindable getter; it starts no backend work. Existing Home, Detail and TV pollers use nullable `getStatisticsAsync`, routed through `TunnelManager.getTunnelStatistics`. A fresh snapshot from the current backend/session is reused without copying or retimestamping; `Statistics.isStale` remains true only after more than 900ms. Equivalent stale/missing readers share one manager-owned in-flight request for the same managed tunnel identity, generation, backend instance and name. Admission uses the existing mutation lock briefly; backend IO and reader waits run outside it.
 
