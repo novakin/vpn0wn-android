@@ -1,6 +1,6 @@
 # Backend & Functional Changelog
 
-Last updated: 2026-10-08 (Europe/Paris).
+Last updated: 2026-10-09 (Europe/Paris).
 
 Tracks non-UI changes: backend logic, data layer, permissions, networking, build config, and any functional behavior changes. Separate from `ui-redesign-roadmap.md` which covers visual/layout work only.
 
@@ -50,6 +50,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 - [x] Add opt-in destructive end-to-end test path against a disposable Ubuntu/Debian VPS.
 
 ## Done
+
+- **Official Gradle wrapper — #70 (build maintenance)**
+  `gradle/wrapper/gradle-wrapper.properties` selects the official Gradle 9.8.1 binary distribution and SHA256 `dce76f55f8e251a3a1f130eb120f30b3d271de2b76c9b0729d316b5a1b6dc01f`. Two official wrapper-task passes regenerate the tracked JAR and Unix `gradlew`; the JAR matches the published release checksum. `./gradlew --version` reports 9.8.1 on WSL/OpenJDK 21.0.10. Generated retry settings retain the zero-retry default. AGP 9.1.0, legacy KAPT, Detekt 1.23.8, Java 17 source compatibility and Android/native toolchain pins remain unchanged. [Compatibility notes and remaining warnings](development.md#gradle-981-compatibility-and-upgrade-notes) preserve historical verification versions and distinguish wrapper execution from #70's full unit/static and final-head CI acceptance. No APK/device or server operation is included.
 
 - **WG Tunnel comparative source assessment — 2026-10-08**
   The [comparison](reviews/2026-10-08-wgtunnel-comparison.md) preserves the original release/core and Tunnl source pins, then reconciles merged native protection and statistics repairs. It records feature/ownership tradeoffs and bounded reuse/refactoring advice. This is documentation/source analysis only; #72 remains planning, #47 still requires measured baselines/targets and no comparative performance or security winner is claimed.
