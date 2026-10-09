@@ -311,16 +311,24 @@ This roadmap covers the whole app, not only the VPS fleet. Do not move items fro
 - `./gradlew vpsIntegrationTest` runs the disposable Ubuntu/Debian VPS integration path for install, sync, add peer, revoke peer, remove peer, backup, uninstall, reinstall, and final cleanup.
 - Gate the suite behind explicit environment variables and a destructive-test guard: `TUNNL_VPS_HOST`, `TUNNL_VPS_USER`, and `TUNNL_VPS_DESTRUCTIVE=1`.
 - Never run VM integration tests as part of default unit tests or default local builds.
-- Repaired mutations reject unmanaged config, but harness cleanup remains broad and destructive; C9 still owns its safety/evidence limits.
+- Repaired mutations reject unmanaged config. C9 requires a clean target, checks postconditions and limits failure cleanup to the owned upload; authorized real-server evidence remains separate.
 - Use key-only SSH. Do not put passwords or private keys in the repo; optional local settings belong in ignored `.tunnl-vps-test.env`.
 
 ## Disposable VPS Integration Use Case
 
 Use `vpsIntegrationTest` when provisioning scripts or app-side provisioning command contracts change and unit tests are not enough to prove the scripts still work on a real server.
 
-This harness is for an explicitly authorized disposable Ubuntu/Debian VPS only. It uses system OpenSSH/scp and requires an actual root session (`id -u`), not Android transport or sudo. It uploads scripts, forces installation, creates/revokes/removes peers, receives a secret-bearing backup response, uninstalls, repeats installation/uninstall and attempts cleanup. C2–C3 script mutations reject unmanaged config, but harness cleanup still recursively removes `/etc/wireguard/tunnl` and removes `/etc/wireguard` only if empty. Do not run it on production or user-managed WireGuard hosts.
+This harness is for an explicitly authorized clean disposable Ubuntu/Debian VPS only. It uses system OpenSSH/scp and requires an actual root session (`id -u`), not Android transport or sudo. Existing `wg0.conf` or `/etc/wireguard/tunnl` metadata is rejected. It exclusively creates a fresh upload directory, uploads scripts, forces installation, creates/revokes/removes peers, receives a secret-bearing backup response, uninstalls, repeats installation/uninstall and checks cleanup. No cleanup is admitted before root and upload-directory ownership are confirmed. After admission, failure cleanup removes only that upload and retains server config, backup/revoke/recovery artifacts. Final artifact deletion follows both successful verified uninstalls and the initially absent metadata check. Do not run it on production or user-managed WireGuard hosts.
 
-Current `run_json` checks parseability and `ok:true`; it logs most outcome fields without asserting running health, exact peer removal, final config absence or requested package purge. Failure paths can print raw command/stdout/stderr or malformed JSON snippets despite success-payload redaction. C9 must repair postcondition assertions and failure diagnostics with synthetic failures before another live run. A successful exit does not currently prove those postconditions or Android integration.
+C9 checks JSON object/Boolean success, supported clean-target detection/planning, running `wg0`, exact saved/live peer membership after every mutation, backup shape/revoked count and both cycles' uninstall postconditions. Uninstall independently checks config/symlink and native-interface absence, requested named-package purge or kept tools, then final upload/Tunnl-directory absence. Unknown observations, malformed/extra/missing peers, partial package residue and cleanup failure return failure. Logs contain fixed local progress/category/exit text; remote fields, command arguments, streams, JSON and exception payloads are omitted. These checks observe interface/config/peer/package state, not traffic, handshake or Android integration.
+
+Run the standard-library injected offline controls without VPS variables or network/root operations:
+
+```sh
+python3 -m unittest discover -s scripts/tests -p test_vps_integration_test.py -v
+```
+
+The suite covers valid purge/keep-packages flows, false/unknown/malformed postconditions, exact saved/live membership, direct removal/package checks, key-only options, guard/root/upload ownership, payload-free command/JSON/nested-output failures and primary/cleanup failure preservation. See [executed proof](development.md#c9-offline-harness-postconditions--2026-10-09). This separate offline command is not wired into the default Android or destructive integration tasks. Real OpenSSH/systemd/package/packet proof still requires its own authorized disposable target.
 
 Required environment:
 
@@ -362,7 +370,7 @@ $env:TUNNL_VPS_DESTRUCTIVE = '1'
 python scripts/vps_integration_test.py
 ```
 
-With default `TUNNL_VPS_PURGE=1` on a clean disposable target, intended final observations are `wireGuardInstalled=false`, `configExists=false`, `wg-absent` and `etc-wireguard-absent`. With purge disabled, packages may remain. C9 must assert these postconditions; current printed output does not guarantee them.
+With default `TUNNL_VPS_PURGE=1`, successful completion requires `wireGuardInstalled=false`, `configExists=false`, absent `wg0`/Tunnl/upload paths and absence/not-installed status for the three purged packages. `TUNNL_VPS_PURGE=0` requires `packagesPurged=false` and retained `wg` availability while still checking config/interface/artifact removal. Final success prints `cleanup: uploaded scripts and Tunnl test artifacts removed` only after absence checks pass. Cleanup failure is reported separately and keeps the primary failure; inspect retained state before another authorized run.
 
 Security rules:
 

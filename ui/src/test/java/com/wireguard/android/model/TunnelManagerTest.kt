@@ -249,9 +249,9 @@ class TunnelManagerTest {
         val reading = async { env.manager.getTunnelState(tunnel) }
         try {
             assertTrue(withContext(Dispatchers.IO) { env.backend.stateReadEntered.await(5, TimeUnit.SECONDS) })
-            val existingJobs = backgroundScope.coroutineContext[kotlinx.coroutines.Job]!!.children.toSet()
+            val existingJobs = env.applicationScope.coroutineContext[kotlinx.coroutines.Job]!!.children.toSet()
             withContext(Dispatchers.IO) { env.backend.setState(tunnel, Tunnel.State.DOWN, null) }
-            val notifications = backgroundScope.coroutineContext[kotlinx.coroutines.Job]!!.children.filter { it !in existingJobs }.toList()
+            val notifications = env.applicationScope.coroutineContext[kotlinx.coroutines.Job]!!.children.filter { it !in existingJobs }.toList()
             env.backend.blockStateRead = false
             env.backend.releaseStateRead.countDown()
             reading.await()
