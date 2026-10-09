@@ -192,9 +192,7 @@
     <string name="tools_installer_failure">Não foi possível instalar as ferramentas de linha de comando (sem root?)</string>
     <string name="tools_installer_initial">Instalar ferramentas opcionais para scripting</string>
     <string name="tools_installer_initial_magisk">Instalar ferramentas opcionais para scripting como módulo Magisk</string>
-    <string name="tools_installer_initial_system">Instalar ferramentas opcionais para scripting na partição de sistema</string>
     <string name="tools_installer_success_magisk">wg e wg-quick instalados como módulo Magisk (requer reinicialização)</string>
-    <string name="tools_installer_success_system">wg e wg-quick instalados na partição do sistema</string>
     <string name="tools_installer_title">Instalar ferramentas de linha de comando</string>
     <string name="tools_installer_working">A instalar wg e wg-quick</string>
     <string name="tools_unavailable_error">Ferramentas necessárias não disponíveis</string>

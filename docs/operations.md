@@ -52,6 +52,14 @@ VPN permission, camera access and document/export handling depend on the selecte
 
 Switching the kernel/backend preference drains earlier transitions and shuts down active tunnels before committing the setting and restarting. New mutations are rejected between commit and restart. Failed shutdown/restart restores the previous preference and usable control; already-stopped tunnels can remain down with profiles intact. Failed preference rollback keeps the admission reservation and needs diagnosis. PR #25 merged these repairs. #15 serializes whole root/kernel transitions; real device/kernel proof remains separate. Retain sanitized evidence after failure and verify the selected backend after restart. Never delete a profile merely to diagnose an unresolved transition.
 
+## Optional command-line tools
+
+The Settings command-line-tools action is for scripting. Normal kernel-backend commands keep using the app's private extracted tools. If a compatible global `wg`/`wg-quick` pair already exists, Settings reports it as installed and preserves its owner, including WireGuard's module. Compatibility currently means an exact byte match; a different build can be refused even when its version appears compatible.
+
+When paths are free and Magisk is usable, installation stages the app-owned `/data/adb/modules/vpn0wn` module and reports reboot required. A staged result does not prove that the tools are globally active. Conflicts or unusable Magisk disable the action with preservation guidance; there is no direct-system fallback. A failed check remains retryable after root access is diagnosed. Installation failure also remains retryable, but incomplete or conflicting preexisting module content is preserved and can block the retry.
+
+Do not delete or overwrite WireGuard's module to bypass a refusal. Record sanitized status and inspect the conflicting ownership before agreeing recovery. [The tool contract](backend-contracts.md#optional-scripting-tools) owns exact detection/staging semantics. This #71 preparation retains the legacy application identity and package guard; root/Magisk/reboot, SELinux and full old/new-ID coexistence are unverified. No device installation or reboot is authorized by this guide.
+
 ## Diagnostics and evidence
 
 The log viewer opens with the latest 500 logcat rows. Refresh clears retained rows and starts a fresh 500-row tail; an ended/failed stream retries after one second with 50 rows, which can repeat recent entries. Batches flush at 4,000 rows or a 500ms deadline from their first pending row, without requiring more input; scheduler/Main contention can delay display. LIVE/PAUSED controls scrolling, not collection. Filters retain DEBUG (V/D), INFO (I), WARN (W) and ERROR (E/A/F) semantics.

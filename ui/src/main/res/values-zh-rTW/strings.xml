@@ -190,9 +190,7 @@
     <string name="tools_installer_failure">無法安裝命令行工具 (沒有 root 存取權？)</string>
     <string name="tools_installer_initial">安裝額外的腳本工具</string>
     <string name="tools_installer_initial_magisk">安裝額外的腳本工具作為 Magisk 模組</string>
-    <string name="tools_installer_initial_system">安裝額外的腳本工具到系統分區</string>
     <string name="tools_installer_success_magisk">將 wg 及 wg-quick 安裝為 Magisk 模組 (需要重新開機)</string>
-    <string name="tools_installer_success_system">將 wg 及 wg-quick 安裝到系統分區</string>
     <string name="tools_installer_title">安裝命令行工具</string>
     <string name="tools_installer_working">正在安裝 wg 及 wg-quick</string>
     <string name="tools_unavailable_error">所需的工具不可用</string>

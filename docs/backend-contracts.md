@@ -43,6 +43,26 @@ In retained baseline logs, `UDP preflight sent` means the protected Java socket 
 
 `WgQuickBackend` serializes the entire transition on its existing instance: observed state, config snapshot, prior-tunnel shutdown, apply, rollback, map update and callback. Running-name reads and multiple-tunnel preference changes share that monitor. Application collects those mode changes on IO, so waiting behind a root transition leaves the main thread free. Disabled multiple mode admits one app-owned active tunnel; enabled mode retains supported simultaneous tunnels. Failed apply/shutdown attempts restoration where applicable; restoration failures attach to the primary exception and observed running names remain queryable. RootShell still serializes individual commands; the backend monitor additionally protects the whole transition. This does not coordinate another backend instance or external root tools, turn multi-command changes into kernel transactions, or guarantee observation after an unreachable shell. #15 has controlled command-level JVM proof; device/kernel traffic and partial native effects remain separate.
 
+## Optional scripting tools
+
+[`ToolsInstaller`](../tunnel/src/main/java/com/wireguard/android/util/ToolsInstaller.java) owns the optional globally available `wg`/`wg-quick` tools. `ensureToolsAvailable` and private extraction still serve RootShell and the kernel backend independently of optional installation. The probe removes only RootShell's prepended private binary directory inside its subshell; finding the app's own private tools cannot prove global availability.
+
+Both effective PATH tools must be regular executable files, not symlinks, and byte-match the current private extracted pair. The probe also checks both `/system/xbin` and `/system/bin`, active Magisk modules and pending `/data/adb/modules_update` overlays. Differing or partial pairs, conflicting destinations, unsafe directory shapes and pending own-module content block admission. An overlay's `.replace` marker at its `system` or inspected binary directory also blocks admission: [Magisk replaces that directory rather than merging it](https://topjohnwu.github.io/Magisk/guides.html#magisk-modules). Compatible installed tools are reused without writes, including compatible tools supplied by WireGuard's existing module. Byte equality is the supported compatibility test; version strings alone are insufficient.
+
+| Result | Meaning |
+| --- | --- |
+| `YES \| SYSTEM` | Compatible globally available pair reused; no installation occurred. |
+| `NO \| MAGISK` | Paths are free and Magisk staging is eligible. |
+| `YES \| MAGISK` | App-owned staging matches; reboot is required before claiming global activation. |
+| `BLOCKED` | Conflict or unusable installation location; existing content remains preserved. |
+| `ERROR` or root authorization failure | Probe/command did not establish success; no direct-system fallback. |
+
+`install` reruns the probe and stages only `/data/adb/modules/vpn0wn`. Atomic `mkdir` admission precedes its cleanup trap. Metadata names vpn0wn and retains WireGuard tool attribution; the selected `system/bin` or `system/xbin` directory receives both tools. Copy, executable mode, `chcon` and final staging checks must succeed. Failure attempts cleanup only of the newly admitted module; failed removal can leave incomplete staging and is not reported as success. A failed `chcon` cannot become reported installation success. Direct `/system` remount/write installation is removed.
+
+A preexisting own stage is accepted without overwrite only when directory/file shapes, exact metadata, empty `auto_mount` and both tool bytes/executability match. Its inventory must contain only those files and the required `system` and selected binary directories; extra files, hooks, hidden entries and control markers block adoption. An interrupted or lost command response can therefore reconcile a completed stage on retry. Conflicting existing own content, symlinks and another creator winning `mkdir` are preserved rather than removed. These checks do not read back actual SELinux labels or prove mount/reboot activation. They do not serialize unrelated privileged writers; forced process termination can leave incomplete staging requiring diagnosis rather than automatic adoption.
+
+[`ToolsInstallerPreference`](../ui/src/main/java/com/wireguard/android/preference/ToolsInstallerPreference.kt) disables already-available, staged and blocked results. Probe failures remain retryable; installation failures use failure feedback. The former direct-system states/resources are removed. The legacy `com.wireguard.` install-package guard intentionally remains in this #71 preparation; `com.vpn0wn.android` admission belongs to the later identity change. No app/package, protocol, RootShell PATH or kernel-transition policy migrates here. [Operations](operations.md#optional-command-line-tools) explains user handling; [QA](qa-test-plan.md#root-tools-coexistence-acceptance) owns pending runtime gates.
+
 ## Import, ordering and export
 
 `TunnelComparator` retains natural numeric ordering and uses the original names to break equal normalized-token ties. Distinct names such as `wg1`/`wg01` and case variants remain distinct inventory entries; lookup must not depend on insertion direction. Names and persisted files are not rewritten.

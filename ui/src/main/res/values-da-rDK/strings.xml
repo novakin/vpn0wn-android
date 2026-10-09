@@ -203,9 +203,7 @@
     <string name="tools_installer_failure">Kan ikke installere kommandolinjeværktøjer (ingen root?)</string>
     <string name="tools_installer_initial">Installér valgfrie værktøjer til scripting</string>
     <string name="tools_installer_initial_magisk">Installér valgfrie værktøjer til scripting som Magisk modul</string>
-    <string name="tools_installer_initial_system">Installér valgfrie værktøjer til scripting i systempartitionen</string>
     <string name="tools_installer_success_magisk">wg og wg-quick installeret som et Magisk modul (genstart påkrævet)</string>
-    <string name="tools_installer_success_system">wg og wg-quick installeret i systempartitionen</string>
     <string name="tools_installer_title">Installér kommandolinjeværktøjer</string>
     <string name="tools_installer_working">Installerer wg og wg-quick</string>
     <string name="tools_unavailable_error">Påkrævede værktøjer er ikke tilgængelige</string>

@@ -203,9 +203,7 @@
     <string name="tools_installer_failure">ਕਮਾਂਡ-ਲਾਈਨ ਟੂਲ ਇੰਸਟਾਲ ਕਰਨ ਲਈ ਅਸਮਰੱਥ (ਰੂਟ ਨਹੀਂ ਹੋ?)</string>
     <string name="tools_installer_initial">ਸਕ੍ਰਿਪਟ ਲਿਖਣ ਲਈ ਚੋਣਵੇਂ ਟੂਲ ਇੰਸਟਾਲ ਕਰੋ</string>
     <string name="tools_installer_initial_magisk">Magisk ਮੋਡੀਊਲ ਵਜੋਂ ਸਕ੍ਰਿਪਟਾਂ ਲਿਖਣ ਲਈ ਚੋਣਵੇਂ ਟੂਲ ਇੰਸਟਾਲ ਕਰੋ</string>
-    <string name="tools_installer_initial_system">ਸਿਸਟਮ ਪਾਰਟੀਸ਼ਨ ਵਿੱਚ ਸਕ੍ਰਿਪਟ ਲਿਖਣ ਲਈ ਚੋਣਵੇਂ ਟੂਲ ਇੰਸਟਾਲ ਕਰੋ</string>
     <string name="tools_installer_success_magisk">wg ਅਤੇ wg-quick ਨੂੰ Magisk ਮੋਡੀਊਲ ਵਜੋਂ ਇੰਸਟਾਲ ਕੀਤਾ (ਮੁੜ-ਚਾਲੂ ਕਰਨ ਦੀ ਲੋੜ ਹੋਵੇਗੀ)</string>
-    <string name="tools_installer_success_system">wg ਅਤੇ wg-quick ਨੂੰ ਸਿਸਟਮ ਪਾਰਟੀਸ਼ਨ ਵਿੱਚ ਇੰਸਟਾਲ ਕੀਤਾ</string>
     <string name="tools_installer_title">ਕਮਾਂਡ ਲਾਈਨ ਟੂਲ ਇੰਸਟਾਲ ਕਰੋ</string>
     <string name="tools_installer_working">wg ਤੇ wg-quick ਇੰਸਟਾਲ ਕੀਤੇ ਜਾ ਰਹੇ ਹਨ</string>
     <string name="tools_unavailable_error">ਚਾਹੀਦੇ ਟੂਲ ਮੌਜੂਦ ਨਹੀਂ ਹਨ</string>

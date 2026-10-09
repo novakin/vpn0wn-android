@@ -190,9 +190,7 @@
     <string name="tools_installer_failure">커맨드라인 도구 설치 불가 (루트 권한 필요)</string>
     <string name="tools_installer_initial">스크립팅에 필요한 선택적 도구 설치하기</string>
     <string name="tools_installer_initial_magisk">Magisk 모듈로 설치할 때의 스크립팅에 필요한 선택적 도구 설치하기</string>
-    <string name="tools_installer_initial_system">시스템 파티션에 설치할 때의 스크립팅에 필요한 선택적 도구 설치하기</string>
     <string name="tools_installer_success_magisk">wg와 wg-quick가 Magisk 모듈로 설치됨 (재부팅 필요)</string>
-    <string name="tools_installer_success_system">wg와 wg-quick가 시스템 파티션에 설치됨</string>
     <string name="tools_installer_title">커맨드라인 도구 설치하기</string>
     <string name="tools_installer_working">wg와 wg-quick 설치하는 중</string>
     <string name="tools_unavailable_error">필요한 도구를 사용할 수 없음</string>

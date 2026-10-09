@@ -190,9 +190,7 @@
     <string name="tools_installer_failure">Tidak dapat memasang alat command-line (tidak root?)</string>
     <string name="tools_installer_initial">Pasang alat opsional untuk skrip</string>
     <string name="tools_installer_initial_magisk">Pasang alat opsional untuk skrip sebagai modul Magisk</string>
-    <string name="tools_installer_initial_system">Pasang alat opsional untuk skrip ke dalam partisi sistem</string>
     <string name="tools_installer_success_magisk">wg and wg-quick dipasang sebagai modul Magisk (diperlukan mulai ulang)</string>
-    <string name="tools_installer_success_system">wg and wg-quick dipasang ke dalam partisi sistem</string>
     <string name="tools_installer_title">Pasang alat command line</string>
     <string name="tools_installer_working">Memasang wg and wg-quick</string>
     <string name="tools_unavailable_error">Alat yang diperlukan tidak tersedia</string>

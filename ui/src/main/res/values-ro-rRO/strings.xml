@@ -214,9 +214,7 @@
     <string name="tools_installer_failure">Nu se pot instala instrumentele de linie de comandă (lipsă root?)</string>
     <string name="tools_installer_initial">Instalare instrumente opționale pentru scriptare</string>
     <string name="tools_installer_initial_magisk">Instalare instrumente opționale pentru scriptare ca modul Magisk</string>
-    <string name="tools_installer_initial_system">Instalare instrumente opționale pentru scriptare în partiția de sistem</string>
     <string name="tools_installer_success_magisk">wg și wg-quick instalate ca modul Magisk (este necesară repornirea)</string>
-    <string name="tools_installer_success_system">wg și wg-quick instalate în partiția de sistem</string>
     <string name="tools_installer_title">Instalare instrumente de linie de comandă</string>
     <string name="tools_installer_working">Se instalează wg și wg-quick</string>
     <string name="tools_unavailable_error">Instrumentele necesare sunt indisponibile</string>

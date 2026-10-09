@@ -207,9 +207,7 @@
     <string name="tools_installer_failure">Impossible d\'installer les outils en ligne de commande (pas de root?)</string>
     <string name="tools_installer_initial">Installer les outils optionnels pour le script</string>
     <string name="tools_installer_initial_magisk">Installer les outils optionnels pour le script en tant que module Magisk</string>
-    <string name="tools_installer_initial_system">Installer les outils optionnels pour le script dans la partition système</string>
     <string name="tools_installer_success_magisk">wg et wg-quick installés en tant que module Magisk (redémarrage requis)</string>
-    <string name="tools_installer_success_system">wg et wg-quick installés dans la partition système</string>
     <string name="tools_installer_title">Installer les outils de ligne de commande</string>
     <string name="tools_installer_working">Installation de wg et wg-quick</string>
     <string name="tools_unavailable_error">Outils requis indisponibles</string>

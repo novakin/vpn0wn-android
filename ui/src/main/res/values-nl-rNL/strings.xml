@@ -203,9 +203,7 @@
     <string name="tools_installer_failure">Kan de command-line tools niet installeren (geen root?)</string>
     <string name="tools_installer_initial">Optionele tools voor scripts installeren</string>
     <string name="tools_installer_initial_magisk">Optionele tools voor het scripting als Magisk module installeren</string>
-    <string name="tools_installer_initial_system">Optionele tools voor scripting in de systeempartitie installeren</string>
     <string name="tools_installer_success_magisk">wg en wg-quick installeren als een Magisk-module (herstart vereist)</string>
-    <string name="tools_installer_success_system">\"Wg en wg-quick\" geïnstalleerd in de systeempartitie</string>
     <string name="tools_installer_title">Installeer command line tools</string>
     <string name="tools_installer_working">Installeren van wg en wg-quick</string>
     <string name="tools_unavailable_error">Vereiste tools niet beschikbaar</string>

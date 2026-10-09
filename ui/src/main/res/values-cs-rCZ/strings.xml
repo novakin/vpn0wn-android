@@ -229,9 +229,7 @@
     <string name="tools_installer_failure">Nelze nainstalovat nástroje příkazového řádku (bez roota?)</string>
     <string name="tools_installer_initial">Instalace volitelných nástrojů pro skriptování</string>
     <string name="tools_installer_initial_magisk">Instalace volitelných nástrojů pro skriptování jako modul Magisk</string>
-    <string name="tools_installer_initial_system">Instalovat volitelné nástroje pro skriptování do systémového oddílu</string>
     <string name="tools_installer_success_magisk">wg a wg-quick nainstalované jako modul Magisk (nutný restart)</string>
-    <string name="tools_installer_success_system">wg a wg-quick nainstalovány do systémového oddílu</string>
     <string name="tools_installer_title">Nainstalujte nástroje příkazového řádku</string>
     <string name="tools_installer_working">Instaluji wg a wg-quick</string>
     <string name="tools_unavailable_error">Požadované nástroje nejsou k dispozici</string>

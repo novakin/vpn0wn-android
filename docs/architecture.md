@@ -1,6 +1,6 @@
 # Architecture and maintenance boundaries
 
-Last updated: 2026-10-08 (Europe/Paris).
+Last updated: 2026-10-09 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -17,7 +17,7 @@ Preserve the existing Android DataBinding/Fragment foundation and upstream WireG
 | [Config types](../tunnel/src/main/java/com/wireguard/config/Config.java) | WireGuard parsing/serialization, interfaces, peers, addresses and endpoints. |
 | [GoBackend](../tunnel/src/main/java/com/wireguard/android/backend/GoBackend.java), [WgQuickBackend](../tunnel/src/main/java/com/wireguard/android/backend/WgQuickBackend.java) | Userspace VPN/native activation and root/kernel command integration. |
 | [Native tunnel handles](../tunnel/tools/libwg-go/tunnelhandles.go), [Android bind lifetime](../tunnel/tools/libwg-go/androidbind/bind.go), [UAPI server](../tunnel/tools/libwg-go/uapiserver/server.go) | Lookup admission and device/socket/client ownership; cancel owned I/O before draining queries and releasing the device/JNI context. |
-| [RootShell](../tunnel/src/main/java/com/wireguard/android/util/RootShell.java) and native tools | Root command protocol and existing WireGuard tool execution. |
+| [RootShell](../tunnel/src/main/java/com/wireguard/android/util/RootShell.java), [ToolsInstaller](../tunnel/src/main/java/com/wireguard/android/util/ToolsInstaller.java) and native tools | Root command protocol, private backend tools and optional scripting-tools coexistence/staging. |
 | [Provisioning client](../ui/src/main/java/com/wireguard/android/provisioning/TunnlProvisioningClient.kt), models and script bundle | Remote orchestration, argument construction, packaged script upload and typed result parsing. |
 | [Remote-shell boundary](../ui/src/main/java/com/wireguard/android/provisioning/RemoteShellClient.kt) | Transport factory and guarded execute/upload; concrete SSH/session implementation is still missing. |
 | [VPS store](../ui/src/main/java/com/wireguard/android/provisioning/VpsServerStore.kt), [mapper](../ui/src/main/java/com/wireguard/android/provisioning/VpsDeployMapper.kt) | Transactional non-secret fleet records and projection into UI models. |
@@ -80,6 +80,16 @@ These are required maintenance invariants, not guarantees that all current owner
 See [backend contracts](backend-contracts.md) for known divergences and [the plan](improvement-plan.md) for repair ownership.
 
 ## Consequential decisions
+
+### Optional root tools preserve existing installations — 2026-10-09
+
+**Problem:** the optional installer could overwrite WireGuard's Magisk module or global tools. Renaming the app alone would also violate its existing package admission guard.
+
+**Decision/status:** the maintainer approved reusing compatible installed tools and creating vpn0wn's module only when target paths are free. This #71 preparation extends `ToolsInstaller`: compatibility requires both regular executable files to match the current private tools byte-for-byte; otherwise conflicting tools or overlays block installation. A fresh eligible Magisk install uses `/data/adb/modules/vpn0wn`. Direct `/system` writes are retired. The legacy `com.wireguard.` package guard remains until the separately accepted identity migration updates it. [Backend contracts](backend-contracts.md#optional-scripting-tools) own precise probe, staging and failure semantics.
+
+**Alternatives/consequences:** sharing or replacing WireGuard's module risks another app's tools and recovery. Disabling installation entirely would remove the supported free-path Magisk option. Exact-byte matching conservatively refuses differently built tools even when their versions might interoperate. Extending the existing owner leaves RootShell's private PATH and kernel-backend execution intact. Existing verified own staging can reconcile a lost response without another write; unknown existing content is never adopted or removed.
+
+**Verification/migration limits:** unprivileged emitted-script and preference controls establish only their exercised boundaries. Root, Magisk mount/reboot behavior, actual SELinux labeling and the old/new application-ID coexistence matrix require separate authorized proof. This source slice does not deliver the full rename or authorize device operations. Atomic creation owns the new module directory; it does not lock out unrelated root tools.
 
 ### Shared statistics belong to the manager — 2026-10-08
 

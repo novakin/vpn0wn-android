@@ -219,12 +219,12 @@
     <string name="toggle_all">Toggle All</string>
     <string name="toggle_error">Error toggling WireGuard tunnel: %s</string>
     <string name="tools_installer_already">wg and wg-quick are already installed</string>
+    <string name="tools_installer_blocked">Installation unavailable: conflicting tools or no usable Magisk. Existing files are preserved.</string>
+    <string name="tools_installer_probe_failure">Unable to check installed tools. Check root access and retry.</string>
     <string name="tools_installer_failure">Unable to install command-line tools (no root?)</string>
     <string name="tools_installer_initial">Install optional tools for scripting</string>
     <string name="tools_installer_initial_magisk">Install optional tools for scripting as Magisk module</string>
-    <string name="tools_installer_initial_system">Install optional tools for scripting into the system partition</string>
     <string name="tools_installer_success_magisk">wg and wg-quick installed as a Magisk module (reboot required)</string>
-    <string name="tools_installer_success_system">wg and wg-quick installed into the system partition</string>
     <string name="tools_installer_title">Install command line tools</string>
     <string name="tools_installer_working">Installing wg and wg-quick</string>
     <string name="tools_unavailable_error">Required tools unavailable</string>
