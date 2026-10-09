@@ -30,6 +30,8 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           submodules: recursive
           persist-credentials: false
+      - name: Run offline VPS harness checks
+        run: python3 -m unittest discover -s scripts/tests -p 'test_vps_integration_test.py'
       - name: Set up Java
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
