@@ -1,6 +1,6 @@
 # Tunnl WireGuard provisioning scripts
 
-Last updated: 2026-10-06 (Europe/Paris).
+Last updated: 2026-10-09 (Europe/Paris).
 
 These Tunnl-owned Bash commands adapt the [pinned upstream reference](../UPSTREAM.md) into a non-interactive server surface. Android uses these scripts rather than the upstream interactive installer. Concrete Android SSH transport and live UI actions remain unfinished.
 
@@ -46,8 +46,8 @@ Normal responses and explicit failures use JSON on stdout. Mutating-command diag
 
 Never log or publish generated configs, backup payloads, private keys or PSKs. Shell-quoted arguments do not validate WireGuard config content. No script manages SSH configuration or intentionally edits SSH port rules; this is not a guarantee about all host firewall/package effects.
 
-Android consumes agreed C4 JSON/health contracts. Remaining work includes harness postcondition/failure-redaction proof (C9) and real SSH/UI integration (C11–C12). Neither C2–C3 nor C4 offline proof establishes real-server behavior.
+Android consumes agreed C4 JSON/health contracts. C9 now checks exact saved/live peer and uninstall/package postconditions with payload-free failures and owned cleanup; see [harness proof](../../../docs/development.md#c9-offline-harness-postconditions--2026-10-09). Real SSH/UI integration (C11–C12) remains unfinished. Offline script/harness proof does not establish real-server behavior.
 
 ## Verification
 
-Run [the offline suite](../../../scripts/tests/provisioning_safety_test.sh) through an unprivileged Linux user namespace; see [C2–C3 evidence](../../../docs/development.md#c2c3-offline-provisioning-safety--2026-10-06) and [C4 contract evidence](../../../docs/development.md#c4-provisioning-contracts-and-observed-health--2026-10-06). Fixtures use synthetic keys, private temporary files and fake privileged commands. The suite compares actual normalized script responses to committed synthetic JSON consumed by JVM tests. Syntax alone does not establish mutation safety. The [disposable VPS harness](../../../docs/qa-test-plan.md#disposable-vps-integration-use-case) still needs C9 repairs and explicit authorization. No APK, SSH or live VPN proof was run for this change.
+Run [the offline suite](../../../scripts/tests/provisioning_safety_test.sh) through an unprivileged Linux user namespace; see [C2–C3 evidence](../../../docs/development.md#c2c3-offline-provisioning-safety--2026-10-06) and [C4 contract evidence](../../../docs/development.md#c4-provisioning-contracts-and-observed-health--2026-10-06). Fixtures use synthetic keys, private temporary files and fake privileged commands. The suite compares actual normalized script responses to committed synthetic JSON consumed by JVM tests. Syntax alone does not establish mutation safety. C9 adds standard-library injected offline harness controls; the [disposable VPS harness](../../../docs/qa-test-plan.md#disposable-vps-integration-use-case) still needs explicit target authorization for a live run. No APK, SSH or live VPN proof was run for this change.
