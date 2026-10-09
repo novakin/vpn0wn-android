@@ -1,6 +1,6 @@
 # Development and contribution workflow
 
-Last updated: 2026-10-08 (Europe/Paris).
+Last updated: 2026-10-09 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Setup/process substantively updated 2026-10-07 (Europe/Paris); historical runtime evidence retains its original scope.
 
@@ -516,3 +516,7 @@ The native transport tests replace Java preflight/tag tests in `GoBackendLifecyc
 ### G4 import and device acceptance follow-up — 2026-10-08
 
 The [scoped physical record](reviews/2026-10-08-g4-import-device-acceptance.md) adds mixed-ZIP and image-QR results, portrait editor keyboard clearance and synthetic-only Home selection/deletion on the existing `f4a4b147` debug APK. All original app files remained byte-identical after cleanup; recorded device settings and locale were restored and the personal VPN stayed ON. Earlier switch/tile/export observations retain weaker ownership evidence. Export cancellation, camera/TalkBack, peer/provider/Settings and admitted-deletion boundaries remain incomplete; #28/#34/#35/#36/#52 stay open. This documents existing behavior without a new APK, source change or performance result. The report owns provenance, controlled-session timing, artifact privacy and exact limits; current independent ultra review and final-head checks belong in the documentation PR.
+
+### G4 isolated native acceptance follow-up — 2026-10-09
+
+The [private API 36 record](reviews/2026-10-09-g4-private-native-acceptance.md) uses the existing `f4a4b147` APK and synthetic DOWN profiles. Native camera denial/retry, tile Cancel/Add, repeated remote-control persistence, mixed-ZIP import, canonical export/MediaStore overwrite, settled selection/recreation/confirmation cancellation and DOWN detail output were checked. Camera-denial restart advice and stale tile-row eligibility remain findings; the exact tile teardown/process boundary was not captured. Owned profiles/files/rows/settings were removed or restored, original package absence was restored and the private emulator stopped; the visible AVD and Pixel were untouched. No new APK, tracked source change, network or energy run occurred. Physical/accessibility, older-API, conditional root/kernel, authentication/export cancellation and provider/admitted-operation failure gates remain open. The report owns evidence and limitations; the documentation PR owns final review/checks and publication state.
