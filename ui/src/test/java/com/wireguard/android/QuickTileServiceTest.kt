@@ -112,17 +112,19 @@ class QuickTileServiceTest {
                         writingAdd.complete(Unit)
                         finishAdd.await()
                     }
-                    transform(current)
+                    val next = transform(current)
+                    if (writes == 1) assertEquals(current, next)
+                    next
                 }
         }
         setDataStore(env, delayedStore)
         val service = createService().get()
         val removalRevision = UserKnobs.quickTileRemovalRevision
         service.onTileAdded()
-        service.onTileRemoved()
-        assertEquals(removalRevision + 1, UserKnobs.quickTileRemovalRevision)
         runCurrent()
         writingAdd.await()
+        service.onTileRemoved()
+        assertEquals(removalRevision + 1, UserKnobs.quickTileRemovalRevision)
         assertNull(UserKnobs.quickTileAdded.first())
         finishAdd.complete(Unit)
         assertEquals(false, UserKnobs.quickTileAdded.first { it == false })
