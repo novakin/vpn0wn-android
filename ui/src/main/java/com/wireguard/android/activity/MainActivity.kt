@@ -7,6 +7,7 @@ package com.wireguard.android.activity
 import com.wireguard.android.util.applySafeAreaInsets
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
@@ -50,6 +51,13 @@ class MainActivity : BaseActivity(), FragmentManager.OnBackStackChangedListener 
 
     override fun onBackStackChanged() {
         val backStackEntries = supportFragmentManager.backStackEntryCount
+        val background = if (backStackEntries == 0) R.color.tunnl_paper else R.color.tunnl_paper_2
+        findViewById<View>(R.id.main_activity_container).setBackgroundResource(background)
+        // Edge-to-edge ignores statusBarColor on Android 15+.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            @Suppress("DEPRECATION")
+            window.statusBarColor = getColor(background)
+        }
         backPressedCallback?.isEnabled = backStackEntries >= 1
         if (actionBar == null) return
         actionBar!!.hide()
