@@ -211,6 +211,8 @@ The next sequence is bounded by the [remaining device runbook](qa-test-plan.md#r
 
 The [2026-10-09 API 28 export open-failure follow-up](reviews/2026-10-09-g4-private-native-acceptance.md#api-28-export-open-failure-follow-up) adds native pre-ownership acquisition failure, directory/sentinel/config/preference preservation, enabled recovery and canonical ZIP retry on the unchanged retained APK. Owned cleanup and private-emulator termination were verified. After-acquisition write/cancellation, MediaStore/provider and applicable physical gates remain open. A separate read-only trace explains the maintainer's accessibility linking screenshot without claiming a crash or TalkBack acceptance. The maintainer again deferred Pixel availability; #47's prepared helpers still await a fresh exclusive unplugged session, with no target, implementation, gain or no-change verdict.
 
+The [API 28 admitted-delete failure follow-up](reviews/2026-10-09-g4-private-native-acceptance.md#api-28-admitted-delete-failure-follow-up) adds real app-UID filesystem failure, preserved configs/selection, settled retry and successful deletion after exact permission restoration. Owned cleanup/private termination passed. Partial-success deletion, admitted cancellation, active-state recovery and applicable physical/accessibility gates stay pending; #36/#52 and the #47 measurement boundary are unchanged.
+
 The table is the bounded phase scope. Issues own detailed acceptance and dependencies; this guide owns order and action state. A concrete new finding receives an issue and enters a later phase only after its scope is agreed. Do not treat the rest of C1–C12 or every prototype feature as part of this goal.
 
 | Phase | Named scope and current state | Completion boundary |
