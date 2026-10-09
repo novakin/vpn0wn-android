@@ -39,7 +39,7 @@ The selected Home target keeps the compact two-row wordmark/count/title header, 
 
 Use lighter tunnel-name and stat-value typography, readable value/unit spacing, and `LAST HANDSHAKE` with a relative age such as `14s ago`. The HTML uses Inter Tight for some data text to approximate the selected raster; it does not supersede the native semantic font roles below. Apply the weight/spacing intent through existing native styles and compare actual Android output. Keep Add anchored above the bottom safe area: full width, 48dp design height, solid thin border, existing card-surface fill, 13sp regular JetBrains Mono with modest tracking, a 14dp plus icon, an 8dp label gap, and the prototype's small top-left/bottom-right engineering corner ticks.
 
-Generative edits drifted in color, so the retained reference is rendered from fixed role colors sampled from the selected image. These are preview samples, not changes to Android's existing resources; reconcile them through the existing semantic tokens during implementation. Keep the separate diagram, button and switch blues.
+Generative edits drifted in color, so the retained reference is rendered from fixed role colors sampled from the selected image. These were preview samples at the handoff. The 2026-10-09 palette-only source mapping now applies matching shared roles and separates diagram-node, diagram-line and connection-dot colors; native output verification remains pending. Keep the separate diagram, button and switch blues.
 
 | Preview role | Fixed color |
 | --- | --- |
@@ -54,7 +54,7 @@ Generative edits drifted in color, so the retained reference is rendered from fi
 | Switch | `#68C6FD` |
 | Connection dot | `#05DE6A` |
 
-Local proof covers an 840×1872 browser render of a 420×936 design canvas, loaded repository fonts, label fit, footer geometry and sampled exported colors. Flat fills and font rendering differ from the earlier generated raster. Android source is unchanged; no APK, phone, VPN or whole-app runtime checks were performed for this handoff. Native Home application is pending, and the existing Redesign QA list below owns the remaining app-wide review.
+Local proof covers an 840×1872 browser render of a 420×936 design canvas, loaded repository fonts, label fit, footer geometry and sampled exported colors. Flat fills and font rendering differ from the earlier generated raster. Android source was unchanged at that handoff; no APK, phone, VPN or whole-app runtime checks were performed for it. The later palette-only source mapping does not implement the remaining Home geometry, typography or branding refinements and has no native output proof yet. The existing Redesign QA list below owns the remaining app-wide review.
 
 ## Design System
 
@@ -105,7 +105,7 @@ Local proof covers an 840×1872 browser render of a 420×936 design canvas, load
 
 ### Color Tokens
 
-Prototype colors use `oklch()`. Android uses tuned hex resources with a dark-first palette in both Material theme buckets, not exact documented OKLCH conversions. `Application` follows system night mode on Android Q+ and the user preference before Q; TV forces night mode separately. Application startup no longer registers Material dynamic-color overlays, preserving the existing fixed azure/dark theme roles independently of wallpaper colors. Newer surface-container and fixed-primary roles not defined by the app retain static Material library defaults. [#88](https://github.com/novakin/wireguard-android/issues/88) keeps rebuilt-APK wallpaper-invariance proof pending; C10 still requires actual output checks.
+Prototype colors use `oklch()`. Android uses tuned hex resources with a dark-first palette in both Material theme buckets, not exact documented OKLCH conversions. `Application` follows system night mode on Android Q+ and the user preference before Q; TV forces night mode separately. Application startup no longer registers Material dynamic-color overlays. Shared paper, card, border, text, action and UP-state colors now match the selected Home hex reference independently of wallpaper colors, with separate diagram-node, diagram-line and connection-dot roles. Newer surface-container and fixed-primary roles not defined by the app retain static Material library defaults. [#88](https://github.com/novakin/wireguard-android/issues/88) keeps rebuilt-APK wallpaper-invariance proof pending; C10 still requires actual output checks.
 
 #### Light theme (`styles.css` root)
 
@@ -159,16 +159,19 @@ Prototype colors use `oklch()`. Android uses tuned hex resources with a dark-fir
 
 | Resource | Prototype role | Android value |
 | --- | --- | --- |
-| `tunnl_paper` | `--paper` dark | `#08111E` |
-| `tunnl_paper_2` | `--paper-2` dark | `#0F1A28` |
+| `tunnl_paper` | Selected page | `#071220` |
+| `tunnl_paper_2` | Selected card/Add surface | `#0A1727` |
 | `tunnl_paper_3` | `--paper-3` dark | `#162436` |
-| `tunnl_ink` | `--ink` dark | `#F3F8FF` |
+| `tunnl_ink` | Selected primary text | `#FAFAFA` |
 | `tunnl_ink_2` | `--ink-2` dark | `#C9D5E3` |
-| `tunnl_ink_3` | `--ink-3` dark | `#8EA1B8` |
-| `tunnl_rule` | `--rule` dark | `#26384D` |
+| `tunnl_ink_3` | Selected secondary text | `#94AECB` |
+| `tunnl_rule` | Selected border | `#233B54` |
 | `tunnl_rule_strong` | `--rule-strong` dark | `#3E5B78` |
-| `tunnl_signal` | `--signal` | `#44B3FF` |
-| `tunnl_signal_deep` | `--signal-deep` | `#8BD2FF` |
+| `tunnl_signal` | Selected action | `#2ABFF7` |
+| `tunnl_signal_deep` | Selected switch/UP | `#68C6FD` |
+| `tunnl_diagram_node` | Selected diagram nodes | `#20B2FD` |
+| `tunnl_diagram_line` | Selected diagram line/enclosure | `#63DAFC` |
+| `tunnl_connected` | Selected connected dot | `#05DE6A` |
 | `tunnl_warn` | `--warn` | `#F2C46D` |
 | `tunnl_error` | `--error` | `#FF8B6E` |
 
@@ -431,7 +434,9 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
-- [x] Fixed-palette source repair — 2026-10-09: `Application.onCreate()` no longer registers Material dynamic-color overlays, retaining the existing azure/dark theme roles and Android night-mode policy. [#88](https://github.com/novakin/wireguard-android/issues/88) tracks this source implementation and pending rebuilt-APK wallpaper-invariance proof; the installed APK is unchanged. The separate AVD system-palette operation does not establish app-source runtime acceptance.
+- [x] Selected Home palette source mapping — 2026-10-09: `colors.xml` maps shared paper/card/border/text/action/UP-state roles to the approved Home hex colors; `TunnelSignalView` and `TunnelThroughputView` retain distinct node/line blues, and `BindingAdapters` gives the Home connected dot its green role. Home header/status and Add fills/text now use the matching roles. `MainActivity.onBackStackChanged()` matches the Home safe-area backing and pre-Android-15 status bar to the page, restoring the existing card surface when a detail/editor is open. Geometry, branding, state decisions and unapproved base tokens are unchanged. [#88](https://github.com/novakin/wireguard-android/issues/88) remains open for rebuilt-APK/native output acceptance; this entry records source implementation only and does not complete C10.
+
+- [x] Fixed-palette source repair — 2026-10-09: `Application.onCreate()` no longer registers Material dynamic-color overlays, retaining the existing azure/dark theme roles and Android night-mode policy. [#88](https://github.com/novakin/wireguard-android/issues/88) tracks this source implementation and pending rebuilt-APK wallpaper-invariance proof; that source implementation did not change the installed APK. The separate AVD system-palette operation does not establish app-source runtime acceptance.
 
 - [x] Home visual reference — 2026-10-08: retained the selected palette, lighter typography, `LAST HANDSHAKE` wording and refined Add footer in a portable synthetic-data [mockup and handoff](#home-visual-handoff--2026-10-08). Browser visual checks only; native implementation and whole-app acceptance remain pending.
 

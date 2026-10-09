@@ -157,8 +157,8 @@ class TunnelSignalView @JvmOverloads constructor(
     }
 
     private fun syncColors() {
-        signal     = ContextCompat.getColor(context, R.color.tunnl_signal)
-        signalDeep = ContextCompat.getColor(context, R.color.tunnl_signal_deep)
+        signal     = ContextCompat.getColor(context, R.color.tunnl_diagram_node)
+        signalDeep = ContextCompat.getColor(context, R.color.tunnl_diagram_line)
         warn       = ContextCompat.getColor(context, R.color.tunnl_warn)
         error      = ContextCompat.getColor(context, R.color.tunnl_error)
         idle       = ContextCompat.getColor(context, R.color.tunnl_ink_3)
