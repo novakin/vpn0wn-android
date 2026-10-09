@@ -9,6 +9,7 @@ import java.io.IOException
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -16,17 +17,19 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.commit
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceGroup
 import com.wireguard.android.Application
-import com.wireguard.android.QuickTileService
 import com.wireguard.android.R
 import com.wireguard.android.backend.WgQuickBackend
 import com.wireguard.android.preference.PreferencesPreferenceDataStore
 import com.wireguard.android.util.AdminKnobs
 import com.wireguard.android.util.applySafeAreaInsets
+import com.wireguard.android.util.UserKnobs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -55,13 +58,30 @@ class SettingsActivity : AppCompatActivity() {
             return view
         }
 
+        override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+            super.onViewCreated(view, savedInstanceState)
+            val quickTile = findPreference<Preference>("quick_tile") ?: return
+            quickTile.isVisible = false
+            viewLifecycleOwner.lifecycleScope.launch {
+                viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    quickTile.isVisible = false
+                    try {
+                        UserKnobs.quickTileAdded.collect { added -> quickTile.isVisible = added != true }
+                    } catch (_: IOException) {
+                        quickTile.isVisible = false
+                        Log.w("WireGuard/Settings", "Unable to load quick tile membership")
+                    }
+                }
+            }
+        }
+
         override fun onCreatePreferences(savedInstanceState: Bundle?, key: String?) {
             preferenceManager.preferenceDataStore = PreferencesPreferenceDataStore(lifecycleScope, Application.getPreferencesDataStore())
             addPreferencesFromResource(R.xml.preferences)
             // AndroidX defaults row IDs to 0, which Android resolves as a resource during structure capture.
             clearPreferenceViewIds(preferenceScreen)
 
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || QuickTileService.isAdded) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
                 val quickTile = preferenceManager.findPreference<Preference>("quick_tile")
                 quickTile?.parent?.removePreference(quickTile)
             }
