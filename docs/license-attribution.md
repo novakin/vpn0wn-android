@@ -22,7 +22,7 @@ The payload is [credits.txt](../ui/src/main/assets/licenses/credits.txt), in the
 | Fonts | Full Inter Tight/JetBrains Mono OFL 1.1; [font attribution](font-attribution.md) owns binary metadata and pinned notice provenance. |
 | Host build helper | Full GPL-3.0-or-later and Fredrik Fornwall/Termux notices from elf-cleaner `7efc05090675ec6161b7def862728086a26c3b1f`. CMake executes it on the build host; this inventory does not establish APK inclusion. |
 
-The 2026-10-09 source inventory resolved `debugRuntimeClasspath`, `releaseRuntimeClasspath`, `googleplayRuntimeClasspath` and `coreLibraryDesugaring` using Gradle 9.8.1 on WSL/OpenJDK 21. All three Android graphs selected the same 108 external module identities; desugaring selected two more. These include BOM/multiplatform metadata. The offline version list includes the 88 selected identities with cached JAR/AAR archives, omitting metadata-only identities. Test-only dependencies and compile-only JSR305 are excluded. Reassess versions and notices when the dependency graph changes.
+The 2026-10-09 source inventory resolved `debugRuntimeClasspath`, `releaseRuntimeClasspath`, `googleplayRuntimeClasspath` and `coreLibraryDesugaring` using Gradle 9.8.1 on WSL/OpenJDK 21. All three Android graphs selected the same 108 external module identities; desugaring selected two more. These include BOM/multiplatform metadata. The offline version list includes the 86 Android runtime identities with cached JAR/AAR archives, omitting metadata-only identities. The two desugaring identities are covered separately. Test-only dependencies and compile-only JSR305 are excluded. Reassess versions and notices when the dependency graph changes.
 
 ## Artifact and distribution gates
 
