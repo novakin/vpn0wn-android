@@ -173,6 +173,9 @@ const handshakeObserverSource = `const (
 )
 
 func (peer *Peer) observeHandshake(event int, retry bool) {
+	if peer.device.isClosed() {
+		return
+	}
 	observer, ok := peer.device.net.bind.(interface {
 		ObserveHandshake([32]byte, int, bool, string)
 	})

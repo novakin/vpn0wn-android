@@ -23,15 +23,24 @@ type tunnlHandshakeBind struct {
 	mu           sync.Mutex
 	observations []tunnlHandshakeObservation
 	sendError    error
+	sendCalls    int
+	onObserve    func(tunnlHandshakeObservation)
 }
 
 func (b *tunnlHandshakeBind) ObserveHandshake(peer [32]byte, event int, retry bool, endpoint string) {
 	b.mu.Lock()
-	b.observations = append(b.observations, tunnlHandshakeObservation{peer, event, retry, endpoint})
+	observation := tunnlHandshakeObservation{peer, event, retry, endpoint}
+	b.observations = append(b.observations, observation)
 	b.mu.Unlock()
+	if b.onObserve != nil {
+		b.onObserve(observation)
+	}
 }
 
 func (b *tunnlHandshakeBind) Send(packets [][]byte, endpoint conn.Endpoint) error {
+	b.mu.Lock()
+	b.sendCalls++
+	b.mu.Unlock()
 	if b.sendError != nil {
 		return b.sendError
 	}
@@ -164,5 +173,60 @@ func TestTunnlHandshakeDistinctPeersRetainIdentity(t *testing.T) {
 	}
 	if observations[0].endpoint != "127.0.0.1:51820" || observations[2].endpoint != "[::1]:51821" {
 		t.Fatal("different peers lost numeric endpoints")
+	}
+}
+
+func TestTunnlHandshakeClosedDeviceCannotReportNoopAsSent(t *testing.T) {
+	peer, bind := tunnlHandshakePeer(t, "127.0.0.1:51820", false)
+	peer.device.Close()
+	if err := peer.SendHandshakeInitiation(false); err != nil {
+		t.Fatalf("closed-device upstream no-op changed: %v", err)
+	}
+	if observations := bind.snapshot(); len(observations) != 0 {
+		t.Fatalf("closed device fabricated observations: %+v", observations)
+	}
+	bind.mu.Lock()
+	defer bind.mu.Unlock()
+	if bind.sendCalls != 0 {
+		t.Fatal("closed-device no-op reached socket send")
+	}
+}
+
+func TestTunnlHandshakeConcurrentCloseAfterAttemptCannotReportSent(t *testing.T) {
+	peer, bind := tunnlHandshakePeer(t, "127.0.0.1:51820", false)
+	attempted := make(chan struct{})
+	released := make(chan struct{})
+	bind.onObserve = func(observation tunnlHandshakeObservation) {
+		if observation.event == tunnlHandshakeAttempt {
+			close(attempted)
+			<-released
+		}
+	}
+	done := make(chan error, 1)
+	go func() { done <- peer.SendHandshakeInitiation(false) }()
+	select {
+	case <-attempted:
+	case <-time.After(time.Second):
+		close(released)
+		t.Fatal("actual initiation did not reach attempt observation")
+	}
+	peer.device.Close()
+	close(released)
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("closed-device upstream no-op changed: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("initiation did not settle after actual concurrent close")
+	}
+	observations := bind.snapshot()
+	if len(observations) != 1 || observations[0].event != tunnlHandshakeAttempt {
+		t.Fatalf("concurrent close fabricated send result: %+v", observations)
+	}
+	bind.mu.Lock()
+	defer bind.mu.Unlock()
+	if bind.sendCalls != 0 {
+		t.Fatal("closed-device no-op reached socket send")
 	}
 }
