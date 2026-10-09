@@ -133,9 +133,6 @@
     <string name="tv_select_a_storage_drive">Vyberte úložný disk</string>
     <string name="tv_no_file_picker">Prosím nainstalujte nástroj pro správu souborů pro procházení souborů</string>
     <string name="tv_add_tunnel_get_started">Přidejte tunel, abyste mohli začít</string>
-    <string name="donate_title">♥ Přispět na projekt WireGuard</string>
-    <string name="donate_summary">Každý příspěvek pomáhá</string>
-    <string name="donate_google_play_disappointment">Děkujeme, že podporujete projekt WireGuard!\n\nBohužel, kvůli pravidlům Googlu, nám není dovoleno odkazovat na část webové stránky projektu, kde můžete provést dar. Doufáme, že to zvládnete nějakým způsobem!\n\nJeště jednou děkujeme za váš příspěvek.</string>
     <string name="disable_config_export_title">Zakázat export konfigurace</string>
     <string name="disable_config_export_description">Zakázání exportu konfigurace ztíží přístup k privátním klíčům</string>
     <string name="dns_servers">DNS servery</string>

@@ -5,27 +5,22 @@
 package com.wireguard.android.preference
 
 import kotlinx.coroutines.CancellationException
-import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
 import android.util.AttributeSet
 import android.util.Log
 import android.widget.ImageView
 import androidx.core.widget.ImageViewCompat
 import androidx.preference.Preference
 import androidx.preference.PreferenceViewHolder
-import com.google.android.material.snackbar.Snackbar
 import com.wireguard.android.Application
 import com.wireguard.android.BuildConfig
 import com.wireguard.android.R
+import com.wireguard.android.activity.LicensesActivity
 import com.wireguard.android.backend.Backend
 import com.wireguard.android.backend.GoBackend
 import com.wireguard.android.backend.WgQuickBackend
-import com.wireguard.android.util.ErrorMessages
-import com.wireguard.android.util.activity
 import com.wireguard.android.util.lifecycleScope
-import com.wireguard.android.util.tunnlStyle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -44,15 +39,7 @@ class VersionPreference(context: Context, attrs: AttributeSet?) : Preference(con
     }
 
     override fun onClick() {
-        val intent = Intent(Intent.ACTION_VIEW)
-        intent.data = Uri.parse("https://www.wireguard.com/")
-        try {
-            context.startActivity(intent)
-        } catch (e: ActivityNotFoundException) {
-            Snackbar.make(activity.findViewById(android.R.id.content), ErrorMessages[e], Snackbar.LENGTH_SHORT).tunnlStyle().show()
-        } catch (e: SecurityException) {
-            Snackbar.make(activity.findViewById(android.R.id.content), ErrorMessages[e], Snackbar.LENGTH_SHORT).tunnlStyle().show()
-        }
+        context.startActivity(Intent(context, LicensesActivity::class.java))
     }
 
     companion object {

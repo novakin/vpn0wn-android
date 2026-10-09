@@ -37,6 +37,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.resetMain
@@ -266,6 +267,30 @@ class SettingsActivityTest {
         fragment(activity).findPreference<Preference>("version")!!.onBindViewHolder(PreferenceViewHolder.createInstanceForTests(row))
         assertNull(icon.imageTintList)
         assertNotNull(icon.drawable)
+    }
+
+    @Test fun offlineCreditsAndVersionNavigationSurviveRecreationWithoutPersistingAction() = runTest {
+        environment()
+        val activity = openSettings()
+        settle(activity)
+        val licenses = fragment(activity).findPreference<Preference>("licenses")!!
+        val preferencesBefore = com.wireguard.android.Application.getPreferencesDataStore().data.first().asMap()
+        assertEquals(activity.getString(R.string.licenses_title), licenses.title)
+        assertFalse(licenses.isPersistent)
+        licenses.performClick()
+        val first = shadowOf(activity).nextStartedActivity
+        assertEquals(LicensesActivity::class.java.name, first.component!!.className)
+        assertNull(first.action)
+        assertNull(first.data)
+        controllers.last().recreate()
+        val recreated = controllers.last().get()
+        settle(recreated)
+        fragment(recreated).findPreference<Preference>("version")!!.performClick()
+        val version = shadowOf(recreated).nextStartedActivity
+        assertEquals(LicensesActivity::class.java.name, version.component!!.className)
+        assertNull(version.action)
+        assertNull(version.data)
+        assertEquals(preferencesBefore, com.wireguard.android.Application.getPreferencesDataStore().data.first().asMap())
     }
 
     @Test @Config(sdk = [33]) fun rootInsetsAreIdempotentAndLeaveImeInsetsForDescendants() = runTest {

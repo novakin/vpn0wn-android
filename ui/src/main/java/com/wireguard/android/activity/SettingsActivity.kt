@@ -83,6 +83,10 @@ class SettingsActivity : AppCompatActivity() {
                 startActivity(Intent(requireContext(), LogViewerActivity::class.java))
                 true
             }
+            preferenceManager.findPreference<Preference>("licenses")?.setOnPreferenceClickListener {
+                startActivity(Intent(requireContext(), LicensesActivity::class.java))
+                true
+            }
             val kernelModuleEnabler = preferenceManager.findPreference<Preference>("kernel_module_enabler")
             val connection = findPreference<PreferenceCategory>("settings_connection")
             connection?.isVisible = false

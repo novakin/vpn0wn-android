@@ -1,6 +1,6 @@
 # Font Attribution
 
-Last updated: 2026-10-06 (Europe/Paris).
+Last updated: 2026-10-09 (Europe/Paris).
 
 The UI redesign bundles the following fonts under `ui/src/main/res/font`, matching the families referenced by the read-only prototype. Versions and notices below come from the embedded SFNT name tables, inspected on 2026-10-06; they do not establish the original binary download revision or a reproducible build.
 
@@ -17,3 +17,5 @@ Both families use SIL Open Font License 1.1. Embedded short notices/URLs alone d
 These pinned license sources identify the notice copies, not the provenance of the existing font binaries. Preserve copyright and full license with redistributed fonts; follow reserved-name and modification terms when replacing them. Do not date or rewrite the externally owned license texts.
 
 No APK was assembled for this attribution change. Verify both license assets are present in the actual APK before distribution; source placement is not executed packaging evidence.
+
+Settings now includes both complete font notices in its offline Licenses & credits text. [Software attribution](license-attribution.md) owns that source slice and pending artifact/distribution gates; existing binaries and their provenance limits remain unchanged.

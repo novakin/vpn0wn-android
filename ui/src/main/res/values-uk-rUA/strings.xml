@@ -133,9 +133,6 @@
     <string name="tv_select_a_storage_drive">Виберіть диск зберігання</string>
     <string name="tv_no_file_picker">Будь ласка, встановіть провідник для перегляду файлів</string>
     <string name="tv_add_tunnel_get_started">Додайте тунель, щоб почати</string>
-    <string name="donate_title">♥️ Пожертвуйте на проект WireGuard</string>
-    <string name="donate_summary">Кожен внесок допомагає</string>
-    <string name="donate_google_play_disappointment">Дякуємо за підтримку проекту WireGuard!\n\nНа жаль, через політику Google нам заборонено розміщувати посилання на веб-сторінку проекту, де можна зробити пожертву. Сподіваємося на розуміння!\n\nЩе раз дякую за ваш внесок.</string>
     <string name="disable_config_export_title">Вимкнути експорт конфігурації</string>
     <string name="disable_config_export_description">Вимкнення експорту налаштувань робить приватні ключі менш доступними</string>
     <string name="dns_servers">DNS-сервери</string>

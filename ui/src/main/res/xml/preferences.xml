@@ -112,9 +112,13 @@
             android:singleLineTitle="false"
             android:layout="@layout/tunnl_preference_item" />
 
-        <com.wireguard.android.preference.DonatePreference
-            android:icon="@drawable/ic_tunnl_share"
+        <Preference
+            android:icon="@drawable/ic_tunnl_file"
+            android:key="licenses"
             android:layout="@layout/tunnl_preference_item"
-            android:singleLineTitle="false" />
+            android:persistent="false"
+            android:singleLineTitle="false"
+            android:summary="@string/licenses_summary"
+            android:title="@string/licenses_title" />
     </PreferenceCategory>
 </androidx.preference.PreferenceScreen>

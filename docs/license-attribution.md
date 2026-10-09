@@ -1,0 +1,31 @@
+# Software licenses and credits
+
+Last updated: 2026-10-09 (Europe/Paris).
+
+Settings → About → Licenses & credits opens a private native activity with selectable, scrollable offline text. The version row opens the same screen and keeps its current product title and actual backend-version summary. The upstream donation preference, URL, Google Play-specific dialog and donation strings in all 29 affected resource sets are removed. English/French navigation strings use normal English fallback elsewhere. This is a partial [#71](https://github.com/novakin/wireguard-android/issues/71) delivery; product/package identity, updater, tools coexistence and data-transfer policy remain separate work.
+
+The payload is [credits.txt](../ui/src/main/assets/licenses/credits.txt), in the existing Android main asset directory. Its bundle normalizes line endings and trailing spaces while preserving complete license wording; original copies remain unchanged. Full font notice assets remain beside it. Source [COPYING](../COPYING), upstream copyright and externally owned submodules are unchanged. The activity reads the local asset off Main, reports an I/O failure and retains native Back/inset handling. No browser or preference write is required.
+
+## Notice sources and coverage
+
+| Component | Terms and offline notice source |
+| --- | --- |
+| Android application/JNI | Root Apache 2.0 `COPYING`; original WireGuard LLC copyright. |
+| JVM runtime libraries | AndroidX, Material, Kotlin, coroutines, serialization, Okio, ZXing and other selected runtime libraries use Apache 2.0, except the components below. Versioned Google Maven/Maven Central POMs establish terms; Guava ListenableFuture 1.0 and ZXing Core 3.4.1 inherit them from `guava-parent:26.0-android` and `zxing-parent:3.4.1`. Full Data Binding 9.1.0 cached `NOTICE`, [ZXing 3.4.1 NOTICE](https://github.com/zxing/zxing/blob/zxing-3.4.1/NOTICE) and [ZXing Android Embedded 4.3.0 COPYING](https://github.com/journeyapps/zxing-android-embedded/blob/v4.3.0/COPYING) are retained. |
+| DataStore repackaged Protocol Buffers 1.2.1 | Full BSD-3-Clause text from its exact cached artifact and published source JAR. Upstream copyright/full BSD notice uses [Protocol Buffers v3.25.5 LICENSE](https://github.com/protocolbuffers/protobuf/blob/v3.25.5/LICENSE); this identifies the notice-copy source, not DataStore's internal protobuf version. |
+| Desugared OpenJDK 2.1.5 | Its versioned Google Maven POM declares GPL-2.0 with the Classpath Exception. Full `LICENSE`, `ASSEMBLY_EXCEPTION` and `ADDITIONAL_LICENSE_INFO` copies pin the POM's upstream reference at [092407c5](https://github.com/google/desugar_jdk_libs/tree/092407c51c3eaaaa9e46f7b7e436dc642f614064). This identifies notice provenance, not the 2.1.5 binary's corresponding-source revision. Configuration 2.1.5's full R8 BSD-3-Clause notice comes from its cached archive. |
+| WireGuard Go | Cached module `v0.0.0-20250521234502-f333402bd9cb` supplies MIT text and source-header WireGuard LLC copyright. Go 1.24.3 and `golang.org/x/crypto v0.38.0`, `x/net v0.40.0`, `x/sys v0.33.0` supply their full BSD notices. Android import resolution selects these external modules; Windows-only `wintun` is excluded. |
+| `wg` / `wg-quick` | Pinned wireguard-tools `e2ecaaa739144997ccff89d6ad6ec81698ea6ced`, version 1.0.20250521. Full GPL-2.0 uses unchanged submodule `COPYING`. Per-file GPL-2.0 OR MIT, MIT and Linux-syscall-note declarations and original Jason A. Donenfeld, fiat-crypto, INRIA/Microsoft notices remain. The MIT alternative is supplied with its copyright notices. |
+| Native netlink helper | Minimized libmnl `netlink.h` retains Jason A. Donenfeld/Pablo Neira Ayuso copyright and LGPL-2.1-or-later. Full LGPL 2.1 uses the [GNU license text](https://www.gnu.org/licenses/old-licenses/lgpl-2.1.txt). |
+| NDK compatibility source | Original WireGuard LLC copyright and exact upstream `BSD` identifier. No BSD variant is asserted; source does not identify one. Its compatibility function is excluded at supported minimum API 24. |
+| Provisioning reference | Nyr's full MIT [LICENSE.txt](../third_party/wireguard-install/LICENSE.txt); [vendored provenance](../third_party/wireguard-install/UPSTREAM.md) remains authoritative. |
+| Fonts | Full Inter Tight/JetBrains Mono OFL 1.1; [font attribution](font-attribution.md) owns binary metadata and pinned notice provenance. |
+| Host build helper | Full GPL-3.0-or-later and Fredrik Fornwall/Termux notices from elf-cleaner `7efc05090675ec6161b7def862728086a26c3b1f`. CMake executes it on the build host; this inventory does not establish APK inclusion. |
+
+The 2026-10-09 source inventory resolved `debugRuntimeClasspath`, `releaseRuntimeClasspath`, `googleplayRuntimeClasspath` and `coreLibraryDesugaring` using Gradle 9.8.1 on WSL/OpenJDK 21. All three Android graphs selected the same 108 external module identities; desugaring selected two more. These include BOM/multiplatform metadata. The offline version list includes the 88 selected identities with cached JAR/AAR archives, omitting metadata-only identities. Test-only dependencies and compile-only JSR305 are excluded. Reassess versions and notices when the dependency graph changes.
+
+## Artifact and distribution gates
+
+No APK was assembled for this slice. Source placement and JVM reads establish the asset path; actual variant contents and device navigation remain unverified. Before distribution, inspect the actual artifact's assets and included/shrunk JVM/native components, check remaining file-specific/third-party and toolchain-runtime notices, resolve any applicable ambiguous source declaration, and supply corresponding source/relinking material required by the actual copyleft binaries. The screen alone does not complete that audit or #71's identity/migration acceptance.
+
+Preserve complete license text and source-copy provenance when refreshing the payload. Do not replace external notices with branding, blanket-license the tree as Apache, or use notice-copy revisions as binary provenance. The fork `NOTICE` and modification-notice audit remain in #71's coordinated identity slice.

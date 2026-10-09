@@ -1,6 +1,6 @@
 # Tunnl — WireGuard Android
 
-Last updated: 2026-10-08 (Europe/Paris).
+Last updated: 2026-10-09 (Europe/Paris).
 
 Tunnl is [novakin's WireGuard Android fork](https://github.com/novakin/wireguard-android), adding an engineering-console redesign and a partial VPS fleet/provisioning flow to the existing Android DataBinding/Fragment architecture.
 
@@ -91,3 +91,5 @@ Upstream WireGuard uses its [Crowdin translation project](https://crowdin.com/pr
 ## Licensing and attribution
 
 Keep the source [COPYING](COPYING), [font attribution](docs/font-attribution.md) and [vendored provisioning reference/license](third_party/wireguard-install/UPSTREAM.md) with their components. Preserve upstream attribution when building or distributing a fork.
+
+Settings → About → Licenses & credits supplies offline full notice/license text; the version row opens the same screen. [Software attribution](docs/license-attribution.md) records coverage, source-copy provenance and pending artifact/corresponding-source obligations. Upstream donations are removed; #71's coordinated identity/migration work remains incomplete.
