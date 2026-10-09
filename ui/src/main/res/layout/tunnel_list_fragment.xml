@@ -41,7 +41,7 @@
                 android:id="@+id/home_header_container"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@color/tunnl_paper_2"
+                android:background="@color/tunnl_paper"
                 android:orientation="vertical"
                 android:paddingStart="14dp"
                 android:paddingTop="10dp"
@@ -76,7 +76,7 @@
                         android:paddingStart="26dp"
                         android:paddingEnd="6dp"
                         app:srcCompat="@drawable/ic_tunnl_search"
-                        app:tint="@color/tunnl_ink_2" />
+                        app:tint="@color/tunnl_ink" />
 
                     <androidx.appcompat.widget.AppCompatImageButton
                         android:layout_width="48dp"
@@ -86,7 +86,7 @@
                         android:onClick="@{fragment::onOpenLogs}"
                         android:padding="16dp"
                         app:srcCompat="@drawable/ic_tunnl_logs"
-                        app:tint="@color/tunnl_ink_2" />
+                        app:tint="@color/tunnl_ink" />
 
                     <androidx.appcompat.widget.AppCompatImageButton
                         android:layout_width="48dp"
@@ -98,7 +98,7 @@
                         android:paddingStart="6dp"
                         android:paddingEnd="26dp"
                         app:srcCompat="@drawable/ic_tunnl_settings"
-                        app:tint="@color/tunnl_ink_2" />
+                        app:tint="@color/tunnl_ink" />
                 </LinearLayout>
 
                 <TextView
@@ -178,7 +178,7 @@
                 android:id="@+id/home_status_container"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@color/tunnl_paper_2"
+                android:background="@color/tunnl_paper"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
                 android:paddingStart="14dp"
@@ -314,7 +314,7 @@
                 android:gravity="center"
                 android:nextFocusUp="@id/tunnel_list"
                 android:text="@string/tunnl_add_tunnel"
-                android:textColor="@color/tunnl_ink_3" />
+                android:textColor="@color/tunnl_signal" />
         </LinearLayout>
 
     </androidx.coordinatorlayout.widget.CoordinatorLayout>

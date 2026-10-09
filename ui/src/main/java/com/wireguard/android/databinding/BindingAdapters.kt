@@ -325,7 +325,11 @@ object BindingAdapters {
     fun setHomeHeaderTunnels(view: TextView, tunnels: Iterable<ObservableTunnel>?) {
         val mode = aggregateMode(tunnels)
         view.text = homeHeaderSummary(view.context, tunnels)
-        view.setTextColor(ContextCompat.getColor(view.context, modeColor(mode)))
+        val color = when (mode) {
+            TunnelSignalView.TunnelMode.UP -> R.color.tunnl_ink_3
+            else -> modeColor(mode)
+        }
+        view.setTextColor(ContextCompat.getColor(view.context, color))
     }
 
     @JvmStatic
@@ -334,7 +338,7 @@ object BindingAdapters {
         val mode = aggregateMode(tunnels)
         view.text = homeProtectionLabel(view.context, tunnels)
         view.setTextColor(ContextCompat.getColor(view.context, when (mode) {
-            TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_signal_deep
+            TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_ink
             TunnelSignalView.TunnelMode.CONNECTING -> R.color.tunnl_warn
             TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_error
             TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_ink_2
@@ -346,13 +350,13 @@ object BindingAdapters {
     fun setHomeProtectionDotTunnels(view: View, tunnels: Iterable<ObservableTunnel>?) {
         val mode = aggregateMode(tunnels)
         val fill = ContextCompat.getColor(view.context, when (mode) {
-            TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_signal
+            TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_connected
             TunnelSignalView.TunnelMode.CONNECTING -> R.color.tunnl_warn
             TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_error
             TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_paper_3
         })
         val stroke = ContextCompat.getColor(view.context, when (mode) {
-            TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_signal_deep
+            TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_connected
             TunnelSignalView.TunnelMode.CONNECTING -> R.color.tunnl_warn
             TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_error
             TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_rule_strong
