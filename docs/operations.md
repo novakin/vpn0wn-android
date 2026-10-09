@@ -1,6 +1,6 @@
 # Operations and recovery
 
-Last updated: 2026-10-08 (Europe/Paris).
+Last updated: 2026-10-09 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -8,7 +8,7 @@ This guide describes current Android handling and known limits. The [UI roadmap]
 
 ## Import, edit and connect
 
-Settings groups supported native controls into Connection, Control, Data, Appearance and About. All available sections are expanded; unavailable Android/admin/backend options and empty sections are removed. Connection appears after backend/root eligibility resolves. Boolean preference keys/defaults and existing values are unchanged; kernel switching remains the native restart action. Android 10+ follows system appearance rather than exposing the older dark-theme toggle. The labeled header Back returns to the previous screen. [Settings verification](development.md#settings-presentation-recovery--2026-10-06) records source/test coverage and outstanding phone proof.
+Settings groups supported native controls into Connection, Control, Data, Appearance and About. All available sections are expanded; unavailable Android/admin/backend options and empty sections are removed. Connection appears after backend/root eligibility resolves. Boolean preference keys/defaults and existing values are unchanged; kernel switching remains the native restart action. Android 10+ follows system night mode rather than exposing the older dark-theme toggle; earlier Android versions retain that preference. Current source keeps the existing fixed azure/dark Material palette independently of wallpaper colors. [The fixed-palette source repair](ui-redesign-roadmap.md#color-tokens) distinguishes this policy from pending rebuilt-APK proof and the separate AVD system-palette operation. The labeled header Back returns to the previous screen. [Settings verification](development.md#settings-presentation-recovery--2026-10-06) records source/test coverage and outstanding phone proof.
 
 Use the add-tunnel flow to create a profile, import a file or scan a QR code. Existing import/config parsing owns profile validation and naming. Configs and QR payloads can contain private keys; handle them as credentials. Protect exported/downloaded copies and avoid sharing screenshots or logs containing keys.
 

@@ -105,7 +105,7 @@ Local proof covers an 840×1872 browser render of a 420×936 design canvas, load
 
 ### Color Tokens
 
-Prototype colors use `oklch()`. Android uses tuned hex resources with a dark-first palette in both Material theme buckets, not exact documented OKLCH conversions. `Application` follows system night mode on Android Q+ and the user preference before Q; TV forces night mode separately. DynamicColors is registered where available, so fixed Material azure output is not guaranteed. C10 requires actual output checks.
+Prototype colors use `oklch()`. Android uses tuned hex resources with a dark-first palette in both Material theme buckets, not exact documented OKLCH conversions. `Application` follows system night mode on Android Q+ and the user preference before Q; TV forces night mode separately. Application startup no longer registers Material dynamic-color overlays, preserving the existing fixed azure/dark theme roles independently of wallpaper colors. Newer surface-container and fixed-primary roles not defined by the app retain static Material library defaults. [#88](https://github.com/novakin/wireguard-android/issues/88) keeps rebuilt-APK wallpaper-invariance proof pending; C10 still requires actual output checks.
 
 #### Light theme (`styles.css` root)
 
@@ -365,7 +365,7 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 ### 1. Foundation
 - Add Tunnl dark palette resources mapped onto the existing Material theme.
 - Update default card, toolbar, and status/nav bar styling to the dark/signal language.
-- Preserve the dark-first palette; actual night-mode/dynamic-color behavior follows the source policy described above. Complete light-mode fidelity remains deferred.
+- Preserve the dark-first palette and existing night-mode policy described above, with fixed Material colors independent of wallpaper. Complete light-mode fidelity remains deferred.
 - Keep the existing Android view/data-binding architecture.
 
 ### 2. Home / Tunnel List
@@ -431,6 +431,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
+- [x] Fixed-palette source repair — 2026-10-09: `Application.onCreate()` no longer registers Material dynamic-color overlays, retaining the existing azure/dark theme roles and Android night-mode policy. [#88](https://github.com/novakin/wireguard-android/issues/88) tracks this source implementation and pending rebuilt-APK wallpaper-invariance proof; the installed APK is unchanged. The separate AVD system-palette operation does not establish app-source runtime acceptance.
+
 - [x] Home visual reference — 2026-10-08: retained the selected palette, lighter typography, `LAST HANDSHAKE` wording and refined Add footer in a portable synthetic-data [mockup and handoff](#home-visual-handoff--2026-10-08). Browser visual checks only; native implementation and whole-app acceptance remain pending.
 
 - [x] Settings structure-ID repair — 2026-10-07: `SettingsFragment` uses native unassigned IDs for category/row roots without changing presentation or preference behavior. Source merged in PR #59; [regression and bounded phone confirmation](reviews/2026-10-07-settings-resource-id-review.md) show nine old errors versus zero in three candidate openings and landscape recreation. Full #34/#52 acceptance remains separate.
@@ -447,7 +449,7 @@ This is a historical implementation ledger, not newly executed build/device proo
 - [x] Inspected all `.design/` files and mapped the visual system.
 - [x] Added tracked roadmap.
 - [x] Foundation: Tunnl color resources (paper, ink, signal, rule, warn, error tokens), MaterialCardView style (0dp elevation, 8dp corner, tunnl_rule stroke), AppThemeBase (dark M3, Inter Tight font, azure primary).
-- [x] Dark-first palette and azure base accents added. Current Application follows system/pre-Q preference and registers DynamicColors; TV has its own night-mode policy.
+- [x] Dark-first palette and azure base accents added. Current Application follows system/pre-Q preference without registering wallpaper dynamic-color overlays; TV has its own night-mode policy.
 - [x] Inter Tight (UI) and JetBrains Mono (data/keys) font resources added.
 - [x] Home tunnel card: card structure, signal rail, Tunnl-styled background, mono tunnel name, address→endpoint sub-text, PSK badge row, stats (↓ IN / ↑ OUT / HANDSHAKE) with real data binding.
 - [x] Tunnel statistics binding: `ObservableTunnel` supplies snapshots; `BindingAdapters.tunnelRate` owns delta samples. The 2026-10-06 idle-rate correction preserves broader C7 device/traffic acceptance.
