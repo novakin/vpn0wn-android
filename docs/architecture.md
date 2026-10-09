@@ -1,6 +1,6 @@
 # Architecture and maintenance boundaries
 
-Last updated: 2026-10-08 (Europe/Paris).
+Last updated: 2026-10-09 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -172,6 +172,18 @@ Permissive optional getters and timestamp-only ONLINE hid malformed data and sto
 2026-10-07 (Europe/Paris). Problem: numeric row positions change under sorted insertion/removal and can target the wrong tunnel for destructive actions. Decision/status: the existing TunnelListFragment owns one set of managed tunnel instances plus the necessary mode flag; source implementation is under #36. Saved names project selection into a freshly loaded inventory, with new confirmation required after view recreation. A view-owned native dialog captures instances and closes if a member leaves inventory; the manager retains mutation admission, teardown, persistence and rollback ownership.
 
 Alternatives were preserving numeric ActionMode positions, keeping two parallel selection stores or introducing an operation service. They duplicate or misplace ownership and do not preserve destructive intent. Sequential manager calls simplify bounded partial progress and cancellation without a detached supervisor. The manager owns its internal NotManagedException rejection subtype so the UI can handle stale ownership and access failures while propagating unexpected runtime defects. Rename retains inventory membership during store I/O, then removes, renames and reinserts the same instance synchronously on Main under existing mutation admission. The fragment coalesces selection reconciliation through its existing posted binding invalidation; callbacks from an old view cannot clear a new view's pending work. Consequences: selection can remain active at zero; Back during deletion stops remaining work after admitted settlement. This is no cross-process identity guarantee or undo facility, and a source merge is not physical deletion/provider proof. No profile migration is needed. [Regression and native/device verification limits](development.md#home-selection-and-safe-delete-recovery--2026-10-07) own acceptance; revisit only if inventory identity or supported multi-process ownership changes.
+
+### vpn0wn migration coverage and tools ownership — 2026-10-09
+
+**Problem:** the selected `com.vpn0wn.android` application ID creates a separate Android sandbox. Existing tunnel ZIP export omits settings and saved VPS records. The current tools installer also deletes/recreates the upstream Magisk tools directory, which cannot provide independent fork ownership.
+
+**Decision/status:** on 2026-10-09 (Europe/Paris), the maintainer selected [settings and VPS transfer](https://github.com/novakin/wireguard-android/issues/71#issuecomment-6086430555) alongside tunnel profiles, with the existing app and data preserved. The maintainer also confirmed [tools ownership policy](https://github.com/novakin/wireguard-android/issues/71#issuecomment-6086531004): reuse compatible installed tools; install vpn0wn's own module only when command paths are free; never overwrite WireGuard's module. These are approved implementation policies, not delivered migration or installer behavior.
+
+**Alternatives/consequences:** tunnels-only ZIP transfer does not meet the selected coverage. A renamed app cannot read the old private sandbox; the exporter must first be available in a signer-compatible update under the existing application ID. Reuse existing config, preference, fleet and native file-selection owners rather than copying arbitrary private files. Transfer validation, destination conflicts, cancellation and recovery need an explicit contract before mutation. Persisted runtime state, permissions, tile confirmation and installation consent are not portable settings. Preserve unrelated destination records and original fleet observations; import is not a fresh health check or VPN activation.
+
+Using an existing compatible tools module remains supported by the policy. Sharing installer ownership would couple updates and failure cleanup. A separate module ID alone does not prevent `wg`/`wg-quick` path collisions. Validate compatibility and privileged ownership before writes, refuse conflicting paths, and limit cleanup to owned admitted artifacts. The actual command names and shared WireGuard kernel driver retain their protocol identities. Normal non-root userspace VPN behavior does not depend on system-wide tools installation.
+
+**Verification/migration limits:** no transfer facility, namespace migration or installer repair is implemented by this decision record. Require strict synthetic round trips and failure/cancellation/recovery controls, then separately authorized old/new-app, provider and conditional root/kernel proof. APK installation, root writes, repository rename and release remain separate actions. [Operations](operations.md#planned-vpn0wn-migration) owns the current user-facing limits. Revisit this decision if transfer coverage or ownership requirements change.
 
 ### Native same-socket warm-up draft — 2026-10-07
 
