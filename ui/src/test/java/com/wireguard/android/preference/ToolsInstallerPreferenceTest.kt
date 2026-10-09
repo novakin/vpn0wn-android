@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.lifecycleScope
 import com.wireguard.android.R
 import com.wireguard.android.activity.SettingsActivity
+import com.wireguard.android.backend.WgQuickBackend
 import com.wireguard.android.model.TunnelTestEnvironment
 import com.wireguard.android.util.RootShell.RootShellException
 import com.wireguard.android.util.RootShell
@@ -11,11 +12,14 @@ import com.wireguard.android.util.ToolsInstaller
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -29,7 +33,10 @@ import org.robolectric.annotation.Implementation
 import org.robolectric.annotation.Implements
 
 @RunWith(RobolectricTestRunner::class)
-@Config(application = Application::class, sdk = [28], shadows = [ToolsInstallerPreferenceTest.InstallerShadow::class])
+@Config(application = Application::class, sdk = [28], shadows = [
+    ToolsInstallerPreferenceTest.InstallerShadow::class,
+    ToolsInstallerPreferenceTest.KernelSupportShadow::class
+])
 class ToolsInstallerPreferenceTest {
     @get:Rule val folder = TemporaryFolder()
 
@@ -102,6 +109,16 @@ class ToolsInstallerPreferenceTest {
         val activity = controller.get().apply { setTheme(R.style.AppTheme) }
         InstallerShadow.probeResult = probeResult
         controller.create()
+        activity.supportFragmentManager.executePendingTransactions()
+        val ownerJobs = buildList {
+            add(activity.lifecycleScope.coroutineContext[Job]!!)
+            for (fragment in activity.supportFragmentManager.fragments) {
+                add(fragment.lifecycleScope.coroutineContext[Job]!!)
+                fragment.viewLifecycleOwnerLiveData.value?.let {
+                    add(it.lifecycleScope.coroutineContext[Job]!!)
+                }
+            }
+        }
         val preference = ToolsInstallerPreference(activity, null)
         runCurrent()
         try {
@@ -120,8 +137,23 @@ class ToolsInstallerPreferenceTest {
             assertEquals(enabled, preference.isEnabled)
             assertEquals(activity.getString(summary), preference.summary)
         } finally {
-            controller.destroy()
-            env.application.onTerminate()
+            withContext(NonCancellable) {
+                controller.destroy()
+                ownerJobs.forEach { it.cancelAndJoin() }
+                env.application.onTerminate()
+                env.applicationScope.coroutineContext[Job]!!.join()
+            }
+        }
+    }
+
+    // Robolectric must instantiate this shadow and call its fixed static kernel probe.
+    @Suppress("UtilityClassWithPublicConstructor", "FunctionOnlyReturningConstant")
+    @Implements(WgQuickBackend::class)
+    class KernelSupportShadow {
+        companion object {
+            @JvmStatic
+            @Implementation
+            fun hasKernelSupport(): Boolean = false
         }
     }
 
