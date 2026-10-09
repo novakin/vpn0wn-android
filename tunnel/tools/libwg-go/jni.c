@@ -15,7 +15,7 @@ extern void wgTurnOff(int handle, JNIEnv *env);
 extern char *wgGetConfig(int handle, JNIEnv *env);
 extern char *wgVersion();
 
-JNIEXPORT jint JNICALL Java_com_wireguard_android_backend_GoBackend_wgTurnOn(JNIEnv *env, jclass c, jstring ifname, jint tun_fd, jstring settings, jobject service, jobject activation_thread)
+JNIEXPORT jint JNICALL Java_com_wireguard_android_backend_GoBackend_wgTurnOn(JNIEnv *env, jclass c, jstring ifname, jint tun_fd, jstring settings, jobject service, jobject activation_thread, jlong activation_id)
 {
 	struct wg_context *context = NULL;
 	const char *ifname_str = (*env)->GetStringUTFChars(env, ifname, 0);
@@ -28,7 +28,7 @@ JNIEXPORT jint JNICALL Java_com_wireguard_android_backend_GoBackend_wgTurnOn(JNI
 		goto failed;
 	}
 	size_t settings_len = (*env)->GetStringUTFLength(env, settings);
-	context = wgCreateContext(env, service, activation_thread);
+	context = wgCreateContext(env, service, activation_thread, activation_id);
 	if (!context) {
 		(*env)->ReleaseStringUTFChars(env, ifname, ifname_str);
 		(*env)->ReleaseStringUTFChars(env, settings, settings_str);
