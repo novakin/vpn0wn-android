@@ -15,8 +15,12 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import org.json.JSONArray
+import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -204,6 +208,159 @@ class VpsServerStoreTest {
             assertEquals("kept provider", store.servers.first().single().provider)
             assertEquals(null, store.servers.first().single().running)
         }
+    }
+
+    @Test
+    fun transferRoundTripPreservesEveryFieldAndNullableRunning() {
+        val servers = listOf(
+            storedServer(id = "ams-01").copy(
+                name = "  Amsterdam \"office\"\nVPN  ",
+                host = "vpn.example",
+                sshPort = 1,
+                sshUser = "operator",
+                endpoint = "vpn.example:51820",
+                listenPort = "51820",
+                cidr = "10.8.0.0/24",
+                dns = "1.1.1.1, 2606:4700:4700::1111",
+                os = "Ubuntu",
+                version = "24.04",
+                provider = "Synthetic provider",
+                region = "Île-de-France",
+                engine = "kernel",
+                lastSyncEpochSeconds = Long.MAX_VALUE,
+                running = true,
+            ),
+            storedServer(id = "stopped").copy(sshPort = 65_535, running = false),
+            storedServer(id = "unknown").copy(running = null),
+        )
+
+        val encoded = VpsServerStore.encodeServers(servers)
+
+        assertEquals(servers, VpsServerStore.decodeTransferServers(encoded))
+        val array = JSONArray(encoded)
+        assertEquals(JSONObject.NULL, array.getJSONObject(2).get("running"))
+        for (index in 0 until array.length()) {
+            assertEquals(16, array.getJSONObject(index).length())
+        }
+    }
+
+    @Test
+    fun transferAcceptsEmptyStoreWithoutDefaultingCorruptInput() {
+        assertTrue(VpsServerStore.decodeTransferServers("").isEmpty())
+        assertTrue(VpsServerStore.decodeTransferServers(" \n[]\t ").isEmpty())
+        assertEquals("[]", VpsServerStore.encodeServers(emptyList()))
+        assertInvalidTransfer(" \n\t ")
+    }
+
+    @Test
+    fun transferRejectsCorruptJsonAndWrongTopLevelTypesWithoutPayloads() {
+        for (value in listOf("{secret-marker", "{}", "null", "true", "\"secret-marker\"", "[] secret-marker")) {
+            assertInvalidTransfer(value)
+        }
+    }
+
+    @Test
+    fun transferRequiresEveryKnownField() {
+        val valid = transferServerJson()
+        for (field in valid.keys().asSequence().toList()) {
+            val missing = JSONObject(valid.toString()).apply { remove(field) }
+            assertInvalidTransfer(JSONArray().put(missing).toString())
+        }
+    }
+
+    @Test
+    fun transferRejectsStringFieldCoercionAndNulls() {
+        val fields = listOf("id", "name", "host", "sshUser", "endpoint", "listenPort", "cidr", "dns", "os", "version", "provider", "region", "engine")
+        val values = listOf(JSONObject.NULL, true, 7, JSONObject(), JSONArray())
+        for (field in fields) {
+            for (value in values) {
+                val server = transferServerJson().put(field, value)
+                assertInvalidTransfer(JSONArray().put(server).toString())
+            }
+        }
+    }
+
+    @Test
+    fun transferRejectsIntegerCoercionFractionalValuesAndOverflow() {
+        for (field in listOf("sshPort", "lastSyncEpochSeconds")) {
+            for (value in listOf(JSONObject.NULL, "22", true, 22.5, JSONObject(), JSONArray())) {
+                val server = transferServerJson().put(field, value)
+                assertInvalidTransfer(JSONArray().put(server).toString())
+            }
+            val base = transferServerJson().toString()
+            val original = if (field == "sshPort") "22" else "0"
+            for (value in listOf("22.0", "2.2e1", "9223372036854775808")) {
+                assertInvalidTransfer("[${base.replace("\"$field\":$original", "\"$field\":$value")}]")
+            }
+        }
+    }
+
+    @Test
+    fun transferRejectsBlankConnectionFieldsAndInvalidNumericBounds() {
+        for (field in listOf("id", "host", "sshUser")) {
+            for (value in listOf("", " \n\t ")) {
+                assertInvalidTransfer(JSONArray().put(transferServerJson().put(field, value)).toString())
+            }
+        }
+        for (port in listOf(-1, 0, 65_536, Long.MAX_VALUE)) {
+            assertInvalidTransfer(JSONArray().put(transferServerJson().put("sshPort", port)).toString())
+        }
+        assertInvalidTransfer(JSONArray().put(transferServerJson().put("lastSyncEpochSeconds", -1)).toString())
+    }
+
+    @Test
+    fun transferRequiresBooleanOrExplicitNullRunningObservation() {
+        for (value in listOf("true", 1, JSONObject(), JSONArray())) {
+            assertInvalidTransfer(JSONArray().put(transferServerJson().put("running", value)).toString())
+        }
+    }
+
+    @Test
+    fun transferRejectsMalformedRowsRatherThanDroppingThem() {
+        for (value in listOf(JSONObject.NULL, "secret-marker", 1, true, JSONArray(), JSONObject())) {
+            assertInvalidTransfer(JSONArray().put(transferServerJson()).put(value).toString())
+        }
+    }
+
+    @Test
+    fun transferRejectsDuplicateIdsWithoutChangingLegacyReader() = runBlocking {
+        val first = storedServer(id = "duplicate")
+        val second = first.copy(host = "other.example")
+        val encoded = VpsServerStore.encodeServers(listOf(first, second))
+
+        assertInvalidTransfer(encoded)
+        writeRawStore(encoded)
+
+        assertEquals(listOf(first, second), store.servers.first())
+    }
+
+    @Test
+    fun transferRejectsUnknownFieldsRatherThanDroppingDestinationMetadata() {
+        assertInvalidTransfer(JSONArray().put(transferServerJson().put("unknown", "fixture-private-value")).toString())
+    }
+
+    @Test
+    fun transferReadsOriginalStoredShapeWithoutRelaxingArchiveSchema() {
+        val legacy = transferServerJson().apply { remove("running") }
+        val payload = JSONArray().put(legacy).toString()
+        assertEquals(null, VpsServerStore.decodeStoredServersForTransfer(payload).single().running)
+        assertInvalidTransfer(payload)
+        legacy.remove("host")
+        assertThrows(IllegalArgumentException::class.java) {
+            VpsServerStore.decodeStoredServersForTransfer(JSONArray().put(legacy).toString())
+        }
+    }
+
+    private fun transferServerJson(): JSONObject =
+        JSONArray(VpsServerStore.encodeServers(listOf(storedServer(id = "ams-01")))).getJSONObject(0)
+
+    private fun assertInvalidTransfer(value: String) {
+        val failure = assertThrows(IllegalArgumentException::class.java) {
+            VpsServerStore.decodeTransferServers(value)
+        }
+        assertEquals("Invalid VPS fleet metadata", failure.message)
+        assertNull(failure.cause)
+        assertTrue(failure.suppressed.isEmpty())
     }
 
     private fun storedServer(

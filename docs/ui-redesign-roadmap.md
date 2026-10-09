@@ -444,6 +444,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
+- [x] **App-data transfer actions — 2026-10-09:** Settings adds authenticated full-data export and document-picker import/confirmation using the existing Data rows and tokens; success reloads imported preferences. See [owning operations](operations.md#app-data-transfer). Artifact/provider/accessibility acceptance remains open below.
+
 - [x] **Quick Settings setup eligibility — #85 (2026-10-09):** Settings hides the Add row while membership loads, then observes retained add/remove confirmation independently of service lifetime. Successful/already-added native results record membership; loaded missing confirmation keeps the idempotent fallback, while unavailable reads keep setup hidden. Removal also restores the row while Settings is open. [Repaired-APK API 36 checks](reviews/2026-10-09-g4-private-native-acceptance.md#tile-membership-repair-acceptance--2026-10-09) verify native Cancel/Add/already-added, independent callbacks, inventory and Settings/rotation/process reopening, with readable native Add and landscape Settings output. No geometry, theme or tile-toggle change; physical/accessibility and tile VPN proof remain under #34/#52.
 
 - [x] QR camera-denial guidance — 2026-10-09: `TunnelListFragment` uses ZXing's existing missing-permission message extras and English/French resources for access/retry/settings guidance. [Repaired-APK AVD checks](reviews/2026-10-09-g4-private-native-acceptance.md#camera-repair-acceptance--2026-10-09) prove native denial, correct advice, exit, grant/retry and cancellation on API 36, with readable dialog output at normal/2× text and sensor landscape. Scanner layout and genuine camera-error feedback are unchanged; physical QR decoding and broader #35/#52 acceptance remain open.
@@ -538,6 +540,8 @@ This is a historical implementation ledger, not newly executed build/device proo
 - [x] Binding status labels moved to resources: tunnel mode labels, detail status titles/subtitles, and home protection labels now use Android strings instead of hardcoded adapter text.
 
 ### Fidelity Gaps — Remaining
+
+- [~] **Full app-data transfer actions — 2026-10-09:** Settings reuses its existing Data action-row layout/tokens and native biometric, document-picker and Material confirmation patterns. Source/JVM checks do not establish rendered theme/size/large-text/RTL or provider/accessibility acceptance; retain those [#71 gates](qa-test-plan.md#full-app-data-transfer-acceptance) until authorized APK proof.
 
 - [~] Home selection uses Android's configurable native long-click instead of the prototype's custom 600ms hold-progress/touch animation; this preserves native gesture and accessibility handling. The selected card/checkmark, count controls and destructive sheet are recovered; exact custom motion, sheet corner decorations and physical device/provider acceptance remain outside the current source proof (#36/G4).
 

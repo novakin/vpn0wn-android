@@ -36,8 +36,10 @@ object TunnelImporter {
     suspend fun importTunnel(contentResolver: ContentResolver, uri: Uri, messageCallback: (CharSequence) -> Unit) = withContext(Dispatchers.IO) {
         supervisorScope {
             val context = Application.get().applicationContext
+            val profiles = ArrayList<Pair<String, Config>>()
             val futureTunnels = ArrayList<Deferred<ObservableTunnel>>()
             val throwables = ArrayList<Throwable>()
+            var appDataTransfer = false
             try {
                 var name = ""
                 contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
@@ -59,6 +61,10 @@ object TunnelImporter {
                         val reader = BufferedReader(InputStreamReader(zip, StandardCharsets.UTF_8))
                         var entry: ZipEntry? = zip.nextEntry
                         while (entry != null) {
+                            if (entry.name == AppDataTransfer.MANIFEST) {
+                                appDataTransfer = true
+                                break
+                            }
                             val entryName = entry.name.substringAfterLast('/')
                             if (entryName.lowercase().endsWith(".conf")) {
                                 val config = try {
@@ -72,7 +78,7 @@ object TunnelImporter {
                                 }
                                 if (config != null) {
                                     val tunnelName = entryName.dropLast(".conf".length)
-                                    futureTunnels.add(async { Application.getTunnelManager().create(tunnelName, config) })
+                                    profiles.add(tunnelName to config)
                                 }
                             }
                             entry = zip.nextEntry
@@ -80,9 +86,9 @@ object TunnelImporter {
                     }
                 } else {
                     val config = input.use { Config.parse(it) }
-                    futureTunnels.add(async { Application.getTunnelManager().create(name, config) })
+                    profiles.add(name to config)
                 }
-                require(futureTunnels.isNotEmpty() || throwables.isNotEmpty()) { context.getString(R.string.no_configs_error) }
+                require(appDataTransfer || profiles.isNotEmpty() || throwables.isNotEmpty()) { context.getString(R.string.no_configs_error) }
             } catch (e: IOException) {
                 throwables.add(e)
             } catch (e: BadConfigException) {
@@ -92,6 +98,15 @@ object TunnelImporter {
             } catch (e: SecurityException) {
                 throwables.add(e)
             }
+
+            if (appDataTransfer) {
+                withContext(Dispatchers.Main.immediate) {
+                    messageCallback(context.getString(R.string.app_data_transfer_use_settings))
+                }
+                return@supervisorScope
+            }
+            for ((name, config) in profiles)
+                futureTunnels.add(async { Application.getTunnelManager().create(name, config) })
 
             val tunnels = futureTunnels.mapNotNull {
                 try {

@@ -94,15 +94,20 @@ class DownloadsFileSaver(private val context: ComponentActivity) {
             contentValues.put(MediaColumns.MIME_TYPE, mimeType)
             val contentUri = contentResolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
                 ?: throw IOException(context.getString(R.string.create_downloads_file_error))
-            return DownloadsFile(context, "Download/", contentUri)
+            return DownloadsFile(context, "Download/", contentUri, overwriteExisting)
         }
         @Suppress("DEPRECATION") val path = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
         if (!path.isDirectory && !path.mkdirs())
             throw IOException(context.getString(R.string.create_output_dir_error))
-        return DownloadsFile(context, File(path, name).absolutePath, null)
+        return DownloadsFile(context, File(path, name).absolutePath, null, overwriteExisting)
     }
 
-    private class DownloadsFile(private val context: Context, private val path: String, private val uri: Uri?) {
+    private class DownloadsFile(
+        private val context: Context,
+        private val path: String,
+        private val uri: Uri?,
+        private val overwriteExisting: Boolean,
+    ) {
         private var ownsOutput = uri != null
         val fileName: String
             get() {
@@ -120,8 +125,14 @@ class DownloadsFileSaver(private val context: ComponentActivity) {
             if (uri != null)
                 context.contentResolver.openOutputStream(uri)
                     ?: throw IOException(context.getString(R.string.create_downloads_file_error))
-            else
-                FileOutputStream(path).also { ownsOutput = true }
+            else {
+                val file = File(path)
+                if (!overwriteExisting) {
+                    if (!file.createNewFile()) throw IOException("Download already exists")
+                    ownsOutput = true
+                }
+                FileOutputStream(file).also { ownsOutput = true }
+            }
 
         fun delete() {
             if (!ownsOutput)
