@@ -34,6 +34,10 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 SCRIPT_DIR = ROOT / "third_party" / "wireguard-install" / "tunnl"
 
 
+class HarnessFailure(RuntimeError):
+    pass
+
+
 def env(name: str, default: str | None = None) -> str:
     value = os.environ.get(name, default)
     if value is None or value == "":
@@ -103,13 +107,14 @@ def target() -> str:
 
 
 def run_local(args: list[str], timeout: int = 300) -> subprocess.CompletedProcess[str]:
-    result = subprocess.run(args, cwd=ROOT, text=True, capture_output=True, timeout=timeout, check=False)
+    try:
+        result = subprocess.run(args, cwd=ROOT, text=True, capture_output=True, timeout=timeout, check=False)
+    except subprocess.TimeoutExpired:
+        raise HarnessFailure("command timed out") from None
+    except OSError:
+        raise HarnessFailure("command could not start") from None
     if result.returncode != 0:
-        raise RuntimeError(
-            f"command failed ({result.returncode}): {' '.join(shlex.quote(a) for a in args)}\n"
-            f"stdout:\n{tail(result.stdout)}\n"
-            f"stderr:\n{tail(result.stderr)}"
-        )
+        raise HarnessFailure(f"command failed (exit {result.returncode})")
     return result
 
 
@@ -121,50 +126,54 @@ def run_json(label: str, command: str, timeout: int = 300) -> dict[str, Any]:
     output = run_remote(command, timeout=timeout).strip()
     try:
         payload = json.loads(output)
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"{label} returned non-json output: {output[:500]}") from exc
+    except json.JSONDecodeError:
+        raise HarnessFailure(f"{label}: invalid JSON") from None
+    if not isinstance(payload, dict):
+        raise HarnessFailure(f"{label}: expected JSON object")
     if payload.get("ok") is not True:
-        raise RuntimeError(f"{label} returned ok=false: {redact_payload(payload)}")
+        raise HarnessFailure(f"{label}: response did not report success")
     return payload
-
-
-def tail(value: str, lines: int = 30) -> str:
-    return "\n".join(value.splitlines()[-lines:])
 
 
 def q(value: str) -> str:
     return shlex.quote(value)
 
 
-def redact_payload(payload: dict[str, Any]) -> dict[str, Any]:
-    redacted = dict(payload)
-    for key in ("config", "privateKey", "presharedKey"):
-        if key in redacted:
-            redacted[key] = f"<redacted:{len(str(redacted[key]))}>"
-    if "serverPublicKey" in redacted:
-        redacted["serverPublicKeyLen"] = len(str(redacted.pop("serverPublicKey")))
-    if "publicKey" in redacted:
-        redacted["publicKeyLen"] = len(str(redacted.pop("publicKey")))
-    return redacted
+def require_postcondition(label: str, condition: bool) -> None:
+    if not condition:
+        raise HarnessFailure(f"{label}: postcondition failed")
 
 
-def peer_summary(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    return [
-        {
-            "name": peer.get("name"),
-            "allowedIps": peer.get("allowedIps"),
-            "latestHandshake": peer.get("latestHandshake"),
-        }
-        for peer in payload.get("peers", [])
-    ]
+def log(label: str) -> None:
+    print(f"{label}: verified", flush=True)
 
 
-def log(label: str, payload: dict[str, Any]) -> None:
-    print(f"{label}: {json.dumps(payload, sort_keys=True)}", flush=True)
+def failure_message(error: Exception) -> str:
+    if isinstance(error, HarnessFailure):
+        return str(error)
+    return f"unexpected {type(error).__name__}"
+
+
+def check_sync(label: str, expected_peers: dict[str, str]) -> None:
+    sync = run_json(label, f"{q(REMOTE_DIR + '/sync-status.sh')}")
+    require_postcondition(f"{label}-running", sync.get("running") is True)
+    require_postcondition(f"{label}-interface", sync.get("interface") == "wg0")
+    peers = sync.get("peers")
+    require_postcondition(f"{label}-peers", isinstance(peers, list) and len(peers) == len(expected_peers))
+    observed = {}
+    for peer in peers:
+        require_postcondition(f"{label}-peer-row", isinstance(peer, dict))
+        name, public_key = peer.get("name"), peer.get("publicKey")
+        require_postcondition(f"{label}-peer-row", isinstance(name, str) and isinstance(public_key, str))
+        require_postcondition(f"{label}-peer-identity", name not in observed and expected_peers.get(name) == public_key)
+        observed[name] = public_key
+    require_postcondition(f"{label}-peers", observed == expected_peers)
+    live_keys = run_remote("wg show wg0 peers").strip().splitlines()
+    require_postcondition(f"{label}-live-peers", sorted(live_keys) == sorted(expected_peers.values()))
+    log(label)
 
 
 def upload_scripts() -> None:
-    run_remote(f"mkdir -p {q(REMOTE_DIR)}")
     for path in sorted(SCRIPT_DIR.iterdir()):
         if path.is_file():
             run_local([*scp_base(), str(path), f"{target()}:{REMOTE_DIR}/{path.name}"], timeout=60)
@@ -177,107 +186,108 @@ def install_cycle(label: str, final: bool = False) -> None:
         f"{q(REMOTE_DIR + '/install.sh')} --endpoint {q(HOST)} --port {q(WG_PORT)} --cidr {q(CIDR)} --dns {q(DNS)} --force",
         timeout=900,
     )
-    log(f"{label}-install", redact_payload(install))
-
-    sync = run_json(f"{label}-sync-after-install", f"{q(REMOTE_DIR + '/sync-status.sh')}")
-    log(f"{label}-sync-after-install", {"running": sync.get("running"), "peers": peer_summary(sync)})
+    require_postcondition(f"{label}-install-interface", install.get("interface") == "wg0")
+    check_sync(f"{label}-sync-after-install", {})
 
     if final:
         return
 
     peer1 = run_json(f"{label}-add-peer-1", f"{q(REMOTE_DIR + '/add-peer.sh')} --name android-test-1 --dns {q(DNS)}")
-    log(f"{label}-add-peer-1", redact_payload(peer1))
-
-    sync = run_json(f"{label}-sync-after-peer-1", f"{q(REMOTE_DIR + '/sync-status.sh')}")
-    log(f"{label}-sync-after-peer-1", {"running": sync.get("running"), "peers": peer_summary(sync)})
+    require_postcondition(f"{label}-add-peer-1-name", peer1.get("name") == "android-test-1")
+    require_postcondition(f"{label}-add-peer-1-key", isinstance(peer1.get("publicKey"), str) and bool(peer1["publicKey"]))
+    check_sync(f"{label}-sync-after-peer-1", {"android-test-1": peer1["publicKey"]})
 
     revoke = run_json(f"{label}-revoke-peer-1", f"{q(REMOTE_DIR + '/revoke-peer.sh')} --name android-test-1")
-    log(f"{label}-revoke-peer-1", redact_payload(revoke))
+    require_postcondition(f"{label}-revoke-peer-1", revoke.get("removed") is True and revoke.get("revoked") is True)
+    require_postcondition(f"{label}-revoke-peer-1-name", revoke.get("name") == "android-test-1")
+    check_sync(f"{label}-sync-after-revoke-1", {})
 
     peer2 = run_json(f"{label}-add-peer-2", f"{q(REMOTE_DIR + '/add-peer.sh')} --name android-test-2 --dns {q(DNS)}")
-    log(f"{label}-add-peer-2", redact_payload(peer2))
+    require_postcondition(f"{label}-add-peer-2-name", peer2.get("name") == "android-test-2")
+    require_postcondition(f"{label}-add-peer-2-key", isinstance(peer2.get("publicKey"), str) and bool(peer2["publicKey"]))
+    check_sync(f"{label}-sync-after-peer-2", {"android-test-2": peer2["publicKey"]})
 
     remove = run_json(f"{label}-remove-peer-2", f"{q(REMOTE_DIR + '/remove-peer.sh')} --name android-test-2")
-    log(f"{label}-remove-peer-2", redact_payload(remove))
+    require_postcondition(f"{label}-remove-peer-2", remove.get("removed") is True and remove.get("revoked") is False)
+    require_postcondition(f"{label}-remove-peer-2-name", remove.get("name") == "android-test-2")
+    check_sync(f"{label}-sync-after-remove-2", {})
 
     backup = run_json(f"{label}-backup", f"{q(REMOTE_DIR + '/backup.sh')}")
-    log(f"{label}-backup", {"interface": backup.get("interface"), "configLen": len(str(backup.get("config", ""))), "revokedCount": backup.get("revokedCount")})
+    require_postcondition(f"{label}-backup-interface", backup.get("interface") == "wg0")
+    require_postcondition(f"{label}-backup-config", isinstance(backup.get("config"), str) and bool(backup["config"]))
+    require_postcondition(f"{label}-backup-revoked-count", backup.get("revokedCount") == "1")
+    log(f"{label}-backup")
 
 
 def uninstall(label: str) -> None:
     purge_arg = " --purge-packages" if PURGE else ""
     payload = run_json(f"{label}-uninstall", f"{q(REMOTE_DIR + '/uninstall.sh')} --confirm{purge_arg}", timeout=900)
-    log(f"{label}-uninstall", {"uninstalled": payload.get("uninstalled"), "backup": bool(payload.get("backup")), "packagesPurged": payload.get("packagesPurged")})
+    require_postcondition(f"{label}-uninstall", payload.get("uninstalled") is True)
+    require_postcondition(f"{label}-package-policy", payload.get("packagesPurged") is PURGE)
+    detect = run_json(f"{label}-detect-after-uninstall", f"{q(REMOTE_DIR + '/detect.sh')}")
+    require_postcondition(f"{label}-config-removed", detect.get("configExists") is False)
+    require_postcondition(f"{label}-tools", detect.get("wireGuardInstalled") is (not PURGE))
+    run_remote("test -d /sys/class/net && test ! -e /etc/wireguard/wg0.conf && test ! -L /etc/wireguard/wg0.conf && test ! -e /sys/class/net/wg0")
+    if PURGE:
+        run_remote(
+            "for package in wireguard wireguard-tools qrencode; do "
+            "status=$(dpkg-query -W -f='${db:Status-Status}' \"$package\" 2>/dev/null); code=$?; "
+            "[ \"$code\" -eq 1 ] || { [ \"$code\" -eq 0 ] && [ \"$status\" = not-installed ]; } || exit 1; done"
+        )
+    else:
+        run_remote("command -v wg >/dev/null")
+    log(f"{label}-uninstall")
 
 
-def cleanup() -> None:
-    run_remote(f"rm -rf {q(REMOTE_DIR)} /etc/wireguard/tunnl; rmdir /etc/wireguard 2>/dev/null || true", timeout=60)
+def cleanup(remove_tunnl_artifacts: bool = False) -> None:
+    command = f"rm -rf -- {q(REMOTE_DIR)}"
+    if remove_tunnl_artifacts:
+        command += " /etc/wireguard/tunnl && if [ -d /etc/wireguard ]; then rmdir -- /etc/wireguard; fi"
+    run_remote(command, timeout=60)
+    run_remote(f"test ! -e {q(REMOTE_DIR)} && test ! -L {q(REMOTE_DIR)}", timeout=60)
+    if remove_tunnl_artifacts:
+        run_remote("test ! -e /etc/wireguard && test ! -L /etc/wireguard", timeout=60)
 
 
 def main() -> int:
     require_destructive_guard()
     print(f"target: {USER}@{HOST}:{SSH_PORT}", flush=True)
     run_remote("id -u | grep -qx 0")
-    upload_scripts()
-    print(f"upload: {REMOTE_DIR}", flush=True)
-
-    detect = run_json("detect-before", f"{q(REMOTE_DIR + '/detect.sh')}")
-    log(
-        "detect-before",
-        {
-            "os": detect.get("os"),
-            "version": detect.get("version"),
-            "supported": detect.get("supported"),
-            "packageManager": detect.get("packageManager"),
-            "wireGuardInstalled": detect.get("wireGuardInstalled"),
-            "configExists": detect.get("configExists"),
-        },
-    )
-
-    plan = run_json("plan", f"{q(REMOTE_DIR + '/plan.sh')} --endpoint {q(HOST)} --port {q(WG_PORT)} --cidr {q(CIDR)} --dns {q(DNS)}")
-    log("plan", {"willOverwriteConfig": plan.get("willOverwriteConfig"), "steps": len(plan.get("steps", []))})
-
-    install_cycle("cycle-1")
-    uninstall("cycle-1")
-
-    detect = run_json("detect-after-uninstall", f"{q(REMOTE_DIR + '/detect.sh')}")
-    log(
-        "detect-after-uninstall",
-        {
-            "wireGuardInstalled": detect.get("wireGuardInstalled"),
-            "configExists": detect.get("configExists"),
-        },
-    )
-
-    install_cycle("cycle-2", final=True)
-    uninstall("cycle-2")
-
-    detect = run_json("detect-final", f"{q(REMOTE_DIR + '/detect.sh')}")
-    log(
-        "detect-final",
-        {
-            "wireGuardInstalled": detect.get("wireGuardInstalled"),
-            "configExists": detect.get("configExists"),
-        },
-    )
-    cleanup()
-    cleanup_state = run_remote(
-        "if command -v wg >/dev/null 2>&1; then echo wg-present; else echo wg-absent; fi; "
-        "if [ -e /etc/wireguard ]; then find /etc/wireguard -maxdepth 2 -type f | sort; else echo etc-wireguard-absent; fi",
-        timeout=60,
-    )
-    print(f"cleanup-state: {cleanup_state.strip()}", flush=True)
+    run_remote("test ! -e /etc/wireguard/tunnl && test ! -L /etc/wireguard/tunnl")
+    run_remote(f"mkdir -- {q(REMOTE_DIR)}")
+    try:
+        upload_scripts()
+        print("upload: completed", flush=True)
+        detect = run_json("detect-before", f"{q(REMOTE_DIR + '/detect.sh')}")
+        require_postcondition("detect-before-supported", detect.get("supported") is True and detect.get("packageManager") == "apt")
+        require_postcondition("detect-before-clean-config", detect.get("configExists") is False)
+        log("detect-before")
+        plan = run_json("plan", f"{q(REMOTE_DIR + '/plan.sh')} --endpoint {q(HOST)} --port {q(WG_PORT)} --cidr {q(CIDR)} --dns {q(DNS)}")
+        require_postcondition("plan-supported", plan.get("supported") is True)
+        require_postcondition("plan-clean-config", plan.get("willOverwriteConfig") is False)
+        log("plan")
+        install_cycle("cycle-1")
+        uninstall("cycle-1")
+        install_cycle("cycle-2", final=True)
+        uninstall("cycle-2")
+        cleanup(remove_tunnl_artifacts=True)
+    except Exception:
+        try:
+            cleanup()
+        except Exception as cleanup_error:
+            print(f"cleanup-warning: {failure_message(cleanup_error)}", file=sys.stderr)
+        raise
     print("cleanup: uploaded scripts and Tunnl test artifacts removed", flush=True)
     return 0
 
 
-if __name__ == "__main__":
+def cli() -> int:
     try:
-        raise SystemExit(main())
+        return main()
     except Exception as exc:
-        try:
-            cleanup()
-        except Exception as cleanup_exc:
-            print(f"cleanup-warning: {cleanup_exc}", file=sys.stderr)
-        print(f"vps integration failed: {exc}", file=sys.stderr)
-        raise SystemExit(1)
+        print(f"vps integration failed: {failure_message(exc)}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(cli())
