@@ -1,6 +1,6 @@
 # Tunnl QA Test Plan
 
-Last updated: 2026-10-08 (Europe/Paris).
+Last updated: 2026-10-09 (Europe/Paris).
 
 This document tracks the automated and manual QA coverage required for the Tunnl Android redesign.
 
@@ -160,7 +160,7 @@ Required before merging UI or backend provisioning work, except the explicitly a
 
 ## Remaining G4 device acceptance
 
-This runbook sequences the existing acceptance in [#28](https://github.com/novakin/wireguard-android/issues/28), [#34](https://github.com/novakin/wireguard-android/issues/34), [#35](https://github.com/novakin/wireguard-android/issues/35) and [#36](https://github.com/novakin/wireguard-android/issues/36); it does not replace their acceptance or close [#52](https://github.com/novakin/wireguard-android/issues/52). The [latest partial record](reviews/2026-10-08-g4-import-device-acceptance.md) owns completed checks and their exact revisions. Reuse its endpoint-free synthetic configs, mixed ZIP, valid QR PNG and blank PNG; use fresh unique names and verify destinations absent before uploading. Standard QR import asks for a name; file imports use filenames.
+This runbook sequences the existing acceptance in [#28](https://github.com/novakin/wireguard-android/issues/28), [#34](https://github.com/novakin/wireguard-android/issues/34), [#35](https://github.com/novakin/wireguard-android/issues/35) and [#36](https://github.com/novakin/wireguard-android/issues/36); it does not replace their acceptance or close [#52](https://github.com/novakin/wireguard-android/issues/52). The [physical import record](reviews/2026-10-08-g4-import-device-acceptance.md) and [isolated native follow-up](reviews/2026-10-09-g4-private-native-acceptance.md) own completed checks and their distinct environments/revisions. Reuse endpoint-free synthetic configs, mixed ZIP, valid QR PNG and blank PNG; use fresh unique names and verify destinations absent before uploading. Standard QR import asks for a name; file imports use filenames.
 
 1. Establish a new exclusive interval and fresh state: package/APK provenance, current personal tunnel intent, config/preferences hashes, draft/screen, device settings with presence/absence, locale, current tile inventory and any existing export output. Preserve unrelated data and accessibility services. The expired interval and its restoration snapshot cannot authorize or initialize a later run.
 2. Repeat reversible Settings switch/rotation/reopen/Back/log actions, then restore the observed original value. Inspect the remaining insets/large-text/RTL cases without counting earlier output as new proof. Record actual eligible groups; API/admin/kernel rows unavailable on this device remain explicitly conditional.
@@ -172,6 +172,8 @@ This runbook sequences the existing acceptance in [#28](https://github.com/novak
 8. Restore only session-owned changes and the intended current tunnel state. Verify fresh app-file comparisons, settings/locale, removal of hash-confirmed owned uploads/outputs and MediaStore rows, stopped commands and phone release. Never restore a stale archive over live data. Record actual results, unavailable cases and issue-state readback before claiming complete acceptance.
 
 An isolated AVD may exercise native framework/provider/permission callbacks with the unchanged APK and synthetic data. Set up only its owned configuration; target its explicit serial, preserve the existing ADB server and never issue unqualified ADB mutations. Emulator camera emulation, API 36 output and charging-host execution do not establish physical camera, Pixel cutout/gesture, pre-29 permission, root/kernel, TalkBack speech or battery behavior. Native and physical results remain separately scoped; obtain applicable missing proof or an explicit scope decision before issue closure.
+
+The [2026-10-09 private AVD run](reviews/2026-10-09-g4-private-native-acceptance.md) establishes bounded native permission retry, tile Cancel/Add, repeated switch/recreation, canonical export/MediaStore overwrite and settled Home selection/cancellation proof. Camera-denial restart advice and stale tile-row eligibility remain unresolved findings. Physical gates above, real QR camera decoding, authentication/export cancellation, provider acquisition/write failures and admitted deletion failures remain unproved; successful export and manual owned-output removal do not discharge cleanup failure acceptance.
 
 ## Transfer-speed and battery validation
 
