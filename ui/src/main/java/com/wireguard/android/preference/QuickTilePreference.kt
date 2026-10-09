@@ -11,6 +11,7 @@ import android.content.Context
 import android.graphics.drawable.Icon
 import android.os.Build
 import android.util.AttributeSet
+import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.Lifecycle
@@ -19,7 +20,11 @@ import com.google.android.material.snackbar.Snackbar
 import com.wireguard.android.QuickTileService
 import com.wireguard.android.R
 import com.wireguard.android.util.activity
+import com.wireguard.android.util.applicationScope
 import com.wireguard.android.util.tunnlStyle
+import com.wireguard.android.util.UserKnobs
+import kotlinx.coroutines.launch
+import java.io.IOException
 
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 class QuickTilePreference(context: Context, attrs: AttributeSet?) : Preference(context, attrs) {
@@ -28,6 +33,7 @@ class QuickTilePreference(context: Context, attrs: AttributeSet?) : Preference(c
     override fun getTitle() = context.getString(R.string.quick_settings_tile_add_title)
 
     override fun onClick() {
+        val removalRevision = UserKnobs.quickTileRemovalRevision
         val statusBarManager = context.getSystemService(StatusBarManager::class.java)
         statusBarManager.requestAddTileService(
             ComponentName(context, QuickTileService::class.java),
@@ -38,7 +44,13 @@ class QuickTilePreference(context: Context, attrs: AttributeSet?) : Preference(c
             when (it) {
                 StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED,
                 StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED -> {
-                    parent?.removePreference(this)
+                    applicationScope.launch {
+                        try {
+                            UserKnobs.setQuickTileAdded(true, removalRevision)
+                        } catch (_: IOException) {
+                            Log.w("WireGuard/QuickTile", "Unable to retain quick tile membership")
+                        }
+                    }
                 }
                 StatusBarManager.TILE_ADD_REQUEST_ERROR_MISMATCHED_PACKAGE,
                 StatusBarManager.TILE_ADD_REQUEST_ERROR_REQUEST_IN_PROGRESS,

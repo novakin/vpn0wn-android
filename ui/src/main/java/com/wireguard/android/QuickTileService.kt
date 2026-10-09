@@ -25,8 +25,10 @@ import com.wireguard.android.activity.TunnelToggleActivity
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.model.ObservableTunnel
 import com.wireguard.android.util.applicationScope
+import com.wireguard.android.util.UserKnobs
 import com.wireguard.android.widget.SlashDrawable
 import kotlinx.coroutines.launch
+import java.io.IOException
 
 /**
  * Service that maintains the application's custom Quick Settings tile. This service is bound by the
@@ -109,7 +111,6 @@ class QuickTileService : TileService() {
     }
 
     override fun onCreate() {
-        isAdded = true
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             iconOn = Icon.createWithResource(this, R.drawable.ic_tile)
             iconOff = iconOn
@@ -131,11 +132,6 @@ class QuickTileService : TileService() {
         iconOff = Icon.createWithBitmap(b)
     }
 
-    override fun onDestroy() {
-        super.onDestroy()
-        isAdded = false
-    }
-
     override fun onStartListening() {
         Application.getTunnelManager().addOnPropertyChangedCallback(onTunnelChangedCallback)
         tunnel?.addOnPropertyChangedCallback(onStateChangedCallback)
@@ -148,11 +144,25 @@ class QuickTileService : TileService() {
     }
 
     override fun onTileAdded() {
-        isAdded = true
+        val removalRevision = UserKnobs.quickTileRemovalRevision
+        applicationScope.launch {
+            try {
+                UserKnobs.setQuickTileAdded(true, removalRevision)
+            } catch (_: IOException) {
+                Log.w(TAG, "Unable to retain quick tile membership")
+            }
+        }
     }
 
     override fun onTileRemoved() {
-        isAdded = false
+        UserKnobs.recordQuickTileRemoval()
+        applicationScope.launch {
+            try {
+                UserKnobs.setQuickTileAdded(false)
+            } catch (_: IOException) {
+                Log.w(TAG, "Unable to retain quick tile membership")
+            }
+        }
     }
 
     private fun updateTile() {
@@ -203,7 +213,5 @@ class QuickTileService : TileService() {
 
     companion object {
         private const val TAG = "WireGuard/QuickTileService"
-        var isAdded: Boolean = false
-            private set
     }
 }

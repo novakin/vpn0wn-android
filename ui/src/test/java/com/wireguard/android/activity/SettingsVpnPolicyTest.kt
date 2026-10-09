@@ -23,6 +23,7 @@ import com.wireguard.android.backend.WgQuickBackend
 import com.wireguard.android.model.TunnelTestEnvironment
 import com.wireguard.android.util.RootShell
 import com.wireguard.android.util.ToolsInstaller
+import com.wireguard.android.util.UserKnobs
 import com.wireguard.config.Config as WireGuardConfig
 import java.io.IOException
 import java.util.concurrent.CompletableFuture
@@ -89,7 +90,7 @@ class SettingsVpnPolicyTest {
         shadowOf(RuntimeEnvironment.getApplication()).checkActivities(false)
     }
 
-    @Test @Config(sdk = [28]) fun olderApiShowsUnavailableWithoutReadingPolicy() = runTest {
+    @Test @Config(sdk = [24, 28]) fun olderApiShowsUnavailableWithoutReadingPolicy() = runTest {
         val fixture = environment()
         val activity = openSettings()
         settle(activity)
@@ -97,6 +98,7 @@ class SettingsVpnPolicyTest {
         assertEquals(0, fixture.backend.alwaysOnCalls.get())
         assertEquals(0, fixture.backend.lockdownCalls.get())
         assertTrue(preference(activity).isEnabled)
+        assertNull(fragment(activity).findPreference<Preference>("quick_tile"))
     }
 
     @Test fun bothDisabledAreObservedForThisApp() = runTest {
@@ -252,6 +254,26 @@ class SettingsVpnPolicyTest {
         assertEquals(2, fixture.backend.lockdownCalls.get())
     }
 
+    @Test @Config(sdk = [33]) fun tileObservationKeepsPolicyRefreshIndependent() = runTest {
+        val fixture = environment()
+        UserKnobs.setQuickTileAdded(true)
+        val activity = openSettings()
+        settle(activity)
+        assertSetupSummary(activity, R.string.system_vpn_settings_both_disabled)
+        val tile = fragment(activity).findPreference<Preference>("quick_tile")!!
+        assertFalse(tile.isVisible)
+        controllers.last().pause()
+        fixture.backend.alwaysOn = true
+        fixture.backend.lockdown = true
+        UserKnobs.setQuickTileAdded(false)
+        controllers.last().resume()
+        settle(activity)
+        assertSetupSummary(activity, R.string.system_vpn_settings_both_enabled)
+        assertTrue(tile.isVisible)
+        assertEquals(2, fixture.backend.alwaysOnCalls.get())
+        assertEquals(2, fixture.backend.lockdownCalls.get())
+    }
+
     @Test fun pauseCancelsBlockedReadAndResumePublishesOnlyFreshObservation() = runTest {
         val fixture = environment()
         val blocked = BlockedRead(true)
@@ -363,7 +385,9 @@ class SettingsVpnPolicyTest {
         activity.supportFragmentManager.executePendingTransactions()
         runCurrent()
         fragment(activity).lifecycleScope.coroutineContext[Job]!!.children.toList().joinAll()
-        fragment(activity).viewLifecycleOwner.lifecycleScope.coroutineContext[Job]!!.children.toList().joinAll()
+        val policyJob = SettingsActivity.SettingsFragment::class.java.getDeclaredField("vpnPolicyJob")
+            .apply { isAccessible = true }.get(fragment(activity)) as Job?
+        policyJob?.join()
         activity.lifecycleScope.coroutineContext[Job]!!.children.toList().joinAll()
         runCurrent()
     }
