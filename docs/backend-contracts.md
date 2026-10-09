@@ -8,6 +8,8 @@ This guide distinguishes source-observed behavior from required repair boundarie
 
 ## WireGuard configuration and tunnel state
 
+AmneziaWG is not accepted by the current parser/backends. The [2026-10-09 engine assessment](reviews/2026-10-09-amneziawg-engine-assessment.md) records the pinned official candidate, complete field/native/API 24/license matrix and proposed WG/AWG pre-initiation packet separation under [#76](https://github.com/novakin/wireguard-android/issues/76). Engine/field selection remains open; this assessment changes no accepted attributes, persistence, backend or packet behavior.
+
 The existing [Config](../tunnel/src/main/java/com/wireguard/config/Config.java), Interface, Peer and endpoint/address types own parse/serialize behavior. Preserve repeated list fields, multi-peer profiles, IPv6 endpoint syntax and other supported WireGuard fields. Generated provisioning profiles must pass these same parsers/import paths.
 
 | Section | Accepted attributes |

@@ -183,6 +183,7 @@
     <string name="private_key">Clé privée</string>
     <string name="public_key">Clé publique</string>
     <string name="qr_code_hint">Astuce : générez avec \"qrencode -t ansiutf8 &lt; tunnel.conf\".</string>
+    <string name="qr_camera_permission_denied">L\'accès à la caméra est nécessaire pour scanner un code QR. Réessayez en autorisant la caméra, ou activez cet accès dans les paramètres de l\'application.</string>
     <string name="quick_settings_tile_add_title">Ajouter une bascule au volet des paramètres</string>
     <string name="quick_settings_tile_add_summary">Cette bascule active le dernier tunnel utilisé</string>
     <string name="quick_settings_tile_add_failure">Impossible d\'ajouter la bascule : erreur %d</string>
