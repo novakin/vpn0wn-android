@@ -10,7 +10,7 @@
     <string name="app_data_transfer_import_title">Import app data</string>
     <string name="app_data_transfer_import_summary">Restore a full transfer ZIP without replacing existing profiles or servers.</string>
     <string name="app_data_transfer_confirm_title">Import app data?</string>
-    <string name="app_data_transfer_confirm_message">Import %1$d profiles and %2$d saved servers, plus settings. Settings can enable remote control and restore on boot. New profiles remain off. Different data with an existing name or server ID will be rejected. Kernel selection and Android permissions stay unchanged.</string>
+    <string name="app_data_transfer_confirm_message">Profiles: %1$d. Saved servers: %2$d. Settings will also be imported. Settings can enable remote control and restore on boot. New profiles remain off. Different data with an existing name or server ID will be rejected. Kernel selection and Android permissions stay unchanged.</string>
     <string name="app_data_transfer_import_success">App data imported: %1$d new profiles</string>
     <string name="app_data_transfer_error">App data transfer failed. Check the ZIP, available storage and existing data. No existing profiles were replaced.</string>
     <string name="app_data_transfer_recovery_error">Import failed and some new profiles could not be removed. Inspect the tunnel list before retrying; existing profiles were preserved.</string>

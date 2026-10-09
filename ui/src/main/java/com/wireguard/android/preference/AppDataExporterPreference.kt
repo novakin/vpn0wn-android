@@ -73,7 +73,7 @@ class AppDataExporterPreference(context: Context, attrs: AttributeSet?) : Prefer
                 }
                 when (result) {
                     is BiometricAuthenticator.Result.Success,
-                    is BiometricAuthenticator.Result.HardwareUnavailableOrDisabled -> {
+                    is BiometricAuthenticator.Result.NoAuthenticationConfigured -> {
                         if (AdminKnobs.disableConfigExport) {
                             isEnabled = true
                             importer?.isEnabled = true
