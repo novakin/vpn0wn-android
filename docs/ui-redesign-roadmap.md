@@ -431,6 +431,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
+- [x] QR camera-denial guidance — 2026-10-09: `TunnelListFragment` uses ZXing's existing missing-permission message extras and English/French resources for access/retry/settings guidance. Scanner layout and genuine camera-error feedback are unchanged; [#84](https://github.com/novakin/wireguard-android/issues/84) native denial/retry acceptance remains pending.
+
 - [x] Home visual reference — 2026-10-08: retained the selected palette, lighter typography, `LAST HANDSHAKE` wording and refined Add footer in a portable synthetic-data [mockup and handoff](#home-visual-handoff--2026-10-08). Browser visual checks only; native implementation and whole-app acceptance remain pending.
 
 - [x] Settings structure-ID repair — 2026-10-07: `SettingsFragment` uses native unassigned IDs for category/row roots without changing presentation or preference behavior. Source merged in PR #59; [regression and bounded phone confirmation](reviews/2026-10-07-settings-resource-id-review.md) show nine old errors versus zero in three candidate openings and landscape recreation. Full #34/#52 acceptance remains separate.

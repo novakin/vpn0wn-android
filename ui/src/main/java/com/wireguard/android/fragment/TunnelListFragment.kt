@@ -27,6 +27,7 @@ import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.zxing.qrcode.QRCodeReader
+import com.google.zxing.client.android.Intents
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.wireguard.android.Application
@@ -188,6 +189,8 @@ class TunnelListFragment : BaseFragment() {
                                     .setOrientationLocked(false)
                                     .setBeepEnabled(false)
                                     .setPrompt(getString(R.string.qr_code_hint))
+                                    .addExtra(Intents.Scan.SHOW_MISSING_CAMERA_PERMISSION_DIALOG, true)
+                                    .addExtra(Intents.Scan.MISSING_CAMERA_PERMISSION_DIALOG_MESSAGE, getString(R.string.qr_camera_permission_denied))
                             )
                         }
                     }

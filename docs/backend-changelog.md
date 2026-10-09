@@ -1,6 +1,6 @@
 # Backend & Functional Changelog
 
-Last updated: 2026-10-08 (Europe/Paris).
+Last updated: 2026-10-09 (Europe/Paris).
 
 Tracks non-UI changes: backend logic, data layer, permissions, networking, build config, and any functional behavior changes. Separate from `ui-redesign-roadmap.md` which covers visual/layout work only.
 
@@ -50,6 +50,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 - [x] Add opt-in destructive end-to-end test path against a disposable Ubuntu/Debian VPS.
 
 ## Done
+
+- **QR camera-permission denial guidance — #84 (2026-10-09)**
+  `TunnelListFragment.onCreateView` supplies ZXing 4.3.0's existing missing-permission dialog flag and message extras through `ScanOptions`. English/French `qr_camera_permission_denied` resources explain camera access and retry/app-settings recovery instead of camera malfunction or a device restart; other locales use normal English fallback. `ScanContract`, capture activity, cancelled/no-import results, genuine camera-error feedback and QR parsing/naming remain unchanged. `QrScannerPermissionTest` covers the real Home launch and injected scanner denial, cancellation, reopen, valid-result naming and separate camera-error callbacks. Required checks and authorized native denial/retry acceptance remain separate; this source repair does not complete #35/#52 device acceptance.
 
 - **WG Tunnel comparative source assessment — 2026-10-08**
   The [comparison](reviews/2026-10-08-wgtunnel-comparison.md) preserves the original release/core and Tunnl source pins, then reconciles merged native protection and statistics repairs. It records feature/ownership tradeoffs and bounded reuse/refactoring advice. This is documentation/source analysis only; #72 remains planning, #47 still requires measured baselines/targets and no comparative performance or security winner is claimed.
