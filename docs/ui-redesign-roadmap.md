@@ -39,7 +39,7 @@ The selected Home target keeps the compact two-row wordmark/count/title header, 
 
 Use lighter tunnel-name and stat-value typography, readable value/unit spacing, and `LAST HANDSHAKE` with a relative age such as `14s ago`. The HTML uses Inter Tight for some data text to approximate the selected raster; it does not supersede the native semantic font roles below. Apply the weight/spacing intent through existing native styles and compare actual Android output. Keep Add anchored above the bottom safe area: full width, 48dp design height, solid thin border, existing card-surface fill, 13sp regular JetBrains Mono with modest tracking, a 14dp plus icon, an 8dp label gap, and the prototype's small top-left/bottom-right engineering corner ticks.
 
-Generative edits drifted in color, so the retained reference is rendered from fixed role colors sampled from the selected image. These are preview samples, not changes to Android's existing resources; reconcile them through the existing semantic tokens during implementation. Keep the separate diagram, button and switch blues.
+Generative edits drifted in color, so the retained reference is rendered from fixed role colors sampled from the selected image. These were preview samples at the handoff. The 2026-10-09 palette mapping now applies matching shared roles and separates diagram-node, diagram-line and connection-dot colors; [scoped installed verification](#installed-palette-verification--2026-10-09) records native proof and its limits. Keep the separate diagram, button and switch blues.
 
 | Preview role | Fixed color |
 | --- | --- |
@@ -54,7 +54,7 @@ Generative edits drifted in color, so the retained reference is rendered from fi
 | Switch | `#68C6FD` |
 | Connection dot | `#05DE6A` |
 
-Local proof covers an 840×1872 browser render of a 420×936 design canvas, loaded repository fonts, label fit, footer geometry and sampled exported colors. Flat fills and font rendering differ from the earlier generated raster. Android source is unchanged; no APK, phone, VPN or whole-app runtime checks were performed for this handoff. Native Home application is pending, and the existing Redesign QA list below owns the remaining app-wide review.
+Local handoff proof covers an 840×1872 browser render of a 420×936 design canvas, loaded repository fonts, label fit, footer geometry and sampled exported colors. Flat fills and font rendering differ from the earlier generated raster. Android source was unchanged at that handoff; no APK, phone, VPN or whole-app runtime checks were performed for it. The later palette mapping and scoped AVD checks do not implement the remaining Home geometry, typography or branding refinements. The existing Redesign QA list below owns the remaining app-wide review.
 
 ## Design System
 
@@ -105,7 +105,7 @@ Local proof covers an 840×1872 browser render of a 420×936 design canvas, load
 
 ### Color Tokens
 
-Prototype colors use `oklch()`. Android uses tuned hex resources with a dark-first palette in both Material theme buckets, not exact documented OKLCH conversions. `Application` follows system night mode on Android Q+ and the user preference before Q; TV forces night mode separately. DynamicColors is registered where available, so fixed Material azure output is not guaranteed. C10 requires actual output checks.
+Prototype colors use `oklch()`. Android uses tuned hex resources with a dark-first palette in both Material theme buckets, not exact documented OKLCH conversions. `Application` follows system night mode on Android Q+ and the user preference before Q; TV forces night mode separately. Application startup no longer registers Material dynamic-color overlays. Shared paper, card, border, text, action and UP-state colors now match the selected Home hex reference independently of wallpaper colors, with separate diagram-node, diagram-line and connection-dot roles. Both theme buckets map Material dialogs' `colorSurfaceContainerHigh` to the card surface; other newer surface-container and fixed-primary roles not defined by the app retain static Material library defaults. [PR #89](https://github.com/novakin/wireguard-android/pull/89) delivered [#88](https://github.com/novakin/wireguard-android/issues/88)'s selected palette acceptance on 2026-10-09; merge and issue closure were verified. The scoped proof below does not complete C10.
 
 #### Light theme (`styles.css` root)
 
@@ -159,18 +159,31 @@ Prototype colors use `oklch()`. Android uses tuned hex resources with a dark-fir
 
 | Resource | Prototype role | Android value |
 | --- | --- | --- |
-| `tunnl_paper` | `--paper` dark | `#08111E` |
-| `tunnl_paper_2` | `--paper-2` dark | `#0F1A28` |
+| `tunnl_paper` | Selected page | `#071220` |
+| `tunnl_paper_2` | Selected card/Add surface | `#0A1727` |
 | `tunnl_paper_3` | `--paper-3` dark | `#162436` |
-| `tunnl_ink` | `--ink` dark | `#F3F8FF` |
+| `tunnl_ink` | Selected primary text | `#FAFAFA` |
 | `tunnl_ink_2` | `--ink-2` dark | `#C9D5E3` |
-| `tunnl_ink_3` | `--ink-3` dark | `#8EA1B8` |
-| `tunnl_rule` | `--rule` dark | `#26384D` |
+| `tunnl_ink_3` | Selected secondary text | `#94AECB` |
+| `tunnl_rule` | Selected border | `#233B54` |
 | `tunnl_rule_strong` | `--rule-strong` dark | `#3E5B78` |
-| `tunnl_signal` | `--signal` | `#44B3FF` |
-| `tunnl_signal_deep` | `--signal-deep` | `#8BD2FF` |
+| `tunnl_signal` | Selected action | `#2ABFF7` |
+| `tunnl_signal_deep` | Selected switch/UP | `#68C6FD` |
+| `tunnl_diagram_node` | Selected diagram nodes | `#20B2FD` |
+| `tunnl_diagram_line` | Selected diagram line/enclosure | `#63DAFC` |
+| `tunnl_connected` | Selected connected dot | `#05DE6A` |
 | `tunnl_warn` | `--warn` | `#F2C46D` |
 | `tunnl_error` | `--error` | `#FF8B6E` |
+
+#### Installed palette verification — 2026-10-09
+
+The maintainer authorized assembly and in-place installation in the owned API 36 x86_64 AVD. Source `cac38793` passed assembly; the installed APK hash matched the built artifact and the signing certificate was unchanged. Four cases recreated the app under effective neutral and red Android system palettes in both system night modes. Each captured Home with zero tunnels, Settings, Add and a Material app-selection dialog with a transient checked checkbox; every draft/dialog was canceled without saving a profile. Tunnl surfaces and controls retained their navy/blue colors; external adaptive app icons in the dialog followed the system accent as expected. The final dialog surface is `#0A1727`, replacing the earlier inherited gray `#2B2930`.
+
+The preceding `ddc33825` source passed 33 focused Home/Settings/binding tests and zero Detekt findings. Its initial four-case APK run needed explicit editor Cancel after one Back cleanup left the empty editor visible; that result retains its original scope. The final two static dialog-theme mappings were checked by assembly and the fresh four-case native run, which used explicit editor Cancel throughout. No redundant JVM rerun or new physical-device proof is implied.
+
+The visible host renderer had separately shifted raw Android navy toward teal. A qualified same-AVD comparison isolated that boundary: raw page `#08111E` versus host `#00141B` before the renderer change; SwiftShader host output matched raw within one RGB value. Neither depth32 nor maximum brightness corrected it. The owned launch helper now requests `-gpu swiftshader`; the specific GPU/driver mechanism is unproved. See [emulator color diagnosis](operations.md#emulator-color-diagnosis).
+
+This verifies the listed app scenes at 1080×2400, not active-tunnel/diagram output, every Material role, older-platform bars, physical camera/TalkBack, the full size/font/RTL matrix, VPN behavior or complete C10. Source review confirms the ten selected role values; inherited roles outside the observed dialog correction remain separate review scope. Detailed private captures, hashes and host configuration stay outside source distribution.
 
 ---
 
@@ -365,7 +378,7 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 ### 1. Foundation
 - Add Tunnl dark palette resources mapped onto the existing Material theme.
 - Update default card, toolbar, and status/nav bar styling to the dark/signal language.
-- Preserve the dark-first palette; actual night-mode/dynamic-color behavior follows the source policy described above. Complete light-mode fidelity remains deferred.
+- Preserve the dark-first palette and existing night-mode policy described above, with fixed Material colors independent of wallpaper. Complete light-mode fidelity remains deferred.
 - Keep the existing Android view/data-binding architecture.
 
 ### 2. Home / Tunnel List
@@ -433,6 +446,10 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 - [x] QR camera-denial guidance — 2026-10-09: `TunnelListFragment` uses ZXing's existing missing-permission message extras and English/French resources for access/retry/settings guidance. Scanner layout and genuine camera-error feedback are unchanged; [#84](https://github.com/novakin/wireguard-android/issues/84) native denial/retry acceptance remains pending.
 
+- [x] Selected Home palette mapping — 2026-10-09: `colors.xml` maps shared paper/card/border/text/action/UP-state roles to the approved Home hex colors; `TunnelSignalView` and `TunnelThroughputView` retain distinct node/line blues, and `BindingAdapters` gives the Home connected dot its green role. Home header/status and Add fills/text use matching roles. `MainActivity.onBackStackChanged()` matches the Home safe-area backing and pre-Android-15 status bar to the page, restoring the existing card surface for detail/editor navigation; both themes map Material dialog containers to the card surface. Geometry, branding, state decisions and unapproved base tokens are unchanged. [Installed palette verification](#installed-palette-verification--2026-10-09) owns scoped native proof; [PR #89](https://github.com/novakin/wireguard-android/pull/89) merged and [#88](https://github.com/novakin/wireguard-android/issues/88) closed after verified acceptance. C10 is incomplete.
+
+- [x] Fixed-palette source repair — 2026-10-09: `Application.onCreate()` no longer registers Material dynamic-color overlays, retaining the then-existing azure/dark theme roles and Android night-mode policy. That source checkpoint did not change the installed APK; the later mapping and [installed verification](#installed-palette-verification--2026-10-09) supersede its pending app-output proof. The separate AVD system-palette operation does not establish app-source runtime acceptance.
+
 - [x] Home visual reference — 2026-10-08: retained the selected palette, lighter typography, `LAST HANDSHAKE` wording and refined Add footer in a portable synthetic-data [mockup and handoff](#home-visual-handoff--2026-10-08). Browser visual checks only; native implementation and whole-app acceptance remain pending.
 
 - [x] Settings structure-ID repair — 2026-10-07: `SettingsFragment` uses native unassigned IDs for category/row roots without changing presentation or preference behavior. Source merged in PR #59; [regression and bounded phone confirmation](reviews/2026-10-07-settings-resource-id-review.md) show nine old errors versus zero in three candidate openings and landscape recreation. Full #34/#52 acceptance remains separate.
@@ -449,7 +466,7 @@ This is a historical implementation ledger, not newly executed build/device proo
 - [x] Inspected all `.design/` files and mapped the visual system.
 - [x] Added tracked roadmap.
 - [x] Foundation: Tunnl color resources (paper, ink, signal, rule, warn, error tokens), MaterialCardView style (0dp elevation, 8dp corner, tunnl_rule stroke), AppThemeBase (dark M3, Inter Tight font, azure primary).
-- [x] Dark-first palette and azure base accents added. Current Application follows system/pre-Q preference and registers DynamicColors; TV has its own night-mode policy.
+- [x] Dark-first palette and azure base accents added. Current Application follows system/pre-Q preference without registering wallpaper dynamic-color overlays; TV has its own night-mode policy.
 - [x] Inter Tight (UI) and JetBrains Mono (data/keys) font resources added.
 - [x] Home tunnel card: card structure, signal rail, Tunnl-styled background, mono tunnel name, address→endpoint sub-text, PSK badge row, stats (↓ IN / ↑ OUT / HANDSHAKE) with real data binding.
 - [x] Tunnel statistics binding: `ObservableTunnel` supplies snapshots; `BindingAdapters.tunnelRate` owns delta samples. The 2026-10-06 idle-rate correction preserves broader C7 device/traffic acceptance.

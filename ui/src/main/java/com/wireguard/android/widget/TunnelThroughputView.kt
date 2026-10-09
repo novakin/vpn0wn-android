@@ -305,8 +305,8 @@ class TunnelThroughputView @JvmOverloads constructor(
     }
 
     private fun syncColors() {
-        signal     = ContextCompat.getColor(context, R.color.tunnl_signal)
-        signalDeep = ContextCompat.getColor(context, R.color.tunnl_signal_deep)
+        signal     = ContextCompat.getColor(context, R.color.tunnl_diagram_node)
+        signalDeep = ContextCompat.getColor(context, R.color.tunnl_diagram_line)
         ink3       = ContextCompat.getColor(context, R.color.tunnl_ink_3)
         rule       = ContextCompat.getColor(context, R.color.tunnl_rule)
         ruleStrong = ContextCompat.getColor(context, R.color.tunnl_rule_strong)

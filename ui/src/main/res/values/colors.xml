@@ -3,17 +3,20 @@
   ~ SPDX-License-Identifier: Apache-2.0
   -->
 <resources>
-    <color name="seed">#44B3FF</color>
-    <color name="tunnl_paper">#08111E</color>
-    <color name="tunnl_paper_2">#0F1A28</color>
+    <color name="seed">@color/tunnl_signal</color>
+    <color name="tunnl_paper">#071220</color>
+    <color name="tunnl_paper_2">#0A1727</color>
     <color name="tunnl_paper_3">#162436</color>
-    <color name="tunnl_rule">#26384D</color>
+    <color name="tunnl_rule">#233B54</color>
     <color name="tunnl_rule_strong">#3E5B78</color>
-    <color name="tunnl_ink">#F3F8FF</color>
+    <color name="tunnl_ink">#FAFAFA</color>
     <color name="tunnl_ink_2">#C9D5E3</color>
-    <color name="tunnl_ink_3">#8EA1B8</color>
-    <color name="tunnl_signal">#44B3FF</color>
-    <color name="tunnl_signal_deep">#8BD2FF</color>
+    <color name="tunnl_ink_3">#94AECB</color>
+    <color name="tunnl_signal">#2ABFF7</color>
+    <color name="tunnl_signal_deep">#68C6FD</color>
+    <color name="tunnl_diagram_node">#20B2FD</color>
+    <color name="tunnl_diagram_line">#63DAFC</color>
+    <color name="tunnl_connected">#05DE6A</color>
     <color name="tunnl_warn">#F2C46D</color>
     <color name="tunnl_error">#FF8B6E</color>
     <color name="md_theme_light_primary">@color/tunnl_signal</color>
@@ -39,8 +42,8 @@
     <color name="md_theme_light_surfaceVariant">@color/tunnl_paper_2</color>
     <color name="md_theme_light_onSurfaceVariant">@color/tunnl_ink_2</color>
     <color name="md_theme_light_outline">@color/tunnl_rule_strong</color>
-    <color name="md_theme_light_inverseOnSurface">#08111E</color>
-    <color name="md_theme_light_inverseSurface">#F3F8FF</color>
+    <color name="md_theme_light_inverseOnSurface">@color/tunnl_paper</color>
+    <color name="md_theme_light_inverseSurface">@color/tunnl_ink</color>
     <color name="md_theme_light_inversePrimary">#005A8F</color>
     <color name="md_theme_light_shadow">#000000</color>
     <color name="md_theme_light_surfaceTint">@color/tunnl_signal</color>
@@ -69,8 +72,8 @@
     <color name="md_theme_dark_surfaceVariant">@color/tunnl_paper_2</color>
     <color name="md_theme_dark_onSurfaceVariant">@color/tunnl_ink_2</color>
     <color name="md_theme_dark_outline">@color/tunnl_rule_strong</color>
-    <color name="md_theme_dark_inverseOnSurface">#08111E</color>
-    <color name="md_theme_dark_inverseSurface">#F3F8FF</color>
+    <color name="md_theme_dark_inverseOnSurface">@color/tunnl_paper</color>
+    <color name="md_theme_dark_inverseSurface">@color/tunnl_ink</color>
     <color name="md_theme_dark_inversePrimary">#005A8F</color>
     <color name="md_theme_dark_shadow">#000000</color>
     <color name="md_theme_dark_surfaceTint">@color/tunnl_signal</color>
