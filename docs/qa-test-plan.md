@@ -158,6 +158,18 @@ Required before merging UI or backend provisioning work, except the explicitly a
 - Delete a tunnel.
 - Exercise Android VPN permission flow on a clean install.
 
+## Android system VPN policy acceptance
+
+The [#75](https://github.com/novakin/wireguard-android/issues/75) setup/status slice requires source controls separately from device/system-policy and packet proof. [Operations](operations.md#android-system-vpn-settings) owns support/setup; [backend contracts](backend-contracts.md#android-system-vpn-policy-observation) owns unchanged routing and pending #73/#74 policy boundaries. PR acceptance records actual executions; the requirements below are not a passing runtime report.
+
+- Extend existing Settings/backend lifecycle fixtures: API 28 never calls policy getters; API 29+ reports observed flags; missing service access and inconsistent flags remain unknown; kernel mode is unsupported without getter calls. Check checked-read failure/denial, administrator restriction and click recheck, missing/denied Settings launch and truthful feedback.
+- Exercise foreground-return refresh, pause/destruction/cancellation, stale completion rejection and runtime-defect/Error propagation. Verify the row is nonpersistent and neither status refresh nor navigation starts a VPN service, requests VPN authorization or changes system policy, profiles or routes. Preserve existing native controls and backend lifecycle regressions.
+- Inspect actual Settings output/navigation at supported sizes and both system themes, large text, RTL and accessibility. Retain unavailable OEM/admin/backend cases explicitly; JVM/raster controls do not establish the real system screen or lockdown behavior.
+
+Full packet acceptance requires a separately authorized device/profile/path plan and an agreed endpoint-bootstrap policy. Capture policy-off controls and always-on plus block-without-VPN candidates with IPv4/IPv6 application traffic and DNS, literal-IP/hostname endpoints, Private DNS modes, full/split routes, included/excluded apps and LAN destinations. Exercise startup, established traffic, recovery, process death, revocation and reboot. Distinguish permitted VPN-provider bootstrap/transport and platform traffic from application traffic; record administrator allowlists and inaccessible capture points. Public flags and a successful tunnel exchange cannot substitute for this matrix.
+
+Preserve original policies, profiles, installed APK and network/device settings; use synthetic credentials and verify restoration. No APK/device/policy/network mutation or packet capture follows from source-check authorization. Existing warm-up/Doze evidence retains its original scope and does not close #75.
+
 ## Remaining G4 device acceptance
 
 This runbook sequences the existing acceptance in [#28](https://github.com/novakin/wireguard-android/issues/28), [#34](https://github.com/novakin/wireguard-android/issues/34), [#35](https://github.com/novakin/wireguard-android/issues/35) and [#36](https://github.com/novakin/wireguard-android/issues/36); it does not replace their acceptance or close [#52](https://github.com/novakin/wireguard-android/issues/52). The [physical import record](reviews/2026-10-08-g4-import-device-acceptance.md) and [isolated native follow-up](reviews/2026-10-09-g4-private-native-acceptance.md) own completed checks and their distinct environments/revisions. Reuse endpoint-free synthetic configs, mixed ZIP, valid QR PNG and blank PNG; use fresh unique names and verify destinations absent before uploading. Standard QR import asks for a name; file imports use filenames.

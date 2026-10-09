@@ -1,12 +1,15 @@
 # Backend & Functional Changelog
 
-Last updated: 2026-10-08 (Europe/Paris).
+Last updated: 2026-10-09 (Europe/Paris).
 
 Tracks non-UI changes: backend logic, data layer, permissions, networking, build config, and any functional behavior changes. Separate from `ui-redesign-roadmap.md` which covers visual/layout work only.
 
 ---
 
 ## In Progress
+
+- **Android system VPN protection acceptance — #75**
+  The [setup/status slice](operations.md#android-system-vpn-settings) leaves device/system-policy and [packet proof](qa-test-plan.md#android-system-vpn-policy-acceptance) open. Endpoint bootstrap DNS with #73 and manual/always-on/automation arbitration with #74 remain undecided; enabled flags establish no leak-protection guarantee. Source integration alone does not fulfil #75.
 
 - **Native warm-up physical, unchanged-server and DPI acceptance — #61**
   The maintainer authorized source adoption through PR #63 on 2026-10-08 (Europe/Paris). PR #63 records exact-head review/checks and actual delivery state. #61 stays open for remaining physical lifecycle, unchanged-server interoperability and DPI acceptance. Authorized [APK/Pixel checks and the 195-second forced deep Doze recovery](reviews/2026-10-07-protocol-preflight-experiment.md#authorized-local-apk-and-pixel-checks--2026-10-07) retain their original scope. The maintainer also reported sleep/wake recovery without manual action on 2026-10-08; this is not a new measured hardware-suspend, packet or timing trial. Hardware deep suspend, network rebind, warm-up packet capture, broader unchanged kernel-server interoperability and DPI benefit remain unverified. G4/#47/#48 are separate, and no DPI, speed or battery gain is established.
@@ -50,6 +53,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 - [x] Add opt-in destructive end-to-end test path against a disposable Ubuntu/Debian VPS.
 
 ## Done
+
+- **Android system VPN Settings/status source slice — #75 (2026-10-09)**
+  `SettingsActivity.SettingsFragment.refreshVpnPolicy/readVpnPolicySummary/openVpnSettings` and `preferences.xml` add one nonpersistent native action opening `ACTION_VPN_SETTINGS`, with foreground refresh of this app's always-on/lockdown observations through existing backend getters. API 24–28 status is unavailable, missing service access or inconsistent flags is unknown and WgQuick is unsupported. `DISALLOW_CONFIG_VPN` disables navigation; expected read/launch failures use truthful unavailable/denied feedback. Default/French strings explain setup and limits. No service startup, policy toggle, bootstrap/recovery or routing change occurs. Owning [contracts](backend-contracts.md#android-system-vpn-policy-observation) and [architecture decision](architecture.md#android-owns-system-vpn-policy--2026-10-09) distinguish this implementation from pending full issue acceptance; actual checks belong in the PR.
 
 - **WG Tunnel comparative source assessment — 2026-10-08**
   The [comparison](reviews/2026-10-08-wgtunnel-comparison.md) preserves the original release/core and Tunnl source pins, then reconciles merged native protection and statistics repairs. It records feature/ownership tradeoffs and bounded reuse/refactoring advice. This is documentation/source analysis only; #72 remains planning, #47 still requires measured baselines/targets and no comparative performance or security winner is claimed.
