@@ -4,7 +4,9 @@ Last updated: 2026-10-09 (Europe/Paris).
 
 ## Scope and provenance
 
-Partial native Android framework evidence for [#28 Downloads](https://github.com/novakin/wireguard-android/issues/28), [#34 Settings](https://github.com/novakin/wireguard-android/issues/34), [#35 Add/peer](https://github.com/novakin/wireguard-android/issues/35) and [#36 Home](https://github.com/novakin/wireguard-android/issues/36), under [G4/#52](https://github.com/novakin/wireguard-android/issues/52). This isolated emulator run does not replace physical acceptance or complete any of these issues.
+Partial native Android framework evidence for [#28 Downloads](https://github.com/novakin/wireguard-android/issues/28), [#34 Settings](https://github.com/novakin/wireguard-android/issues/34), [#35 Add/peer](https://github.com/novakin/wireguard-android/issues/35) and [#36 Home](https://github.com/novakin/wireguard-android/issues/36), under [G4/#52](https://github.com/novakin/wireguard-android/issues/52). These separately scoped isolated emulator runs do not replace physical acceptance or complete any of these issues.
+
+### Initial API 36 session provenance
 
 The checkout was clean at `b1eb7c47be143090ce60ad1f23eba09057296334`. A fresh private headless AVD ran Android 16/API 36, Google APIs x86_64 system image revision 7, with the Pixel 8 profile and 1080×2400 output at density 420. Every device command targeted `emulator-5582`; the existing visible `emulator-5580` and physical Pixel received no commands. The shared ADB server remained intact.
 
@@ -12,9 +14,9 @@ The private AVD initially had no debug package. It received the existing authori
 
 Screenshots and current hierarchy captures established the recorded native controls and settled output in the app's dark palette, with portrait/landscape recreation where stated. This is API 36 emulator output, not an expanded physical size/theme/font/RTL matrix. Raw captures, app archives and reports remain local under ignored `.artifacts/g4-private-native-20261009/`.
 
-## Observations and acceptance limits
+## Initial API 36 observations and acceptance limits
 
-| Surface | Observed result | Boundary still open |
+| Surface | Observed result | Boundary after the initial session |
 | --- | --- | --- |
 | Camera permission, #35 | Deny left CAMERA ungranted and created no tunnel. The scanner displayed misleading camera-failure/restart advice. After dismissal, retry requested permission again; Grant opened the scanner, and Back returned to Home. | The denial feedback is an unresolved finding below. Scanner opening does not establish QR lens decoding, physical camera recovery or camera absence. |
 | Quick tile, #34 | Initial native inventory lacked the app tile. Cancel preserved inventory and the Add row. Retry/Add installed exactly one tile and removed the row. Later Settings reopening offered Add again while inventory still contained the tile; choosing it hid the row without another native add dialog. | Stale row eligibility is an unresolved finding below. The exact service callback/process sequence was not recorded. Tile VPN toggling and physical/process-restart acceptance were not exercised. |
@@ -34,13 +36,37 @@ The two ZIP-container hashes differ; canonical entry bytes match in both archive
 
 Rejected launcher namespace/direct non-exported Settings launch, an invalid archive path, unsupported MediaStore column and a guessed nonexistent `shared_prefs` location were operator errors. Their failed evidence is retained and excluded from app-failure findings. Corrected commands and fresh readbacks supply the accepted results.
 
-## Restoration and remaining gates
+## Initial API 36 restoration and remaining gates
 
 After confirmed synthetic deletion, remote control was OFF; CAMERA returned to denied with neither USER_SET nor USER_FIXED; rotation matched original values 1/0; and native tile inventory matched the original exactly. Fresh hashes identified session-owned Downloads fixtures/exports before removal; their files and MediaStore rows were absent on final readback. Remote capture removal completed successfully, without a separate absence readback before emulator shutdown. The debug package was uninstalled to restore its original absence.
 
 Final restoration was recorded at `2026-10-09T09:25:43+02:00`. The private emulator process exited; ADB then listed only the untouched visible emulator. No required device command remained active. No personal configuration or physical-phone state was part of this isolated run.
 
-Applicable physical camera/peer/Settings/Home acceptance, actual TalkBack traversal and speech, older-API permission/storage, conditional root/kernel coverage, authentication/export cancellation and provider failures remain pending under the [device runbook](../qa-test-plan.md#remaining-g4-device-acceptance). New findings also remain unresolved. Clean network, controlled energy and paired optimization proof are separate G4 gates; no issue closure, performance target, battery gain or no-change optimization verdict follows from this run.
+At this initial session's boundary, applicable physical camera/peer/Settings/Home acceptance, actual TalkBack traversal and speech, older-API permission/storage, conditional root/kernel coverage, authentication/export cancellation and provider failures remained pending under the [device runbook](../qa-test-plan.md#remaining-g4-device-acceptance). New findings also remained unresolved. The follow-ups below add native legacy-storage and authentication proof; the initial session's table retains its original scope.
+
+## API 28 legacy storage follow-up
+
+The follow-up checkout was clean at `172abf288a42dfe4a8556247d2395bf89199b021`. A separate fresh private headless AVD used the official Android 9/API 28 Google APIs x86_64 system image revision 11, installed into the local SDK, with the Pixel 3 profile and 1080×2160 output at density 440. The existing authorized `f4a4b147` APK was installed into an initially absent debug package; installed pullback matched the same SHA256 above. Device commands targeted this private instance's `emulator-5582`; the visible AVD, physical Pixel and shared ADB server were preserved. No APK or tracked source changed.
+
+Two fresh endpoint-free synthetic profiles imported DOWN. Denying the actual storage-permission request left no observed export and restored the enabled export action. Permission and hierarchy readbacks are retained; no separate filesystem-absence readback was retained at the denial point. Retry/Allow granted permission and saved a 660-byte filesystem ZIP. A second export exercised overwrite. Both archives contained exactly `g4legacy9-alpha.conf` and `g4legacy9-bravo.conf`, with valid CRCs, UTF-8 and byte equality to the canonical stored configs. This establishes native API 28 permission denial/retry and ordinary filesystem success/overwrite, without proving filesystem write-failure or cancellation cleanup.
+
+The first cleanup command stopped after removing the owned upload's MediaStore row and exported file; the uploaded fixture ZIP still existed. That operator cleanup failure and its log are retained. A separate resume compared the remaining fixture's fresh hash, removed it and verified absence. Export, owned row and remote-capture absence were also checked. Original rotation and tile inventory were unchanged; uninstall restored original package absence and removed the synthetic configs. Final restoration was recorded at `2026-10-09T10:04:21+02:00`; subsequent readback at `10:05:16+02:00` confirmed private PID 63736 absent and only the untouched visible emulator connected. Failed cleanup was not accepted as restoration proof.
+
+Private evidence remains in ignored `.artifacts/g4-legacy-native-20261009/`, including export verification, failed `restore.ps1` evidence, successful `resume-restore.ps1` evidence and final restoration/termination readbacks. This session exercises the pre-29 filesystem path separately from the initial API 36 MediaStore checks.
+
+## API 36 credential authentication follow-up
+
+A separate authentication session reused the owned private API 36 AVD and received the same existing authorized APK. Fresh initial checks recorded debug-package absence and no secure device credential. A synthetic PIN enabled the actual “Authenticate to export tunnels” prompt. The credential is retained only in ignored session evidence. Secure prompt screenshots were black; prompt title/PIN-area hierarchy and authentication callbacks establish functional prompt behavior, not rendered credential-screen fidelity.
+
+Back returned callback code 10, “Authentication canceled”, before any export. No export file or row was observed, the action was enabled again and both canonical stored config bytes were unchanged. The callback, enabled-action capture and no-export MediaStore inventory are retained; no separate file-absence readback was retained at this first Cancel point. Successful PIN authentication then wrote a 652-byte ZIP containing exactly `g4auth9-alpha.conf` and `g4auth9-bravo.conf`, with valid CRCs, UTF-8 and canonical config byte equality. A second Back cancellation preserved the existing archive byte-for-byte and left native MediaStore rows 21 (uploaded fixture) and 22 (app export) unchanged. Authentication cancellation is proved for these two native prompt cases; cancellation after export admission or during provider I/O remains a separate boundary.
+
+Cleanup removed the synthetic credential and restored original non-secure/lock-disabled state. Rotation and tile inventory remained unchanged; owned outputs/rows and remote captures were absent on readback. Uninstall restored original debug-package absence and removed the synthetic configs. Restoration was recorded at `2026-10-09T10:15:05+02:00`; termination readback at `10:19:20+02:00` confirmed private PID 76708 and its serial absent, with only the untouched visible emulator connected. Evidence remains local under ignored `.artifacts/g4-auth-native-20261009/`; no PIN, raw profile or device report is committed.
+
+## Current remaining acceptance
+
+Native API 28 storage-permission denial/retry, filesystem success/overwrite and API 36 authentication Cancel/success now have scoped proof. Applicable physical camera/peer/Settings/Home and authentication/storage acceptance, actual TalkBack traversal and speech, the remaining supported API/output matrix, conditional root/kernel coverage, export-operation cancellation, provider acquisition/write failures and admitted-deletion failure/cancellation remain pending. #84/#85 also remain unresolved. The current issue snapshot retains #28/#34/#35/#36/#47/#52 OPEN; no issue closure follows from these checks.
+
+All three private sessions ended and their emulator processes stopped. No physical-phone or shared-visible-AVD operation, new APK, tracked source change, network/backend/server test or energy run occurred. Clean network, controlled energy and paired optimization proof remain separate G4 gates; no performance target, battery gain or no-change optimization verdict is delivered.
 
 Fresh ignored energy helpers in `.artifacts/g4-energy-preparation-20261009/` passed 50 offline synthetic controls and independent ultra review. They await a new exclusive physical-phone handoff under the [#47 baseline procedure](../qa-test-plan.md#controlled-47-baseline-preparation); injected responses and local subprocess controls establish no real ADB transport, counter cadence, restoration or energy baseline.
 
