@@ -48,10 +48,12 @@ class QrScannerPermissionTest {
     @get:Rule val folder = TemporaryFolder()
     private val hosts = mutableListOf<ActivityController<HostActivity>>()
     private val captures = mutableListOf<ActivityController<CaptureActivity>>()
+    private val environments = mutableListOf<TunnelTestEnvironment>()
 
     @After fun tearDown() {
         captures.forEach { it.destroy() }
         hosts.forEach { it.pause().stop().destroy() }
+        environments.clear()
         Dispatchers.resetMain()
         RuntimeEnvironment.setQualifiers("")
     }
@@ -59,6 +61,7 @@ class QrScannerPermissionTest {
     @Test fun denialExplainsMissingPermissionCancelsWithoutImportAndAllowsReopen() = runScannerTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val environment = TunnelTestEnvironment(folder.root, backgroundScope)
+        environments += environment
         environment.store.configs["existing"] = TunnelTestEnvironment.profile()
         environment.manager.getTunnels()
         val (activity, home) = host()
@@ -97,6 +100,7 @@ class QrScannerPermissionTest {
     @Test fun ordinaryCancellationAndSuccessfulQrKeepExistingNamingContract() = runScannerTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val environment = TunnelTestEnvironment(folder.root, backgroundScope)
+        environments += environment
         environment.manager.getTunnels()
         val (activity, home) = host()
         runCurrent()
@@ -122,6 +126,7 @@ class QrScannerPermissionTest {
         RuntimeEnvironment.setQualifiers("fr")
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val environment = TunnelTestEnvironment(folder.root, backgroundScope)
+        environments += environment
         environment.manager.getTunnels()
         val (activity, home) = host()
         runCurrent()
