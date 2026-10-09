@@ -1,6 +1,6 @@
 # Backend & Functional Changelog
 
-Last updated: 2026-10-08 (Europe/Paris).
+Last updated: 2026-10-09 (Europe/Paris).
 
 Tracks non-UI changes: backend logic, data layer, permissions, networking, build config, and any functional behavior changes. Separate from `ui-redesign-roadmap.md` which covers visual/layout work only.
 
@@ -50,6 +50,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 - [x] Add opt-in destructive end-to-end test path against a disposable Ubuntu/Debian VPS.
 
 ## Done
+
+- **Quick Settings tile membership — #85 (source repair)**
+  `UserKnobs.quickTileAdded` retains nullable membership confirmation in the existing settings DataStore. `QuickTileService.onTileAdded`/`onTileRemoved` and successful/already-added `QuickTilePreference.onClick` results record actual notifications; service creation/destruction and listening never alter membership. The owner synchronously advances a removal revision and guards true transactions against stale request/add confirmations after a later removal. `SettingsActivity.SettingsFragment.onViewCreated` hides setup during loading and observes confirmation with the view lifecycle, including removal while Settings remains open. A loaded value without recorded confirmation preserves the native idempotent Add fallback; unavailable reads keep setup hidden without writing absence. Request cancellation/error feedback stays intact. The [contract](backend-contracts.md#persistence-and-presentation) and [QA controls](qa-test-plan.md#jvm-unit-tests) distinguish committed reconstruction from unknown state and native acceptance. No APK/device or tile-toggle VPN proof is included in this source repair.
 
 - **WG Tunnel comparative source assessment — 2026-10-08**
   The [comparison](reviews/2026-10-08-wgtunnel-comparison.md) preserves the original release/core and Tunnl source pins, then reconciles merged native protection and statistics repairs. It records feature/ownership tradeoffs and bounded reuse/refactoring advice. This is documentation/source analysis only; #72 remains planning, #47 still requires measured baselines/targets and no comparative performance or security winner is claimed.

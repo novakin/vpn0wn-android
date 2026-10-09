@@ -431,6 +431,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
+- [x] **Quick Settings setup eligibility — #85 (source repair, 2026-10-09):** Settings hides the Add row while membership loads, then observes retained add/remove confirmation independently of service lifetime. Successful/already-added native results record membership; loaded missing confirmation keeps the idempotent fallback, while unavailable reads keep setup hidden. Removal also restores the row while Settings is open. No geometry, theme or tile-toggle change; native inventory and reopening acceptance remain separate under [#85](https://github.com/novakin/wireguard-android/issues/85).
+
 - [x] Home visual reference — 2026-10-08: retained the selected palette, lighter typography, `LAST HANDSHAKE` wording and refined Add footer in a portable synthetic-data [mockup and handoff](#home-visual-handoff--2026-10-08). Browser visual checks only; native implementation and whole-app acceptance remain pending.
 
 - [x] Settings structure-ID repair — 2026-10-07: `SettingsFragment` uses native unassigned IDs for category/row roots without changing presentation or preference behavior. Source merged in PR #59; [regression and bounded phone confirmation](reviews/2026-10-07-settings-resource-id-review.md) show nine old errors versus zero in three candidate openings and landscape recreation. Full #34/#52 acceptance remains separate.

@@ -17,6 +17,8 @@ import android.widget.ImageView
 import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
@@ -32,11 +34,15 @@ import com.wireguard.android.model.TunnelTestEnvironment
 import com.wireguard.android.preference.KernelModuleEnablerPreference
 import com.wireguard.android.util.RootShell
 import com.wireguard.android.util.ToolsInstaller
+import com.wireguard.android.util.UserKnobs
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.resetMain
@@ -60,6 +66,7 @@ import org.robolectric.annotation.Implementation
 import org.robolectric.annotation.Implements
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
+import java.io.IOException
 import java.util.concurrent.Executor
 import java.util.function.Consumer
 
@@ -74,13 +81,14 @@ class SettingsActivityTest {
     @Before fun resetPlatform() {
         KernelSupport.available = false
         KernelSupport.probedOnMain = null
-        setTileAdded(false)
+        TileRequests.result = android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED
+        TileRequests.deferResult = false
+        TileRequests.pendingResult = null
     }
 
     @After fun tearDown() {
         controllers.forEach { it.pause().stop().destroy() }
         Dispatchers.resetMain()
-        setTileAdded(false)
     }
 
     @Test fun userspaceRemovesUnsupportedConnectionAndKeepsNativeActions() = runTest {
@@ -145,6 +153,8 @@ class SettingsActivityTest {
         settle(activity)
         val fragment = fragment(activity)
         assertNotNull(fragment.findPreference<Preference>("quick_tile"))
+        assertTrue(fragment.findPreference<Preference>("quick_tile")!!.isVisible)
+        assertNull(UserKnobs.quickTileAdded.first())
         assertNull(fragment.findPreference<Preference>("dark_theme"))
         assertNull(fragment.findPreference<Preference>("settings_appearance"))
         assertNonemptyCategories(fragment)
@@ -152,11 +162,11 @@ class SettingsActivityTest {
 
     @Test @Config(sdk = [33]) fun addedTileIsRemovedWithoutRemovingControlSection() = runTest {
         environment()
-        setTileAdded(true)
+        UserKnobs.setQuickTileAdded(true)
         val activity = openSettings()
         settle(activity)
         val fragment = fragment(activity)
-        assertNull(fragment.findPreference<Preference>("quick_tile"))
+        assertFalse(fragment.findPreference<Preference>("quick_tile")!!.isVisible)
         assertNotNull(fragment.findPreference<Preference>("allow_remote_control_intents"))
         assertNotNull(fragment.findPreference<Preference>("settings_control"))
     }
@@ -251,9 +261,218 @@ class SettingsActivityTest {
         settle(activity)
         fragment(activity).findPreference<Preference>("quick_tile")!!.performClick()
         shadowOf(android.os.Looper.getMainLooper()).idle()
-        assertNull(fragment(activity).findPreference<Preference>("quick_tile"))
+        assertEquals(true, UserKnobs.quickTileAdded.first { it == true })
+        settle(activity)
+        assertFalse(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
         assertNotNull(fragment(activity).findPreference<Preference>("allow_remote_control_intents"))
         assertEquals(Int.MAX_VALUE, fragment(activity).preferenceScreen.initialExpandedChildrenCount)
+        controllers.last().recreate()
+        val recreated = controllers.last().get()
+        settle(recreated)
+        assertFalse(fragment(recreated).findPreference<Preference>("quick_tile")!!.isVisible)
+    }
+
+    @Test @Config(sdk = [33]) fun alreadyAddedResultRetainsMembershipAcrossReopening() = runTest {
+        environment()
+        TileRequests.result = android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED
+        val activity = openSettings()
+        settle(activity)
+        fragment(activity).findPreference<Preference>("quick_tile")!!.performClick()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(true, UserKnobs.quickTileAdded.first { it == true })
+        settle(activity)
+        assertFalse(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
+        val reopened = openSettings()
+        settle(reopened)
+        assertFalse(fragment(reopened).findPreference<Preference>("quick_tile")!!.isVisible)
+    }
+
+    @Test @Config(sdk = [33]) fun cancelledAddKeepsUnknownMembershipAndAvailableRow() = runTest {
+        environment()
+        TileRequests.result = android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_NOT_ADDED
+        val activity = openSettings()
+        settle(activity)
+        fragment(activity).findPreference<Preference>("quick_tile")!!.performClick()
+        shadowOf(Looper.getMainLooper()).idle()
+        settle(activity)
+        assertNull(UserKnobs.quickTileAdded.first())
+        assertTrue(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
+        assertNull(activity.findViewById<TextView>(com.google.android.material.R.id.snackbar_text))
+    }
+
+    @Test @Config(sdk = [33]) fun requestErrorsKeepUnknownMembershipAndExistingFeedback() = runTest {
+        environment()
+        val results = listOf(
+            android.app.StatusBarManager.TILE_ADD_REQUEST_ERROR_MISMATCHED_PACKAGE,
+            android.app.StatusBarManager.TILE_ADD_REQUEST_ERROR_REQUEST_IN_PROGRESS,
+            android.app.StatusBarManager.TILE_ADD_REQUEST_ERROR_BAD_COMPONENT,
+            android.app.StatusBarManager.TILE_ADD_REQUEST_ERROR_NOT_CURRENT_USER,
+            android.app.StatusBarManager.TILE_ADD_REQUEST_ERROR_APP_NOT_IN_FOREGROUND,
+            android.app.StatusBarManager.TILE_ADD_REQUEST_ERROR_NO_STATUS_BAR_SERVICE
+        )
+        for (result in results) {
+            TileRequests.result = result
+            val activity = openSettings()
+            settle(activity)
+            fragment(activity).findPreference<Preference>("quick_tile")!!.performClick()
+            shadowOf(Looper.getMainLooper()).idle()
+            settle(activity)
+            assertNull(UserKnobs.quickTileAdded.first())
+            assertTrue(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
+            assertEquals(activity.getString(R.string.quick_settings_tile_add_failure, result),
+                activity.findViewById<TextView>(com.google.android.material.R.id.snackbar_text).text.toString())
+            controllers.last().pause().stop().destroy()
+            controllers.removeAt(controllers.lastIndex)
+        }
+    }
+
+    @Test @Config(sdk = [33]) fun membershipChangesUpdateOnlyTheTileWhileSettingsStaysOpen() = runTest {
+        environment()
+        val activity = openSettings()
+        settle(activity)
+        val tile = fragment(activity).findPreference<Preference>("quick_tile")!!
+        assertTrue(tile.isVisible)
+        UserKnobs.setQuickTileAdded(true)
+        settle(activity)
+        assertFalse(tile.isVisible)
+        UserKnobs.setQuickTileAdded(false)
+        settle(activity)
+        assertTrue(tile.isVisible)
+        assertNotNull(fragment(activity).findPreference<Preference>("allow_remote_control_intents"))
+        assertEquals(Int.MAX_VALUE, fragment(activity).preferenceScreen.initialExpandedChildrenCount)
+    }
+
+    @Test @Config(sdk = [33]) fun loadingMembershipDoesNotExposeSetupUntilItsFirstValue() = runTest {
+        val env = environment()
+        UserKnobs.setQuickTileAdded(true)
+        val activity = openSettings()
+        val dataStore = com.wireguard.android.Application.getPreferencesDataStore()
+        val loaded = CompletableDeferred<Unit>()
+        val delayedStore = object : DataStore<Preferences> by dataStore {
+            override val data = flow {
+                loaded.await()
+                emitAll(dataStore.data)
+            }
+        }
+        setApplicationField(env, "preferencesDataStore", delayedStore)
+        runCurrent()
+        assertFalse(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
+        loaded.complete(Unit)
+        assertEquals(true, UserKnobs.quickTileAdded.first())
+        settle(activity)
+        assertFalse(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
+    }
+
+    @Test @Config(sdk = [33]) fun unavailableMembershipKeepsSetupHiddenWithoutWritingAbsence() = runTest {
+        val env = environment()
+        val activity = openSettings()
+        val dataStore = com.wireguard.android.Application.getPreferencesDataStore()
+        val unavailableStore = object : DataStore<Preferences> by dataStore {
+            override val data = flow<Preferences> { throw IOException("fixture unavailable") }
+        }
+        setApplicationField(env, "preferencesDataStore", unavailableStore)
+        settle(activity)
+        assertFalse(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
+        setApplicationField(env, "preferencesDataStore", dataStore)
+        assertNull(UserKnobs.quickTileAdded.first())
+    }
+
+    @Test @Config(sdk = [33]) fun membershipReadFailureAfterLoadedRemovalHidesTheAvailableRow() = runTest {
+        val env = environment()
+        UserKnobs.setQuickTileAdded(false)
+        val activity = openSettings()
+        val dataStore = com.wireguard.android.Application.getPreferencesDataStore()
+        val failRead = CompletableDeferred<Unit>()
+        val failingStore = object : DataStore<Preferences> by dataStore {
+            override val data = flow {
+                emit(dataStore.data.first())
+                failRead.await()
+                throw IOException("fixture unavailable")
+            }
+        }
+        setApplicationField(env, "preferencesDataStore", failingStore)
+        settle(activity)
+        val tile = fragment(activity).findPreference<Preference>("quick_tile")!!
+        assertTrue(tile.isVisible)
+        failRead.complete(Unit)
+        runCurrent()
+        assertFalse(tile.isVisible)
+        setApplicationField(env, "preferencesDataStore", dataStore)
+        assertEquals(false, UserKnobs.quickTileAdded.first())
+    }
+
+    @Test @Config(sdk = [33]) fun lateSuccessfulResultPersistsAfterSettingsDestruction() = runTest {
+        environment()
+        TileRequests.deferResult = true
+        val activity = openSettings()
+        settle(activity)
+        fragment(activity).findPreference<Preference>("quick_tile")!!.performClick()
+        controllers.last().pause().stop().destroy()
+        controllers.removeAt(controllers.lastIndex)
+        TileRequests.pendingResult!!.invoke()
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(true, UserKnobs.quickTileAdded.first { it == true })
+        val reopened = openSettings()
+        settle(reopened)
+        assertFalse(fragment(reopened).findPreference<Preference>("quick_tile")!!.isVisible)
+    }
+
+    @Test @Config(sdk = [33]) fun removalWinsOverDeferredSuccessfulResultsAfterSettingsSurvivesOrCloses() = runTest {
+        environment()
+        val successfulResults = listOf(
+            android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED,
+            android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED
+        )
+        for (result in successfulResults) {
+            for (closeSettings in listOf(false, true)) {
+                TileRequests.result = result
+                TileRequests.deferResult = true
+                val activity = openSettingsWithLoadedMembership()
+                val tile = fragment(activity).findPreference<Preference>("quick_tile")!!
+                assertTrue("Tile setup before result $result, closed Settings $closeSettings", tile.isVisible)
+                val removalRevision = UserKnobs.quickTileRemovalRevision
+                tile.performClick()
+                QuickTileService().onTileRemoved()
+                assertEquals(removalRevision + 1, UserKnobs.quickTileRemovalRevision)
+                assertEquals(false, UserKnobs.quickTileAdded.first { it == false })
+                if (closeSettings) {
+                    controllers.last().pause().stop().destroy()
+                    controllers.removeAt(controllers.lastIndex)
+                }
+                TileRequests.pendingResult!!.invoke()
+                shadowOf(Looper.getMainLooper()).idle()
+                runCurrent()
+                com.wireguard.android.Application.getPreferencesDataStore().updateData { it }
+                assertEquals(false, UserKnobs.quickTileAdded.first())
+                val current = if (closeSettings) openSettingsWithLoadedMembership() else activity
+                settle(current)
+                assertTrue(fragment(current).findPreference<Preference>("quick_tile")!!.isVisible)
+                controllers.last().pause().stop().destroy()
+                controllers.removeAt(controllers.lastIndex)
+            }
+        }
+    }
+
+    @Test @Config(sdk = [33]) fun successfulResultPersistenceFailureLeavesUnknownFallback() = runTest {
+        val env = environment()
+        val activity = openSettings()
+        settle(activity)
+        val dataStore = com.wireguard.android.Application.getPreferencesDataStore()
+        var attempts = 0
+        val unavailableStore = object : DataStore<Preferences> by dataStore {
+            override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences {
+                attempts++
+                throw IOException("fixture unavailable")
+            }
+        }
+        setApplicationField(env, "preferencesDataStore", unavailableStore)
+        val tile = fragment(activity).findPreference<Preference>("quick_tile")!!
+        tile.performClick()
+        shadowOf(Looper.getMainLooper()).idle()
+        runCurrent()
+        assertEquals(1, attempts)
+        assertNull(UserKnobs.quickTileAdded.first())
+        assertTrue(tile.isVisible)
     }
 
     @Test fun versionRowKeepsNativeArtworkWithoutGenericIconTint() = runTest {
@@ -374,6 +593,26 @@ class SettingsActivityTest {
         return controller.get()
     }
 
+    private suspend fun TestScope.openSettingsWithLoadedMembership(): SettingsActivity {
+        val dataStore = com.wireguard.android.Application.getPreferencesDataStore()
+        val activity = openSettings()
+        val membershipLoaded = CompletableDeferred<Unit>()
+        val observingStore = object : DataStore<Preferences> by dataStore {
+            override val data = flow {
+                dataStore.data.collect { preferences ->
+                    emit(preferences)
+                    membershipLoaded.complete(Unit)
+                }
+            }
+        }
+        setApplicationField(testEnvironment, "preferencesDataStore", observingStore)
+        settle(activity)
+        membershipLoaded.await()
+        runCurrent()
+        setApplicationField(testEnvironment, "preferencesDataStore", dataStore)
+        return activity
+    }
+
     private suspend fun TestScope.settle(activity: SettingsActivity) {
         activity.supportFragmentManager.executePendingTransactions()
         runCurrent()
@@ -394,10 +633,6 @@ class SettingsActivityTest {
 
     private fun setApplicationField(env: TunnelTestEnvironment, name: String, value: Any) {
         com.wireguard.android.Application::class.java.getDeclaredField(name).apply { isAccessible = true }.set(env.application, value)
-    }
-
-    private fun setTileAdded(added: Boolean) {
-        QuickTileService::class.java.getDeclaredField("isAdded").apply { isAccessible = true }.setBoolean(null, added)
     }
 
     private class ProbeShell(context: Context) : RootShell(context) {
@@ -436,7 +671,15 @@ class SettingsActivityTest {
             assertEquals(QuickTileService::class.java.name, component.className)
             assertFalse(label.isBlank())
             assertEquals(R.drawable.ic_tile, icon.resId)
-            executor.execute { callback.accept(android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED) }
+            val requestResult = result
+            val deliver = { executor.execute { callback.accept(requestResult) } }
+            if (deferResult) pendingResult = deliver else deliver()
+        }
+
+        companion object {
+            var result = android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED
+            var deferResult = false
+            var pendingResult: (() -> Unit)? = null
         }
     }
 }

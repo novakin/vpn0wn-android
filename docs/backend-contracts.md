@@ -1,6 +1,6 @@
 # Backend and provisioning contracts
 
-Last updated: 2026-10-08 (Europe/Paris).
+Last updated: 2026-10-09 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -94,6 +94,12 @@ The existing guarded shell boundary has a 30-second default execute/upload corou
 Command success is limited to the requested operation's effective postconditions. Interrupted or timed-out remote operations have uncertain outcomes until reconciled. Revocation must remove live access; installation results must match runtime config; uninstall/purge results must reflect observed removal. Rollback/recovery failures must remain visible.
 
 ## Persistence and presentation
+
+Quick Settings membership is a nullable confirmation in the existing settings DataStore, independent of `TileService` creation, destruction and listening. `QuickTileService.onTileAdded` and native request results `TILE_ADDED`/`TILE_ALREADY_ADDED` persist true; `onTileRemoved` persists false. Missing pre-repair confirmation remains unknown, not proven absence. Writes use the application scope and existing serialized DataStore transactions, so normal activity/service teardown does not cancel them; app-process reconstruction retains committed values. Abrupt process termination before a write commits, persistence failure and notifications Android has not delivered remain outside that guarantee. Expected persistence failures retain prior data and log a fixed category without inventing an absent confirmation.
+
+`UserKnobs` owns a process-local removal revision. Each native Add request and add notification captures that revision before asynchronous confirmation work; actual removal advances it synchronously before its false write is launched. A true confirmation checks the captured revision inside the DataStore transaction and skips its write after any later removal. Native request results and service notifications use independent callback channels, so a late successful/already-added result must not reassert membership after a genuine removal, including after Settings destruction. A new add notification/request captures the current revision and remains eligible. Process termination discards old callbacks; the revision needs no persistence or settings-format migration, while committed membership remains durable.
+
+Android 13+ Settings keeps its Add tile row hidden until membership loads, then hides confirmed membership and offers the native idempotent fallback for false or a loaded value without recorded confirmation. A view-lifecycle observer applies later confirmations and removals while Settings stays open; stopping/recreating its view releases and reloads observation. An unavailable read keeps setup hidden until a later lifecycle observation loads confirmation; it never writes absence. Request cancellation and reported native errors do not record membership; existing visible Snackbar/background Toast feedback remains. Android versions below 13 still omit the setup action. No platform inventory query, new service or tunnel/backend behavior is added. [#85](https://github.com/novakin/wireguard-android/issues/85) owns independent native inventory/reopening acceptance.
 
 `ObservableTunnel.statistics` is a cache-only bindable getter; it starts no backend work. Existing Home, Detail and TV pollers use nullable `getStatisticsAsync`, routed through `TunnelManager.getTunnelStatistics`. A fresh snapshot from the current backend/session is reused without copying or retimestamping; `Statistics.isStale` remains true only after more than 900ms. Equivalent stale/missing readers share one manager-owned in-flight request for the same managed tunnel identity, generation, backend instance and name. Admission uses the existing mutation lock briefly; backend IO and reader waits run outside it.
 

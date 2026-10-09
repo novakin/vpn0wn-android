@@ -1,6 +1,6 @@
 # Operations and recovery
 
-Last updated: 2026-10-08 (Europe/Paris).
+Last updated: 2026-10-09 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -37,6 +37,8 @@ Long-press a tunnel card to select it. Tap cards to toggle selection, use Select
 Delete opens a confirmation listing the selected profiles and warning that active/changing tunnels will be stopped. Cancellation makes no deletion. Rotation/view recreation dismisses confirmation; inspect the restored selection and confirm again. Confirmed deletes settle through the manager one at a time. Failures retain surviving profiles and selection; feedback reports observed removed/remaining counts and the first error. Back during deletion cancels the remaining work, but an already admitted delete can finish before cancellation is reported. Deletion has no undo; keep an authorized export/QR backup when needed. Source recovery does not close [#36 physical acceptance](https://github.com/novakin/wireguard-android/issues/36).
 
 ## Permissions and backend changes
+
+On Android 13+, Settings offers Add tile after its stored membership state loads without confirmed membership. A confirmed Add/already-added result or manual tile-add notification hides that row across ordinary service/view recreation and subsequent app starts after the write commits. Actual tile removal makes setup available again. A tile installed before confirmation recording began retains the native idempotent Add fallback; an already-installed tile does not require another native dialog. Setup stays hidden while confirmation cannot be read and reloads when Settings resumes or reopens. Cancel and reported request failures leave setup available with existing error feedback. Service destruction alone does not remove the tile. Persistence failure or termination before commit can prevent retained confirmation; [#85](https://github.com/novakin/wireguard-android/issues/85) owns native inventory/reopening proof separately from this source behavior.
 
 VPN permission, camera access and document/export handling depend on the selected action and Android version. Grant permissions for the requested workflow and verify the resulting action. Denial/cancellation is not success.
 

@@ -12,8 +12,32 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import com.wireguard.android.Application
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import java.util.concurrent.atomic.AtomicLong
 
 object UserKnobs {
+    private val QUICK_TILE_ADDED = booleanPreferencesKey("quick_tile_added")
+    // Request results and tile notifications arrive independently; removal invalidates earlier confirmations before asynchronous persistence.
+    private val quickTileRemovalCounter = AtomicLong()
+    val quickTileRemovalRevision: Long
+        get() = quickTileRemovalCounter.get()
+
+    val quickTileAdded: Flow<Boolean?>
+        get() = Application.getPreferencesDataStore().data.map {
+            it[QUICK_TILE_ADDED]
+        }
+
+    fun recordQuickTileRemoval() {
+        quickTileRemovalCounter.incrementAndGet()
+    }
+
+    suspend fun setQuickTileAdded(added: Boolean, removalRevision: Long = quickTileRemovalRevision) {
+        Application.getPreferencesDataStore().edit {
+            if (!added || removalRevision == quickTileRemovalRevision) {
+                it[QUICK_TILE_ADDED] = added
+            }
+        }
+    }
+
     private val ENABLE_KERNEL_MODULE = booleanPreferencesKey("enable_kernel_module")
     val enableKernelModule: Flow<Boolean>
         get() = Application.getPreferencesDataStore().data.map {
