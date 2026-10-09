@@ -54,6 +54,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **UI Robolectric worker heap — #96 CI repair (2026-10-09)**
+  `ui/build.gradle.kts` sets `Test.maxHeapSize` to `1g` after the full suite exhausted Gradle's default 512 MiB test-worker heap. The Gradle daemon's existing 4 GiB setting does not size this process. The existing single-fork default, coroutine timeout and assertions remain unchanged; [development guidance](development.md#verification-commands-and-ownership) owns this setup boundary. No Android runtime, APK or device behavior changes.
+
 - **Android system VPN Settings/status source slice — #75 (2026-10-09)**
   `SettingsActivity.SettingsFragment.refreshVpnPolicy/readVpnPolicySummary/openVpnSettings` and `preferences.xml` add one nonpersistent native action opening `ACTION_VPN_SETTINGS`, with foreground refresh of this app's always-on/lockdown observations through existing backend getters. API 24–28 status is unavailable, missing service access or inconsistent flags is unknown and WgQuick is unsupported. `DISALLOW_CONFIG_VPN` disables navigation; expected read/launch failures use truthful unavailable/denied feedback. Default/French strings explain setup and limits. No service startup, policy toggle, bootstrap/recovery or routing change occurs. Owning [contracts](backend-contracts.md#android-system-vpn-policy-observation) and [architecture decision](architecture.md#android-owns-system-vpn-policy--2026-10-09) distinguish this implementation from pending full issue acceptance; actual checks belong in the PR.
 
