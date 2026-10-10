@@ -10,6 +10,15 @@
         android:layout="@layout/tunnl_preference_category"
         android:title="@string/tunnl_settings_section_connection">
 
+        <Preference
+            android:icon="@drawable/ic_tunnl_settings"
+            android:key="system_vpn_settings"
+            android:layout="@layout/tunnl_preference_item"
+            android:persistent="false"
+            android:singleLineTitle="false"
+            android:summary="@string/system_vpn_settings_checking"
+            android:title="@string/system_vpn_settings_title" />
+
         <com.wireguard.android.preference.KernelModuleEnablerPreference
             android:icon="@drawable/ic_tunnl_server"
             android:key="kernel_module_enabler"

@@ -81,6 +81,16 @@ See [backend contracts](backend-contracts.md) for known divergences and [the pla
 
 ## Consequential decisions
 
+### Android owns system VPN policy — 2026-10-09
+
+**Problem:** the prototype's always-on/kill-switch toggles could imply app-owned protection. Android policy, tunnel state and observed traffic have different owners and acceptance boundaries.
+
+**Decision/status:** implement the authorized setup/status slice of [#75](https://github.com/novakin/wireguard-android/issues/75) in the existing `SettingsFragment`/native Preference owner. One nonpersistent action opens Android VPN Settings; foreground lifecycle refresh reuses existing backend policy getters with API/backend eligibility. Android retains policy writes. [Operations](operations.md#android-system-vpn-settings) owns setup/support and [backend contracts](backend-contracts.md#android-system-vpn-policy-observation) owns observation semantics. Missing service access remains unknown; kernel mode is unsupported by this userspace path.
+
+**Alternatives and consequences:** app-owned Boolean toggles cannot configure ordinary-app system policy. A dummy VPN, SOCKS/netstack kill switch or extra service would change routing/lifecycle ownership without a bounded requirement. Reusing the Settings and backend owners adds no service, persistence migration or policy/routing change. Endpoint bootstrap and manual/recovery/automation arbitration remain undecided in #73/#74. Revisit this decision if those reviewed contracts require another owner-level change.
+
+**Verification and limits:** require injected API/backend/admin/launch and lifecycle controls under [QA acceptance](qa-test-plan.md#android-system-vpn-policy-acceptance). Source checks do not establish rendered device output, system-policy enforcement or packet protection; full #75 acceptance remains open.
+
 ### Shared statistics belong to the manager — 2026-10-08
 
 **Problem:** overlapping explicit readers and the bindable getter could issue duplicate backend calls. A delayed completion could refill the shared cache after DOWN, reconnect or replacement. Detail's view guards did not protect other consumers.
