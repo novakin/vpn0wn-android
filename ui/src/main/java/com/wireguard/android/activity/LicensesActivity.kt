@@ -1,6 +1,7 @@
 package com.wireguard.android.activity
 
 import android.os.Bundle
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.wireguard.android.R
@@ -20,12 +21,20 @@ class LicensesActivity : AppCompatActivity() {
         binding.root.applySafeAreaInsets()
         binding.licensesBack.setOnClickListener { finish() }
         lifecycleScope.launch {
-            binding.licensesText.text = try {
+            val credits = try {
                 withContext(Dispatchers.IO) {
                     assets.open("licenses/credits.txt").bufferedReader().use { it.readText() }
                 }
             } catch (_: IOException) {
                 getString(R.string.licenses_load_error)
+            }
+            binding.licensesContent.removeAllViews()
+            // Whole notices stay below Android's accessibility text parcel limit.
+            val notices = credits.split(Regex("(?m)(?=^[^\\n]+\\n={4,}\\n)")).filter { it.isNotEmpty() }
+            for (notice in notices) {
+                val text = layoutInflater.inflate(R.layout.licenses_notice, binding.licensesContent, false) as TextView
+                text.text = notice
+                binding.licensesContent.addView(text)
             }
         }
     }

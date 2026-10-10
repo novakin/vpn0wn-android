@@ -51,6 +51,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **Complete credits accessibility text — #100 (2026-10-10)**
+  `LicensesActivity.onCreate` presents the unchanged local payload as complete top-level notices in separate text views, avoiding Android's 100,000-character accessibility-node truncation. Actual API 36 node-text regression coverage checks every notice and exact concatenation of the full asset. Offline I/O, lifecycle ownership and failure feedback remain unchanged; [attribution guidance](license-attribution.md) documents per-notice selection and the size boundary.
+
 - **Offline Settings licenses and upstream donation removal — #71 partial slice (2026-10-09)**
   `SettingsActivity.SettingsFragment.onCreatePreferences` exposes a nonpersistent Licenses & credits action. `VersionPreference.onClick` opens the same internal `LicensesActivity` while preserving its title and backend-version coroutine. `LicensesActivity.onCreate` reads selectable local full notice/license text off Main, reports asset I/O failure and retains native Back/insets. `DonatePreference` and donation strings in all 29 affected resource sets are removed. [Coverage and provenance](license-attribution.md) record runtime, Go/native/tool/font notices and remaining artifact/corresponding-source gates; identity, updater, privileged tools and complete cross-app migration acceptance remain separate #71 work.
 

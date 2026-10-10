@@ -64,18 +64,15 @@
         android:background="@color/tunnl_paper"
         android:fillViewport="true">
 
-        <TextView
-            android:id="@+id/licenses_text"
+        <LinearLayout
+            android:id="@+id/licenses_content"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:breakStrategy="simple"
-            android:fontFamily="@font/inter_tight"
             android:layoutDirection="ltr"
-            android:padding="14dp"
-            android:text="@string/licenses_loading"
-            android:textColor="@color/tunnl_ink"
-            android:textDirection="ltr"
-            android:textIsSelectable="true"
-            android:textSize="14sp" />
+            android:orientation="vertical"
+            android:padding="14dp">
+
+            <include layout="@layout/licenses_notice" />
+        </LinearLayout>
     </ScrollView>
 </LinearLayout>

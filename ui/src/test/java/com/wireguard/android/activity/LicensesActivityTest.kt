@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.view.View
+import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.lifecycle.lifecycleScope
@@ -52,11 +53,13 @@ class LicensesActivityTest {
         val controller = open()
         val activity = controller.get()
         settle(activity)
-        val text = activity.findViewById<TextView>(R.id.licenses_text)
+        val texts = notices(activity)
         val payload = activity.assets.open("licenses/credits.txt").bufferedReader().use { it.readText() }
-        assertEquals(payload, text.text.toString())
-        assertTrue(text.isTextSelectable)
-        assertEquals(View.TEXT_DIRECTION_LTR, text.textDirection)
+        assertEquals(payload, texts.joinToString("") { it.text.toString() })
+        for (text in texts) {
+            assertTrue(text.isTextSelectable)
+            assertEquals(View.TEXT_DIRECTION_LTR, text.textDirection)
+        }
         val sourceLicense = File("../COPYING").readLines().joinToString("\n") { it.trimEnd() }
         assertTrue(payload.contains(sourceLicense.trim()))
         for (font in listOf("inter-tight-OFL.txt", "jetbrains-mono-OFL.txt")) {
@@ -73,9 +76,32 @@ class LicensesActivityTest {
         assertFalse(info.exported)
         controller.recreate()
         settle(controller.get())
-        assertEquals(payload, controller.get().findViewById<TextView>(R.id.licenses_text).text.toString())
+        assertEquals(payload, notices(controller.get()).joinToString("") { it.text.toString() })
         controller.get().findViewById<View>(R.id.licenses_back).performClick()
         assertTrue(controller.get().isFinishing)
+    }
+
+    @Test @Config(sdk = [36]) fun everyFullNoticeReachesAccessibilityWithoutParcelTruncation() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val activity = open().get()
+        settle(activity)
+        val payload = activity.assets.open("licenses/credits.txt").bufferedReader().use { it.readText() }
+        val unsplitText = TextView(activity).apply { text = payload }
+        assertEquals(ACCESSIBILITY_TEXT_LIMIT, unsplitText.createAccessibilityNodeInfo().text.length)
+        val texts = notices(activity)
+        assertEquals(27, texts.size)
+        val accessibleTexts = texts.map { text ->
+            assertTrue(text.text.length < ACCESSIBILITY_TEXT_LIMIT)
+            val accessibleText = text.createAccessibilityNodeInfo().text.toString()
+            assertEquals(text.text.toString(), accessibleText)
+            accessibleText
+        }
+        assertEquals(payload, accessibleTexts.joinToString(""))
+        val fontNotice = activity.assets.open("licenses/jetbrains-mono-OFL.txt").bufferedReader().use { it.readText() }
+        val fullFontNotice = fontNotice.lineSequence().joinToString("\n") { it.trimEnd() }.trim()
+        assertTrue(accessibleTexts.any { it.contains(fullFontNotice) })
+        assertTrue(accessibleTexts.last().contains("GNU GENERAL PUBLIC LICENSE"))
+        assertEquals(payload.substring(payload.indexOf("Termux elf-cleaner — host build helper\n")), accessibleTexts.last())
     }
 
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -111,15 +137,22 @@ class LicensesActivityTest {
             val scroll = root.findViewById<ScrollView>(R.id.licenses_scroll)
             assertTrue(scroll.height > 0)
             assertTrue(scroll.canScrollVertically(1))
-            val text = root.findViewById<TextView>(R.id.licenses_text)
-            assertTrue(text.layout.getLineTop(text.lineCount) <= text.height)
-            assertEquals(View.LAYOUT_DIRECTION_LTR, text.layoutDirection)
+            for (text in notices(activity)) {
+                assertTrue(text.layout.getLineTop(text.lineCount) <= text.height)
+                assertEquals(View.LAYOUT_DIRECTION_LTR, text.layoutDirection)
+                assertEquals(View.TEXT_DIRECTION_LTR, text.textDirection)
+            }
             preview(root, width, height, "${case.name}-top")
-            scroll.scrollTo(0, text.height)
+            scroll.scrollTo(0, root.findViewById<View>(R.id.licenses_content).height)
             assertTrue(scroll.scrollY > 0)
             assertFalse(scroll.canScrollVertically(1))
             preview(root, width, height, "${case.name}-bottom")
         }
+    }
+
+    private fun notices(activity: LicensesActivity): List<TextView> {
+        val content = activity.findViewById<LinearLayout>(R.id.licenses_content)
+        return (0 until content.childCount).map { content.getChildAt(it) as TextView }
     }
 
     private fun open(): ActivityController<LicensesActivity> {
@@ -134,6 +167,7 @@ class LicensesActivityTest {
         runCurrent()
         activity.lifecycleScope.coroutineContext[Job]!!.children.toList().joinAll()
         runCurrent()
+        shadowOf(android.os.Looper.getMainLooper()).idle()
     }
 
     private fun preview(root: View, width: Int, height: Int, name: String) {
@@ -145,4 +179,8 @@ class LicensesActivityTest {
     }
 
     private data class LayoutCase(val name: String, val width: Int, val height: Int, val fontScale: Float, val locale: String, val night: Boolean)
+
+    private companion object {
+        const val ACCESSIBILITY_TEXT_LIMIT = 100_000
+    }
 }
