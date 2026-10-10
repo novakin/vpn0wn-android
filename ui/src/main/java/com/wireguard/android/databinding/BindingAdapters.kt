@@ -380,7 +380,8 @@ object BindingAdapters {
         val width = (height * artwork.intrinsicWidth.toFloat() / artwork.intrinsicHeight).roundToInt()
         artwork.setBounds(0, 0, width, height)
         view.contentDescription = summary.replace('ø', '0')
-        view.text = SpannableString(summary).apply {
+        val countLabel = summary.substring(wordmark.length).trimStart().replace(' ', '\u00a0')
+        view.text = SpannableString("$wordmark $countLabel").apply {
             setSpan(ImageSpan(artwork, ImageSpan.ALIGN_BOTTOM),
                 0, wordmark.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }

@@ -454,6 +454,13 @@ class HomeSelectionTest {
                 layout(f.binding, case.width, case.height)
                 assertTrue(f.binding.homeHeaderSummary.contentDescription.startsWith("vpn0wn"))
                 assertFullyVisible(f.binding.homeHeaderSummary, "${case.name}: brand")
+                val header = f.binding.homeHeaderSummary
+                val countStart = f.fragment.getString(R.string.tunnl_home_wordmark).length + 1
+                assertEquals("${case.name}: complete count stays together",
+                    header.layout.getLineForOffset(countStart), header.layout.getLineForOffset(header.text.length - 1))
+                for (line in 0 until header.layout.lineCount) {
+                    assertEquals("${case.name}: complete count remains visible", 0, header.layout.getEllipsisCount(line))
+                }
                 assertFullyVisible(f.binding.createFab, "${case.name}: Add")
                 assertTextFits(f.binding.homeHeaderContainer, case.name)
                 save(f.binding.root, "brand-empty-${case.name}")
@@ -532,7 +539,7 @@ class HomeSelectionTest {
     @Test fun homeHeaderActionsKeepExistingNavigationAndDisabledSearch() = runHomeTest {
         val f = host("bravo")
         assertFalse(f.binding.homeSearch.isEnabled)
-        assertEquals("vpnøwn · 1 configured", f.binding.homeHeaderSummary.text.toString())
+        assertEquals("vpnøwn · 1 configured", f.binding.homeHeaderSummary.text.toString().replace('\u00a0', ' '))
         assertEquals("vpn0wn · 1 configured", f.binding.homeHeaderSummary.contentDescription.toString())
         f.binding.homeLogs.performClick()
         assertEquals("com.wireguard.android.activity.LogViewerActivity",

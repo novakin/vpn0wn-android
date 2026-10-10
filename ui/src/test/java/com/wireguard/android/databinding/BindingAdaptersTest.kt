@@ -74,7 +74,7 @@ class BindingAdaptersTest {
         val artwork = text.getSpans(0, text.length, ImageSpan::class.java).single()
         assertEquals(0, text.getSpanStart(artwork))
         assertEquals(6, text.getSpanEnd(artwork))
-        assertEquals(" · 0 configured", text.subSequence(text.getSpanEnd(artwork), text.length).toString())
+        assertEquals(" · 0 configured", text.subSequence(text.getSpanEnd(artwork), text.length).toString().replace('\u00a0', ' '))
         assertTrue(artwork.drawable.bounds.width() > artwork.drawable.bounds.height())
         assertEquals("vpn0wn · 0 configured", header.contentDescription.toString())
     }
@@ -129,7 +129,7 @@ class BindingAdaptersTest {
         assertEquals("—", BindingAdapters.homeEndpointHost(listOf(inactive)))
         val header = TextView(context)
         BindingAdapters.setHomeHeaderTunnels(header, tunnels)
-        assertEquals("vpnøwn · 2 configured", header.text.toString())
+        assertEquals("vpnøwn · 2 configured", header.text.toString().replace('\u00a0', ' '))
         assertEquals("vpn0wn · 2 configured", header.contentDescription.toString())
     }
 
