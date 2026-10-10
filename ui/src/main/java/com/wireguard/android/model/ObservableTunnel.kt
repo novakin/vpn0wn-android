@@ -10,12 +10,16 @@ import androidx.databinding.BaseObservable
 import androidx.databinding.Bindable
 import com.wireguard.android.BR
 import com.wireguard.android.backend.Backend
+import com.wireguard.android.backend.HandshakeObservation
+import com.wireguard.android.backend.HandshakeSession
 import com.wireguard.android.backend.Statistics
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.databinding.Keyed
 import com.wireguard.android.util.applicationScope
 import com.wireguard.config.Config
+import com.wireguard.crypto.Key
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -64,6 +68,7 @@ class ObservableTunnel internal constructor(
     override fun onStateChange(newState: Tunnel.State) {
         // Backend callbacks can precede Main's already-queued statistics publication.
         statisticsEpoch.incrementAndGet()
+        if (newState == Tunnel.State.DOWN) handshakeSession.set(null)
         manager.onTunnelStateChange(this)
     }
 
@@ -74,6 +79,8 @@ class ObservableTunnel internal constructor(
         if (changed) invalidateStatistics()
         else if (state != Tunnel.State.UP) onStatisticsChanged(null)
         if (changed) notifyPropertyChanged(BR.state)
+        if (state == Tunnel.State.DOWN && handshakeSession.get()?.isActive != true)
+            clearHandshakeDiagnostics()
         return state
     }
 
@@ -127,6 +134,76 @@ class ObservableTunnel internal constructor(
     }
 
     fun peekConfig(): Config? = cachedConfig
+
+    data class PeerHandshakeDiagnostics(
+        val lastObservation: HandshakeObservation,
+        val lastAttempt: HandshakeObservation? = null,
+        val lastSendResult: HandshakeObservation? = null,
+        val lastAuthenticated: HandshakeObservation? = null,
+        val lastExhausted: HandshakeObservation? = null,
+    )
+
+    private val handshakeSession = AtomicReference<HandshakeSession?>()
+    private var cachedHandshakeSession: HandshakeSession? = null
+    private var cachedHandshakeDiagnostics: Map<Key, PeerHandshakeDiagnostics>? = null
+
+    @get:Bindable
+    val handshakeDiagnostics: Map<Key, PeerHandshakeDiagnostics>?
+        get() = cachedHandshakeDiagnostics.takeIf {
+            val current = handshakeSession.get()
+            current != null && current.isActive && current === cachedHandshakeSession
+        }
+
+    override fun onHandshakeSessionChange(session: HandshakeSession) {
+        if (session.isActive) {
+            while (true) {
+                val current = handshakeSession.get()
+                if (!session.isActive || (current != null && current.id > session.id)) return
+                if (handshakeSession.compareAndSet(current, session)) break
+            }
+            applicationScope.launch(Dispatchers.Main) {
+                if (handshakeSession.get() !== session || !session.isActive) return@launch
+                if (cachedHandshakeSession !== session) {
+                    cachedHandshakeSession = session
+                    cachedHandshakeDiagnostics = emptyMap()
+                    notifyPropertyChanged(BR.handshakeDiagnostics)
+                }
+            }
+        } else if (handshakeSession.compareAndSet(session, null)) {
+            applicationScope.launch(Dispatchers.Main) {
+                if (handshakeSession.get() == null) clearHandshakeDiagnostics()
+            }
+        }
+    }
+
+    override fun onHandshakeObservation(observation: HandshakeObservation) {
+        val session = observation.session()
+        if (handshakeSession.get() !== session || !session.isActive) return
+        applicationScope.launch(Dispatchers.Main) {
+            if (handshakeSession.get() !== session || !session.isActive) return@launch
+            val diagnostics = if (cachedHandshakeSession === session) cachedHandshakeDiagnostics.orEmpty() else emptyMap()
+            val previous = diagnostics[observation.peer()]
+            if (previous != null && previous.lastObservation.sequence() >= observation.sequence()) return@launch
+            val peer = (previous ?: PeerHandshakeDiagnostics(observation)).copy(
+                lastObservation = observation,
+                lastAttempt = if (observation.event() == HandshakeObservation.Event.ATTEMPT) observation else previous?.lastAttempt,
+                lastSendResult = if (observation.event() == HandshakeObservation.Event.SENT ||
+                    observation.event() == HandshakeObservation.Event.SEND_FAILED) observation else previous?.lastSendResult,
+                lastAuthenticated = if (observation.event() == HandshakeObservation.Event.AUTHENTICATED) observation else previous?.lastAuthenticated,
+                lastExhausted = if (observation.event() == HandshakeObservation.Event.EXHAUSTED) observation else previous?.lastExhausted,
+            )
+            cachedHandshakeSession = session
+            cachedHandshakeDiagnostics = diagnostics + (observation.peer() to peer)
+            notifyPropertyChanged(BR.handshakeDiagnostics)
+        }
+    }
+
+    private fun clearHandshakeDiagnostics() {
+        cachedHandshakeSession = null
+        if (cachedHandshakeDiagnostics == null) return
+        cachedHandshakeDiagnostics = null
+        notifyPropertyChanged(BR.handshakeDiagnostics)
+    }
 
 
     private var cachedStatistics: Statistics? = null

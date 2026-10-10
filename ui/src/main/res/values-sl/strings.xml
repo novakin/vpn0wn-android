@@ -133,9 +133,6 @@
     <string name="tv_select_a_storage_drive">Izberite podatkovni pogon</string>
     <string name="tv_no_file_picker">Prosim namesti orodje za upravljanje datotek za njihov ogled</string>
     <string name="tv_add_tunnel_get_started">Za začetek dodaj tunel</string>
-    <string name="donate_title">♥ Doniraj za projekt WireGuard</string>
-    <string name="donate_summary">Vsak prispevek šteje</string>
-    <string name="donate_google_play_disappointment">Hvala, ker podpirate projekt WireGuard!\n\nŽal zaradi Googlove politike ne smemo objaviti povezave na del spletne strani projekta, kjer lahko opravite donacijo. Upamo, da se boste lahko znašli sami!\n\nŠe enkrat hvala za vaš prispevek.</string>
     <string name="disable_config_export_title">Onemogoči izvoz nastavitev</string>
     <string name="disable_config_export_description">Onemogočenje nastavitev za izvoz nastavitev naredi zasebne ključe manj dostopne</string>
     <string name="dns_servers">Strežniki DNS</string>

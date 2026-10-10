@@ -94,9 +94,6 @@
     <string name="tv_select_a_storage_drive">Pilih lokasi penyimpanan</string>
     <string name="tv_no_file_picker">Silakan instal aplikasi file manajer untuk memilih file</string>
     <string name="tv_add_tunnel_get_started">Tambahkan tunnel untuk memulai</string>
-    <string name="donate_title">Donasi ke Proyek WireGuard</string>
-    <string name="donate_summary">Setiap kontribusi anda sangat membantu</string>
-    <string name="donate_google_play_disappointment">Terima kasih telah mendung Proyek WireGuard!\n\nAkan tetapi, dikarenakan kebijakan Google, Kami tidak diizinkan untuk menautkan bagian halaman website yang dapat digunakan untuk melakukan donasi. Semoga anda dapat menemukan solusi untuk kendala ini!\n\nTerima kasih sekali lagi atas kontribusi anda.</string>
     <string name="disable_config_export_title">Nonaktifkan ekspor konfigurasi</string>
     <string name="disable_config_export_description">Menonaktifkan ekspor konfigurasi akan membuat kunci pribadi sulit diakses</string>
     <string name="dns_servers">Server DNS</string>

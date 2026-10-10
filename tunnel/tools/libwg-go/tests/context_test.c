@@ -13,12 +13,14 @@ static void *run_callback(void *argument)
 	struct callback_run *run = argument;
 	run->protected = wgProtectSocket(run->context, 42);
 	run->active = wgServiceActive(run->context);
+	char peer[32] = { 9 };
+	wgHandshakeObservation(run->context, peer, 3, 1, "[::1]:51820");
 	return NULL;
 }
 
 JNIEXPORT jint JNICALL Java_WgContextTest_exercise(JNIEnv *env, jclass type, jobject service, jobject thread)
 {
-	struct wg_context *context = wgCreateContext(env, service, thread);
+	struct wg_context *context = wgCreateContext(env, service, thread, 73);
 	if (!context)
 		return -1;
 	struct callback_run run = { .context = context };

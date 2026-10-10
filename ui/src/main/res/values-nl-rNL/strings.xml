@@ -107,9 +107,6 @@
     <string name="tv_select_a_storage_drive">Selecteer een opslaglocatie</string>
     <string name="tv_no_file_picker">Installeer een bestandsbeheer applicatie</string>
     <string name="tv_add_tunnel_get_started">Voeg een tunnel toe om te beginnen</string>
-    <string name="donate_title">♥️ Doneer aan het WireGuard Project</string>
-    <string name="donate_summary">Elke bijdrage helpt</string>
-    <string name="donate_google_play_disappointment">Bedankt voor het steunen van het WireGuard Project!\n\nHelaas, als gevolg van Google beleid, We mogen niet linken naar de webpagina van het project waar u een donatie kunt doen. Hopelijk kunt u deze zelf wel vinden!\n\nNogmaals bedankt voor uw bijdrage.</string>
     <string name="disable_config_export_title">Config export uitschakelen</string>
     <string name="disable_config_export_description">Het uitschakelen van configuratie export maakt privésleutels minder toegankelijk</string>
     <string name="dns_servers">DNS-servers</string>

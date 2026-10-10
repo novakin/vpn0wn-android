@@ -94,9 +94,6 @@
     <string name="tv_select_a_storage_drive">选择一个存储驱动器</string>
     <string name="tv_no_file_picker">请安装一个文件管理工具以浏览文件</string>
     <string name="tv_add_tunnel_get_started">添加第一条网络隧道</string>
-    <string name="donate_title">♥ 为 WireGuard 捐赠</string>
-    <string name="donate_summary">无论多寡，聚沙成塔</string>
-    <string name="donate_google_play_disappointment">感谢您对 WireGuard 项目的支持！\n\n只可惜，受谷歌的政策所限，我们不能在此展示项目捐赠页面的链接，还望您自行访问捐赠页面！\n\n再次感谢您的贡献。</string>
     <string name="disable_config_export_title">禁止导出配置</string>
     <string name="disable_config_export_description">禁止导出配置可降低私钥泄露的风险</string>
     <string name="dns_servers">DNS 服务器</string>

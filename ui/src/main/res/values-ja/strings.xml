@@ -94,9 +94,6 @@
     <string name="tv_select_a_storage_drive">ストレージを選択</string>
     <string name="tv_no_file_picker">ファイルを参照するにはファイル管理アプリをインストールしてください</string>
     <string name="tv_add_tunnel_get_started">トンネルを追加して開始する</string>
-    <string name="donate_title">♥ WireGuard プロジェクトに寄付する</string>
-    <string name="donate_summary">すべての貢献が役立ちます</string>
-    <string name="donate_google_play_disappointment">WireGuard プロジェクトを支援していただきありがとうございます！\n\n残念ながら、Google のポリシーの影響で寄付のページへのリンクを記載することができません。見つけていただけることを願っています。\n\nもう一度、あなたの貢献に深く感謝します。</string>
     <string name="disable_config_export_title">設定のエクスポートを無効にする</string>
     <string name="disable_config_export_description">設定のエクスポートを無効にすると、秘密鍵にアクセスされにくくなります</string>
     <string name="dns_servers">DNS サーバ</string>

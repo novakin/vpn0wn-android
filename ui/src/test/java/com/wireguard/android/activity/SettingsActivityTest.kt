@@ -91,12 +91,14 @@ class SettingsActivityTest {
         Dispatchers.resetMain()
     }
 
-    @Test fun userspaceRemovesUnsupportedConnectionAndKeepsNativeActions() = runTest {
+    @Test fun userspaceKeepsSystemVpnConnectionActionAndNativeActions() = runTest {
         environment()
         val activity = openSettings()
         settle(activity)
         val fragment = fragment(activity)
-        assertNull(fragment.findPreference<Preference>("settings_connection"))
+        assertTrue(fragment.findPreference<Preference>("settings_connection")!!.isVisible)
+        assertNotNull(fragment.findPreference<Preference>("system_vpn_settings"))
+        assertNull(fragment.findPreference<Preference>("kernel_module_enabler"))
         assertNull(fragment.findPreference<Preference>("quick_tile"))
         assertNotNull(fragment.findPreference<SwitchPreferenceCompat>("dark_theme"))
         assertNotNull(fragment.findPreference<Preference>("zip_exporter"))
@@ -182,7 +184,7 @@ class SettingsActivityTest {
         assertNotNull(fragment(activity).findPreference<Preference>("settings_data"))
     }
 
-    @Test fun pendingBackendDoesNotExposeEmptyConnectionHeader() = runTest {
+    @Test fun pendingBackendDefersConnectionHeaderUntilSystemVpnActionIsReady() = runTest {
         val env = environment()
         val pending = CompletableDeferred<Backend>()
         setApplicationField(env, "futureBackend", pending)
@@ -191,7 +193,8 @@ class SettingsActivityTest {
         assertFalse(fragment(activity).findPreference<Preference>("settings_connection")!!.isVisible)
         pending.complete(env.backend)
         settle(activity)
-        assertNull(fragment(activity).findPreference<Preference>("settings_connection"))
+        assertTrue(fragment(activity).findPreference<Preference>("settings_connection")!!.isVisible)
+        assertTrue(fragment(activity).findPreference<Preference>("system_vpn_settings")!!.isEnabled)
     }
 
     @Test fun kernelBackendKeepsSwitchKeysValuesAndActionOwner() = runTest {
@@ -221,7 +224,7 @@ class SettingsActivityTest {
         assertEquals(0, shell.calls)
     }
 
-    @Test fun successfulRootProbeKeepsKernelActionAndFailureRemovesEmptyGroup() = runTest {
+    @Test fun rootProbeFailureRemovesKernelActionAndKeepsSystemVpnGroup() = runTest {
         val env = environment()
         KernelSupport.available = true
         val shell = ProbeShell(env.application)
@@ -233,7 +236,9 @@ class SettingsActivityTest {
         shell.failure = java.io.IOException("fixture denied")
         controllers.last().recreate()
         settle(controllers.last().get())
-        assertNull(fragment(controllers.last().get()).findPreference<Preference>("settings_connection"))
+        assertTrue(fragment(controllers.last().get()).findPreference<Preference>("settings_connection")!!.isVisible)
+        assertNull(fragment(controllers.last().get()).findPreference<Preference>("kernel_module_enabler"))
+        assertNotNull(fragment(controllers.last().get()).findPreference<Preference>("system_vpn_settings"))
         assertEquals(2, shell.calls)
     }
 
@@ -487,6 +492,30 @@ class SettingsActivityTest {
         assertNotNull(icon.drawable)
     }
 
+    @Test @Config(sdk = [28, 33]) fun offlineCreditsAndVersionNavigationSurviveRecreationWithoutPersistingAction() = runTest {
+        environment()
+        val activity = openSettings()
+        settle(activity)
+        val licenses = fragment(activity).findPreference<Preference>("licenses")!!
+        val preferencesBefore = com.wireguard.android.Application.getPreferencesDataStore().data.first().asMap()
+        assertEquals(activity.getString(R.string.licenses_title), licenses.title)
+        assertFalse(licenses.isPersistent)
+        licenses.performClick()
+        val first = shadowOf(activity).nextStartedActivity
+        assertEquals(LicensesActivity::class.java.name, first.component!!.className)
+        assertNull(first.action)
+        assertNull(first.data)
+        controllers.last().recreate()
+        val recreated = controllers.last().get()
+        settle(recreated)
+        fragment(recreated).findPreference<Preference>("version")!!.performClick()
+        val version = shadowOf(recreated).nextStartedActivity
+        assertEquals(LicensesActivity::class.java.name, version.component!!.className)
+        assertNull(version.action)
+        assertNull(version.data)
+        assertEquals(preferencesBefore, com.wireguard.android.Application.getPreferencesDataStore().data.first().asMap())
+    }
+
     @Test @Config(sdk = [33]) fun rootInsetsAreIdempotentAndLeaveImeInsetsForDescendants() = runTest {
         environment()
         val activity = openSettings()
@@ -617,6 +646,9 @@ class SettingsActivityTest {
         activity.supportFragmentManager.executePendingTransactions()
         runCurrent()
         fragment(activity).lifecycleScope.coroutineContext[Job]!!.children.toList().joinAll()
+        val policyJob = SettingsActivity.SettingsFragment::class.java.getDeclaredField("vpnPolicyJob")
+            .apply { isAccessible = true }.get(fragment(activity)) as Job?
+        policyJob?.join()
         activity.lifecycleScope.coroutineContext[Job]!!.children.toList().joinAll()
         runCurrent()
     }

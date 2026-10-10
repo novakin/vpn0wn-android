@@ -134,6 +134,13 @@ type observedBind struct {
 	conn.Bind
 	warmups     atomic.Int32
 	initiations atomic.Int32
+	handshake   func([32]byte, int, bool, string)
+}
+
+func (b *observedBind) ObserveHandshake(peer [32]byte, event int, retry bool, endpoint string) {
+	if b.handshake != nil {
+		b.handshake(peer, event, retry, endpoint)
+	}
 }
 
 func (b *observedBind) Send(packets [][]byte, endpoint conn.Endpoint) error {
@@ -158,9 +165,27 @@ func TestStandardPeerAuthenticatedLoopbackTraffic(t *testing.T) {
 	observed := &observedBind{Bind: conn.NewStdNetBind()}
 	var protection atomic.Int32
 	bind := New(func(conn.Bind, int) error { protection.Add(1); return nil }, func() bool { return true })
+	var observationMu sync.Mutex
+	var authenticated [][32]byte
+	var serverAuthenticated [][32]byte
+	bind.SetHandshakeObserver(func(peer [32]byte, event int, _ bool, endpoint string) {
+		if event == HandshakeAuthenticated {
+			observationMu.Lock()
+			authenticated = append(authenticated, peer)
+			observationMu.Unlock()
+		}
+	})
 	bind.newBind = func() conn.Bind { return observed }
 	client, clientTun := quietDevice(t, bind)
-	server, serverTun := quietDevice(t, conn.NewStdNetBind())
+	serverBind := &observedBind{Bind: conn.NewStdNetBind()}
+	serverBind.handshake = func(peer [32]byte, event int, _ bool, endpoint string) {
+		if event == HandshakeAuthenticated {
+			observationMu.Lock()
+			serverAuthenticated = append(serverAuthenticated, peer)
+			observationMu.Unlock()
+		}
+	}
+	server, serverTun := quietDevice(t, serverBind)
 	var private [2][32]byte
 	var public [2][]byte
 	for i := range private {
@@ -210,6 +235,14 @@ func TestStandardPeerAuthenticatedLoopbackTraffic(t *testing.T) {
 	}
 	if protection.Load() != 1 || observed.initiations.Load() == 0 || observed.warmups.Load() != observed.initiations.Load() {
 		t.Fatal("loopback did not exercise protected per-initiation warm-up")
+	}
+	observationMu.Lock()
+	defer observationMu.Unlock()
+	if len(authenticated) != 1 || !bytes.Equal(authenticated[0][:], public[1]) {
+		t.Fatal("actual authenticated completion lost peer or ordinary data fabricated authentication")
+	}
+	if len(serverAuthenticated) != 1 || !bytes.Equal(serverAuthenticated[0][:], public[0]) {
+		t.Fatal("actual responder key confirmation lost peer or ordinary data fabricated authentication")
 	}
 }
 
