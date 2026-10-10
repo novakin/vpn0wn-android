@@ -1,12 +1,12 @@
 # Protocol-level preflight experiment
 
-Last updated: 2026-10-10 (Europe/Paris).
+Last updated: 2026-10-11 (Europe/Paris).
 
 ## Request and status
 
 On 2026-10-07, the maintainer requested UDP preflight in the protocol itself and a separate experimental branch, then selected **unchanged standard servers**. [#61](https://github.com/novakin/vpn0wn-android/issues/61) owns this investigation on `experiment/protocol-preflight`, refreshed to master `4c2e5850`. That compatibility choice selects sender-side native warm-up before an ordinary WireGuard handshake. A new recognized or acknowledged protocol message would require receiver support and is excluded. The maintainer then approved the first implementation draft: one best-effort one-byte zero datagram before every outgoing initiation, with WireGuard retaining retry/rekey timing. Source verification and final-head acceptance are recorded below/in PR #63. The subsequent explicit APK/device request and passing scoped Pixel checks are recorded in [the local APK evidence](#authorized-local-apk-and-pixel-checks--2026-10-07). G4's earlier installed build is retained for rollback and its historical measurements remain separate.
 
-The baseline source paragraphs below describe master `4c2e5850` before this draft; their linked files now contain the experimental replacement. They are historical inspection evidence, not claims that removed Java helpers remain present.
+The baseline source paragraphs below describe master `4c2e5850` before this draft; their moved-package source links are pinned to that baseline. They are historical inspection evidence, not claims that removed Java helpers remain present in current source.
 
 On the same date, the maintainer instructed that all experiment code, tests and documentation stay on this branch and [PR #63](https://github.com/novakin/vpn0wn-android/pull/63) remain draft and unmerged. That restriction remained in force until the separately recorded 2026-10-08 merge authorization; G4's earlier autonomous merge authority did not cover this experiment.
 
@@ -24,7 +24,7 @@ Earlier source reviews, APK evidence and the 195-second forced framework-Doze tr
 
 ## Baseline source inspected before implementation
 
-[Baseline GoBackend.sendUdpPreflight](../../tunnel/src/main/java/com/wireguard/android/backend/GoBackend.java) sends a one-byte zero datagram from a Java socket protected before bind/send. It uses an explicit nonzero ListenPort, skips absent endpoints and absent/zero ports, retries expected I/O best effort, then closes the socket before native activation. Local send does not establish remote arrival, classifier behavior or continuity with the later native socket.
+[Baseline GoBackend.sendUdpPreflight](https://github.com/novakin/vpn0wn-android/blob/4c2e5850edfc3a8e64eb2d64d92b90ce58696cc9/tunnel/src/main/java/com/wireguard/android/backend/GoBackend.java) sends a one-byte zero datagram from a Java socket protected before bind/send. It uses an explicit nonzero ListenPort, skips absent endpoints and absent/zero ports, retries expected I/O best effort, then closes the socket before native activation. Local send does not establish remote arrival, classifier behavior or continuity with the later native socket.
 
 [api-android.go](../../tunnel/tools/libwg-go/api-android.go) creates the device with `conn.NewStdNetBind`, applies settings and calls `device.Up`. Java obtains and protects native socket descriptors after `wgTurnOn` returns. A native experiment must resolve protection and first-send ordering at those existing owners; moving warm-up into an earlier native call alone does not prove protection before its send.
 

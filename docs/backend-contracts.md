@@ -1,16 +1,28 @@
 # Backend and provisioning contracts
 
-Last updated: 2026-10-10 (Europe/Paris).
+Last updated: 2026-10-11 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
 This guide distinguishes source-observed behavior from required repair boundaries. Update producer, consumer, tests and this guide together when a contract changes. [Architecture](architecture.md) owns module design; [the improvement plan](improvement-plan.md#codebase-actions) owns remaining repair status.
 
+## Application and source identity — #71
+
+Current source packages are `com.vpn0wn.android`, `com.vpn0wn.config`, `com.vpn0wn.crypto` and `com.vpn0wn.util`; generated UI/tunnel namespaces are `com.vpn0wn.android` and `com.vpn0wn.android.tunnel`. [Gradle properties](../gradle.properties) configure release/googleplay ID `com.vpn0wn.android` and debug ID `com.vpn0wn.android.debug`. These IDs create independent sandboxes from `com.wireguard.android`/`.debug` when installed. No private data, VPN authorization, Android permissions, tile membership or system VPN policy is inherited. The [existing transfer contract](#full-app-data-transfer) remains unchanged.
+
+The control receiver accepts canonical `com.vpn0wn.android.action.REFRESH_TUNNEL_STATES`, `com.vpn0wn.android.action.SET_TUNNEL_UP` and `com.vpn0wn.android.action.SET_TUNNEL_DOWN`. It retains only `com.wireguard.android.action.REFRESH_TUNNEL_STATES` as a legacy action alias, because pinned upstream `wg-quick` still emits it. Legacy SET actions are not accepted. The [manifest](../ui/src/main/AndroidManifest.xml) keeps the receiver protected by `${applicationId}.permission.CONTROL_TUNNELS`; SET actions also require `allow_remote_control_intents`. REFRESH retains its existing observation path without that preference gate. This alias does not permit a legacy caller to bypass the new variant's permission. Log-provider authority `${applicationId}.exported-log`, the renamed `QuickTileService` component and administrator policy targets follow the current app identity.
+
+The five [JNI exports](../tunnel/tools/libwg-go/jni.c) use `Java_com_vpn0wn_android_backend_GoBackend_` for `wgTurnOn`, `wgTurnOff`, `wgRebind`, `wgGetConfig` and `wgVersion`. Variant-native package arguments select `/data/data/<application-id>/cache/wireguard/<interface>.sock`; the `wireguard` cache leaf, WireGuard UAPI/protocol/configuration, upstream pins, `wg`/`wg-quick` command names and native library loader names remain unchanged. Licensing/attribution and persisted settings, fleet JSON, transfer schema, `TUNNL_MANAGED`, provisioning paths/env variables and shared lock names retain their contracts. First-party Tunnl helper/resource names, log tags and export filenames remain pending rather than protocol requirements.
+
+Optional system-wide tools installation remains fail-closed: [ToolsInstaller.install](../tunnel/src/main/java/com/vpn0wn/android/util/ToolsInstaller.java) retains its `com.wireguard.` package admission literal and rejects the renamed app before installer writes. The unsafe legacy installer is not admitted by changing that guard. [Draft PR #103](https://github.com/novakin/vpn0wn-android/pull/103)'s separate ownership/compatibility implementation is not integrated into this slice; compatible-tool reuse, an owned module on free command paths and root/kernel acceptance remain open. App-private extraction and ordinary userspace VPN operation have their existing owners.
+
+This source migration does not establish checks, integration, an APK, installed runtime or two-installation transfer proof. [Namespace QA](qa-test-plan.md#source-and-application-namespace-checks--71), [migration operations](operations.md#planned-vpn0wn-migration) and [the decision](architecture.md#coordinate-source-and-application-namespace--2026-10-11) own remaining acceptance.
+
 ## WireGuard configuration and tunnel state
 
 AmneziaWG is not accepted by the current parser/backends. The [2026-10-09 engine assessment](reviews/2026-10-09-amneziawg-engine-assessment.md) records the pinned official candidate, complete field/native/API 24/license matrix and proposed WG/AWG pre-initiation packet separation under [#76](https://github.com/novakin/vpn0wn-android/issues/76). Engine/field selection remains open; this assessment changes no accepted attributes, persistence, backend or packet behavior.
 
-The existing [Config](../tunnel/src/main/java/com/wireguard/config/Config.java), Interface, Peer and endpoint/address types own parse/serialize behavior. Preserve repeated list fields, multi-peer profiles, IPv6 endpoint syntax and other supported WireGuard fields. Generated provisioning profiles must pass these same parsers/import paths.
+The existing [Config](../tunnel/src/main/java/com/vpn0wn/config/Config.java), Interface, Peer and endpoint/address types own parse/serialize behavior. Preserve repeated list fields, multi-peer profiles, IPv6 endpoint syntax and other supported WireGuard fields. Generated provisioning profiles must pass these same parsers/import paths.
 
 | Section | Accepted attributes |
 | --- | --- |
@@ -163,7 +175,7 @@ Precommit failure rolls back only successfully created, operation-owned profiles
 ## Provisioning command surface
 
 
-The [client](../ui/src/main/java/com/wireguard/android/provisioning/TunnlProvisioningClient.kt) uploads [packaged scripts](../ui/src/main/java/com/wireguard/android/provisioning/ProvisioningScriptBundle.kt) to a temporary remote directory, constructs quoted commands, parses JSON and attempts cleanup. Commands requiring root run directly for root or through non-interactive `sudo -n`. Concrete SSH execution is not implemented yet.
+The [client](../ui/src/main/java/com/vpn0wn/android/provisioning/TunnlProvisioningClient.kt) uploads [packaged scripts](../ui/src/main/java/com/vpn0wn/android/provisioning/ProvisioningScriptBundle.kt) to a temporary remote directory, constructs quoted commands, parses JSON and attempts cleanup. Commands requiring root run directly for root or through non-interactive `sudo -n`. Concrete SSH execution is not implemented yet.
 
 Current server assumptions: Ubuntu/Debian, default `wg0`, IPv4 `/24` allocation, IPv4 default routes and iptables NAT. Script environment overrides do not establish a validated live platform/interface matrix. Plan/install/peer value options reject missing values and config-injection tokens. C2–C3 mutations enforce ownership, native locks, private snapshots and checked postconditions; this is offline source/test proof, not a real VPS run. The [script guide](../third_party/wireguard-install/tunnl/README.md#ownership-locking-and-recovery) owns validation, lock order, stopped-interface semantics and recovery limits. Read-only/pre-transaction shell failures are not uniformly JSON-guarded.
 

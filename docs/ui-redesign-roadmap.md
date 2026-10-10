@@ -8,7 +8,7 @@ Reference: `.design/` — React/JSX prototype for **Tunnl**, a WireGuard tunnel 
 
 Prototype sections below describe visual targets, not implemented Android guarantees. Initial committed-source reconciliation used `11d4a9b1`; the Done ledger also retains superseded implementation history. Read the explicit gaps and [full documentation review](reviews/2026-10-06-full-documentation-review.md) for evidence limits.
 
-The [reviewed vpnØwn brand artwork](assets/vpnown-brand/README.md) supplies outlined SVGs, exact palette values, a 16px optical mark and reproducible PNG exports. Its original [visual acceptance](assets/vpnown-brand/ACCEPTANCE.md) covers artwork only. The separately authorized [Android adoption](#android-brand-asset-adoption--2026-10-10) replaces product-logo artwork while retaining Inter Tight/JetBrains Mono UI text. Source/package migration remains with [#71](https://github.com/novakin/vpn0wn-android/issues/71).
+The [reviewed vpnØwn brand artwork](assets/vpnown-brand/README.md) supplies outlined SVGs, exact palette values, a 16px optical mark and reproducible PNG exports. Its original [visual acceptance](assets/vpnown-brand/ACCEPTANCE.md) covers artwork only. The separately authorized [Android adoption](#android-brand-asset-adoption--2026-10-10) replaces product-logo artwork while retaining Inter Tight/JetBrains Mono UI text. Current source now uses `com.vpn0wn.*` and configured vpn0wn release/debug IDs; [the identity contract](backend-contracts.md#application-and-source-identity--71) separates that implementation from remaining first-party naming and renamed artifact/device acceptance under [#71](https://github.com/novakin/vpn0wn-android/issues/71).
 
 | File | Contents |
 |------|----------|
@@ -86,7 +86,7 @@ The header keeps the complete localized count together with nonbreaking spaces, 
 
 The local Home image span aligns the complete white/cyan wordmark ink with the localized count's glyph bounds at the text baseline. Its optical center comes from the approved artwork's ink bounds within the unchanged viewport; normal font extents and any required artwork clearance remain in line measurement. Same-line output at normal and large text must keep visible centers within 1dp. Bottom alignment and canvas-only centering do not establish this visual contract.
 
-`generate.mjs --android` reuses approved geometry and wordmark outlines; [artwork authoring](assets/vpnown-brand/README.md) owns reproduction. Sora is not installed as a UI font. Its original OFL notice and complete offline credit accompany the derived artwork. Current source namespace, installed IDs, stored profiles/settings/fleet, native/protocol behavior and operational ownership contracts remain unchanged. This slice does not complete #71, release/distribution, root-tools or old/new-app migration acceptance.
+`generate.mjs --android` reuses approved geometry and wordmark outlines; [artwork authoring](assets/vpnown-brand/README.md) owns reproduction. Sora is not installed as a UI font. Its original OFL notice and complete offline credit accompany the derived artwork. This 2026-10-10 artwork slice retained its then-current source namespace/installed IDs, stored profiles/settings/fleet, native/protocol behavior and operational ownership contracts. The later namespace slice changes current source/configured IDs without changing this visual contract. Neither slice completes #71, release/distribution, root-tools or old/new-app migration acceptance.
 
 Focused resource/native-graphics controls and the Home theme/size/large-text/RTL matrix cover source output. The [scoped Android artwork and placement record](reviews/2026-10-10-android-brand-adoption-acceptance.md) separates source, actual APK/runtime proof and their limits; legacy Android and a real TV launcher are separate environments.
 
@@ -481,9 +481,11 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
+- [x] **Namespace-backed UI references — #71 partial source, 2026-10-11:** layout/DataBinding/imported widget types, preferences and generated UI references now use `com.vpn0wn.*`; configured release/debug IDs identify vpn0wn. Existing artwork, layout, UI font roles, tokens and actions keep their visual contract. [Namespace QA](qa-test-plan.md#source-and-application-namespace-checks--71) owns renamed output/runtime acceptance; no new APK/device proof is claimed.
+
 - [x] Detail topology-header separation — 2026-10-11: `tunnel_detail_fragment.xml` keeps an 8dp relative gap between the wrapping `FIG.01` title and live status. Full title/status text, font scale, RTL mirroring, palette, animation and state bindings remain intact. `AddPeerPresentationTest` measures rendered line separation and complete text in narrow LTR/RTL layouts at 1×/2× text under both system themes. [Scoped acceptance](reviews/2026-10-11-detail-header-acceptance.md) records the failing baseline, focused/native proof and seven restored physical output cases. This repairs the previously recorded touching-label gap; broader #35 physical/accessibility acceptance remains separate.
 
-- [x] **Android brand artwork source adoption — #71 preparation, 2026-10-10:** existing launcher/round/themed, tile and TV resources use approved vpn0wn artwork; Home uses its standalone symbol and outlined wordmark with localized accessible count. Visible app/version titles identify vpn0wn while installed IDs and UI font roles remain. [The adoption contract](#android-brand-asset-adoption--2026-10-10) separates output proof from package/migration and distribution acceptance.
+- [x] **Android brand artwork source adoption — #71 preparation, 2026-10-10:** existing launcher/round/themed, tile and TV resources use approved vpn0wn artwork; Home uses its standalone symbol and outlined wordmark with localized accessible count. That slice retained then-current installed IDs and UI font roles while visible app/version titles identified vpn0wn. [The adoption contract](#android-brand-asset-adoption--2026-10-10) separates output proof from package/migration and distribution acceptance.
 
 - [x] **Upstream updater presentation retired — #71 preparation, 2026-10-10:** `TunnelListFragment.onCreateView` no longer attaches the upstream update Snackbar; its localized update/corruption prompts and exit flow are removed with the updater. Existing Home controls and shared `TunnlSnackbar` remain. [Update policy](operations.md#app-updates) owns the functional boundary; this source retirement is not APK/device or full identity-migration acceptance.
 
@@ -599,6 +601,7 @@ This is a historical implementation ledger, not newly executed build/device proo
 
 ### Fidelity Gaps — Remaining
 
+- [~] **Remaining first-party identity names — #71:** Tunnl helpers, resource/style keys, log tags and export filenames still retain their source names. The namespace slice does not rename these consumers. Rename them together in bounded follow-up; retained WireGuard protocol/legal and persisted provisioning compatibility names have distinct reasons in [the identity contract](backend-contracts.md#application-and-source-identity--71).
 
 - [~] **Full app-data transfer actions — 2026-10-09:** Settings reuses its existing Data action-row layout/tokens and native biometric, document-picker and Material confirmation patterns. [Scoped authorized AVD proof](reviews/2026-10-09-app-data-transfer-acceptance.md) covers the inspected themes, sizes, large text, real RTL and native Downloads/PIN paths. Broader physical biometric/provider failures, TalkBack, translation and old/new-installation acceptance remain [#71 gates](qa-test-plan.md#full-app-data-transfer-acceptance).
 

@@ -46,7 +46,7 @@ jobs:
       - name: Run unit and static checks
         run: ./gradlew :ui:testDebugUnitTest :tunnel:testDebugUnitTest :ui:detekt --console=plain
       - name: Check release startup
-        run: ./gradlew :ui:testReleaseUnitTest --tests com.wireguard.android.ApplicationBackendLifecycleTest --console=plain
+        run: ./gradlew :ui:testReleaseUnitTest --tests com.vpn0wn.android.ApplicationBackendLifecycleTest --console=plain
       - name: Run native UAPI lifecycle checks
         run: bash tunnel/tools/libwg-go/test-host.sh
       - name: Retain check reports

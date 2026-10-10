@@ -1,6 +1,6 @@
 # G4 APK and UDP preflight investigation
 
-Last updated: 2026-10-10 (Europe/Paris).
+Last updated: 2026-10-11 (Europe/Paris).
 
 ## Scope and authorization
 
@@ -35,7 +35,7 @@ Selected app evidence showed no fatal exception and the captured thermal status 
 
 ## Preflight finding
 
-The [current owner](../../tunnel/src/main/java/com/wireguard/android/backend/GoBackend.java) protects and binds its warm-up socket, sends one zero byte to each eligible resolved endpoint, logs completion, and closes the socket before native activation. The explicit ListenPort makes this profile eligible. In one scoped app capture, three `UDP preflight sent` events and zero preflight-failure events were observed. Later scoped logs contained repeated handshake initiation/timeouts. Missing receive events are an observation of those captures, not a complete endpoint history.
+The [owner at the executed revision](https://github.com/novakin/vpn0wn-android/blob/39bb2c3cf6941a8b4ee0da8e666ca46e2f155031/tunnel/src/main/java/com/wireguard/android/backend/GoBackend.java) protects and binds its warm-up socket, sends one zero byte to each eligible resolved endpoint, logs completion, and closes the socket before native activation. The explicit ListenPort makes this profile eligible. In one scoped app capture, three `UDP preflight sent` events and zero preflight-failure events were observed. Later scoped logs contained repeated handshake initiation/timeouts. Missing receive events are an observation of those captures, not a complete endpoint history.
 
 The local preflight send path executed. A success log is produced after `DatagramSocket.send`; it is not an acknowledgment from the server. Packet arrival, later native socket/NAT handoff and DPI effectiveness remain unproven. Preflight does not obscure the native WireGuard protocol. The observed port change alters the UDP flow and prevents a fixed-profile recovery comparison; it does not establish why the path recovered.
 

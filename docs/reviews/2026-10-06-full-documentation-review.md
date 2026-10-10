@@ -1,6 +1,6 @@
 # Full documentation review — 2026-10-06
 
-Last updated: 2026-10-10 (Europe/Paris).
+Last updated: 2026-10-11 (Europe/Paris).
 
 [Documentation index](../../README.md#project-documentation) · Substantive content audit, Europe/Paris.
 
@@ -31,7 +31,7 @@ This change reconciles documentation and includes full font-license notices as a
 
 Backend audit read architecture/operations/contracts/changelog and responsible config, Go/WgQuick, manager/store and provisioning sources at the clean baseline. UI audit read the full roadmap/QA/attribution and committed resources, tests, Application/TV, bindings, fragments/custom views and local JSX. Root review covered all provisioning scripts, Android orchestration/models, destructive Python harness, source/build/environment contracts, historical record, agent instructions and issue/PR templates. This was source inspection, not a runtime reproduction.
 
-Decisive owners: [GoBackend](../../tunnel/src/main/java/com/wireguard/android/backend/GoBackend.java), [Interface](../../tunnel/src/main/java/com/wireguard/config/Interface.java), [InetNetwork](../../tunnel/src/main/java/com/wireguard/config/InetNetwork.java), [BindingAdapters](../../ui/src/main/java/com/wireguard/android/databinding/BindingAdapters.kt), [Application](../../ui/src/main/java/com/wireguard/android/Application.kt), [ProvisioningModels](../../ui/src/main/java/com/wireguard/android/provisioning/ProvisioningModels.kt), [script guide](../../third_party/wireguard-install/tunnl/README.md) and [harness](../../scripts/vps_integration_test.py). Owning guides route remaining detail; no secret-bearing output or prototype files enter this change.
+Decisive owners: [GoBackend](https://github.com/novakin/vpn0wn-android/blob/11d4a9b1dfdab834844c997e6ef2cc4f83c6bd43/tunnel/src/main/java/com/wireguard/android/backend/GoBackend.java), [Interface](https://github.com/novakin/vpn0wn-android/blob/11d4a9b1dfdab834844c997e6ef2cc4f83c6bd43/tunnel/src/main/java/com/wireguard/config/Interface.java), [InetNetwork](https://github.com/novakin/vpn0wn-android/blob/11d4a9b1dfdab834844c997e6ef2cc4f83c6bd43/tunnel/src/main/java/com/wireguard/config/InetNetwork.java), [BindingAdapters](https://github.com/novakin/vpn0wn-android/blob/11d4a9b1dfdab834844c997e6ef2cc4f83c6bd43/ui/src/main/java/com/wireguard/android/databinding/BindingAdapters.kt), [Application](https://github.com/novakin/vpn0wn-android/blob/11d4a9b1dfdab834844c997e6ef2cc4f83c6bd43/ui/src/main/java/com/wireguard/android/Application.kt), [ProvisioningModels](https://github.com/novakin/vpn0wn-android/blob/11d4a9b1dfdab834844c997e6ef2cc4f83c6bd43/ui/src/main/java/com/wireguard/android/provisioning/ProvisioningModels.kt), [script guide](../../third_party/wireguard-install/tunnl/README.md) and [harness](../../scripts/vps_integration_test.py). Owning guides route remaining detail; no secret-bearing output or prototype files enter this change.
 
 ## Acceptance and quality boundary
 

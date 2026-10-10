@@ -16,7 +16,7 @@ extern char *wgGetConfig(int handle, JNIEnv *env);
 extern int wgRebind(int handle, JNIEnv *env);
 extern char *wgVersion();
 
-JNIEXPORT jint JNICALL Java_com_wireguard_android_backend_GoBackend_wgTurnOn(JNIEnv *env, jclass c, jstring ifname, jint tun_fd, jstring settings, jobject service, jobject activation_thread, jlong activation_id)
+JNIEXPORT jint JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgTurnOn(JNIEnv *env, jclass c, jstring ifname, jint tun_fd, jstring settings, jobject service, jobject activation_thread, jlong activation_id)
 {
 	struct wg_context *context = NULL;
 	const char *ifname_str = (*env)->GetStringUTFChars(env, ifname, 0);
@@ -50,17 +50,17 @@ failed:
 	return -1;
 }
 
-JNIEXPORT void JNICALL Java_com_wireguard_android_backend_GoBackend_wgTurnOff(JNIEnv *env, jclass c, jint handle)
+JNIEXPORT void JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgTurnOff(JNIEnv *env, jclass c, jint handle)
 {
 	wgTurnOff(handle, env);
 }
 
-JNIEXPORT jint JNICALL Java_com_wireguard_android_backend_GoBackend_wgRebind(JNIEnv *env, jclass c, jint handle)
+JNIEXPORT jint JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgRebind(JNIEnv *env, jclass c, jint handle)
 {
 	return wgRebind(handle, env);
 }
 
-JNIEXPORT jstring JNICALL Java_com_wireguard_android_backend_GoBackend_wgGetConfig(JNIEnv *env, jclass c, jint handle)
+JNIEXPORT jstring JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgGetConfig(JNIEnv *env, jclass c, jint handle)
 {
 	jstring ret;
 	char *config = wgGetConfig(handle, env);
@@ -71,7 +71,7 @@ JNIEXPORT jstring JNICALL Java_com_wireguard_android_backend_GoBackend_wgGetConf
 	return ret;
 }
 
-JNIEXPORT jstring JNICALL Java_com_wireguard_android_backend_GoBackend_wgVersion(JNIEnv *env, jclass c)
+JNIEXPORT jstring JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgVersion(JNIEnv *env, jclass c)
 {
 	jstring ret;
 	char *version = wgVersion();

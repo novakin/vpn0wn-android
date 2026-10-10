@@ -3,7 +3,7 @@
 import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.gradle.api.tasks.bundling.Zip
 
-val pkg: String = providers.gradleProperty("wireguardPackageName").get()
+val pkg: String = providers.gradleProperty("vpn0wnPackageName").get()
 
 plugins {
     alias(libs.plugins.android.library)
@@ -80,14 +80,14 @@ publishing {
         register<MavenPublication>("release") {
             groupId = pkg
             artifactId = "tunnel"
-            version = providers.gradleProperty("wireguardVersionName").get()
+            version = providers.gradleProperty("vpn0wnVersionName").get()
             afterEvaluate {
                 from(components["release"])
             }
             pom {
-                name = "WireGuard Tunnel Library"
-                description = "Embeddable tunnel library for WireGuard for Android"
-                url = "https://www.wireguard.com/"
+                name = "vpn0wn Tunnel Library"
+                description = "Embeddable WireGuard tunnel library for vpn0wn on Android"
+                url = "https://github.com/novakin/vpn0wn-android"
 
                 licenses {
                     license {
@@ -97,18 +97,15 @@ publishing {
                     }
                 }
                 scm {
-                    connection = "scm:git:https://git.zx2c4.com/wireguard-android"
-                    developerConnection = "scm:git:https://git.zx2c4.com/wireguard-android"
-                    url = "https://git.zx2c4.com/wireguard-android"
+                    connection = "scm:git:https://github.com/novakin/vpn0wn-android.git"
+                    developerConnection = "scm:git:ssh://git@github.com/novakin/vpn0wn-android.git"
+                    url = "https://github.com/novakin/vpn0wn-android"
                 }
                 developers {
-                    organization {
-                        name = "WireGuard"
-                        url = "https://www.wireguard.com/"
-                    }
                     developer {
-                        name = "WireGuard"
-                        email = "team@wireguard.com"
+                        id = "novakin"
+                        name = "novakin"
+                        url = "https://github.com/novakin"
                     }
                 }
             }
