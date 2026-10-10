@@ -1,6 +1,6 @@
 # Tunnl UI Redesign Roadmap
 
-Last updated: 2026-10-09 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 ## Design Source
 
@@ -422,7 +422,7 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 ### 7. Settings Screen
 - Current prototype groups: Connection, Security, Auto-connect exceptions, System and About.
 - The prototype contains connection/kernel controls, security controls and trusted-network exceptions. Those controls, including kernel-only expansion/UDP preflight, are visual/behavior targets rather than a claim of committed settings integration.
-- The #34 native adaptation retains supported preferences in Connection, Control, Data, Appearance and About sections. API/admin/backend conditions can remove entire empty sections. Android-specific dark theme, multiple tunnels, tools installer, remote control and donate remain native controls/actions; unsupported prototype controls stay deferred.
+- The #34 native adaptation retains supported preferences in Connection, Control, Data, Appearance and About sections. API/admin/backend conditions can remove entire empty sections. Android-specific dark theme, multiple tunnels, tools installer, remote control and licenses remain native controls/actions; unsupported prototype controls stay deferred.
 - Sections are always expanded, matching the prototype's scrollable groups; the old five-row expansion limit is intentionally removed. PreferenceFragmentCompat retains list/recreation ownership and persistent keys/defaults are unchanged. Native kernel switching remains an action requiring restart, not a Boolean toggle.
 
 ### 8. Extended Screens & Sheets *(design complete in JSX, implementation pending)*
@@ -445,6 +445,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 ### Done
 
 - [x] Offline Licenses & credits — 2026-10-09: Settings About uses a nonpersistent native action and the version row opens the same selectable, scrollable `LicensesActivity`; its header reuses Settings tokens, labeled 48dp Back and shared safe-area handling. English/French labels replace the upstream donation action; full notice texts are local assets. [Coverage and remaining artifact/device gates](license-attribution.md) keep this #71 slice separate from identity migration.
+
+- [x] **App-data transfer actions — 2026-10-09:** Settings adds authenticated full-data export and document-picker import/confirmation using the existing Data rows and tokens; success reloads imported preferences. Confirmation separates profile/server count labels. [Scoped synthetic AVD acceptance](reviews/2026-10-09-app-data-transfer-acceptance.md) inspects Settings/confirmation in both themes, landscape, 2× text and a 320dp RTL configuration. Physical/conditional-provider/accessibility and cross-app acceptance remains open below; [operations](operations.md#app-data-transfer) owns handling.
 
 - [x] **Quick Settings setup eligibility — #85 (2026-10-09):** Settings hides the Add row while membership loads, then observes retained add/remove confirmation independently of service lifetime. Successful/already-added native results record membership; loaded missing confirmation keeps the idempotent fallback, while unavailable reads keep setup hidden. Removal also restores the row while Settings is open. [Repaired-APK API 36 checks](reviews/2026-10-09-g4-private-native-acceptance.md#tile-membership-repair-acceptance--2026-10-09) verify native Cancel/Add/already-added, independent callbacks, inventory and Settings/rotation/process reopening, with readable native Add and landscape Settings output. No geometry, theme or tile-toggle change; physical/accessibility and tile VPN proof remain under #34/#52.
 
@@ -540,6 +542,8 @@ This is a historical implementation ledger, not newly executed build/device proo
 - [x] Binding status labels moved to resources: tunnel mode labels, detail status titles/subtitles, and home protection labels now use Android strings instead of hardcoded adapter text.
 
 ### Fidelity Gaps — Remaining
+
+- [~] **Full app-data transfer actions — 2026-10-09:** Settings reuses its existing Data action-row layout/tokens and native biometric, document-picker and Material confirmation patterns. [Scoped authorized AVD proof](reviews/2026-10-09-app-data-transfer-acceptance.md) covers the inspected themes, sizes, large text, real RTL and native Downloads/PIN paths. Broader physical biometric/provider failures, TalkBack, translation and old/new-installation acceptance remain [#71 gates](qa-test-plan.md#full-app-data-transfer-acceptance).
 
 - [~] Home selection uses Android's configurable native long-click instead of the prototype's custom 600ms hold-progress/touch animation; this preserves native gesture and accessibility handling. The selected card/checkmark, count controls and destructive sheet are recovered; exact custom motion, sheet corner decorations and physical device/provider acceptance remain outside the current source proof (#36/G4).
 

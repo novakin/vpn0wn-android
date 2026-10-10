@@ -1,8 +1,8 @@
 # Software licenses and credits
 
-Last updated: 2026-10-09 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
-Settings → About → Licenses & credits opens a private native activity with selectable, scrollable offline text. The version row opens the same screen and keeps its current product title and actual backend-version summary. The upstream donation preference, URL, Google Play-specific dialog and donation strings in all 29 affected resource sets are removed. English/French navigation strings use normal English fallback elsewhere. This is a partial [#71](https://github.com/novakin/wireguard-android/issues/71) delivery; product/package identity, updater, tools coexistence and data-transfer policy remain separate work.
+Settings → About → Licenses & credits opens a private native activity with selectable, scrollable offline text. The version row opens the same screen and keeps its current product title and actual backend-version summary. The upstream donation preference, URL, Google Play-specific dialog and donation strings in all 29 affected resource sets are removed. English/French navigation strings use normal English fallback elsewhere. This is a partial [#71](https://github.com/novakin/wireguard-android/issues/71) delivery; product/package identity, updater, tools coexistence and complete old/new-app transfer acceptance remain separate work. [Operations](operations.md#app-data-transfer) owns implemented legacy-ID transfer preparation and its limits.
 
 The payload is [credits.txt](../ui/src/main/assets/licenses/credits.txt), in the existing Android main asset directory. Its bundle normalizes line endings and trailing spaces while preserving complete license wording; original copies remain unchanged. Full font notice assets remain beside it. Source [COPYING](../COPYING), upstream copyright and externally owned submodules are unchanged. The activity reads the local asset off Main, reports an I/O failure and retains native Back/inset handling. No browser or preference write is required.
 

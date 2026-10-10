@@ -6,7 +6,9 @@ package com.wireguard.android.activity
 
 import com.wireguard.android.util.RootShell.RootShellException
 import java.io.IOException
+import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -14,6 +16,8 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AlertDialog
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.commit
 import androidx.lifecycle.lifecycleScope
@@ -23,14 +27,22 @@ import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceGroup
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
 import com.wireguard.android.Application
 import com.wireguard.android.R
 import com.wireguard.android.backend.WgQuickBackend
 import com.wireguard.android.preference.PreferencesPreferenceDataStore
+import com.wireguard.android.provisioning.VpsServerStore
 import com.wireguard.android.util.AdminKnobs
+import com.wireguard.android.util.AppDataTransfer
 import com.wireguard.android.util.applySafeAreaInsets
+import com.wireguard.android.util.tunnlStyle
 import com.wireguard.android.util.UserKnobs
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -38,6 +50,8 @@ import kotlinx.coroutines.withContext
  * Interface for changing application-global persistent settings.
  */
 class SettingsActivity : AppCompatActivity() {
+    private var importedProfileCount: Int? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.settings_activity)
@@ -49,9 +63,37 @@ class SettingsActivity : AppCompatActivity() {
                 add(R.id.settings_content, SettingsFragment())
             }
         }
+        val importedCount = savedInstanceState?.getInt(APP_DATA_IMPORT_COUNT, -1) ?: -1
+        if (importedCount >= 0) {
+            findViewById<View>(android.R.id.content).post {
+                if (isFinishing || isDestroyed) return@post
+                Snackbar.make(
+                    findViewById(android.R.id.content),
+                    getString(R.string.app_data_transfer_import_success, importedCount),
+                    Snackbar.LENGTH_LONG,
+                ).tunnlStyle().show()
+            }
+        }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        importedProfileCount?.let { outState.putInt(APP_DATA_IMPORT_COUNT, it) }
+        super.onSaveInstanceState(outState)
+    }
+
+    private fun reloadAfterAppDataImport(count: Int) {
+        importedProfileCount = count
+        recreate()
     }
 
     class SettingsFragment : PreferenceFragmentCompat() {
+        private var transferInProgress = false
+        private var importDialog: AlertDialog? = null
+        private val appDataPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+            val ownerView = view
+            if (uri != null && ownerView != null) readAppData(uri, ownerView)
+        }
+
         override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
             val view = super.onCreateView(inflater, container, savedInstanceState)
             view.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.tunnl_paper))
@@ -60,6 +102,7 @@ class SettingsActivity : AppCompatActivity() {
 
         override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
             super.onViewCreated(view, savedInstanceState)
+            setTransferEnabled(true)
             val quickTile = findPreference<Preference>("quick_tile") ?: return
             quickTile.isVisible = false
             viewLifecycleOwner.lifecycleScope.launch {
@@ -73,6 +116,15 @@ class SettingsActivity : AppCompatActivity() {
                     }
                 }
             }
+        }
+
+        override fun onDestroyView() {
+            val dialog = importDialog
+            importDialog = null
+            dialog?.dismiss()
+            transferInProgress = false
+            setTransferEnabled(true)
+            super.onDestroyView()
         }
 
         override fun onCreatePreferences(savedInstanceState: Bundle?, key: String?) {
@@ -90,8 +142,23 @@ class SettingsActivity : AppCompatActivity() {
                 darkTheme?.parent?.removePreference(darkTheme)
             }
             if (AdminKnobs.disableConfigExport) {
-                val zipExporter = preferenceManager.findPreference<Preference>("zip_exporter")
-                zipExporter?.parent?.removePreference(zipExporter)
+                for (exportKey in listOf("zip_exporter", "export_app_data")) {
+                    val exporter = preferenceManager.findPreference<Preference>(exportKey)
+                    exporter?.parent?.removePreference(exporter)
+                }
+            }
+            findPreference<Preference>("import_app_data")?.setOnPreferenceClickListener {
+                if (transferInProgress || importDialog != null || !it.isEnabled ||
+                    findPreference<Preference>("export_app_data")?.isEnabled == false
+                ) return@setOnPreferenceClickListener true
+                try {
+                    appDataPicker.launch(arrayOf("application/zip"))
+                } catch (_: ActivityNotFoundException) {
+                    showTransferFailure()
+                } catch (_: SecurityException) {
+                    showTransferFailure()
+                }
+                true
             }
             val wgQuickOnlyPrefs = arrayOf(
                 preferenceManager.findPreference("tools_installer"),
@@ -135,6 +202,125 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
+        private fun readAppData(uri: Uri, ownerView: View) {
+            if (transferInProgress || importDialog != null ||
+                findPreference<Preference>("export_app_data")?.isEnabled == false
+            ) return
+            val resolver = requireContext().contentResolver
+            transferInProgress = true
+            setTransferEnabled(false)
+            viewLifecycleOwner.lifecycleScope.launch {
+                try {
+                    val archive = withContext(Dispatchers.IO) {
+                        resolver.openInputStream(uri)?.use(AppDataTransfer::read)
+                            ?: throw IOException("App transfer input unavailable")
+                    }
+                    if (view === ownerView) confirmAppDataImport(archive, ownerView)
+                } catch (_: IOException) {
+                    showTransferFailureIfCurrent(ownerView)
+                } catch (_: AppDataTransfer.InvalidArchiveException) {
+                    showTransferFailureIfCurrent(ownerView)
+                } catch (_: VpsServerStore.InvalidTransferMetadataException) {
+                    showTransferFailureIfCurrent(ownerView)
+                } catch (_: SecurityException) {
+                    showTransferFailureIfCurrent(ownerView)
+                } finally {
+                    if (view === ownerView) {
+                        transferInProgress = false
+                        setTransferEnabled(true)
+                    }
+                }
+            }
+        }
+
+        private fun confirmAppDataImport(archive: AppDataTransfer.Archive, ownerView: View) {
+            val dialog = MaterialAlertDialogBuilder(requireContext())
+                .setTitle(R.string.app_data_transfer_confirm_title)
+                .setMessage(getString(R.string.app_data_transfer_confirm_message, archive.profiles.size, archive.servers.size))
+                .setNegativeButton(android.R.string.cancel, null)
+                .setPositiveButton(android.R.string.ok, null)
+                .create()
+            dialog.setOnDismissListener {
+                if (importDialog === dialog) importDialog = null
+            }
+            importDialog = dialog
+            dialog.show()
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                if (importDialog !== dialog || !dialog.isShowing || view !== ownerView || transferInProgress) return@setOnClickListener
+                if (!viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return@setOnClickListener
+                dialog.dismiss()
+                importAppData(archive, ownerView)
+            }
+        }
+
+        // ConfigStore may throw checked Exception; cancellation and unexpected runtime defects must propagate.
+        @Suppress("TooGenericExceptionCaught")
+        private fun importAppData(archive: AppDataTransfer.Archive, ownerView: View) {
+            transferInProgress = true
+            setTransferEnabled(false)
+            viewLifecycleOwner.lifecycleScope.launch {
+                val created = try {
+                    Application.getTunnelManager().importAppData(archive)
+                } catch (failure: CancellationException) {
+                    throw failure
+                } catch (_: AppDataTransfer.IncompleteRecoveryException) {
+                    showTransferFailureIfCurrent(ownerView, incompleteRecovery = true)
+                    return@launch
+                } catch (_: IOException) {
+                    showTransferFailureIfCurrent(ownerView)
+                    return@launch
+                } catch (_: AppDataTransfer.InvalidArchiveException) {
+                    showTransferFailureIfCurrent(ownerView)
+                    return@launch
+                } catch (_: AppDataTransfer.ConflictException) {
+                    showTransferFailureIfCurrent(ownerView)
+                    return@launch
+                } catch (_: VpsServerStore.InvalidTransferMetadataException) {
+                    showTransferFailureIfCurrent(ownerView)
+                    return@launch
+                } catch (_: SecurityException) {
+                    showTransferFailureIfCurrent(ownerView)
+                    return@launch
+                } catch (failure: RuntimeException) {
+                    throw failure
+                } catch (_: Exception) {
+                    showTransferFailureIfCurrent(ownerView)
+                    return@launch
+                } finally {
+                    if (view === ownerView) {
+                        transferInProgress = false
+                        setTransferEnabled(true)
+                    }
+                }
+                currentCoroutineContext().ensureActive()
+                if (view === ownerView) (requireActivity() as SettingsActivity).reloadAfterAppDataImport(created)
+            }
+        }
+
+        private fun setTransferEnabled(enabled: Boolean) {
+            findPreference<Preference>("export_app_data")?.isEnabled = enabled
+            findPreference<Preference>("import_app_data")?.isEnabled = enabled
+        }
+
+        private suspend fun showTransferFailureIfCurrent(ownerView: View, incompleteRecovery: Boolean = false) {
+            currentCoroutineContext().ensureActive()
+            if (view === ownerView && viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
+                showTransferFailure(incompleteRecovery)
+            }
+        }
+
+        private fun showTransferFailure(incompleteRecovery: Boolean = false) {
+            val message = if (incompleteRecovery) {
+                Log.e("WireGuard/Settings", "App data import recovery incomplete")
+                R.string.app_data_transfer_recovery_error
+            } else {
+                Log.e("WireGuard/Settings", "App data import failed")
+                R.string.app_data_transfer_error
+            }
+            val ownerView = view ?: return
+            Snackbar.make(ownerView, message, Snackbar.LENGTH_LONG).tunnlStyle().show()
+        }
+
         private fun clearPreferenceViewIds(group: PreferenceGroup) {
             for (index in 0 until group.preferenceCount) {
                 val preference = group.getPreference(index)
@@ -151,5 +337,9 @@ class SettingsActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    companion object {
+        private const val APP_DATA_IMPORT_COUNT = "app_data_import_count"
     }
 }

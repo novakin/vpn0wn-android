@@ -1,6 +1,6 @@
 # Operations and recovery
 
-Last updated: 2026-10-09 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -33,6 +33,20 @@ File/ZIP importing settles valid entries before one final result and reports par
 Known import/edit defects pending C8 include invalid-name dialog dismissal and replacement-length handling. Abbreviated displayed keys also require a full-key copy fix. Until repaired, inspect an exported profile when a copied key is unusable; do not paste a displayed ellipsis as a WireGuard key.
 
 ZIP export restores its control after loading, acquisition or write failure and cancellation. The saver closes and attempts to remove an owned incomplete output; rejected or zero-result cleanup stays attached to the primary error. Check Downloads after failure and remove any incomplete private export through your file manager. A cancelled operation can still leave a complete export if cancellation arrives after writing; it does not report success. Same-name export overwrites the previous copy and does not restore it after failure. See [the export contract](backend-contracts.md#import-ordering-and-export) and [synthetic verification limits](development.md#downloads-output-ownership--2026-10-07); actual storage-provider acceptance remains in G4.
+
+## App-data transfer
+
+Sensitive exports and private-key reveal use Android's configured biometrics or PIN/password/pattern. Complete the system prompt; cancelling prevents the sensitive action. When Android reports no configured authentication, the existing no-lock behavior permits the action without a prompt. Authentication errors or unavailable service/hardware do not authorize it; retry after resolving the system-authentication problem.
+
+Settings → Export app data creates a new private ZIP in Downloads after the existing administrator and biometric/device-credential gates. It includes tunnel profiles, selected settings and saved VPS connection/display records. It works with no tunnel profiles. The archive is unencrypted and contains private keys/PSKs; keep it out of Git, issues and shared evidence. Older same-name files are not overwritten by this action. Existing Export tunnels remains a profiles-only ZIP.
+
+Use Settings → Import app data to choose the full ZIP through Android's document picker. Review the confirmation: preferences may enable remote control or restore on boot. Confirmed import prevalidates profiles and current fleet records, skips identical destination records, and rejects a different record with an existing tunnel name or server ID. It preserves unrelated records and existing active tunnel state; newly imported profiles remain off. Missing settings leave destination values unchanged. Ordinary tunnel ZIP import redirects full-transfer archives to this action instead of claiming profiles-only success. Cancelling the picker/confirmation changes nothing.
+
+Transfer excludes kernel backend selection, saved active-tunnel intent, tile membership, updater consent and Android permissions/always-on/lockdown policy. Set those up separately on a new installation. Historical VPS health/sync values are copied as stored observations, not refreshed connectivity. No SSH credentials are stored or transferred. A corrupt source/destination fleet payload blocks transfer; investigate it before retrying instead of discarding it.
+
+If admitted import fails, it attempts to remove only the new profiles it created. A recovery warning means some new profiles remain in the tunnel list, off; inspect them before retrying. Before creating files, transfer durably clears any stale destination boot-restoration markers matching the new names; this limited cleanup is retained even if later import fails. Unrelated restoration intent and existing profiles remain preserved. Cancellation after admission can leave a completed import or recovered batch without success feedback. Process death/power loss can interrupt the separate profile-file and settings commits; inspect both stores before treating a retry as complete. [The contract](backend-contracts.md#full-app-data-transfer) defines validation, sequencing and bounds.
+
+The maintainer approved settings/fleet transfer for [#71](https://github.com/novakin/wireguard-android/issues/71#issuecomment-6086430555) on 2026-10-09 (Europe/Paris). This slice retains the legacy installed ID. [Synthetic AVD acceptance](reviews/2026-10-09-app-data-transfer-acceptance.md) records the authorized debug APK installation, native PIN/cancellation/export, document-picker import, persistent readback and scoped layout checks. Physical biometric/provider/accessibility and complete migration gates remain open. A signer-compatible exporter update must reach the old installation before a new `com.vpn0wn.android` app can import its archive; separate sandboxes and `allowBackup=false` prevent direct inheritance. Preserve the old installation and data until authorized old/new-app acceptance and rollback are verified. No renamed release or permission migration is established.
 
 ## Emulator color diagnosis
 
@@ -110,7 +124,7 @@ The maintainer reported sleep/wake recovery without manual action on 2026-10-08.
 
 ## Planned vpn0wn migration
 
-The maintainer selected `com.vpn0wn.android` and, on 2026-10-09 (Europe/Paris), confirmed transfer of tunnel profiles, settings and saved VPS records while preserving the existing app and data. This full transfer is not implemented. Current ZIP export/import transfers tunnel configurations only; it must not be reported as complete migration. A new application ID does not inherit the old sandbox, permissions or tile setup. The legacy app needs a signer-compatible update providing export before a renamed app can import those private records through a user-selected document.
+The maintainer selected `com.vpn0wn.android` and, on 2026-10-09 (Europe/Paris), confirmed transfer of tunnel profiles, settings and saved VPS records while preserving the existing app and data. [Full app-data transfer](#app-data-transfer) is implemented as legacy-ID migration preparation, with scoped synthetic AVD acceptance; complete old/new-app migration remains unverified. Ordinary profile ZIP export/import still transfers tunnel configurations only. A new application ID does not inherit the old sandbox, permissions or tile setup. The legacy app needs a signer-compatible update providing export before a renamed app can import those private records through a user-selected document.
 
 The approved optional tools policy reuses compatible installed tools and permits a separate vpn0wn module only when command paths are free. It never overwrites WireGuard's module. This concerns optional Magisk command-line tools; actual `wg`/`wg-quick` commands and the shared kernel driver retain their names. A separate module ID is not permission to install overlapping command paths. Normal userspace VPN use needs no system-wide tools installation. Installer changes and conditional root/kernel checks remain pending.
 
