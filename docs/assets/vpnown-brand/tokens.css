@@ -1,0 +1,15 @@
+:root {
+  --vpnown-background: #071220;
+  --vpnown-secondary-background: #0A1727;
+  --vpnown-surface: #162436;
+  --vpnown-accent: #2ABFF7;
+  --vpnown-secondary-accent: #68C6FD;
+  --vpnown-border: #233B54;
+  --vpnown-active-border: #3E5B78;
+  --vpnown-text: #FAFAFA;
+  --vpnown-secondary-text: #C9D5E3;
+  --vpnown-muted-text: #94AECB;
+  --vpnown-focus: var(--vpnown-accent);
+  --vpnown-button-text: var(--vpnown-background);
+  --vpnown-button-background: var(--vpnown-accent);
+}
