@@ -13,6 +13,7 @@ struct go_string { const char *str; long n; };
 extern int wgTurnOn(struct go_string ifname, int tun_fd, struct go_string settings, struct wg_context *context, JNIEnv *env);
 extern void wgTurnOff(int handle, JNIEnv *env);
 extern char *wgGetConfig(int handle, JNIEnv *env);
+extern int wgRebind(int handle, JNIEnv *env);
 extern char *wgVersion();
 
 JNIEXPORT jint JNICALL Java_com_wireguard_android_backend_GoBackend_wgTurnOn(JNIEnv *env, jclass c, jstring ifname, jint tun_fd, jstring settings, jobject service, jobject activation_thread, jlong activation_id)
@@ -52,6 +53,11 @@ failed:
 JNIEXPORT void JNICALL Java_com_wireguard_android_backend_GoBackend_wgTurnOff(JNIEnv *env, jclass c, jint handle)
 {
 	wgTurnOff(handle, env);
+}
+
+JNIEXPORT jint JNICALL Java_com_wireguard_android_backend_GoBackend_wgRebind(JNIEnv *env, jclass c, jint handle)
+{
+	return wgRebind(handle, env);
 }
 
 JNIEXPORT jstring JNICALL Java_com_wireguard_android_backend_GoBackend_wgGetConfig(JNIEnv *env, jclass c, jint handle)

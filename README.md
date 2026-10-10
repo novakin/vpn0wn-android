@@ -1,6 +1,6 @@
 # Tunnl — WireGuard Android
 
-Last updated: 2026-10-09 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 Tunnl is [novakin's WireGuard Android fork](https://github.com/novakin/wireguard-android), adding an engineering-console redesign and a partial VPS fleet/provisioning flow to the existing Android DataBinding/Fragment architecture.
 
@@ -63,6 +63,8 @@ Tunnl redesign and functional work are tracked in:
 - [Font attribution](docs/font-attribution.md) and [provisioning upstream reference](third_party/wireguard-install/UPSTREAM.md).
 
 ## Embedding
+
+This checkout also exposes [userspace retained-TUN rebind](docs/backend-contracts.md#retained-tun-userspace-rebind--73) through `GoBackend.rebind(Tunnel)`. It replaces protected native UDP sockets for the captured active tunnel without rewriting saved profiles. It adds no automatic recovery trigger; physical rebind, handover and full #73 acceptance remain open. Run it off Main and handle busy, unavailable, failure and cancellation results under the documented contract.
 
 The published upstream tunnel library is [on Maven Central](https://search.maven.org/artifact/com.wireguard.android/tunnel), with [library documentation](https://javadoc.io/doc/com.wireguard.android/tunnel). That artifact provides the upstream tunnel API; it does not distribute this fork's Tunnl UI or provisioning flow. For this checkout's library source, see the [tunnel module](tunnel/build.gradle.kts).
 

@@ -127,6 +127,8 @@ func patch(name, source string) (string, error) {
 			{"recvFns, netc.port, err = netc.bind.Open(netc.port)", "var actualPort uint16\n\trecvFns, actualPort, err = netc.bind.Open(netc.port)"},
 			{"\t\tnetc.port = 0\n", ""},
 			{"if err != nil {\n\t\t\treturn err\n\t\t}\n\t}\n\n\t// clear cached source addresses\n\tdevice.peers.RLock()", "if err != nil {\n\t\t\tcloseBindLocked(device)\n\t\t\treturn err\n\t\t}\n\t}\n\tnetc.port = actualPort\n\n\t// clear cached source addresses\n\tdevice.peers.RLock()"},
+			{"\t\"runtime\"\n", "\t\"net\"\n\t\"runtime\"\n\t\"syscall\"\n"},
+			{"func (device *Device) BindUpdate() error {", retainedRebindSource + "\nfunc (device *Device) BindUpdate() error {"},
 		}
 	case "uapi.go":
 		edits = [][2]string{
@@ -163,6 +165,28 @@ func patch(name, source string) (string, error) {
 	}
 	return source, nil
 }
+
+const retainedRebindSource = `func (device *Device) Rebind() error {
+	if !device.ipcMutex.TryLock() {
+		return syscall.EBUSY
+	}
+	defer device.ipcMutex.Unlock()
+	if !device.isUp() {
+		return net.ErrClosed
+	}
+	// Sends hold the network read lock until their captured socket I/O settles.
+	if err := device.net.bind.Close(); err != nil {
+		return err
+	}
+	if err := device.BindUpdate(); err != nil {
+		return err
+	}
+	if !device.isUp() {
+		return net.ErrClosed
+	}
+	return nil
+}
+`
 
 const handshakeObserverSource = `const (
 	tunnlHandshakeAttempt = iota + 1

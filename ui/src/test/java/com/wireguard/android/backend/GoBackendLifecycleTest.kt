@@ -168,15 +168,16 @@ class GoBackendLifecycleTest {
     }
 
     @Test
-    fun nativeCallbackPreservesCallingThreadInterruption() {
+    fun retainedNativeCallbackDoesNotTreatCallerInterruptionAsServiceDeath() {
+        val service = GoBackend.VpnService()
         Thread.currentThread().interrupt()
         try {
-            val failure = assertThrows(InvocationTargetException::class.java) { invokeActive(GoBackend.VpnService(), null) }
-            assertTrue(failure.cause is InterruptedException)
+            assertTrue(invokeActive(service, null))
             assertTrue(Thread.currentThread().isInterrupted)
         } finally {
             Thread.interrupted()
         }
+        assertTrue(invokeActive(service, null))
     }
 
     @Test

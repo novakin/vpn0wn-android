@@ -116,6 +116,12 @@ func (b *Bind) Shutdown() error {
 	return b.Close()
 }
 
+func (b *Bind) IsStopped() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.stopped
+}
+
 func (b *Bind) SetMark(mark uint32) error {
 	b.lifecycle.Lock()
 	defer b.lifecycle.Unlock()

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -127,6 +128,310 @@ func TestMarkFailureClosesBindAndKeepsRequestedPort(t *testing.T) {
 	}
 	if port := configPort(t, d); port != 51820 {
 		t.Fatalf("mark failure changed port: %d", port)
+	}
+}
+
+func awaitRebind(t *testing.T, done <-chan error) error {
+	t.Helper()
+	select {
+	case err := <-done:
+		return err
+	case <-time.After(5 * time.Second):
+		t.Fatal("retained-TUN rebind did not settle")
+		return nil
+	}
+}
+
+func awaitRebindBarrier(t *testing.T, reached <-chan struct{}) {
+	t.Helper()
+	select {
+	case <-reached:
+	case <-time.After(5 * time.Second):
+		t.Fatal("rebind control did not reach its barrier")
+	}
+}
+
+func TestRebindCancelsCapturedPeerSendBeforeNetworkLock(t *testing.T) {
+	var old, replacement *fakeBind
+	entered := make(chan struct{})
+	var protected atomic.Int32
+	b := New(func(base conn.Bind, _ int) error {
+		if protected.Add(1) == 1 {
+			old = base.(*fakeBind)
+			old.onSend = func([][]byte) error {
+				close(entered)
+				<-old.closed
+				return nil
+			}
+		} else {
+			replacement = base.(*fakeBind)
+		}
+		return nil
+	}, func() bool { return true })
+	b.newBind = func() conn.Bind { return newFakeBind() }
+	d, tunnel := quietDevice(t, b)
+	publicKey := device.NoisePublicKey{1}
+	config := fmt.Sprintf("listen_port=51820\npublic_key=%s\nendpoint=127.0.0.1:51821\n", hex.EncodeToString(publicKey[:]))
+	if err := d.IpcSet(config); err != nil {
+		t.Fatal(err)
+	}
+	if err := d.Up(); err != nil {
+		t.Fatal(err)
+	}
+	peer := d.LookupPeer(publicKey)
+	if peer == nil {
+		t.Fatal("synthetic peer not created")
+	}
+	sent := make(chan error, 1)
+	go func() { sent <- peer.SendBuffers([][]byte{initiation()}) }()
+	awaitRebindBarrier(t, entered)
+	rebound := make(chan error, 1)
+	go func() { rebound <- d.Rebind() }()
+	if err := awaitRebind(t, rebound); err != nil {
+		t.Fatal(err)
+	}
+	if err := awaitRebind(t, sent); !errors.Is(err, net.ErrClosed) {
+		t.Fatalf("captured send crossed generations: %v", err)
+	}
+	if protected.Load() != 2 || replacement.openPort != 51820 || configPort(t, d) != 51820 || !b.warmup.Load() {
+		t.Fatal("rebind lost protection, explicit port or warm-up intent")
+	}
+	if len(old.sent()) != 1 || len(replacement.sent()) != 0 {
+		t.Fatal("obsolete initiation reached replacement sockets")
+	}
+	select {
+	case <-d.Wait():
+		t.Fatal("rebind closed device")
+	default:
+	}
+	select {
+	case _, open := <-tunnel.Inbound:
+		if !open {
+			t.Fatal("rebind closed retained TUN")
+		}
+	default:
+	}
+	if err := peer.SendBuffers([][]byte{initiation()}); err != nil || len(replacement.sent()) != 2 {
+		t.Fatal("replacement did not send warm-up and initiation")
+	}
+}
+
+type rebindRequestConn struct {
+	net.Conn
+	blocked chan struct{}
+	reads   int
+}
+
+func (c *rebindRequestConn) Read(buffer []byte) (int, error) {
+	c.reads++
+	if c.reads == 2 {
+		close(c.blocked)
+	}
+	return c.Conn.Read(buffer)
+}
+
+func TestRebindRejectsPartialUAPIWithoutSocketMutation(t *testing.T) {
+	var opened atomic.Int32
+	b := New(func(conn.Bind, int) error { opened.Add(1); return nil }, func() bool { return true })
+	b.newBind = func() conn.Bind { return newFakeBind() }
+	d, _ := quietDevice(t, b)
+	if err := d.Up(); err != nil {
+		t.Fatal(err)
+	}
+	client, server := net.Pipe()
+	t.Cleanup(func() { client.Close(); server.Close() })
+	blocked := make(chan struct{})
+	requestDone := make(chan struct{})
+	go func() {
+		defer close(requestDone)
+		d.IpcHandle(&rebindRequestConn{Conn: server, blocked: blocked})
+	}()
+	if _, err := fmt.Fprint(client, "set=1\nlisten_port=51820\n"); err != nil {
+		t.Fatal(err)
+	}
+	awaitRebindBarrier(t, blocked)
+	b.mu.Lock()
+	base := b.ready.(*fakeBind)
+	b.mu.Unlock()
+	count := opened.Load()
+	if err := d.Rebind(); !errors.Is(err, syscall.EBUSY) {
+		t.Fatalf("partial UAPI rebind: %v", err)
+	}
+	if opened.Load() != count {
+		t.Fatal("busy rebind opened sockets")
+	}
+	select {
+	case <-base.closed:
+		t.Fatal("busy rebind closed active sockets")
+	default:
+	}
+	client.Close()
+	awaitRebindBarrier(t, requestDone)
+	if err := d.Rebind(); err != nil || configPort(t, d) != 51820 {
+		t.Fatal("rebind did not recover after partial UAPI settled")
+	}
+}
+
+func TestRebindRejectsConcurrentRecoveryBeforeMutation(t *testing.T) {
+	var protection atomic.Int32
+	entered, release := make(chan struct{}), make(chan struct{})
+	var released sync.Once
+	b := New(func(conn.Bind, int) error {
+		if protection.Add(1) == 2 {
+			close(entered)
+			<-release
+		}
+		return nil
+	}, func() bool { return true })
+	b.newBind = func() conn.Bind { return newFakeBind() }
+	d, _ := quietDevice(t, b)
+	t.Cleanup(func() { released.Do(func() { close(release) }) })
+	if err := d.Up(); err != nil {
+		t.Fatal(err)
+	}
+	rebound := make(chan error, 1)
+	go func() { rebound <- d.Rebind() }()
+	awaitRebindBarrier(t, entered)
+	if err := d.Rebind(); !errors.Is(err, syscall.EBUSY) || protection.Load() != 2 {
+		t.Fatalf("concurrent recovery did not reject unchanged: %v", err)
+	}
+	released.Do(func() { close(release) })
+	if err := awaitRebind(t, rebound); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRebindProtectionFailurePreservesPortAndRetry(t *testing.T) {
+	for _, port := range []uint16{0, 51820} {
+		t.Run(strconv.Itoa(int(port)), func(t *testing.T) {
+			var denied atomic.Bool
+			var generations []*fakeBind
+			b := New(func(base conn.Bind, _ int) error {
+				generations = append(generations, base.(*fakeBind))
+				if denied.Load() {
+					return syscall.EPERM
+				}
+				return nil
+			}, func() bool { return true })
+			b.newBind = func() conn.Bind { return newFakeBind() }
+			d, tunnel := quietDevice(t, b)
+			if err := d.IpcSet(fmt.Sprintf("listen_port=%d\n", port)); err != nil {
+				t.Fatal(err)
+			}
+			if err := d.Up(); err != nil {
+				t.Fatal(err)
+			}
+			selectedPort := configPort(t, d)
+			denied.Store(true)
+			if err := d.Rebind(); !errors.Is(err, syscall.EPERM) {
+				t.Fatalf("protection failure: %v", err)
+			}
+			if configPort(t, d) != selectedPort || b.warmup.Load() != (port != 0) {
+				t.Fatal("failed rebind lost port or explicit intent")
+			}
+			select {
+			case <-generations[1].closed:
+			default:
+				t.Fatal("denied generation retained sockets")
+			}
+			if err := b.Send([][]byte{initiation()}, nil); !errors.Is(err, net.ErrClosed) {
+				t.Fatal("failed protection published a sendable generation")
+			}
+			denied.Store(false)
+			if err := d.Rebind(); err != nil || generations[2].openPort != selectedPort || configPort(t, d) != selectedPort {
+				t.Fatal("retained device retry lost selected port")
+			}
+			select {
+			case _, open := <-tunnel.Inbound:
+				if !open {
+					t.Fatal("failed rebind closed TUN")
+				}
+			default:
+			}
+		})
+	}
+}
+
+func TestRebindShutdownDuringProtectionCannotPublish(t *testing.T) {
+	var protection atomic.Int32
+	entered, release := make(chan struct{}), make(chan struct{})
+	var released sync.Once
+	var replacement *fakeBind
+	b := New(func(base conn.Bind, _ int) error {
+		if protection.Add(1) == 2 {
+			replacement = base.(*fakeBind)
+			close(entered)
+			<-release
+		}
+		return nil
+	}, func() bool { return true })
+	b.newBind = func() conn.Bind { return newFakeBind() }
+	d, _ := quietDevice(t, b)
+	t.Cleanup(func() { released.Do(func() { close(release) }) })
+	if err := d.Up(); err != nil {
+		t.Fatal(err)
+	}
+	rebound := make(chan error, 1)
+	go func() { rebound <- d.Rebind() }()
+	awaitRebindBarrier(t, entered)
+	stopped := make(chan error, 1)
+	go func() { stopped <- b.Shutdown() }()
+	deadline := time.Now().Add(5 * time.Second)
+	for !b.IsStopped() {
+		if time.Now().After(deadline) {
+			t.Fatal("shutdown did not stop bind admission")
+		}
+		runtime.Gosched()
+	}
+	released.Do(func() { close(release) })
+	if err := awaitRebind(t, rebound); !errors.Is(err, net.ErrClosed) {
+		t.Fatalf("shutdown rebind completion: %v", err)
+	}
+	if err := awaitRebind(t, stopped); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-replacement.closed:
+	default:
+		t.Fatal("shutdown retained unpublished sockets")
+	}
+	if err := b.Send([][]byte{initiation()}, nil); !errors.Is(err, net.ErrClosed) {
+		t.Fatal("shutdown published sendable sockets")
+	}
+	if err := d.Rebind(); !errors.Is(err, net.ErrClosed) {
+		t.Fatalf("terminal bind reopened: %v", err)
+	}
+}
+
+func TestRebindRejectsDownAndClosedDevice(t *testing.T) {
+	var opened atomic.Int32
+	b := New(func(conn.Bind, int) error { opened.Add(1); return nil }, func() bool { return true })
+	b.newBind = func() conn.Bind { return newFakeBind() }
+	d, _ := quietDevice(t, b)
+	if err := d.Rebind(); !errors.Is(err, net.ErrClosed) || opened.Load() != 0 {
+		t.Fatalf("DOWN device rebind: %v", err)
+	}
+	b.Shutdown()
+	d.Close()
+	if err := d.Rebind(); !errors.Is(err, net.ErrClosed) || opened.Load() != 0 {
+		t.Fatalf("closed device rebind: %v", err)
+	}
+}
+
+func TestRebindRejectsDeviceCloseWithoutBindShutdown(t *testing.T) {
+	var opened atomic.Int32
+	b := New(func(conn.Bind, int) error { opened.Add(1); return nil }, func() bool { return true })
+	b.newBind = func() conn.Bind { return newFakeBind() }
+	d, _ := quietDevice(t, b)
+	if err := d.Up(); err != nil {
+		t.Fatal(err)
+	}
+	d.Close()
+	if b.IsStopped() {
+		t.Fatal("device-only closure terminally stopped bind")
+	}
+	if err := d.Rebind(); !errors.Is(err, net.ErrClosed) || opened.Load() != 1 {
+		t.Fatalf("device-only closure rebind: %v", err)
 	}
 }
 
