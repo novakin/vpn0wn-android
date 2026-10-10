@@ -1,10 +1,10 @@
 # Settings resource-ID investigation and source repair
 
-Last updated: 2026-10-07 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 ## Scope and observed symptom
 
-Partial [#34 Settings](https://github.com/novakin/wireguard-android/issues/34) / [G4 #52](https://github.com/novakin/wireguard-android/issues/52) follow-up from clean master `4044ede4d586060c78213629b6fcb9a1ac0cd782`. The [candidate-device record](2026-10-07-g4-candidate-device-review.md) observed nine `Invalid resource ID 0x00000000.` messages after Settings opened on Pixel 10a, Android 16/API 36. Startup had none in its scoped capture. The phone was disconnected during this source investigation; no new APK, device or network operation occurred at that boundary. Subsequent candidate testing is recorded separately below.
+Partial [#34 Settings](https://github.com/novakin/vpn0wn-android/issues/34) / [G4 #52](https://github.com/novakin/vpn0wn-android/issues/52) follow-up from clean master `4044ede4d586060c78213629b6fcb9a1ac0cd782`. The [candidate-device record](2026-10-07-g4-candidate-device-review.md) observed nine `Invalid resource ID 0x00000000.` messages after Settings opened on Pixel 10a, Android 16/API 36. Startup had none in its scoped capture. The phone was disconnected during this source investigation; no new APK, device or network operation occurred at that boundary. Subsequent candidate testing is recorded separately below.
 
 ## Source mechanism and decision
 
@@ -26,7 +26,7 @@ The source-only handoff required a verified in-place candidate install and scope
 
 ## Candidate phone confirmation — 2026-10-07 (Europe/Paris)
 
-After the source investigation above, the maintainer reconnected and unlocked Pixel 10a. PR #59 merged the ultra-accepted source head `79ee3880` at `5fa07cd0fe8e1ac5292dd4127ab51a76f4c8efdb`; the merged tree matches reviewed source. Final-head and master CI passed. Continuing the explicit G4 build/device authorization, [CI run 37612635025](https://github.com/novakin/wireguard-android/actions/runs/37612635025) passed 246 tests with zero failures/errors/skips and zero Detekt findings, then assembled the merged revision.
+After the source investigation above, the maintainer reconnected and unlocked Pixel 10a. PR #59 merged the ultra-accepted source head `79ee3880` at `5fa07cd0fe8e1ac5292dd4127ab51a76f4c8efdb`; the merged tree matches reviewed source. Final-head and master CI passed. Continuing the explicit G4 build/device authorization, [CI run 37612635025](https://github.com/novakin/vpn0wn-android/actions/runs/37612635025) passed 246 tests with zero failures/errors/skips and zero Detekt findings, then assembled the merged revision.
 
 Downloaded debug artifact `11479710006` expires `2026-10-14T11:17:40Z`. Its revision file and SHA256 match the downloaded APK: `76d6a6926d18da17133764518fc58848e85eaeb1996088bb9b53f51bb1f3b9d4`. The untouched CI artifact remains local. A separate copy signed with the existing matching WSL debug key has SHA256 `04332f97f0013ea64e2ecca258f1f6d97c05689deeea61452a03361d825c4075`; signature verification and comparison of all 1,018 non-`META-INF` payload entries passed. `adb install -r` succeeded without uninstall/data clear, and installed-APK pullback matches this copy. This is a local debug candidate, not a release.
 

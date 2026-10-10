@@ -4,7 +4,7 @@ Last updated: 2026-10-10 (Europe/Paris).
 
 ## Scope and provenance
 
-This record covers the userspace observation slice in [PR #101](https://github.com/novakin/wireguard-android/pull/101), related to [#73](https://github.com/novakin/wireguard-android/issues/73). On 2026-10-10, read-only GitHub checks confirmed the published draft head `861a7cd89f13ec5676d2c8b5fe4af3102bd03c79`, base `master`, and both PR and issue OPEN. This partial scope uses a non-closing reference: recovery, presentation and the issue's broader acceptance remain unfinished. This record is evidence analysis, not final-head independent ultra approval, merge, release or full issue delivery.
+This record covers the userspace observation slice in [PR #101](https://github.com/novakin/vpn0wn-android/pull/101), related to [#73](https://github.com/novakin/vpn0wn-android/issues/73). On 2026-10-10, read-only GitHub checks confirmed the published draft head `861a7cd89f13ec5676d2c8b5fe4af3102bd03c79`, base `master`, and both PR and issue OPEN. This partial scope uses a non-closing reference: recovery, presentation and the issue's broader acceptance remain unfinished. This record is evidence analysis, not final-head independent ultra approval, merge, release or full issue delivery.
 
 The maintainer authorized a private synthetic AVD/peer session. Root executed installation and runtime actions; a separate scout inspected source, live tracking and the retained reader/state results. No phone, shared AVD, host/Android root or live VPS was used. Raw profiles, captures, object-read logs and host reports remain ignored under `.artifacts/runtime-acceptance-20261010/` and `.artifacts/codex-command-logs/`; this document contains scoped facts only.
 

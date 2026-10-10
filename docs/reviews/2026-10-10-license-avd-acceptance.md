@@ -4,7 +4,7 @@ Last updated: 2026-10-10 (Europe/Paris).
 
 ## Scope and provenance
 
-Scoped private-AVD proof for [PR #100](https://github.com/novakin/wireguard-android/pull/100), a partial [#71](https://github.com/novakin/wireguard-android/issues/71) attribution slice. This record covers the original accessibility-node truncation, the repaired native notice rendering and the executed navigation/selection matrix. It does not close #71 or establish release licensing compliance.
+Scoped private-AVD proof for [PR #100](https://github.com/novakin/vpn0wn-android/pull/100), a partial [#71](https://github.com/novakin/vpn0wn-android/issues/71) attribution slice. This record covers the original accessibility-node truncation, the repaired native notice rendering and the executed navigation/selection matrix. It does not close #71 or establish release licensing compliance.
 
 The root operator used the fresh headless `Tunnl_Private_API36_20261010` instance, serial `emulator-5584`, Android 16/API 36 Google APIs x86_64 image revision 7, Pixel 8 profile and density 420. The visible AVD, physical Pixel and shared ADB server were outside this session's operation scope. Raw captures, hierarchy XML, private audit reports and build evidence remain ignored under `.artifacts/runtime-acceptance-20261010/`; they are not source-distribution artifacts. Root owns final private-instance restoration and shutdown; this scoped record does not assert completed cleanup of the broader ongoing runtime session.
 

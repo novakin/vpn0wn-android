@@ -4,7 +4,7 @@ Last updated: 2026-10-10 (Europe/Paris).
 
 ## Scope and provenance
 
-Bounded native presentation evidence for [PR #98](https://github.com/novakin/wireguard-android/pull/98) and [#80](https://github.com/novakin/wireguard-android/issues/80), including the short-viewport repair found during installed validation. The selected [Home reference](../ui-redesign-roadmap.md#home-visual-handoff--2026-10-08) owns visual intent; runtime status remains the existing model contract.
+Bounded native presentation evidence for [PR #98](https://github.com/novakin/vpn0wn-android/pull/98) and [#80](https://github.com/novakin/vpn0wn-android/issues/80), including the short-viewport repair found during installed validation. The selected [Home reference](../ui-redesign-roadmap.md#home-visual-handoff--2026-10-08) owns visual intent; runtime status remains the existing model contract.
 
 The authorized isolated API 36 Google APIs x86_64 AVD used density 420, actual animation scales 1.0 and synthetic tunnel data. The phone, shared emulator and live VPS were not used. Retained ignored evidence is under `.artifacts/runtime-acceptance-20261010/`; artifacts are not source-distribution inputs.
 
@@ -26,4 +26,4 @@ The original fixed header/status could consume a short landscape viewport at 2×
 
 The active raster was captured while UIAutomator's idle wait stalled; no active hierarchy result is claimed. Owned stalled commands were stopped before restoration. The empty-state helper's last assertion used the wrong view ID; the saved hierarchy and raster already show the actual `home_empty_placeholder` and complete hint. Earlier delete-sheet captures are excluded from empty-state proof. These failed helper attempts remain retained separately from valid postconditions.
 
-Focused JVM gesture controls supplement the native matrix but do not reproduce every native gesture timing. Connecting, stale/error and multi-tunnel combinations, TalkBack speech, broader physical/OEM/system-bar coverage and the remaining [#36](https://github.com/novakin/wireguard-android/issues/36)/[G4 #52](https://github.com/novakin/wireguard-android/issues/52) acceptance are not completed by this record. No DPI, packet-leak, battery, transfer-speed, release or full-app fidelity claim is made.
+Focused JVM gesture controls supplement the native matrix but do not reproduce every native gesture timing. Connecting, stale/error and multi-tunnel combinations, TalkBack speech, broader physical/OEM/system-bar coverage and the remaining [#36](https://github.com/novakin/vpn0wn-android/issues/36)/[G4 #52](https://github.com/novakin/vpn0wn-android/issues/52) acceptance are not completed by this record. No DPI, packet-leak, battery, transfer-speed, release or full-app fidelity claim is made.

@@ -1,10 +1,10 @@
 # G4 import and device acceptance follow-up
 
-Last updated: 2026-10-08 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 ## Scope and provenance
 
-Partial physical evidence for [#28 Downloads](https://github.com/novakin/wireguard-android/issues/28), [#34 Settings](https://github.com/novakin/wireguard-android/issues/34), [#35 Add/peer](https://github.com/novakin/wireguard-android/issues/35) and [#36 Home](https://github.com/novakin/wireguard-android/issues/36), under [G4/#52](https://github.com/novakin/wireguard-android/issues/52). All remain open; this record neither completes their acceptance nor demonstrates a performance gain.
+Partial physical evidence for [#28 Downloads](https://github.com/novakin/vpn0wn-android/issues/28), [#34 Settings](https://github.com/novakin/vpn0wn-android/issues/34), [#35 Add/peer](https://github.com/novakin/vpn0wn-android/issues/35) and [#36 Home](https://github.com/novakin/vpn0wn-android/issues/36), under [G4/#52](https://github.com/novakin/vpn0wn-android/issues/52). All remain open; this record neither completes their acceptance nor demonstrates a performance gain.
 
 Pixel 10a ran Android 16/API 36 with the existing userspace debug APK. Its SHA256 matched `5bcb432c58d88bf6a7f3d8ac9891566a047061182addd8524bec6ae9502a71bb`, source `f4a4b147568e6aaa3c82a4307aa6690977e966bd`; [the baseline record](2026-10-08-g4-ui-cpu-baselines.md#build-and-installation-provenance) owns CI, signing, payload and installation proof. The checkout was `dbd95b791d401cfe77e6df01b1c79d652d66a570`; it was not the installed source revision. No new APK, source change, root operation, server operation or traffic benchmark occurred.
 

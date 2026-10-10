@@ -3,7 +3,7 @@ WireGuard Android
 Copyright © 2017-2025 WireGuard LLC. All Rights Reserved.
 Android application and JNI bridge: Apache License 2.0.
 Original project: https://www.wireguard.com/
-Modified application source: https://github.com/novakin/wireguard-android
+Modified application source: https://github.com/novakin/vpn0wn-android
 
 Software libraries
 ==================
