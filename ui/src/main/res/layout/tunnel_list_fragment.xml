@@ -37,254 +37,272 @@
             android:layout_height="match_parent"
             android:orientation="vertical">
 
-            <LinearLayout
-                android:id="@+id/home_header_container"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="@color/tunnl_paper"
-                android:orientation="vertical"
-                android:paddingStart="14dp"
-                android:paddingTop="10dp"
-                android:paddingEnd="14dp"
-                android:paddingBottom="12dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:minHeight="48dp"
-                    android:orientation="horizontal">
-
-                    <TextView
-                        android:id="@+id/home_header_summary"
-                        style="@style/TunnlHomeHeaderText"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:ellipsize="end"
-                        android:maxLines="2"
-                        app:homeHeaderTunnels="@{tunnels}"
-                        tools:text="Vpn0wn · 3 configured" />
-
-                    <!-- Keep compact glyph spacing without overlapping the 48dp native touch targets. -->
-                    <androidx.appcompat.widget.AppCompatImageButton
-                        android:id="@+id/home_search"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        android:alpha="0.38"
-                        android:background="@android:color/transparent"
-                        android:contentDescription="@string/search"
-                        android:enabled="@{false}"
-                        android:padding="12dp"
-                        android:paddingStart="22dp"
-                        android:paddingEnd="2dp"
-                        app:srcCompat="@drawable/ic_tunnl_search"
-                        app:tint="@color/tunnl_ink" />
-
-                    <androidx.appcompat.widget.AppCompatImageButton
-                        android:id="@+id/home_logs"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        android:background="@android:color/transparent"
-                        android:contentDescription="@string/log_viewer_title"
-                        android:onClick="@{fragment::onOpenLogs}"
-                        android:padding="12dp"
-                        app:srcCompat="@drawable/ic_tunnl_home_logs"
-                        app:tint="@color/tunnl_ink" />
-
-                    <androidx.appcompat.widget.AppCompatImageButton
-                        android:id="@+id/home_settings"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        android:background="@android:color/transparent"
-                        android:contentDescription="@string/settings"
-                        android:onClick="@{fragment::onOpenSettings}"
-                        android:padding="12dp"
-                        android:paddingStart="2dp"
-                        android:paddingEnd="22dp"
-                        app:srcCompat="@drawable/ic_tunnl_settings"
-                        app:tint="@color/tunnl_ink" />
-                </LinearLayout>
-
-                <TextView
-                    style="@style/TunnlHomeTopBarTitleText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:ellipsize="end"
-                    android:singleLine="true"
-                    android:text="@string/tunnl_list_title"
-                    android:textColor="@color/tunnl_ink" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/selection_header_container"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="@color/tunnl_paper_2"
-                android:orientation="vertical"
-                android:paddingStart="14dp"
-                android:paddingTop="10dp"
-                android:paddingEnd="14dp"
-                android:paddingBottom="12dp"
-                android:visibility="gone">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="48dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <androidx.appcompat.widget.AppCompatImageButton
-                        android:id="@+id/selection_close"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:contentDescription="@string/tunnl_selection_exit"
-                        android:onClick="@{fragment::onExitSelection}"
-                        android:padding="16dp"
-                        app:srcCompat="@drawable/ic_tunnl_close"
-                        app:tint="@color/tunnl_ink_2" />
-
-                    <TextView
-                        style="@style/TunnlLabelText"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="@string/tunnl_selection_mode" />
-
-                    <androidx.appcompat.widget.AppCompatImageButton
-                        android:id="@+id/selection_delete"
-                        android:layout_width="48dp"
-                        android:layout_height="48dp"
-                        android:background="?attr/selectableItemBackgroundBorderless"
-                        android:contentDescription="@string/tunnl_selection_delete"
-                        android:onClick="@{fragment::onDeleteSelection}"
-                        android:padding="16dp"
-                        app:srcCompat="@drawable/ic_tunnl_trash"
-                        app:tint="@color/tunnl_ink_2" />
-                </LinearLayout>
-
-                <TextView
-                    android:id="@+id/selection_title"
-                    style="@style/TunnlTopBarTitleText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:accessibilityLiveRegion="polite"
-                    android:layout_marginTop="8dp" />
-            </LinearLayout>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="@color/tunnl_rule" />
-
-            <LinearLayout
-                android:id="@+id/home_status_container"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="@color/tunnl_paper"
-                android:gravity="center_vertical"
-                android:minHeight="48dp"
-                android:orientation="horizontal"
-                android:paddingStart="14dp"
-                android:paddingTop="10dp"
-                android:paddingEnd="14dp"
-                android:paddingBottom="10dp">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:paddingEnd="12dp">
-
-                    <View
-                        android:layout_width="14dp"
-                        android:layout_height="14dp"
-                        app:homeProtectionDotTunnels="@{tunnels}" />
-
-                    <TextView
-                        android:id="@+id/home_connection_label"
-                        style="@style/TunnlHomeConnectionText"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_marginStart="12dp"
-                        android:layout_weight="1"
-                        app:homeProtectionTunnels="@{tunnels}"
-                        tools:text="VPN connected" />
-                </LinearLayout>
-
-                <View
-                    android:layout_width="1dp"
-                    android:layout_height="26dp"
-                    android:background="@color/tunnl_rule" />
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical"
-                    android:paddingStart="14dp">
-
-                    <TextView
-                        style="@style/TunnlMonoSubText"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:text="@string/tunnl_home_endpoint" />
-
-                    <TextView
-                        android:id="@+id/home_endpoint_host"
-                        style="@style/TunnlHomeStatValueText"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:ellipsize="end"
-                        android:singleLine="true"
-                        android:text="@{BindingAdapters.homeEndpointHost(tunnels)}"
-                        tools:text="198.51.100.42" />
-                </LinearLayout>
-            </LinearLayout>
-
-            <LinearLayout
-                android:id="@+id/selection_status_container"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:minHeight="48dp"
-                android:background="@color/tunnl_paper_2"
-                android:gravity="center_vertical"
-                android:orientation="horizontal"
-                android:paddingStart="14dp"
-                android:paddingEnd="14dp"
-                android:visibility="gone">
-
-                <TextView
-                    android:id="@+id/selection_status"
-                    style="@style/TunnlStatusStripText"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1" />
-
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/selection_all"
-                    style="@style/TunnlPillButton"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:minWidth="48dp"
-                    android:minHeight="48dp"
-                    android:onClick="@{fragment::onSelectAll}"
-                    android:text="@string/select_all" />
-            </LinearLayout>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="@color/tunnl_rule" />
-
-            <FrameLayout
+            <androidx.coordinatorlayout.widget.CoordinatorLayout
+                android:id="@+id/home_scroll_container"
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1">
+
+                <com.google.android.material.appbar.AppBarLayout
+                    android:id="@+id/home_app_bar"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@color/tunnl_paper"
+                    android:stateListAnimator="@null"
+                    app:elevation="0dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        app:layout_scrollFlags="scroll|enterAlways">
+
+                        <LinearLayout
+                            android:id="@+id/home_header_container"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:background="@color/tunnl_paper"
+                            android:orientation="vertical"
+                            android:paddingStart="14dp"
+                            android:paddingTop="10dp"
+                            android:paddingEnd="14dp"
+                            android:paddingBottom="12dp">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:gravity="center_vertical"
+                                android:minHeight="48dp"
+                                android:orientation="horizontal">
+
+                                <TextView
+                                    android:id="@+id/home_header_summary"
+                                    style="@style/TunnlHomeHeaderText"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:ellipsize="end"
+                                    android:maxLines="2"
+                                    app:homeHeaderTunnels="@{tunnels}"
+                                    tools:text="Vpn0wn · 3 configured" />
+
+                                <!-- Keep compact glyph spacing without overlapping the 48dp native touch targets. -->
+                                <androidx.appcompat.widget.AppCompatImageButton
+                                    android:id="@+id/home_search"
+                                    android:layout_width="48dp"
+                                    android:layout_height="48dp"
+                                    android:alpha="0.38"
+                                    android:background="@android:color/transparent"
+                                    android:contentDescription="@string/search"
+                                    android:enabled="@{false}"
+                                    android:padding="12dp"
+                                    android:paddingStart="22dp"
+                                    android:paddingEnd="2dp"
+                                    app:srcCompat="@drawable/ic_tunnl_search"
+                                    app:tint="@color/tunnl_ink" />
+
+                                <androidx.appcompat.widget.AppCompatImageButton
+                                    android:id="@+id/home_logs"
+                                    android:layout_width="48dp"
+                                    android:layout_height="48dp"
+                                    android:background="@android:color/transparent"
+                                    android:contentDescription="@string/log_viewer_title"
+                                    android:onClick="@{fragment::onOpenLogs}"
+                                    android:padding="12dp"
+                                    app:srcCompat="@drawable/ic_tunnl_home_logs"
+                                    app:tint="@color/tunnl_ink" />
+
+                                <androidx.appcompat.widget.AppCompatImageButton
+                                    android:id="@+id/home_settings"
+                                    android:layout_width="48dp"
+                                    android:layout_height="48dp"
+                                    android:background="@android:color/transparent"
+                                    android:contentDescription="@string/settings"
+                                    android:onClick="@{fragment::onOpenSettings}"
+                                    android:padding="12dp"
+                                    android:paddingStart="2dp"
+                                    android:paddingEnd="22dp"
+                                    app:srcCompat="@drawable/ic_tunnl_settings"
+                                    app:tint="@color/tunnl_ink" />
+                            </LinearLayout>
+
+                            <TextView
+                                style="@style/TunnlHomeTopBarTitleText"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:ellipsize="end"
+                                android:singleLine="true"
+                                android:text="@string/tunnl_list_title"
+                                android:textColor="@color/tunnl_ink" />
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/selection_header_container"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:background="@color/tunnl_paper_2"
+                            android:orientation="vertical"
+                            android:paddingStart="14dp"
+                            android:paddingTop="10dp"
+                            android:paddingEnd="14dp"
+                            android:paddingBottom="12dp"
+                            android:visibility="gone">
+
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="48dp"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <androidx.appcompat.widget.AppCompatImageButton
+                                    android:id="@+id/selection_close"
+                                    android:layout_width="48dp"
+                                    android:layout_height="48dp"
+                                    android:background="?attr/selectableItemBackgroundBorderless"
+                                    android:contentDescription="@string/tunnl_selection_exit"
+                                    android:onClick="@{fragment::onExitSelection}"
+                                    android:padding="16dp"
+                                    app:srcCompat="@drawable/ic_tunnl_close"
+                                    app:tint="@color/tunnl_ink_2" />
+
+                                <TextView
+                                    style="@style/TunnlLabelText"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="@string/tunnl_selection_mode" />
+
+                                <androidx.appcompat.widget.AppCompatImageButton
+                                    android:id="@+id/selection_delete"
+                                    android:layout_width="48dp"
+                                    android:layout_height="48dp"
+                                    android:background="?attr/selectableItemBackgroundBorderless"
+                                    android:contentDescription="@string/tunnl_selection_delete"
+                                    android:onClick="@{fragment::onDeleteSelection}"
+                                    android:padding="16dp"
+                                    app:srcCompat="@drawable/ic_tunnl_trash"
+                                    app:tint="@color/tunnl_ink_2" />
+                            </LinearLayout>
+
+                            <TextView
+                                android:id="@+id/selection_title"
+                                style="@style/TunnlTopBarTitleText"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:accessibilityLiveRegion="polite"
+                                android:layout_marginTop="8dp" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/tunnl_rule" />
+
+                        <LinearLayout
+                            android:id="@+id/home_status_container"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:background="@color/tunnl_paper"
+                            android:gravity="center_vertical"
+                            android:minHeight="48dp"
+                            android:orientation="horizontal"
+                            android:paddingStart="14dp"
+                            android:paddingTop="10dp"
+                            android:paddingEnd="14dp"
+                            android:paddingBottom="10dp">
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal"
+                                android:paddingEnd="12dp">
+
+                                <View
+                                    android:layout_width="14dp"
+                                    android:layout_height="14dp"
+                                    app:homeProtectionDotTunnels="@{tunnels}" />
+
+                                <TextView
+                                    android:id="@+id/home_connection_label"
+                                    style="@style/TunnlHomeConnectionText"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="12dp"
+                                    android:layout_weight="1"
+                                    app:homeProtectionTunnels="@{tunnels}"
+                                    tools:text="VPN connected" />
+                            </LinearLayout>
+
+                            <View
+                                android:layout_width="1dp"
+                                android:layout_height="26dp"
+                                android:background="@color/tunnl_rule" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical"
+                                android:paddingStart="14dp">
+
+                                <TextView
+                                    style="@style/TunnlMonoSubText"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:text="@string/tunnl_home_endpoint" />
+
+                                <TextView
+                                    android:id="@+id/home_endpoint_host"
+                                    style="@style/TunnlHomeStatValueText"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:ellipsize="end"
+                                    android:singleLine="true"
+                                    android:text="@{BindingAdapters.homeEndpointHost(tunnels)}"
+                                    tools:text="198.51.100.42" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <LinearLayout
+                            android:id="@+id/selection_status_container"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:minHeight="48dp"
+                            android:background="@color/tunnl_paper_2"
+                            android:gravity="center_vertical"
+                            android:orientation="horizontal"
+                            android:paddingStart="14dp"
+                            android:paddingEnd="14dp"
+                            android:visibility="gone">
+
+                            <TextView
+                                android:id="@+id/selection_status"
+                                style="@style/TunnlStatusStripText"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/selection_all"
+                                style="@style/TunnlPillButton"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:minWidth="48dp"
+                                android:minHeight="48dp"
+                                android:onClick="@{fragment::onSelectAll}"
+                                android:text="@string/select_all" />
+                        </LinearLayout>
+
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="@color/tunnl_rule" />
+
+                    </LinearLayout>
+                </com.google.android.material.appbar.AppBarLayout>
 
                 <androidx.recyclerview.widget.RecyclerView
                     android:id="@+id/tunnel_list"
@@ -298,40 +316,51 @@
                     android:paddingEnd="12dp"
                     android:paddingBottom="12dp"
                     android:visibility="@{tunnels.size() > 0 ? android.view.View.VISIBLE : android.view.View.GONE}"
+                    app:layout_behavior="@string/appbar_scrolling_view_behavior"
                     app:configurationHandler="@{rowConfigurationHandler}"
                     app:items="@{tunnels}"
                     app:layout="@{@layout/tunnel_list_item}"
                     tools:itemCount="12"
                     tools:listitem="@layout/tunnel_list_item" />
 
-                <LinearLayout
+                <androidx.core.widget.NestedScrollView
+                    android:id="@+id/home_empty_scroll"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:orientation="vertical"
+                    android:layout_height="match_parent"
+                    android:fillViewport="true"
                     android:visibility="@{tunnels.size() == 0 ? android.view.View.VISIBLE : android.view.View.GONE}"
+                    app:layout_behavior="@string/appbar_scrolling_view_behavior"
                     tools:visibility="gone">
 
-                    <androidx.appcompat.widget.AppCompatImageView
-                        android:id="@+id/logo_placeholder"
-                        android:layout_width="140dp"
-                        android:layout_height="140dp"
-                        android:layout_gravity="center"
-                        android:layout_marginBottom="20dp"
-                        android:alpha="0.3333333"
-                        android:src="@mipmap/ic_launcher" />
-
-                    <TextView
-                        style="@style/TunnlEmptyStateText"
-                        android:layout_width="wrap_content"
+                    <LinearLayout
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_gravity="center"
-                        android:layout_marginStart="@dimen/tunnel_list_placeholder_margin"
-                        android:layout_marginEnd="@dimen/tunnel_list_placeholder_margin"
-                        android:text="@string/tunnel_list_placeholder" />
-                </LinearLayout>
-            </FrameLayout>
+                        android:gravity="center"
+                        android:orientation="vertical"
+                        android:paddingTop="12dp"
+                        android:paddingBottom="12dp">
 
+                        <androidx.appcompat.widget.AppCompatImageView
+                            android:id="@+id/logo_placeholder"
+                            android:layout_width="140dp"
+                            android:layout_height="140dp"
+                            android:layout_gravity="center"
+                            android:layout_marginBottom="20dp"
+                            android:alpha="0.3333333"
+                            android:src="@mipmap/ic_launcher" />
+
+                        <TextView
+                            android:id="@+id/home_empty_placeholder"
+                            style="@style/TunnlEmptyStateText"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="center"
+                            android:layout_marginStart="@dimen/tunnel_list_placeholder_margin"
+                            android:layout_marginEnd="@dimen/tunnel_list_placeholder_margin"
+                            android:text="@string/tunnel_list_placeholder" />
+                    </LinearLayout>
+                </androidx.core.widget.NestedScrollView>
+            </androidx.coordinatorlayout.widget.CoordinatorLayout>
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/create_fab"

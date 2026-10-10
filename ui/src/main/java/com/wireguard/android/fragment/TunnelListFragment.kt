@@ -462,11 +462,13 @@ class TunnelListFragment : BaseFragment() {
     private fun updateSelectionUi() {
         backPressedCallback?.isEnabled = selectionMode
         val currentBinding = binding ?: return
+        val selectionChanged = (currentBinding.selectionHeaderContainer.visibility == View.VISIBLE) != selectionMode
         currentBinding.homeHeaderContainer.visibility = if (selectionMode) View.GONE else View.VISIBLE
         currentBinding.homeStatusContainer.visibility = if (selectionMode) View.GONE else View.VISIBLE
         currentBinding.selectionHeaderContainer.visibility = if (selectionMode) View.VISIBLE else View.GONE
         currentBinding.selectionStatusContainer.visibility = if (selectionMode) View.VISIBLE else View.GONE
         currentBinding.createFab.visibility = if (selectionMode) View.GONE else View.VISIBLE
+        if (selectionChanged) currentBinding.homeAppBar.setExpanded(true, false)
         currentBinding.selectionTitle.text = resources.getQuantityString(R.plurals.tunnl_selection_title, selectedTunnels.size, selectedTunnels.size)
         currentBinding.selectionStatus.text = if (deleting) getString(R.string.tunnl_delete_in_progress)
             else if (selectedTunnels.isEmpty()) getString(R.string.tunnl_selection_status_empty)

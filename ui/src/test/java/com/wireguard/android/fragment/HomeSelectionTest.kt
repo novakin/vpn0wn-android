@@ -2,11 +2,13 @@ package com.wireguard.android.fragment
 
 import android.app.Application
 import android.os.Looper
+import android.os.SystemClock
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Rect
 import android.view.View
 import android.view.ViewGroup
+import android.view.MotionEvent
 import android.widget.TextView
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.appcompat.app.AppCompatActivity
@@ -379,6 +381,8 @@ class HomeSelectionTest {
                 assertTrue("${case.name}: Add target", f.binding.createFab.height >= 48 * f.binding.createFab.resources.displayMetrics.density)
                 assertSingleLineBadge(f.binding, case.name)
                 save(f.binding.root, "home-${case.name}")
+                dragHomeHeader(f.binding)
+                layout(f.binding, case.width, case.height)
                 f.binding.tunnelList.scrollBy(0, f.binding.tunnelList.computeVerticalScrollRange())
                 val lastName = checkNotNull(f.binding.tunnelList.findViewHolderForAdapterPosition(1)).itemView.findViewById<TextView>(R.id.tunnel_name)
                 lastName.requestRectangleOnScreen(Rect(0, 0, lastName.width, lastName.height), true)
@@ -433,6 +437,71 @@ class HomeSelectionTest {
         }
     }
 
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun largeLandscapeHeaderDragRevealsTunnelAndRestoresSelectionActions() = runHomeTest {
+        RuntimeEnvironment.setQualifiers("en-ldltr-w640dp-h320dp-land-night")
+        RuntimeEnvironment.setFontScale(2f)
+        val f = host("bravo", "charlie")
+        layout(f.binding, 640, 320)
+        val addBounds = Rect().also { assertTrue(f.binding.createFab.getGlobalVisibleRect(it)) }
+        dragHomeHeader(f.binding)
+        layout(f.binding, 640, 320)
+        assertTrue("header drag releases the viewport", f.binding.homeAppBar.bottom <= 0)
+        val first = row(f.binding, 0)
+        assertFullyVisible(first.findViewById<View>(R.id.tunnel_name), "tunnel name after header drag")
+        assertFullyVisible(first.findViewById<View>(R.id.tunnel_switch), "complete toggle after header drag")
+        assertFullyVisible(f.binding.createFab, "fixed Add after header drag")
+        assertEquals(addBounds, Rect().also { f.binding.createFab.getGlobalVisibleRect(it) })
+        first.performLongClick()
+        layout(f.binding, 640, 320)
+        assertEquals(0, f.binding.homeAppBar.top)
+        assertEquals(View.GONE, f.binding.createFab.visibility)
+        for (button in listOf(f.binding.selectionClose, f.binding.selectionDelete, f.binding.selectionAll)) {
+            assertFullyVisible(button, "selection action after entering from collapsed header")
+        }
+        f.binding.selectionAll.performClick()
+        layout(f.binding, 640, 320)
+        f.binding.selectionDelete.performClick()
+        val confirmation = dialog(f.fragment)
+        assertTrue(confirmation.isShowing)
+        assertEquals("bravo\ncharlie", confirmation.findViewById<TextView>(R.id.delete_sheet_names)!!.text.toString())
+        confirmation.cancel()
+        dragHomeHeader(f.binding)
+        layout(f.binding, 640, 320)
+        assertTrue(f.binding.homeAppBar.top < 0)
+        row(f.binding, 0).performClick()
+        layout(f.binding, 640, 320)
+        assertTrue("count update preserves scrolling", f.binding.homeAppBar.top < 0)
+        f.controller.get().onBackPressedDispatcher.onBackPressed()
+        layout(f.binding, 640, 320)
+        assertEquals(0, f.binding.homeAppBar.top)
+        assertFullyVisible(f.binding.homeLogs, "Logs after selection exit")
+        assertFullyVisible(f.binding.homeSettings, "Settings after selection exit")
+        assertFullyVisible(f.binding.createFab, "Add after selection exit")
+        assertEquals(setOf("bravo", "charlie"), f.env.store.configs.keys.toSet())
+        save(f.binding.root, "large-landscape-header-restored")
+    }
+
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun largeLandscapeEmptyHintScrollsAboveFixedAdd() = runHomeTest {
+        RuntimeEnvironment.setQualifiers("en-ldltr-w640dp-h320dp-land-night")
+        RuntimeEnvironment.setFontScale(2f)
+        val f = host()
+        layout(f.binding, 640, 320)
+        assertEquals(View.GONE, f.binding.tunnelList.visibility)
+        dragHomeHeader(f.binding)
+        layout(f.binding, 640, 320)
+        assertTrue("empty header permits dragging", f.binding.homeAppBar.bottom <= 0)
+        f.binding.homeEmptyScroll.fullScroll(View.FOCUS_DOWN)
+        layout(f.binding, 640, 320)
+        assertFullyVisible(f.binding.homeEmptyPlaceholder, "empty hint after scrolling")
+        assertFullyVisible(f.binding.createFab, "fixed Add with empty hint")
+        val hintBounds = Rect().also { f.binding.homeEmptyPlaceholder.getGlobalVisibleRect(it) }
+        val addBounds = Rect().also { f.binding.createFab.getGlobalVisibleRect(it) }
+        assertTrue("empty hint clears Add", hintBounds.bottom <= addBounds.top)
+        save(f.binding.root, "empty-large-landscape-scrolled")
+    }
+
     @Test fun homeHeaderActionsKeepExistingNavigationAndDisabledSearch() = runHomeTest {
         val f = host("bravo")
         assertFalse(f.binding.homeSearch.isEnabled)
@@ -453,6 +522,32 @@ class HomeSelectionTest {
             assertTrue("$name: ${view.text}", view.layout.getLineTop(view.layout.lineCount) <= view.height)
         }
         if (view is ViewGroup) for (index in 0 until view.childCount) assertTextFits(view.getChildAt(index), name)
+    }
+
+    private fun assertFullyVisible(view: View, name: String) {
+        val bounds = Rect()
+        assertTrue("$name is visible", view.getGlobalVisibleRect(bounds))
+        assertEquals("$name complete width", view.width, bounds.width())
+        assertEquals("$name complete height", view.height, bounds.height())
+    }
+
+    private fun dragHomeHeader(binding: TunnelListFragmentBinding) {
+        val container = binding.homeScrollContainer
+        val density = container.resources.displayMetrics.density
+        val startY = minOf(binding.homeAppBar.bottom, container.height) - 8 * density
+        val distance = binding.homeAppBar.height * 2f
+        val downTime = SystemClock.uptimeMillis()
+        fun dispatch(action: Int, elapsed: Long, y: Float) {
+            val event = MotionEvent.obtain(downTime, downTime + elapsed, action, container.width / 2f, y, 0)
+            try {
+                container.dispatchTouchEvent(event)
+            } finally {
+                event.recycle()
+            }
+        }
+        dispatch(MotionEvent.ACTION_DOWN, 0, startY)
+        for (step in 1..8) dispatch(MotionEvent.ACTION_MOVE, step * 100L, startY - distance * step / 8f)
+        dispatch(MotionEvent.ACTION_UP, 1800, startY - distance)
     }
 
     private fun assertSingleLineBadge(binding: TunnelListFragmentBinding, name: String) {
@@ -500,6 +595,7 @@ class HomeSelectionTest {
         controllers += controller
         controller.get().setTheme(R.style.AppTheme)
         controller.setup()
+        controller.get().supportActionBar?.hide()
         val fragment = TunnelListFragment()
         controller.get().supportFragmentManager.beginTransaction().add(android.R.id.content, fragment, "home").commitNow()
         val binding = DataBindingUtil.getBinding<TunnelListFragmentBinding>(fragment.requireView())!!
@@ -537,9 +633,17 @@ class HomeSelectionTest {
         shadowOf(Looper.getMainLooper()).idle()
         binding.executePendingBindings()
         val density = binding.root.resources.displayMetrics.density
-        binding.root.measure(View.MeasureSpec.makeMeasureSpec((width * density).toInt(), View.MeasureSpec.EXACTLY),
+        val root = binding.root.rootView
+        invalidateMeasurements(root)
+        root.measure(View.MeasureSpec.makeMeasureSpec((width * density).toInt(), View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec((height * density).toInt(), View.MeasureSpec.EXACTLY))
-        binding.root.layout(0, 0, binding.root.measuredWidth, binding.root.measuredHeight)
+        root.layout(0, 0, root.measuredWidth, root.measuredHeight)
+    }
+
+    // Manual preview resizes otherwise retain cached descendant sizes from the activity's earlier traversal.
+    private fun invalidateMeasurements(view: View) {
+        view.forceLayout()
+        if (view is ViewGroup) for (index in 0 until view.childCount) invalidateMeasurements(view.getChildAt(index))
     }
 
     private fun row(binding: TunnelListFragmentBinding, position: Int): View {

@@ -1,6 +1,6 @@
 # Tunnl QA Test Plan
 
-Last updated: 2026-10-09 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 This document tracks the automated and manual QA coverage required for the Tunnl Android redesign.
 
@@ -68,7 +68,7 @@ For [#48](https://github.com/novakin/wireguard-android/issues/48), `TunnelStatis
 
 ### Robolectric View Tests
 
-`HomeSelectionTest` uses synthetic managed tunnels and actual Home row/header/dialog actions for sorted insertion/rename, zero-selected/select-all/Back, recreation, active confirmation cancellation, mixed-delete restoration/progress, complete deletion, admitted and pre-entry cancellation, view recreation during admitted deletion, inventory replacement, programming-defect attempt ordering and checkable row semantics/inset restoration. Native content previews cover six theme/size/large-text/RTL configurations, one-line status badges and scrolling confirmation actions. Physical provider, system-bar and TalkBack proof remains required under #36/G4. See [Home recovery evidence](development.md#home-selection-and-safe-delete-recovery--2026-10-07); native content previews are separate from device acceptance.
+`HomeSelectionTest` uses synthetic managed tunnels and actual Home row/header/dialog actions for sorted insertion/rename, zero-selected/select-all/Back, recreation, active confirmation cancellation, mixed-delete restoration/progress, complete deletion, admitted and pre-entry cancellation, view recreation during admitted deletion, inventory replacement, programming-defect attempt ordering and checkable row semantics/inset restoration. Native content previews cover six theme/size/large-text/RTL configurations, one-line status badges and scrolling confirmation actions. The 2026-10-10 short-viewport regression dispatches header touch gestures at 640×320dp/2× text and requires fully visible tunnel names/switches above fixed Add, restored selection actions, unchanged scrolling during count updates, safe confirmation cancellation/Back exit, and reachable empty-state guidance. Fixtures hide the stock ActionBar as production Home does and invalidate descendant measurements before traversing the actual window tree at each controlled preview size. Separate [installed API 36 acceptance](reviews/2026-10-10-home-avd-acceptance.md) covers six configurations, active bottom statistics and empty guidance; physical provider, system-bar and TalkBack proof remains required under #36/G4. See [Home recovery evidence](development.md#home-selection-and-safe-delete-recovery--2026-10-07); content previews and installed results retain their distinct scopes.
 
 Use for Android resources, data binding, programmatic fragment UI, and lightweight view behavior.
 
