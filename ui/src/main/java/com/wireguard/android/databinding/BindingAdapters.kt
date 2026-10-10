@@ -35,6 +35,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.card.MaterialCardView
 import com.wireguard.android.BR
 import com.wireguard.android.R
+import com.wireguard.android.backend.HandshakeObservation
 import com.wireguard.android.backend.Statistics
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.databinding.ObservableKeyedRecyclerViewAdapter.RowConfigurationHandler
@@ -48,6 +49,8 @@ import com.wireguard.android.widget.TvCardView
 import com.wireguard.config.Attribute
 import com.wireguard.config.Config
 import com.wireguard.config.InetNetwork
+import com.wireguard.config.Peer
+import com.wireguard.crypto.Key
 import java.util.Locale
 import java.net.InetAddress
 import java.util.Optional
@@ -185,6 +188,51 @@ object BindingAdapters {
             binding.executePendingBindings()
             view.addView(binding.root)
         }
+    }
+
+    @JvmStatic
+    @BindingAdapter("detailPeers", "detailPeerDiagnostics", "detailPeerState")
+    fun setDetailPeers(
+        view: LinearLayout,
+        oldPeers: Iterable<Peer>?, @Suppress("UNUSED_PARAMETER") oldDiagnostics: Map<Key, ObservableTunnel.PeerHandshakeDiagnostics>?,
+        @Suppress("UNUSED_PARAMETER") oldState: Tunnel.State?,
+        newPeers: Iterable<Peer>?, newDiagnostics: Map<Key, ObservableTunnel.PeerHandshakeDiagnostics>?, newState: Tunnel.State?
+    ) {
+        setItems(view, oldPeers, R.layout.tunnel_detail_peer, newPeers, R.layout.tunnel_detail_peer)
+        val available = newDiagnostics != null && newState != null && newState != Tunnel.State.DOWN
+        for (index in 0 until view.childCount) {
+            val binding = DataBindingUtil.getBinding<TunnelDetailPeerBinding>(view.getChildAt(index)) ?: continue
+            binding.diagnosticsAvailable = available
+            binding.diagnostics = if (available) binding.item?.publicKey?.let { newDiagnostics?.get(it) } else null
+            binding.executePendingBindings()
+        }
+    }
+
+    @JvmStatic
+    @BindingAdapter("peerHandshakeObservation", "peerHandshakeAvailable")
+    fun setPeerHandshakeObservation(view: TextView, observation: HandshakeObservation?, available: Boolean) {
+        val text = when {
+            !available -> R.string.tunnl_handshake_unavailable
+            observation == null -> R.string.tunnl_handshake_unobserved
+            else -> when (observation.event()) {
+                HandshakeObservation.Event.ATTEMPT -> if (observation.retry()) R.string.tunnl_handshake_retry_attempted else R.string.tunnl_handshake_attempted
+                HandshakeObservation.Event.SENT -> R.string.tunnl_handshake_sent
+                HandshakeObservation.Event.SEND_FAILED -> R.string.tunnl_handshake_send_failed
+                HandshakeObservation.Event.AUTHENTICATED -> R.string.tunnl_handshake_authenticated
+                HandshakeObservation.Event.EXHAUSTED -> R.string.tunnl_handshake_exhausted
+            }
+        }
+        view.setText(text)
+    }
+
+    @JvmStatic
+    fun observedHandshakeEndpoint(observation: HandshakeObservation?): String = observation?.endpoint()?.toString() ?: "—"
+
+    @JvmStatic
+    fun observedHandshakeAddressFamily(observation: HandshakeObservation?): String = when (observation?.addressFamily()) {
+        HandshakeObservation.AddressFamily.IPV4 -> "IPv4"
+        HandshakeObservation.AddressFamily.IPV6 -> "IPv6"
+        else -> "—"
     }
 
     @JvmStatic

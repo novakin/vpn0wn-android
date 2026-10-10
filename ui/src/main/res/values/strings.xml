@@ -513,4 +513,16 @@
     <string name="tunnl_delete_progress">Removed %1$d of %2$d selected tunnels. %3$d remain. %4$s</string>
     <string name="tunnl_delete_cancelled">Deletion cancelled.</string>
     <string name="tunnl_delete_in_progress">DELETING…</string>
+    <string name="tunnl_handshake_observation_label">LAST HANDSHAKE EVENT</string>
+    <string name="tunnl_observed_endpoint_label">OBSERVED ENDPOINT</string>
+    <string name="tunnl_observed_address_family_label">ADDRESS FAMILY</string>
+    <string name="tunnl_handshake_observation_scope">Recorded during this connection. Internet access is untested.</string>
+    <string name="tunnl_handshake_unavailable">Observations unavailable</string>
+    <string name="tunnl_handshake_unobserved">No handshake event observed</string>
+    <string name="tunnl_handshake_attempted">Initiation attempted</string>
+    <string name="tunnl_handshake_retry_attempted">Protocol retry attempted</string>
+    <string name="tunnl_handshake_sent">Initiation sent locally</string>
+    <string name="tunnl_handshake_send_failed">Initiation send failed</string>
+    <string name="tunnl_handshake_authenticated">Authentication observed</string>
+    <string name="tunnl_handshake_exhausted">Retries exhausted</string>
 </resources>

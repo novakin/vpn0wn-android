@@ -91,6 +91,7 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
         stopStatsRefresh()
         observedTunnel?.removeOnPropertyChangedCallback(tunnelCallback)
         observedTunnel = null
+        binding?.unbind()
         binding = null
         super.onDestroyView()
     }

@@ -585,8 +585,9 @@
                 android:layout_marginTop="8dp"
                 android:divider="@null"
                 android:orientation="vertical"
-                app:items="@{config.peers}"
-                app:layout="@{@layout/tunnel_detail_peer}"
+                app:detailPeers="@{config.peers}"
+                app:detailPeerDiagnostics="@{tunnel.handshakeDiagnostics}"
+                app:detailPeerState="@{tunnel.state}"
                 tools:ignore="UselessLeaf" />
         </LinearLayout>
         </ScrollView>
