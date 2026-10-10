@@ -86,6 +86,8 @@ Home replaces the faded launcher placeholder with the standalone symbol. `Bindin
 
 Focused resource/native-graphics controls and the Home theme/size/large-text/RTL matrix cover source output. Actual APK/runtime acceptance and its limitations are recorded separately after execution; legacy Android and a real TV launcher are separate environments.
 
+Placement review found Android's default keyboard-focus foreground highlight dimming selectable license text. `licenses_notice.xml` now uses a local focused background with the existing cyan accent and 4dp text clearance, preserving focus and selection without changing global colors. Native controls cover visible keyboard focus and unchanged text rendering; real platform focused/unfocused output remains a separate acceptance check.
+
 ## Design System
 
 ### Typography

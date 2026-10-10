@@ -154,6 +154,49 @@ class LicensesActivityTest {
         }
     }
 
+    @Test @Config(sdk = [36]) @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun keyboardFocusKeepsNoticeTextReadableAndSelectionAvailable() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val activity = open().get()
+        settle(activity)
+        val root = LinearLayout(activity).apply {
+            isFocusableInTouchMode = true
+            setBackgroundColor(activity.getColor(R.color.tunnl_paper))
+        }
+        val notice = activity.layoutInflater.inflate(R.layout.licenses_notice, root, false) as TextView
+        notice.text = "Sora brand wordmark\nSIL OPEN FONT LICENSE Version 1.1"
+        root.addView(notice)
+        activity.setContentView(root)
+        val width = 640
+        val height = 160
+        root.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY))
+        root.layout(0, 0, width, height)
+        assertTrue(root.requestFocusFromTouch())
+        val ink = activity.getColor(R.color.tunnl_ink)
+        val signal = activity.getColor(R.color.tunnl_signal)
+        val unfocusedInk = renderedColorCount(root, width, height, ink)
+        assertTrue(unfocusedInk > 0)
+        assertEquals(0, renderedColorCount(root, width, height, signal))
+        assertTrue(notice.requestFocusFromTouch())
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertTrue(notice.isFocused)
+        assertFalse(notice.isInTouchMode)
+        assertEquals(unfocusedInk, renderedColorCount(root, width, height, ink))
+        assertTrue("Keyboard focus needs a visible indicator", renderedColorCount(root, width, height, signal) > 0)
+        assertTrue(notice.isTextSelectable)
+        assertEquals(notice.text.toString(), notice.createAccessibilityNodeInfo().text.toString())
+    }
+
+    private fun renderedColorCount(view: View, width: Int, height: Int, color: Int): Int {
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        view.draw(Canvas(bitmap))
+        val pixels = IntArray(width * height)
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+        bitmap.recycle()
+        return pixels.count { it == color }
+    }
+
     private fun notices(activity: LicensesActivity): List<TextView> {
         val content = activity.findViewById<LinearLayout>(R.id.licenses_content)
         return (0 until content.childCount).map { content.getChildAt(it) as TextView }
