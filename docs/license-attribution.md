@@ -8,7 +8,7 @@ The payload is [credits.txt](../ui/src/main/assets/licenses/credits.txt), in the
 
 Each top-level notice appears in a separate selectable LTR text view, preserving the payload's complete text, whitespace and order. Android limits the text supplied by one accessibility node to 100,000 UTF-16 characters; the 28 current notices are each smaller, with a largest notice of 35,350 characters. The added Sora notice follows the original 27 unchanged notices. Select all and copying cover the current notice rather than the entire bundle. `LicensesActivityTest` checks actual accessibility-node text against every complete rendered notice and the concatenated original payload; refreshes must retain this size boundary or split an oversized notice without changing its text.
 
-Keyboard-focused notices retain their normal text contrast and display a cyan outline behind the text, with 4dp clearance. This local focused background prevents Android's default foreground focus overlay from dimming selectable text; touch selection and the global theme remain intact.
+Keyboard-focused notices retain their normal text contrast and display a cyan outline behind the text, with 4dp clearance. This local focused background prevents Android's default foreground focus overlay from dimming selectable text; touch selection and the global theme remain intact. The [placement/artifact record](reviews/2026-10-10-android-brand-adoption-acceptance.md) distinguishes native focus proof from the earlier notice/accessibility acceptance below.
 
 ## Notice sources and coverage
 

@@ -57,6 +57,8 @@ The [approved artwork source](assets/vpnown-brand/README.md#android-export) owns
 
 Run focused `BrandAssetsTest`, `BindingAdaptersTest`, `HomeSelectionTest`, `SettingsActivityTest`, `QuickTileServiceTest` and `LicensesActivityTest` through `:ui:testDebugUnitTest`, plus `:ui:detekt`. Inspect generated native previews under ignored `.artifacts/android-brand-previews` and `.artifacts/home-selection-previews`. [QA controls](qa-test-plan.md#android-brand-artwork-controls) distinguish native JVM output from separately authorized launcher/system/TV runtime proof.
 
+The [2026-10-10 scoped artwork/placement record](reviews/2026-10-10-android-brand-adoption-acceptance.md) retains source/artifact identities, native coverage, focus and compact-header regressions, rejected capture scope and remaining device/distribution limits. Current final-head CI and ultra publication/merge acceptance belong to the delivering PR.
+
 ## Document ownership
 
 | Owner | Content |
