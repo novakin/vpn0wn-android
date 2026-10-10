@@ -83,7 +83,7 @@ object UserKnobs {
             it[RESTORE_ON_BOOT] ?: false
         }
 
-    private val LAST_USED_TUNNEL = stringPreferencesKey("last_used_tunnel")
+    internal val LAST_USED_TUNNEL = stringPreferencesKey("last_used_tunnel")
     val lastUsedTunnel: Flow<String?>
         get() = Application.getPreferencesDataStore().data.map {
             it[LAST_USED_TUNNEL]
@@ -98,7 +98,7 @@ object UserKnobs {
         }
     }
 
-    private val RUNNING_TUNNELS = stringSetPreferencesKey("enabled_configs")
+    internal val RUNNING_TUNNELS = stringSetPreferencesKey("enabled_configs")
     val runningTunnels: Flow<Set<String>>
         get() = Application.getPreferencesDataStore().data.map {
             it[RUNNING_TUNNELS] ?: emptySet()
@@ -112,6 +112,8 @@ object UserKnobs {
                 it[RUNNING_TUNNELS] = runningTunnels
         }
     }
+
+    internal val transferBooleanKeys = listOf(DARK_THEME, MULTIPLE_TUNNELS, ALLOW_REMOTE_CONTROL_INTENTS, RESTORE_ON_BOOT)
 
     private val UPDATER_NEWER_VERSION_SEEN = stringPreferencesKey("updater_newer_version_seen")
     val updaterNewerVersionSeen: Flow<String?>
