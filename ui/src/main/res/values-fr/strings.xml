@@ -483,4 +483,16 @@
     <string name="tunnl_delete_progress">%1$d tunnels supprimés sur %2$d sélectionnés. %3$d restants. %4$s</string>
     <string name="tunnl_delete_cancelled">Suppression annulée.</string>
     <string name="tunnl_delete_in_progress">SUPPRESSION…</string>
+    <string name="tunnl_handshake_observation_label">DERNIER ÉVÉNEMENT DE HANDSHAKE</string>
+    <string name="tunnl_observed_endpoint_label">ENDPOINT OBSERVÉ</string>
+    <string name="tunnl_observed_address_family_label">FAMILLE D’ADRESSES</string>
+    <string name="tunnl_handshake_observation_scope">Enregistré pendant cette connexion. L’accès à Internet n’est pas testé.</string>
+    <string name="tunnl_handshake_unavailable">Observations indisponibles</string>
+    <string name="tunnl_handshake_unobserved">Aucun événement de handshake observé</string>
+    <string name="tunnl_handshake_attempted">Initiation tentée</string>
+    <string name="tunnl_handshake_retry_attempted">Nouvelle tentative du protocole</string>
+    <string name="tunnl_handshake_sent">Initiation envoyée localement</string>
+    <string name="tunnl_handshake_send_failed">Échec de l’envoi de l’initiation</string>
+    <string name="tunnl_handshake_authenticated">Authentification observée</string>
+    <string name="tunnl_handshake_exhausted">Tentatives épuisées</string>
 </resources>
