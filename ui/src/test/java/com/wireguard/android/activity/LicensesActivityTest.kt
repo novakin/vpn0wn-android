@@ -62,7 +62,7 @@ class LicensesActivityTest {
         }
         val sourceLicense = File("../COPYING").readLines().joinToString("\n") { it.trimEnd() }
         assertTrue(payload.contains(sourceLicense.trim()))
-        for (font in listOf("inter-tight-OFL.txt", "jetbrains-mono-OFL.txt")) {
+        for (font in listOf("inter-tight-OFL.txt", "jetbrains-mono-OFL.txt", "sora-OFL.txt")) {
             val notice = activity.assets.open("licenses/$font").bufferedReader().use { it.readText() }
             val fullNotice = notice.lineSequence().joinToString("\n") { it.trimEnd() }
             assertTrue(payload.contains(fullNotice.trim()))
@@ -89,7 +89,7 @@ class LicensesActivityTest {
         val unsplitText = TextView(activity).apply { text = payload }
         assertEquals(ACCESSIBILITY_TEXT_LIMIT, unsplitText.createAccessibilityNodeInfo().text.length)
         val texts = notices(activity)
-        assertEquals(27, texts.size)
+        assertEquals(28, texts.size)
         val accessibleTexts = texts.map { text ->
             assertTrue(text.text.length < ACCESSIBILITY_TEXT_LIMIT)
             val accessibleText = text.createAccessibilityNodeInfo().text.toString()
@@ -100,8 +100,12 @@ class LicensesActivityTest {
         val fontNotice = activity.assets.open("licenses/jetbrains-mono-OFL.txt").bufferedReader().use { it.readText() }
         val fullFontNotice = fontNotice.lineSequence().joinToString("\n") { it.trimEnd() }.trim()
         assertTrue(accessibleTexts.any { it.contains(fullFontNotice) })
-        assertTrue(accessibleTexts.last().contains("GNU GENERAL PUBLIC LICENSE"))
-        assertEquals(payload.substring(payload.indexOf("Termux elf-cleaner — host build helper\n")), accessibleTexts.last())
+        val termuxNotice = accessibleTexts.single { it.startsWith("Termux elf-cleaner — host build helper\n") }
+        assertTrue(termuxNotice.contains("GNU GENERAL PUBLIC LICENSE"))
+        assertEquals(payload.substring(payload.indexOf("Termux elf-cleaner — host build helper\n"), payload.indexOf("Sora brand wordmark\n")), termuxNotice)
+        val soraNotice = activity.assets.open("licenses/sora-OFL.txt").bufferedReader().use { it.readText() }
+        assertTrue(accessibleTexts.last().startsWith("Sora brand wordmark\n"))
+        assertTrue(accessibleTexts.last().contains(soraNotice.lineSequence().joinToString("\n") { it.trimEnd() }.trim()))
     }
 
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)

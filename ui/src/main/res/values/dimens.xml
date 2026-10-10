@@ -13,5 +13,5 @@
     <dimen name="tunnl_card_text_inset">14dp</dimen>
     <dimen name="tunnl_selection_text_inset">50dp</dimen>
     <dimen name="tunnl_home_title_size">26sp</dimen>
-    <dimen name="tunnl_home_wordmark_size">18sp</dimen>
+    <dimen name="vpnown_home_wordmark_height">22dp</dimen>
 </resources>

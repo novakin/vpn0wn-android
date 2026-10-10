@@ -60,7 +60,7 @@
                 android:layout_width="320dp"
                 android:layout_height="67dp"
                 android:contentDescription="@string/app_name"
-                android:scaleType="fitXY"
+                android:scaleType="fitCenter"
                 app:srcCompat="@drawable/tv_logo_banner" />
 
         </com.google.android.material.card.MaterialCardView>

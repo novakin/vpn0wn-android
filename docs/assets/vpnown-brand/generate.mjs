@@ -6,6 +6,7 @@ import { Resvg } from '@resvg/resvg-js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const out = path.join(root, 'assets');
+const exportAndroid = process.argv.includes('--android');
 fs.mkdirSync(out, { recursive: true });
 const colors = {
   background: '#071220', secondaryBackground: '#0A1727', surface: '#162436',
@@ -70,19 +71,115 @@ function wordmark(fill = colors.text, symbolFill = 'url(#brand-gradient)') {
   const gaps = [9, 10, 15, 17, 10];
   let cursor = 0;
   let body = '';
+  const paths = [];
   [...'vpnØwn'].forEach((char, i) => {
     if (char === 'Ø') {
       // Align using visible slash bounds (11..86), rather than the empty viewBox margins.
       body += `<g transform="translate(${num(cursor - 11 * symbolScale)} ${num(symbolTop)}) scale(${num(symbolScale)})">${symbol(symbolFill)}</g>`;
+      paths.push({ symbol: true, x: num(cursor - 11 * symbolScale), y: num(symbolTop), scale: num(symbolScale), fill: symbolFill });
       cursor += 75 * symbolScale;
     } else {
       const glyph = activeFont.glyphForCodePoint(char.codePointAt(0));
-      body += `<path fill="${fill}" d="${glyph.path.toSVG()}" transform="translate(${num(cursor - glyph.bbox.minX * scale)} ${baseline}) scale(${scale} ${-scale})"/>`;
+      const data = glyph.path.toSVG();
+      const x = num(cursor - glyph.bbox.minX * scale);
+      body += `<path fill="${fill}" d="${data}" transform="translate(${x} ${baseline}) scale(${scale} ${-scale})"/>`;
+      paths.push({ data, x, y: baseline, scale, fill });
       cursor += (glyph.bbox.maxX - glyph.bbox.minX) * scale;
     }
     cursor += gaps[i] || 0;
   });
-  return { body, width: cursor, height: 206 };
+  return { body, width: cursor, height: 206, paths };
+}
+
+function androidPath(data, fill, evenOdd = false) {
+  const attributes = `android:pathData="${data}"${evenOdd ? ' android:fillType="evenOdd"' : ''}`;
+  if (fill !== 'url(#brand-gradient)') return `<path ${attributes} android:fillColor="${fill}" />`;
+  return `<path ${attributes}>
+        <aapt:attr name="android:fillColor">
+            <gradient android:type="linear" android:startX="0" android:startY="8" android:endX="0" android:endY="104" android:startColor="${colors.secondaryAccent}" android:endColor="${colors.accent}" />
+        </aapt:attr>
+    </path>`;
+}
+
+function androidSymbol(fill) {
+  return `${androidPath(frame, fill, true)}\n    ${androidPath(slash, fill)}`;
+}
+
+function androidGroup(body, x, y, scaleX, scaleY = scaleX) {
+  return `<group android:translateX="${x}" android:translateY="${y}" android:scaleX="${scaleX}" android:scaleY="${scaleY}">\n    ${body}\n    </group>`;
+}
+
+const upstreamXmlNotice = `<!--
+  ~ Copyright © 2017-2025 WireGuard LLC. All Rights Reserved.
+  ~ SPDX-License-Identifier: Apache-2.0
+  -->`;
+
+function androidVector(width, height, viewportWidth, viewportHeight, body, upstream = false) {
+  return `<?xml version="1.0" encoding="utf-8"?>${upstream ? upstreamXmlNotice : ''}
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="${width}dp"
+    android:height="${height}dp"
+    android:viewportWidth="${viewportWidth}"
+    android:viewportHeight="${viewportHeight}"
+    android:autoMirrored="false">
+    ${body}
+</vector>\n`;
+}
+
+function saveAndroidResources() {
+  const resources = path.resolve(root, '../../../ui/src/main/res');
+  const write = (relativePath, content) => {
+    const target = path.join(resources, relativePath);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, content);
+  };
+  const foreground = androidGroup(androidSymbol('url(#brand-gradient)'), 30, 26, 0.5);
+  const monochrome = androidGroup(androidSymbol('#FFFFFF'), 30, 26, 0.5);
+  write('drawable/ic_launcher_foreground.xml', androidVector(108, 108, 108, 108, foreground, true));
+  write('drawable/ic_launcher_monochrome.xml', androidVector(108, 108, 108, 108, monochrome));
+  write('drawable/vpnown_symbol.xml', androidVector(96, 112, 96, 112, androidSymbol('url(#brand-gradient)')));
+  const tileScale = 24 / 112;
+  const tile = androidGroup(androidSymbol('#FFFFFF'), num((24 - 96 * tileScale) / 2), 0, num(tileScale));
+  write('drawable/ic_tile.xml', androidVector(24, 24, 24, 24, tile, true));
+
+  const logo = wordmark();
+  const logoWidth = Math.ceil(logo.width + 8);
+  const wordmarkPaths = logo.paths.map(segment => segment.symbol
+    ? androidGroup(androidSymbol(segment.fill), segment.x, segment.y, segment.scale)
+    : androidGroup(androidPath(segment.data, segment.fill), segment.x, segment.y, segment.scale, -segment.scale)).join('\n    ');
+  const wordmarkBody = androidGroup(wordmarkPaths, 4, 0, 1);
+  write('drawable/vpnown_wordmark.xml', androidVector(logoWidth / 5, logo.height / 5, logoWidth, logo.height, wordmarkBody));
+  write('drawable/tv_logo_banner.xml', androidVector(logoWidth / 5, logo.height / 5, logoWidth, logo.height, wordmarkBody, true));
+
+  const adaptive = `<?xml version="1.0" encoding="utf-8"?>${upstreamXmlNotice}
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@color/ic_launcher_background" />
+    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <monochrome android:drawable="@drawable/ic_launcher_monochrome" />
+</adaptive-icon>\n`;
+  write('mipmap-anydpi-v26/ic_launcher.xml', adaptive);
+  write('mipmap-anydpi-v26/ic_launcher_round.xml', adaptive);
+  write('values/ic_launcher_background.xml', `<?xml version="1.0" encoding="utf-8"?>${upstreamXmlNotice}
+<resources>
+    <color name="ic_launcher_background">@color/tunnl_paper_2</color>
+</resources>\n`);
+
+  const appMark = mark(512 - 650 * 96 / 112 / 2, 187, 650);
+  for (const [density, size] of [['mdpi', 48], ['hdpi', 72], ['xhdpi', 96], ['xxhdpi', 144], ['xxxhdpi', 192]]) {
+    for (const round of [false, true]) {
+      const background = round
+        ? `<circle cx="512" cy="512" r="512" fill="${colors.secondaryBackground}"/>`
+        : `<rect width="1024" height="1024" rx="200" fill="${colors.secondaryBackground}"/>`;
+      const source = svg(1024, 1024, `${background}${appMark}`, 'vpnØwn app icon');
+      const png = new Resvg(source, { fitTo: { mode: 'width', value: size } }).render().asPng();
+      write(`mipmap-${density}/ic_launcher${round ? '_round' : ''}.png`, png);
+    }
+  }
+  const bannerScale = 272 / logoWidth;
+  const banner = `<rect width="320" height="180" fill="${colors.secondaryBackground}"/><g transform="translate(24 ${num((180 - logo.height * bannerScale) / 2)}) scale(${num(bannerScale)})"><g transform="translate(4 0)">${logo.body}</g></g>`;
+  write('mipmap-xhdpi/banner.png', new Resvg(svg(320, 180, banner, 'vpnØwn')).render().asPng());
+  console.log('Exported Android vectors, adaptive layers, 10 native-density launcher PNGs and 320×180 TV banner.');
 }
 
 for (const [name, fill] of [['symbol', 'url(#brand-gradient)'], ['symbol-solid', colors.accent], ['symbol-white', colors.text], ['symbol-navy', colors.background]]) {
@@ -181,3 +278,4 @@ for (const [key, x, y] of [['background', 20, 20], ...swatches.map(([key], index
 }
 fs.writeFileSync(path.join(root, 'verification.json'), JSON.stringify({ board: { width: rendered.width, height: rendered.height }, exactSwatchSamples: sampled, sharedGeometry: ['symbol', 'symbol-solid', 'symbol-white', 'symbol-navy'], opticalMasterSize: 16 }, null, 2) + '\n');
 console.log(`Generated ${fs.readdirSync(out).length} assets. All 10 swatch centers match exact palette values. Board ${rendered.width}×${rendered.height}.`);
+if (exportAndroid) saveAndroidResources();

@@ -15,7 +15,7 @@ import android.text.InputFilter
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
-import android.text.style.TextAppearanceSpan
+import android.text.style.ImageSpan
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -375,13 +375,14 @@ object BindingAdapters {
     fun setHomeHeaderTunnels(view: TextView, tunnels: Iterable<ObservableTunnel>?) {
         val summary = homeHeaderSummary(view.context, tunnels)
         val wordmark = view.context.getString(R.string.tunnl_home_wordmark)
+        val artwork = requireNotNull(ContextCompat.getDrawable(view.context, R.drawable.vpnown_wordmark))
+        val height = view.resources.getDimensionPixelSize(R.dimen.vpnown_home_wordmark_height)
+        val width = (height * artwork.intrinsicWidth.toFloat() / artwork.intrinsicHeight).roundToInt()
+        artwork.setBounds(0, 0, width, height)
         view.contentDescription = summary.replace('ø', '0')
         view.text = SpannableString(summary).apply {
-            setSpan(TextAppearanceSpan(view.context, R.style.TunnlHomeWordmarkText),
+            setSpan(ImageSpan(artwork, ImageSpan.ALIGN_BOTTOM),
                 0, wordmark.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            val zeroIndex = wordmark.indexOf('ø')
-            setSpan(ForegroundColorSpan(ContextCompat.getColor(view.context, R.color.tunnl_signal)),
-                zeroIndex, zeroIndex + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
     }
 

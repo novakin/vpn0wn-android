@@ -10,7 +10,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
-import android.text.style.TextAppearanceSpan
+import android.text.style.ImageSpan
 import android.widget.TextView
 import android.view.View
 import androidx.test.core.app.ApplicationProvider
@@ -67,19 +67,15 @@ class BindingAdaptersTest {
     }
 
     @Test
-    fun homeWordmarkColorsOnlySlashedZeroAndKeepsReadableBrandDescription() {
+    fun homeWordmarkUsesArtworkWithoutReplacingLocalizedCountOrBrandDescription() {
         val header = TextView(context)
         BindingAdapters.setHomeHeaderTunnels(header, emptyList())
         val text = header.text as Spanned
-        val color = text.getSpans(0, text.length, ForegroundColorSpan::class.java).single()
-        assertEquals(3, text.getSpanStart(color))
-        assertEquals(4, text.getSpanEnd(color))
-        assertEquals("ø", text.subSequence(text.getSpanStart(color), text.getSpanEnd(color)).toString())
-        assertEquals(context.getColor(R.color.tunnl_signal), color.foregroundColor)
-        val appearance = text.getSpans(0, text.length, TextAppearanceSpan::class.java).single()
-        assertEquals(0, text.getSpanStart(appearance))
-        assertEquals(6, text.getSpanEnd(appearance))
-        assertEquals(null, appearance.family)
+        val artwork = text.getSpans(0, text.length, ImageSpan::class.java).single()
+        assertEquals(0, text.getSpanStart(artwork))
+        assertEquals(6, text.getSpanEnd(artwork))
+        assertEquals(" · 0 configured", text.subSequence(text.getSpanEnd(artwork), text.length).toString())
+        assertTrue(artwork.drawable.bounds.width() > artwork.drawable.bounds.height())
         assertEquals("vpn0wn · 0 configured", header.contentDescription.toString())
     }
 

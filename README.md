@@ -1,12 +1,14 @@
-# Tunnl — WireGuard Android
+# vpn0wn — WireGuard Android fork
 
 Last updated: 2026-10-10 (Europe/Paris).
 
-Tunnl is [novakin's WireGuard Android fork](https://github.com/novakin/vpn0wn-android), adding an engineering-console redesign and a partial VPS fleet/provisioning flow to the existing Android DataBinding/Fragment architecture.
+vpn0wn, previously presented as Tunnl, is [novakin's WireGuard Android fork](https://github.com/novakin/vpn0wn-android), adding an engineering-console redesign and a partial VPS fleet/provisioning flow to the existing Android DataBinding/Fragment architecture.
 
 The app uses [WireGuard](https://www.wireguard.com/), with the [kernel implementation](https://git.zx2c4.com/android_kernel_wireguard/about/) when available and the non-root [userspace implementation](https://git.zx2c4.com/wireguard-go/about/). The [official WireGuard app on the Play Store](https://play.google.com/store/apps/details?id=com.wireguard.android) distributes upstream WireGuard, not this fork.
 
 ## Current scope
+
+The [approved Android brand assets](docs/ui-redesign-roadmap.md#android-brand-asset-adoption--2026-10-10) supply launcher/tile/TV artwork, the Home symbol and outlined wordmark, and the visible vpn0wn app/version names. This visual preparation retains the existing `com.wireguard.android` installed identity and debug suffix; coherent source/package migration and two-installation acceptance remain open under [#71](https://github.com/novakin/vpn0wn-android/issues/71). Existing Inter Tight and JetBrains Mono UI font roles remain.
 
 The redesign builds on existing tunnel import/edit/connect behavior. Native VPS fleet screens render persisted non-secret records. Concrete SSH transport, protected SSH credential persistence and live provisioning/user actions remain unfinished; current VPS QR data is a placeholder rather than an importable generated profile.
 

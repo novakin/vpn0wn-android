@@ -344,15 +344,7 @@ class HomeSelectionTest {
 
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun nativeHomeAndConfirmationFitThemesLandscapeLargeTextAndRtl() = runHomeTest {
-        val cases = listOf(
-            Preview("portrait-light", 320, 640, 1f, "en", false),
-            Preview("portrait-dark", 320, 640, 1f, "en", true),
-            Preview("landscape-dark", 640, 320, 1f, "en", true),
-            Preview("large-landscape-dark", 640, 320, 2f, "en", true),
-            Preview("large-rtl-light", 320, 640, 2f, "ar", false),
-            Preview("large-rtl-dark", 320, 640, 2f, "ar", true)
-        )
-        for (case in cases) {
+        for (case in homePreviewCases()) {
             val direction = if (case.locale == "ar") "ldrtl" else "ldltr"
             val orientation = if (case.width > case.height) "land" else "port"
             val night = if (case.night) "night" else "notnight"
@@ -442,6 +434,29 @@ class HomeSelectionTest {
                 if (case.name == "large-landscape-dark") assertTrue(root.scrollY > 0)
                 save(root, "delete-${case.name}-bottom")
                 dialog.cancel()
+            } finally {
+                f.controller.pause().stop().destroy()
+                controllers.remove(f.controller)
+            }
+        }
+    }
+
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun nativeEmptyHomeKeepsArtworkAndAddReachableAcrossConfigurations() = runHomeTest {
+        for (case in homePreviewCases()) {
+            val direction = if (case.locale == "ar") "ldrtl" else "ldltr"
+            val orientation = if (case.width > case.height) "land" else "port"
+            val night = if (case.night) "night" else "notnight"
+            RuntimeEnvironment.setQualifiers("${case.locale}-$direction-w${case.width}dp-h${case.height}dp-$orientation-$night")
+            RuntimeEnvironment.setFontScale(case.scale)
+            val f = host()
+            try {
+                layout(f.binding, case.width, case.height)
+                assertTrue(f.binding.homeHeaderSummary.contentDescription.startsWith("vpn0wn"))
+                assertFullyVisible(f.binding.homeHeaderSummary, "${case.name}: brand")
+                assertFullyVisible(f.binding.createFab, "${case.name}: Add")
+                assertTextFits(f.binding.homeHeaderContainer, case.name)
+                save(f.binding.root, "brand-empty-${case.name}")
             } finally {
                 f.controller.pause().stop().destroy()
                 controllers.remove(f.controller)
@@ -668,6 +683,15 @@ class HomeSelectionTest {
     }
 
     private data class Preview(val name: String, val width: Int, val height: Int, val scale: Float, val locale: String, val night: Boolean)
+
+    private fun homePreviewCases() = listOf(
+        Preview("portrait-light", 320, 640, 1f, "en", false),
+        Preview("portrait-dark", 320, 640, 1f, "en", true),
+        Preview("landscape-dark", 640, 320, 1f, "en", true),
+        Preview("large-landscape-dark", 640, 320, 2f, "en", true),
+        Preview("large-rtl-light", 320, 640, 2f, "ar", false),
+        Preview("large-rtl-dark", 320, 640, 2f, "ar", true)
+    )
 
     private fun runHomeTest(block: suspend TestScope.() -> Unit) = runTest {
         try {

@@ -367,7 +367,8 @@
                             android:layout_gravity="center"
                             android:layout_marginBottom="20dp"
                             android:alpha="0.3333333"
-                            android:src="@mipmap/ic_launcher" />
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/vpnown_symbol" />
 
                         <TextView
                             android:id="@+id/home_empty_placeholder"
