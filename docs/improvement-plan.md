@@ -168,6 +168,7 @@ Clean-source extensions: C6 also owns atomic replacement/failure recovery in [Fi
 
 | Scope | Owning issue |
 | --- | --- |
+| Observed-UP kernel shutdown after app/backend recreation; repair in progress, blocking native rebind fixture setup | [#109](https://github.com/novakin/wireguard-android/issues/109) |
 | C2 ownership/input safety; merged in PR #19, issue closed | [#10](https://github.com/novakin/wireguard-android/issues/10) |
 | C3 mutations/recovery; merged in PR #19, issue closed | [#11](https://github.com/novakin/wireguard-android/issues/11) |
 | C4 responses, safe errors and observed health; merged in PR #21, issue closed | [#12](https://github.com/novakin/wireguard-android/issues/12) |

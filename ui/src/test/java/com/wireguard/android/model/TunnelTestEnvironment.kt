@@ -123,6 +123,8 @@ internal class TunnelTestEnvironment(directory: File, scope: CoroutineScope) {
         var deleteDefect = false
         val failDeleteNames: MutableSet<String> = ConcurrentHashMap.newKeySet()
         var failSave = false
+        val failLoadNames: MutableSet<String> = ConcurrentHashMap.newKeySet()
+        val loadAttempts = CopyOnWriteArrayList<String>()
         val loadEntered = ConcurrentHashMap<String, CountDownLatch>()
         val releaseLoad = ConcurrentHashMap<String, CountDownLatch>()
         override fun create(name: String, config: Config): Config {
@@ -140,6 +142,8 @@ internal class TunnelTestEnvironment(directory: File, scope: CoroutineScope) {
             return configs.keys.toSet()
         }
         override fun load(name: String): Config {
+            loadAttempts += name
+            if (name in failLoadNames) throw IOException("Injected load failure")
             loadEntered[name]?.countDown()
             if (releaseLoad[name]?.await(5, TimeUnit.SECONDS) == false)
                 throw IOException("Load fixture timed out")
