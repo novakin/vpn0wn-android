@@ -228,16 +228,6 @@
     <string name="type_name_go_userspace">Go kullanıcı uzayı</string>
     <string name="type_name_kernel_module">Çekirdek modülü</string>
     <string name="unknown_error">Bilinmeyen hata</string>
-    <string name="updater_avalable">Uygulama güncellemesi mevcut. Lütfen şimdi güncelleyin.</string>
-    <string name="updater_action">İndir ve güncelle</string>
-    <string name="updater_rechecking">Güncellemenin meta verileri alınıyor…</string>
-    <string name="updater_download_progress">Güncelleme indiriliyor: %1$s / %2$s (%3$.2f%%)</string>
-    <string name="updater_download_progress_nototal">Güncelleme indiriliyor: %s</string>
-    <string name="updater_installing">Güncelleme yükleniyor…</string>
-    <string name="updater_failure">Güncelleme hatası: %s. Birazdan yeniden denenecek…</string>
-    <string name="updater_corrupt_title">Uygulama hasar görmüş</string>
-    <string name="updater_corrupt_message">Bu uygulama hasarlı. Lütfen APK dosyasını aşağıdaki web sitesinden yeniden indirin. Daha sonra bu uygulamayı kaldırın ve indirdiğiniz APK\'den yeniden yükleyin.</string>
-    <string name="updater_corrupt_navigate">Web sitesini aç</string>
     <string name="version_summary">%1$s arka ucu %2$s</string>
     <string name="version_summary_checking">%s arka uç sürümü kontrol ediliyor</string>
     <string name="version_summary_unknown">Bilinmeyen %s sürümü</string>

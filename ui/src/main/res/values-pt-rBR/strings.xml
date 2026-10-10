@@ -228,16 +228,6 @@
     <string name="type_name_go_userspace">Espaço do usuário Go</string>
     <string name="type_name_kernel_module">Modo de Kernel</string>
     <string name="unknown_error">Erro desconhecido</string>
-    <string name="updater_avalable">Uma atualização do aplicativo está disponível. Pôr favor atualize agora.</string>
-    <string name="updater_action">Baixar &amp; Atualizar</string>
-    <string name="updater_rechecking">Obtendo metadados de atualização…</string>
-    <string name="updater_download_progress">Baixando a atualização: %1$s / %2$s (%3$.2f%%)</string>
-    <string name="updater_download_progress_nototal">Baixando atualização: %s</string>
-    <string name="updater_installing">Instalando atualização…</string>
-    <string name="updater_failure">Falha na atualização: %s. Tentaremos novamente em breve…</string>
-    <string name="updater_corrupt_title">Aplicativo corrompido</string>
-    <string name="updater_corrupt_message">Este aplicativo está corrompido. Por favor, baixe novamente o APK do site vinculado abaixo. Depois disso, desinstale o aplicativo e reinstale-o a partir do APK baixado.</string>
-    <string name="updater_corrupt_navigate">Abrir site</string>
     <string name="version_summary">Backend do %1$s %2$s</string>
     <string name="version_summary_checking">Verificando a versão do backend %s</string>
     <string name="version_summary_unknown">Versão %s desconhecida</string>

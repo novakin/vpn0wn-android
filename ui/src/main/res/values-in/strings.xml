@@ -215,16 +215,6 @@
     <string name="type_name_go_userspace">Ke userspace</string>
     <string name="type_name_kernel_module">Modul kernel</string>
     <string name="unknown_error">Eror tidak diketahui</string>
-    <string name="updater_avalable">Pembaruan aplikasi tersedia. Perbarui sekarang.</string>
-    <string name="updater_action">Unduh &amp; Pembaruan</string>
-    <string name="updater_rechecking">Mengambil pembaharuan metadata…</string>
-    <string name="updater_download_progress">Mengunduh pembaruan: %1$s / %2$s (%3$.2f%%)</string>
-    <string name="updater_download_progress_nototal">Mengunduh pembaruan: %s</string>
-    <string name="updater_installing">Gagal menginstall…</string>
-    <string name="updater_failure">Pembaruan gagal. %s. akan dicoba kembali sementara waktu…</string>
-    <string name="updater_corrupt_title">Aplikasi Rusak</string>
-    <string name="updater_corrupt_message">Aplikasi ini rusak. Silahkan unduh ulang APK-nya di website bawah ini. Setelah itu, Hapus instalan aplikasi ini dan install ulang dari APK yang telah diunduh.</string>
-    <string name="updater_corrupt_navigate">Buka Website</string>
     <string name="version_summary">%1$s dengan v%2$s</string>
     <string name="version_summary_checking">Mengecek versi backend %s</string>
     <string name="version_summary_unknown">Versi %s Tidak diketahui</string>

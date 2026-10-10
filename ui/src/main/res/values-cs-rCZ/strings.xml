@@ -254,16 +254,6 @@
     <string name="type_name_go_userspace">Přejít do uživatelského prostoru</string>
     <string name="type_name_kernel_module">Modul jádra</string>
     <string name="unknown_error">Neznámá chyba</string>
-    <string name="updater_avalable">Aktualizace aplikace je k dispozici. Aktualizujte nyní.</string>
-    <string name="updater_action">Stáhnout &amp; Aktualizovat</string>
-    <string name="updater_rechecking">Načítání metadat pro aktualizaci…</string>
-    <string name="updater_download_progress">Stahování aktualizace: %1$s / %2$s (%3$.2f%%)</string>
-    <string name="updater_download_progress_nototal">Stahování aktualizace: %s</string>
-    <string name="updater_installing">Instalování aktualizace…</string>
-    <string name="updater_failure">Chyba při aktualizaci: %s. Pokusím se znovu za chvíli…</string>
-    <string name="updater_corrupt_title">Aplikace je poškozená</string>
-    <string name="updater_corrupt_message">Tato aplikace je poškozená. Prosím, znovu stáhněte APK soubor z webové stránky uvedené níže. Poté odinstalujte tuto aplikaci a znovu ji nainstalujte z nově staženého APK souboru.</string>
-    <string name="updater_corrupt_navigate">Otevřít webovou stránku</string>
     <string name="version_summary">%1$s backend %2$s</string>
     <string name="version_summary_checking">Kontroluji verzi %s backendu</string>
     <string name="version_summary_unknown">Neznámá verze %s</string>

@@ -1,5 +1,7 @@
 @file:Suppress("UnstableApiUsage")
 
+import com.android.build.api.variant.HostTestBuilder
+
 val pkg: String = providers.gradleProperty("wireguardPackageName").get()
 
 plugins {
@@ -71,6 +73,12 @@ android {
                 it.maxHeapSize = "1g"
             }
         }
+    }
+}
+
+androidComponents {
+    beforeVariants(selector().withBuildType("release")) {
+        it.hostTests.getValue(HostTestBuilder.UNIT_TEST_TYPE).enable = true
     }
 }
 

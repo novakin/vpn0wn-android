@@ -254,16 +254,6 @@
     <string name="type_name_go_userspace">Uporabniški prostor Go</string>
     <string name="type_name_kernel_module">Modul jedra</string>
     <string name="unknown_error">Neznana napaka</string>
-    <string name="updater_avalable">Na voljo je posodobitev aplikacije. Prosimo, posodobite zdaj.</string>
-    <string name="updater_action">Prenesi in posodobi</string>
-    <string name="updater_rechecking">Pridobivanje metapodatkov o posodobitvi …</string>
-    <string name="updater_download_progress">Prenašanje posodobitve: %1$s / %2$s (%3$.2f %%)</string>
-    <string name="updater_download_progress_nototal">Prenašanje posodobitve: %s</string>
-    <string name="updater_installing">Nameščanje posodobitve …</string>
-    <string name="updater_failure">Posodobitev ni uspela: %s. Ponovni poskus kmalu …</string>
-    <string name="updater_corrupt_title">Pokvarjena aplikacija</string>
-    <string name="updater_corrupt_message">Ta aplikacija je pokvarjena. Prosimo, ponovno prenesite APK s spletne strani na spodnji povezavi. Po tem odstranite to aplikacijo in jo ponovno namestite s prenesenim APK-jem.</string>
-    <string name="updater_corrupt_navigate">Odpri spletno stran</string>
     <string name="version_summary">Zaledje %1$s %2$s</string>
     <string name="version_summary_checking">Preverjam verzijo zaledja %s</string>
     <string name="version_summary_unknown">Neznana verzija %s</string>
