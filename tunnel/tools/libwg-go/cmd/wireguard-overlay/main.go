@@ -60,7 +60,7 @@ func generate(output string, host bool) error {
 		return err
 	}
 	replacements := make(map[string]string)
-	for _, file := range []string{"device/device.go", "device/uapi.go", "conn/boundif_android.go"} {
+	for _, file := range []string{"device/device.go", "device/uapi.go", "device/send.go", "device/timers.go", "conn/boundif_android.go"} {
 		name := filepath.Base(file)
 		sourcePath := filepath.Join(module.Dir, file)
 		source, err := os.ReadFile(sourcePath)
@@ -106,6 +106,11 @@ func generate(output string, host bool) error {
 			}
 			replacements[filepath.Join(module.Dir, "conn", upstream)] = fixturePath
 		}
+		fixturePath, err := filepath.Abs(filepath.Join("tests", "handshake_test.go"))
+		if err != nil {
+			return err
+		}
+		replacements[filepath.Join(module.Dir, "device", "tunnl_handshake_test.go")] = fixturePath
 	}
 	data, err := json.Marshal(struct{ Replace map[string]string }{replacements})
 	if err != nil {
@@ -133,6 +138,16 @@ func patch(name, source string) (string, error) {
 			{"\tsysconn, err := s.ipv4.SyscallConn()", "\tif s.ipv4 == nil {\n\t\treturn -1, syscall.EINVAL\n\t}\n\tsysconn, err := s.ipv4.SyscallConn()"},
 			{"\tsysconn, err := s.ipv6.SyscallConn()", "\tif s.ipv6 == nil {\n\t\treturn -1, syscall.EINVAL\n\t}\n\tsysconn, err := s.ipv6.SyscallConn()"},
 		}
+	case "send.go":
+		edits = [][2]string{
+			{"err = peer.SendBuffers([][]byte{packet})\n\tif err != nil {\n\t\tpeer.device.log.Errorf(\"%v - Failed to send handshake initiation: %v\", peer, err)\n\t}\n\tpeer.timersHandshakeInitiated()", "peer.observeHandshake(tunnlHandshakeAttempt, isRetry)\n\terr = peer.SendBuffers([][]byte{packet})\n\tif err != nil {\n\t\tpeer.device.log.Errorf(\"%v - Failed to send handshake initiation: %v\", peer, err)\n\t\tpeer.observeHandshake(tunnlHandshakeSendFailed, isRetry)\n\t} else {\n\t\tpeer.observeHandshake(tunnlHandshakeSent, isRetry)\n\t}\n\tpeer.timersHandshakeInitiated()"},
+		}
+	case "timers.go":
+		edits = [][2]string{
+			{"func (peer *Peer) timersActive() bool {", handshakeObserverSource + "\nfunc (peer *Peer) timersActive() bool {"},
+			{"if peer.timers.handshakeAttempts.Load() > MaxTimerHandshakes {", "if peer.timers.handshakeAttempts.Load() > MaxTimerHandshakes {\n\t\tpeer.observeHandshake(tunnlHandshakeExhausted, true)"},
+			{"peer.lastHandshakeNano.Store(time.Now().UnixNano())", "peer.lastHandshakeNano.Store(time.Now().UnixNano())\n\tpeer.observeHandshake(tunnlHandshakeAuthenticated, false)"},
+		}
 	default:
 		return "", fmt.Errorf("unsupported overlay file %s", name)
 	}
@@ -148,3 +163,31 @@ func patch(name, source string) (string, error) {
 	}
 	return source, nil
 }
+
+const handshakeObserverSource = `const (
+	tunnlHandshakeAttempt = iota + 1
+	tunnlHandshakeSent
+	tunnlHandshakeSendFailed
+	tunnlHandshakeAuthenticated
+	tunnlHandshakeExhausted
+)
+
+func (peer *Peer) observeHandshake(event int, retry bool) {
+	if peer.device.isClosed() {
+		return
+	}
+	observer, ok := peer.device.net.bind.(interface {
+		ObserveHandshake([32]byte, int, bool, string)
+	})
+	if !ok {
+		return
+	}
+	peer.endpoint.Lock()
+	endpoint := ""
+	if peer.endpoint.val != nil {
+		endpoint = peer.endpoint.val.DstToString()
+	}
+	peer.endpoint.Unlock()
+	observer.ObserveHandshake([32]byte(peer.handshake.remoteStatic), event, retry, endpoint)
+}
+`

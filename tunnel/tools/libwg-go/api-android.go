@@ -94,6 +94,13 @@ func wgTurnOn(interfaceName string, tunFd int32, settings string, context *C.str
 			return C.wgProtectSocket(context, C.int(fd)) != 0
 		})
 	}, func() bool { return C.wgServiceActive(context) != 0 })
+	bind.SetHandshakeObserver(func(peer [32]byte, event int, retry bool, endpoint string) {
+		isRetry := C.int(0)
+		if retry {
+			isRetry = 1
+		}
+		C.wgHandshakeObservation(context, (*C.char)(unsafe.Pointer(&peer[0])), C.int(event), isRetry, cstring(endpoint))
+	})
 	device := device.NewDevice(tun, bind, logger)
 	handle := &TunnelHandle{device: device, bind: bind, context: context}
 

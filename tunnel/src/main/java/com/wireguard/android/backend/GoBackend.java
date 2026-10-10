@@ -8,7 +8,10 @@ package com.wireguard.android.backend;
 import android.content.Context;
 import android.content.Intent;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.ParcelFileDescriptor;
+import android.os.SystemClock;
 import android.system.OsConstants;
 import android.util.Log;
 
@@ -17,14 +20,23 @@ import com.wireguard.android.backend.Tunnel.State;
 import com.wireguard.android.util.SharedLibraryLoader;
 import com.wireguard.config.Config;
 import com.wireguard.config.InetEndpoint;
+import com.wireguard.config.InetAddresses;
 import com.wireguard.config.InetNetwork;
 import com.wireguard.config.Peer;
+import com.wireguard.config.ParseException;
 import com.wireguard.crypto.Key;
 import com.wireguard.crypto.KeyFormatException;
 import com.wireguard.util.NonNullForAll;
 
 import java.net.InetAddress;
+import java.net.Inet4Address;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -43,6 +55,7 @@ import androidx.collection.ArraySet;
 @NonNullForAll
 public final class GoBackend implements Backend {
     private static final int DNS_RESOLUTION_RETRIES = 10;
+    private static final int NATIVE_HANDSHAKE_EVENT_FIRST = 1;
     private static final String TAG = "WireGuard/GoBackend";
     @Nullable private static AlwaysOnCallback alwaysOnCallback;
     private static final AtomicReference<CompletableFuture<VpnService>> vpnServiceRef =
@@ -53,6 +66,93 @@ public final class GoBackend implements Backend {
     @Nullable private Tunnel currentTunnel;
     @Nullable private VpnService currentService;
     private int currentTunnelHandle = -1;
+    private final Handler observationHandler = new Handler(Looper.getMainLooper());
+    @Nullable private volatile Activation activation;
+
+    private final class Activation {
+        private final HandshakeSession session = new HandshakeSession();
+        private final Tunnel tunnel;
+        private final VpnService service;
+        private final Map<Key, EnumMap<HandshakeObservation.Event, HandshakeObservation>> pending = new HashMap<>();
+        private final Runnable drain = this::deliver;
+        private boolean retired;
+        private boolean committed;
+        private boolean queued;
+        private long sequence;
+
+        private Activation(final Tunnel tunnel, final VpnService service, final Config config) {
+            this.tunnel = tunnel;
+            this.service = service;
+            for (final Peer peer : config.getPeers())
+                pending.put(peer.getPublicKey(), new EnumMap<>(HandshakeObservation.Event.class));
+        }
+
+        private synchronized void observe(final Key peer, final HandshakeObservation.Event event, final boolean retry,
+                                          @Nullable final InetEndpoint endpoint, final HandshakeObservation.AddressFamily family) {
+            final EnumMap<HandshakeObservation.Event, HandshakeObservation> events = pending.get(peer);
+            if (retired || events == null)
+                return;
+            events.put(event, new HandshakeObservation(session, peer, event, retry, endpoint, family,
+                    ++sequence, SystemClock.elapsedRealtime()));
+            if (committed && !queued) {
+                queued = true;
+                observationHandler.post(drain);
+            }
+        }
+
+        private synchronized void commit() {
+            if (retired)
+                return;
+            committed = true;
+            session.activate();
+            queued = true;
+            observationHandler.post(drain);
+        }
+
+        private void retire() {
+            final boolean notify;
+            synchronized (this) {
+                if (retired)
+                    return;
+                retired = true;
+                session.retire();
+                notify = published;
+                for (final Map<HandshakeObservation.Event, HandshakeObservation> events : pending.values())
+                    events.clear();
+            }
+            observationHandler.removeCallbacks(drain);
+            if (notify)
+                observationHandler.post(() -> tunnel.onHandshakeSessionChange(session));
+        }
+
+        private boolean published;
+
+        private void deliver() {
+            final List<HandshakeObservation> observations = new ArrayList<>();
+            final boolean publishSession;
+            synchronized (this) {
+                queued = false;
+                if (retired || !committed || activation != this)
+                    return;
+                publishSession = !published;
+                published = true;
+                for (final Map<HandshakeObservation.Event, HandshakeObservation> events : pending.values()) {
+                    observations.addAll(events.values());
+                    events.clear();
+                }
+            }
+            if (!session.isActive() || activation != this)
+                return;
+            if (publishSession)
+                tunnel.onHandshakeSessionChange(session);
+            observations.sort(Comparator.comparingLong(HandshakeObservation::sequence));
+            for (final HandshakeObservation observation : observations) {
+                if (!session.isActive() || activation != this)
+                    return;
+                tunnel.onHandshakeObservation(observation);
+            }
+        }
+    }
 
     /**
      * Public constructor for GoBackend.
@@ -78,7 +178,46 @@ public final class GoBackend implements Backend {
 
     private static native void wgTurnOff(int handle);
 
-    private static native int wgTurnOn(String ifName, int tunFd, String settings, VpnService service, Thread activationThread);
+    private static native int wgTurnOn(String ifName, int tunFd, String settings, VpnService service, Thread activationThread, long activationId);
+
+    private void captureHandshakeObservation(final VpnService service, final long activationId, final byte[] publicKey,
+                                             final int eventCode, final boolean retry, final String endpoint) {
+        final Activation captured = activation;
+        if (captured == null || captured.service != service || captured.session.getId() != activationId)
+            return;
+        final HandshakeObservation.Event[] events = HandshakeObservation.Event.values();
+        if (eventCode < NATIVE_HANDSHAKE_EVENT_FIRST || eventCode > events.length)
+            throw new IllegalArgumentException("Invalid native handshake event");
+        InetEndpoint numericEndpoint = null;
+        HandshakeObservation.AddressFamily family = HandshakeObservation.AddressFamily.UNKNOWN;
+        if (!endpoint.isEmpty()) {
+            try {
+                numericEndpoint = InetEndpoint.parse(endpoint);
+                final InetAddress address = InetAddresses.parse(numericEndpoint.getHost());
+                family = address instanceof Inet4Address ? HandshakeObservation.AddressFamily.IPV4 : HandshakeObservation.AddressFamily.IPV6;
+            } catch (final ParseException e) {
+                throw new IllegalArgumentException("Invalid native numeric endpoint");
+            }
+        }
+        try {
+            captured.observe(Key.fromBytes(publicKey), events[eventCode - NATIVE_HANDSHAKE_EVENT_FIRST], retry, numericEndpoint, family);
+        } catch (final KeyFormatException e) {
+            throw new IllegalArgumentException("Invalid native peer identity");
+        }
+    }
+
+    private void retireActivation() {
+        final Activation captured = activation;
+        activation = null;
+        if (captured != null)
+            captured.retire();
+    }
+
+    private void retireServiceActivation(final VpnService service) {
+        final Activation captured = activation;
+        if (captured != null && captured.service == service)
+            captured.retire();
+    }
 
     private static native String wgVersion();
 
@@ -387,12 +526,21 @@ public final class GoBackend implements Backend {
                     throw new BackendException(Reason.TUN_CREATION_ERROR);
                 }
                 Log.d(TAG, "Go backend " + wgVersion());
-                final int tunnelHandle = wgTurnOn(tunnel.getName(), tun.detachFd(), goConfig, service, Thread.currentThread());
-                if (tunnelHandle < 0)
-                    throw new BackendException(Reason.GO_ACTIVATION_ERROR_CODE, tunnelHandle);
+                final Activation starting = new Activation(tunnel, service, config);
+                activation = starting;
+                final int tunnelHandle;
+                try {
+                    tunnelHandle = wgTurnOn(tunnel.getName(), tun.detachFd(), goConfig, service, Thread.currentThread(), starting.session.getId());
+                    if (tunnelHandle < 0)
+                        throw new BackendException(Reason.GO_ACTIVATION_ERROR_CODE, tunnelHandle);
+                } catch (final Exception | Error e) {
+                    retireActivation();
+                    throw e;
+                }
                 try {
                     requireActiveService(service);
                 } catch (final Exception | Error e) {
+                    retireActivation();
                     try {
                         wgTurnOff(tunnelHandle);
                     } catch (final Exception | Error cleanupFailure) {
@@ -402,6 +550,7 @@ public final class GoBackend implements Backend {
                 }
                 currentTunnelHandle = tunnelHandle;
                 currentService = service;
+                starting.commit();
             }
 
             currentTunnel = tunnel;
@@ -413,6 +562,7 @@ public final class GoBackend implements Backend {
                 return;
             }
             int handleToClose = currentTunnelHandle;
+            retireActivation();
             final VpnService service = currentService;
             currentTunnel = null;
             currentTunnelHandle = -1;
@@ -442,6 +592,7 @@ public final class GoBackend implements Backend {
                 Log.i(TAG, "VpnService.onDestroy(); tunnel active=" + (currentTunnelHandle != -1));
                 tunnel = currentTunnel;
                 final int handle = currentTunnelHandle;
+                retireActivation();
                 currentTunnel = null;
                 currentTunnelHandle = -1;
                 currentConfig = null;
@@ -480,6 +631,14 @@ public final class GoBackend implements Backend {
         }
 
         @Keep
+        private void onNativeHandshakeObservation(final long activationId, final byte[] publicKey, final int event,
+                                                  final boolean retry, final String endpoint) {
+            final GoBackend currentOwner = owner;
+            if (currentOwner != null)
+                currentOwner.captureHandshakeObservation(this, activationId, publicKey, event, retry, endpoint);
+        }
+
+        @Keep
         private boolean isNativeServiceActive(@Nullable final Thread activationThread)
                 throws BackendException, InterruptedException {
             if (activationThread != null && activationThread.isInterrupted())
@@ -507,6 +666,8 @@ public final class GoBackend implements Backend {
                 owner = null;
             }
             resetVpnServiceFutureForService(this);
+            if (currentOwner != null)
+                currentOwner.retireServiceActivation(this);
             if (currentOwner != null)
                 CompletableFuture.runAsync(() -> currentOwner.handleServiceDestroyed(this))
                         .whenComplete((ignored, failure) -> {

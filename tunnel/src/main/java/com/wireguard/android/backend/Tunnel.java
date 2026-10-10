@@ -36,6 +36,12 @@ public interface Tunnel {
      */
     void onStateChange(State newState);
 
+    default void onHandshakeSessionChange(HandshakeSession session) {
+    }
+
+    default void onHandshakeObservation(HandshakeObservation observation) {
+    }
+
     /**
      * Enum class to represent all possible states of a {@link Tunnel}.
      */

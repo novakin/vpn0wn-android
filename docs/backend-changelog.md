@@ -8,6 +8,10 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## In Progress
 
+- **Native per-peer handshake observations — #73 published draft (2026-10-09 source; 2026-10-10 scoped runtime, Europe/Paris)**
+  The existing pinned-source overlay, `androidbind`, JNI and `GoBackend` stage activation-scoped ATTEMPT/SENT/SEND_FAILED/AUTHENTICATED/EXHAUSTED observations from protocol owners; `ObservableTunnel.onHandshakeSessionChange`/`onHandshakeObservation` publish read-only `handshakeDiagnostics` snapshots. Callback staging is bounded by configured peer/event kind; coalesced publication rejects failed/obsolete activations. [The contract](backend-contracts.md#native-handshake-observations--73-draft) keeps local send, authentication, exhaustion, UP and reachability distinct, with nullable kernel/DOWN/unknown data. This first source slice adds no recovery mutation, DNS/network callback, UI, polling, ping or wake lock. Draft [PR #101](https://github.com/novakin/wireguard-android/pull/101) owns current review/CI/publication gates; [private Android evidence](reviews/2026-10-10-native-handshake-avd-acceptance.md) adds scoped runtime proof without claiming merge/release or broader delivery. #73 stays open for remaining recovery/presentation/runtime acceptance, including the [retained-TUN rebind prerequisite](architecture.md#handshake-observations-follow-native-protocol-and-activation-owners--2026-10-09).
+  Independent ultra review found that `Peer.SendBuffers` returns nil after native closure without sending. The overlay's shared `observeHandshake` seam now checks terminal `Device.isClosed()` before capture, suppressing that false SENT and other closed-device observations without changing upstream return values or timers. Actual device-close and concurrent-close controls cover the native path; [development proof](development.md#native-handshake-observation-draft--2026-10-09) retains the original and follow-up verification scopes.
+
 - **Android system VPN protection acceptance — #75**
   The [setup/status slice](operations.md#android-system-vpn-settings) leaves device/system-policy and [packet proof](qa-test-plan.md#android-system-vpn-policy-acceptance) open. Endpoint bootstrap DNS with #73 and manual/always-on/automation arbitration with #74 remain undecided; enabled flags establish no leak-protection guarantee. Source integration alone does not fulfil #75.
 
@@ -53,6 +57,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 - [x] Add opt-in destructive end-to-end test path against a disposable Ubuntu/Debian VPS.
 
 ## Done
+
+- **Private Android observation proof — 2026-10-10**
+  `GoBackend.VpnService.protectNativeSocket`/`onNativeHandshakeObservation` and `ObservableTunnel.onHandshakeSessionChange`/`onHandshakeObservation` were read on the authorized private API 36 debug APK. [Scoped acceptance](reviews/2026-10-10-native-handshake-avd-acceptance.md) records callback entry, distinct authenticated peer facts, manual DOWN/replacement and corrected forced screen-off idle/private wake reachability; protection return and unavailable packet/physical/recovery gates remain explicit. This is verification of the draft slice, not a new runtime behavior, merge, release or complete #73 delivery.
 
 - **UI Robolectric worker heap — #96 CI repair (2026-10-09)**
   `ui/build.gradle.kts` sets `Test.maxHeapSize` to `1g` after the full suite exhausted Gradle's default 512 MiB test-worker heap. The Gradle daemon's existing 4 GiB setting does not size this process. The existing single-fork default, coroutine timeout and assertions remain unchanged; [development guidance](development.md#verification-commands-and-ownership) owns this setup boundary. No Android runtime, APK or device behavior changes.
