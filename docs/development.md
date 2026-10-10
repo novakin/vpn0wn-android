@@ -150,6 +150,8 @@ Invoke-CodexQuiet -Command 'wsl -- bash -c "cd /mnt/c/Users/Guillaume/Documents/
 
 `Invoke-CodexQuiet` is an existing local PowerShell helper, not a project dependency. Other environments should redirect noisy output to an ignored task log while preserving the command's exit code. Do not hide Gradle failure behind `tail` or a successful shell pipeline.
 
+UI unit-test workers use a 1 GiB heap in [the UI build script](../ui/build.gradle.kts). A local full-suite run during the [#96 CI repair](https://github.com/novakin/wireguard-android/pull/96) exhausted Gradle's default 512 MiB worker heap while retaining Robolectric SDK/resource/graphics sandboxes. `org.gradle.jvmargs` sizes the Gradle daemon, not test workers. Keep the existing single-fork default and focused test filters; no timeout or assertion is relaxed by this setting.
+
 | Test/check owner | Relevant proof |
 | --- | --- |
 | `tunnel/src/test` config tests/fixtures | Valid and malformed WireGuard configuration and parser compatibility. |

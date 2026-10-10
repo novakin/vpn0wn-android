@@ -103,6 +103,10 @@ tasks.withType<JavaCompile>().configureEach {
     options.isDeprecation = true
 }
 
+tasks.withType<Test>().configureEach {
+    maxHeapSize = "1g"
+}
+
 detekt {
     config.setFrom("$rootDir/config/detekt/detekt.yml")
     buildUponDefaultConfig = true
