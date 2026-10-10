@@ -94,9 +94,6 @@
     <string name="tv_select_a_storage_drive">Chọn bộ lưu trữ</string>
     <string name="tv_no_file_picker">Vui lòng cài đặt tệp tiện ích lưu trữ để tìm kiếm các tệp</string>
     <string name="tv_add_tunnel_get_started">Thêm một tunnel để bắt đầu</string>
-    <string name="donate_title">❤️ Đóng góp cho Dự án Wireguard</string>
-    <string name="donate_summary">Mọi đóng góp đều giúp ích</string>
-    <string name="donate_google_play_disappointment">Cảm ơn bạn đã ủng hộ WireGuard!\n\nThật tiếc, dựa trên điều khoản của Google, chúng tôi không thể đưa vào liên kết dẫn đến trang đóng góp ở trang chủ của dự án. Mong rằng bạn có thể tìm cách cho việc này!\n\nXin cảm ơn bạn một lần nữa vì đã đóng góp.</string>
     <string name="disable_config_export_title">Vô hiệu hóa xuất cấu hình</string>
     <string name="disable_config_export_description">Vô hiệu hóa xuất cấu hình sẽ giúp giảm khả năng truy cập vào private keys</string>
     <string name="dns_servers">DNS servers</string>

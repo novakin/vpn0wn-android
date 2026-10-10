@@ -107,9 +107,6 @@
     <string name="tv_select_a_storage_drive">Velg en lagringsenhet</string>
     <string name="tv_no_file_picker">Vennligst installer et filhåndteringsverktøy for å bla i filer</string>
     <string name="tv_add_tunnel_get_started">Opprett en ny tunnel for å komme i gang</string>
-    <string name="donate_title">♥ Donér til WireGuard-prosjektet</string>
-    <string name="donate_summary">Hvert bidrag hjelper</string>
-    <string name="donate_google_play_disappointment">Takk for at du støtter WireGuard-prosjektet!\n\nPå grunn av Googles retningslinjer, kan vi dessverre ikke linke til den delen av prosjektets nettside der du kan donere. Forhåpentligvis klarer du å finne denne selv!\n\nVi takker igjen for ditt bidrag.</string>
     <string name="disable_config_export_title">Deaktiver eksport av konfigurasjon</string>
     <string name="disable_config_export_description">Deaktivering av konfigurasjonseksport gjør private nøkler mindre tilgjengelig</string>
     <string name="dns_servers">DNS tjenere</string>

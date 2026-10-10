@@ -108,9 +108,6 @@
     <string name="tv_select_a_storage_drive">حافظه ذخیره سازی موردنظر را انتخاب کنید</string>
     <string name="tv_no_file_picker">برای مدیریت پوشه های حافظه، یک برنامه مدیریت فایل نصب کنید</string>
     <string name="tv_add_tunnel_get_started">یک پروفایل تونل برای شروع انتخاب کنید</string>
-    <string name="donate_title">♥ کمک مالی به پروژه WireGuard</string>
-    <string name="donate_summary">هر کمک شما تاثیرگذار است</string>
-    <string name="donate_google_play_disappointment">از اینکه از پروژه WireGuard حمایت می‌کنید متشکریم!\n\nمتأسفانه، به دلیل خط‌مشی‌های Google، ما مجاز به پیوند دادن به بخشی از صفحه وب پروژه که می‌توانید در آن کمک مالی کنید، نداریم. امیدواریم بتوانید این را درک کنید!\n\nباز هم از مشارکت شما سپاسگزاریم.</string>
     <string name="disable_config_export_title">غیرفعال سازی خروجی گرفتن از پیکربندی ها</string>
     <string name="disable_config_export_description">غیرفعال سازی خروجی گرفتن، دسترسی به کلیدهای خصوصی را کم می کند</string>
     <string name="dns_servers">سرورهای DNS</string>

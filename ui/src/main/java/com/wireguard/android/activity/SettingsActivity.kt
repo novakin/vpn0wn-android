@@ -177,6 +177,10 @@ class SettingsActivity : AppCompatActivity() {
                 startActivity(Intent(requireContext(), LogViewerActivity::class.java))
                 true
             }
+            preferenceManager.findPreference<Preference>("licenses")?.setOnPreferenceClickListener {
+                startActivity(Intent(requireContext(), LicensesActivity::class.java))
+                true
+            }
             preferenceManager.findPreference<Preference>("system_vpn_settings")?.setOnPreferenceClickListener {
                 openVpnSettings()
                 true

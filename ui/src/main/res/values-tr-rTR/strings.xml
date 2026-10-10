@@ -107,9 +107,6 @@
     <string name="tv_select_a_storage_drive">Bir depolama sürücüsü seçin</string>
     <string name="tv_no_file_picker">Dosyalara göz atmak için lütfen bir dosya yönetim aracı yükleyin</string>
     <string name="tv_add_tunnel_get_started">Başlamak için bir tünel ekleyin</string>
-    <string name="donate_title">♥ WireGuard projesine bağış yap</string>
-    <string name="donate_summary">Tüm bağışlarınız bizim için değerli</string>
-    <string name="donate_google_play_disappointment">WireGuard projesini desteklediğiniz için teşekkür ederiz!\n\nNe yazık ki Google\'ın politikaları nedeniyle web sitemizin bağış yapabileceğiniz bölümüne bağlantı veremiyoruz. Umarız ilgili sayfayı kendiniz bulabilirsiniz.\n\nKatkılarınız için tekrar teşekkür ederiz.</string>
     <string name="disable_config_export_title">Yapılandırmayı dışa aktarmayı devre dışı bırak</string>
     <string name="disable_config_export_description">Yapıalandırmayı dışa aktarmayı devre dışı bırakırsanız özel anahtarlara erişmek zorlaşır</string>
     <string name="dns_servers">DNS sunucuları</string>

@@ -107,10 +107,6 @@
     <string name="tv_select_a_storage_drive">Vali salvestusseade</string>
     <string name="tv_no_file_picker">Failide vaatamiseks paigalda failide haldusvahend</string>
     <string name="tv_add_tunnel_get_started">Alustamiseks lisa uus tunnel</string>
-    <string name="donate_title">♥ Anneta WireGuard\'i projektile</string>
-    <string name="donate_summary">Iga panus aitab</string>
-    <string name="donate_google_play_disappointment">Aitäh, et toetad WireGuard\'i projekti!\n\nKahjuks ei saa me Google\'i eeskirjade tõttu linkida projekti veebilehele, kus saab annetusi teha. Loodetavasti leiad selle ise!\n\n
-Aitäh veelkord sinu panuse eest.</string>
     <string name="disable_config_export_title">Keela seadistuste eksportimine</string>
     <string name="disable_config_export_description">Seadistuste eksportimise keelamine teeb privaatvõtmetele ligipääsu keerulisemaks</string>
     <string name="dns_servers">DNS-serverid</string>

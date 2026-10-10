@@ -45,7 +45,7 @@ In retained baseline logs, `UDP preflight sent` means the protected Java socket 
 
 ## Native handshake observations — #73 draft
 
-The first [#73](https://github.com/novakin/wireguard-android/issues/73) source slice is published in draft [PR #101](https://github.com/novakin/wireguard-android/pull/101) for userspace observations only. The version/match-checked overlay extends actual pinned protocol owners; it does not replace WireGuard retry/rekey timing. No recovery mutation, underlying-network callback, endpoint/DNS rewrite, UI, ping, wake lock or additional polling is included. Kernel observations and recovery are unavailable.
+The first [#73](https://github.com/novakin/wireguard-android/issues/73) source slice is merged through [PR #101](https://github.com/novakin/wireguard-android/pull/101) for userspace observations only. The version/match-checked overlay extends actual pinned protocol owners; it does not replace WireGuard retry/rekey timing. No recovery mutation, underlying-network callback, endpoint/DNS rewrite, UI, ping, wake lock or additional polling is included. Kernel observations and recovery are unavailable.
 
 | Observation | Protocol-owned meaning |
 | --- | --- |

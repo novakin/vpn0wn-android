@@ -159,9 +159,6 @@
     <string name="tv_select_a_storage_drive">تحديد محرك تخزين</string>
     <string name="tv_no_file_picker">الرجاء تثبيت مدير ملفات لتتمكن من تصفح الملفات</string>
     <string name="tv_add_tunnel_get_started">أضف نفقاً لتبدأ</string>
-    <string name="donate_title">♥️ تبرع لمشروع وايرجارد</string>
-    <string name="donate_summary">كل مساهمة تساعد</string>
-    <string name="donate_google_play_disappointment">شكرًا لك على دعم مشروع\n\nWireGuard! للأسف، نظرًا لسياسات Google، لا يُسمح لنا بالارتباط بجزء من صفحة الويب الخاصة بالمشروع حيث يمكنك التبرع. نأمل أن تتمكن من معرفة ذلك!\n\nشكرًا مرة أخرى على مساهمتك.</string>
     <string name="disable_config_export_title">تعطيل تصدير التكوين</string>
     <string name="disable_config_export_description">تعطيل تصدير الإعدادات يجعل المفاتيح الخاصة غير متاحة</string>
     <string name="dns_servers">خوادم DNS</string>

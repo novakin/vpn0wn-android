@@ -84,6 +84,12 @@
             android:parentActivityName=".activity.MainActivity" />
 
         <activity
+            android:name=".activity.LicensesActivity"
+            android:exported="false"
+            android:label="@string/licenses_title"
+            android:parentActivityName=".activity.SettingsActivity" />
+
+        <activity
             android:name=".activity.TunnelCreatorActivity"
             android:label="@string/create_activity_title"
             android:parentActivityName=".activity.MainActivity" />
