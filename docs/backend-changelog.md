@@ -58,6 +58,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **Home endpoint and relative-age wording — 2026-10-09**
+  `BindingAdapters.homeEndpointHost` replaces the misleading `EXIT IP` prefix with a separately labeled endpoint host, still reading the first recent-handshake active tunnel's first configured peer without DNS or WAN lookup. `homeProtectionLabel` reports `VPN connected`/`VPN disconnected` through the unchanged aggregate heuristic. `setHomeHandshakeStatistics` adds a localized age phrase to the existing latest-positive-handshake formatter, preserving `--` when unavailable and leaving Detail formatting unchanged. `homeHeaderSummary` now presents the preserved `Vpn0wn` wordmark and configured count; multi-tunnel status expansion remains separate. No backend transition, configuration or persistence behavior changes. Source controls and native acceptance are tracked under [#80](https://github.com/novakin/wireguard-android/issues/80).
+
 - **Complete credits accessibility text — #100 (2026-10-10)**
   `LicensesActivity.onCreate` presents the unchanged local payload as complete top-level notices in separate text views, avoiding Android's 100,000-character accessibility-node truncation. Actual API 36 node-text regression coverage checks every notice and exact concatenation of the full asset. Offline I/O, lifecycle ownership and failure feedback remain unchanged; [attribution guidance](license-attribution.md) documents per-notice selection and the size boundary.
 

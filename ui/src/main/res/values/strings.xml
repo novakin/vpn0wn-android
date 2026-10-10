@@ -308,12 +308,12 @@
     <string name="tunnl_in">↓ IN</string>
     <string name="tunnl_out">↑ OUT</string>
     <string name="tunnl_handshake">HANDSHAKE</string>
+    <string name="tunnl_last_handshake">LAST HANDSHAKE</string>
+    <string name="tunnl_home_handshake_age">%1$s ago</string>
     <string name="tunnl_mode_up">UP</string>
     <string name="tunnl_mode_connecting">CONNECTING</string>
     <string name="tunnl_mode_no_signal">NO SIGNAL</string>
     <string name="tunnl_mode_down">DOWN</string>
-    <string name="tunnl_home_mode_active">ACTIVE</string>
-    <string name="tunnl_home_mode_inactive">INACTIVE</string>
     <string name="tunnl_detail_status_up">TUNNEL UP</string>
     <string name="tunnl_detail_status_down">TUNNEL DOWN</string>
     <string name="tunnl_detail_status_waiting">waiting for handshake</string>
@@ -324,13 +324,13 @@
     <string name="tunnl_tunnel_status_connecting">◑ CONNECTING</string>
     <string name="tunnl_tunnel_status_no_signal">✕ NO SIGNAL</string>
     <string name="tunnl_tunnel_status_inactive">● INACTIVE</string>
-    <string name="tunnl_protected">PROTECTED</string>
-    <string name="tunnl_unprotected">UNPROTECTED</string>
+    <string name="tunnl_home_connected">VPN connected</string>
+    <string name="tunnl_home_disconnected">VPN disconnected</string>
+    <string name="tunnl_home_endpoint">Endpoint</string>
     <string name="tunnl_configured_tunnel">CONFIGURED TUNNEL</string>
     <string name="tunnl_list_title">tunnels</string>
     <string name="tunnl_list_subtitle">TUNNL · LOCAL CONFIGURATION</string>
-    <string name="tunnl_exit_ip_unknown">EXIT IP · -</string>
-    <string name="tunnl_add_tunnel">+ ADD TUNNEL</string>
+    <string name="tunnl_add_tunnel">ADD TUNNEL</string>
     <string name="tunnl_logs_title">logs</string>
     <string name="tunnl_log_stream_subtitle">STREAM · TUNL0</string>
     <string name="tunnl_log_live">◆ LIVE</string>
@@ -475,7 +475,8 @@
     <string name="tunnl_user_status_active">◆ ACTIVE</string>
     <string name="tunnl_user_status_idle">◑ IDLE</string>
     <string name="tunnl_user_status_revoked">✕ REVOKED</string>
-    <string name="tunnl_home_header_summary">Vpn0wn · %1$d CONFIGURED · %2$s</string>
+    <string name="tunnl_home_wordmark" translatable="false">Vpn0wn</string>
+    <string name="tunnl_home_header_summary">%1$s · %2$d configured</string>
 
     <string name="tunnl_settings_title">settings</string>
     <string name="tunnl_settings_subtitle">GLOBAL · APP CONTROL</string>

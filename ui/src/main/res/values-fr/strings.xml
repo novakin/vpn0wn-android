@@ -281,12 +281,12 @@
     <string name="tunnl_in">↓ ENTRANT</string>
     <string name="tunnl_out">↑ SORTANT</string>
     <string name="tunnl_handshake">HANDSHAKE</string>
+    <string name="tunnl_last_handshake">DERNIER HANDSHAKE</string>
+    <string name="tunnl_home_handshake_age">il y a %1$s</string>
     <string name="tunnl_mode_up">UP</string>
     <string name="tunnl_mode_connecting">CONNEXION</string>
     <string name="tunnl_mode_no_signal">AUCUN SIGNAL</string>
     <string name="tunnl_mode_down">DOWN</string>
-    <string name="tunnl_home_mode_active">ACTIF</string>
-    <string name="tunnl_home_mode_inactive">INACTIF</string>
     <string name="tunnl_detail_status_up">TUNNEL ACTIF</string>
     <string name="tunnl_detail_status_down">TUNNEL INACTIF</string>
     <string name="tunnl_detail_status_waiting">en attente de handshake</string>
@@ -297,13 +297,13 @@
     <string name="tunnl_tunnel_status_connecting">◑ CONNEXION</string>
     <string name="tunnl_tunnel_status_no_signal">✕ AUCUN SIGNAL</string>
     <string name="tunnl_tunnel_status_inactive">● INACTIF</string>
-    <string name="tunnl_protected">PROTÉGÉ</string>
-    <string name="tunnl_unprotected">NON PROTÉGÉ</string>
+    <string name="tunnl_home_connected">VPN connecté</string>
+    <string name="tunnl_home_disconnected">VPN déconnecté</string>
+    <string name="tunnl_home_endpoint">Point de terminaison</string>
     <string name="tunnl_configured_tunnel">TUNNEL CONFIGURÉ</string>
     <string name="tunnl_list_title">tunnels</string>
     <string name="tunnl_list_subtitle">TUNNL · CONFIGURATION LOCALE</string>
-    <string name="tunnl_exit_ip_unknown">IP SORTIE · -</string>
-    <string name="tunnl_add_tunnel">+ AJOUTER TUNNEL</string>
+    <string name="tunnl_add_tunnel">AJOUTER TUNNEL</string>
     <string name="tunnl_logs_title">journaux</string>
     <string name="tunnl_log_stream_subtitle">FLUX · TUNL0</string>
     <string name="tunnl_log_live">◆ LIVE</string>
@@ -448,7 +448,7 @@
     <string name="tunnl_user_status_active">◆ ACTIF</string>
     <string name="tunnl_user_status_idle">◑ INACTIF</string>
     <string name="tunnl_user_status_revoked">✕ RÉVOQUÉ</string>
-    <string name="tunnl_home_header_summary">Vpn0wn · %1$d CONFIGURÉS · %2$s</string>
+    <string name="tunnl_home_header_summary">%1$s · %2$d configurés</string>
 
     <string name="tunnl_settings_title">paramètres</string>
     <string name="tunnl_settings_subtitle">GLOBAL · CONTRÔLE APP</string>

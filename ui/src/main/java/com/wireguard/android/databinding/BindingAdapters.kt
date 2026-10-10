@@ -12,6 +12,9 @@ import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.os.SystemClock
 import android.text.InputFilter
+import android.text.SpannableString
+import android.text.Spanned
+import android.text.style.TextAppearanceSpan
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -297,19 +300,18 @@ object BindingAdapters {
 
     @JvmStatic
     fun homeHeaderSummary(context: Context, tunnels: Iterable<ObservableTunnel>?): String {
-        val list = tunnels?.toList().orEmpty()
-        val state = homeModeLabel(context, aggregateMode(list))
-        return context.getString(R.string.tunnl_home_header_summary, list.size, state)
+        return context.getString(R.string.tunnl_home_header_summary,
+            context.getString(R.string.tunnl_home_wordmark), tunnels?.count() ?: 0)
     }
 
     @JvmStatic
     fun homeProtectionLabel(context: Context, tunnels: Iterable<ObservableTunnel>?): String =
-        context.getString(protectionLabelRes(aggregateMode(tunnels)))
+        context.getString(connectionLabelRes(aggregateMode(tunnels)))
 
     @JvmStatic
-    fun homeExitIpLabel(tunnels: Iterable<ObservableTunnel>?): String {
+    fun homeEndpointHost(tunnels: Iterable<ObservableTunnel>?): String {
         val activeTunnel = tunnels?.firstOrNull { tunnelMode(it) == TunnelSignalView.TunnelMode.UP }
-        val host = activeTunnel
+        return activeTunnel
             ?.peekConfig()
             ?.peers
             ?.firstOrNull()
@@ -317,19 +319,17 @@ object BindingAdapters {
             ?.map { endpoint -> endpoint.host }
             ?.orElse("—")
             ?: "—"
-        return "EXIT IP · $host"
     }
 
     @JvmStatic
     @BindingAdapter("homeHeaderTunnels")
     fun setHomeHeaderTunnels(view: TextView, tunnels: Iterable<ObservableTunnel>?) {
-        val mode = aggregateMode(tunnels)
-        view.text = homeHeaderSummary(view.context, tunnels)
-        val color = when (mode) {
-            TunnelSignalView.TunnelMode.UP -> R.color.tunnl_ink_3
-            else -> modeColor(mode)
+        val summary = homeHeaderSummary(view.context, tunnels)
+        val wordmark = view.context.getString(R.string.tunnl_home_wordmark)
+        view.text = SpannableString(summary).apply {
+            setSpan(TextAppearanceSpan(view.context, R.style.TunnlHomeWordmarkText),
+                0, wordmark.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
-        view.setTextColor(ContextCompat.getColor(view.context, color))
     }
 
     @JvmStatic
@@ -479,9 +479,6 @@ object BindingAdapters {
     private fun statusModeLabel(context: Context, mode: TunnelSignalView.TunnelMode): String =
         context.getString(statusModeLabelRes(mode))
 
-    private fun homeModeLabel(context: Context, mode: TunnelSignalView.TunnelMode): String =
-        context.getString(homeModeLabelRes(mode))
-
     private fun topologyModeLabelRes(mode: TunnelSignalView.TunnelMode): Int = when (mode) {
         TunnelSignalView.TunnelMode.UP         -> R.string.tunnl_mode_up
         TunnelSignalView.TunnelMode.CONNECTING -> R.string.tunnl_mode_connecting
@@ -503,18 +500,11 @@ object BindingAdapters {
         TunnelSignalView.TunnelMode.DOWN       -> R.string.tunnl_tunnel_status_inactive
     }
 
-    private fun homeModeLabelRes(mode: TunnelSignalView.TunnelMode): Int = when (mode) {
-        TunnelSignalView.TunnelMode.UP         -> R.string.tunnl_home_mode_active
+    private fun connectionLabelRes(mode: TunnelSignalView.TunnelMode): Int = when (mode) {
+        TunnelSignalView.TunnelMode.UP         -> R.string.tunnl_home_connected
         TunnelSignalView.TunnelMode.CONNECTING -> R.string.tunnl_mode_connecting
         TunnelSignalView.TunnelMode.ERROR      -> R.string.tunnl_mode_no_signal
-        TunnelSignalView.TunnelMode.DOWN       -> R.string.tunnl_home_mode_inactive
-    }
-
-    private fun protectionLabelRes(mode: TunnelSignalView.TunnelMode): Int = when (mode) {
-        TunnelSignalView.TunnelMode.UP         -> R.string.tunnl_protected
-        TunnelSignalView.TunnelMode.CONNECTING -> R.string.tunnl_mode_connecting
-        TunnelSignalView.TunnelMode.ERROR      -> R.string.tunnl_mode_no_signal
-        TunnelSignalView.TunnelMode.DOWN       -> R.string.tunnl_unprotected
+        TunnelSignalView.TunnelMode.DOWN       -> R.string.tunnl_home_disconnected
     }
 
     @JvmStatic
@@ -571,6 +561,13 @@ object BindingAdapters {
             ?.filter { it > 0L }
             ?.maxOrNull()
         return if (latest == null) "--" else QuantityFormatter.formatEpochAgo(latest)
+    }
+
+    @JvmStatic
+    @BindingAdapter("homeHandshakeStatistics")
+    fun setHomeHandshakeStatistics(view: TextView, statistics: Statistics?) {
+        val age = tunnelHandshake(statistics)
+        view.text = if (age == "--") age else view.context.getString(R.string.tunnl_home_handshake_age, age)
     }
 
     @JvmStatic
