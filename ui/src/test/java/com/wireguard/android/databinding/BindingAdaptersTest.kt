@@ -79,6 +79,46 @@ class BindingAdaptersTest {
         assertEquals("vpn0wn · 0 configured", header.contentDescription.toString())
     }
 
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun homeWordmarkAndCountShareVisibleVerticalCenterAtNormalAndLargeText() {
+        try {
+            for (scale in listOf(1f, 2f)) {
+                RuntimeEnvironment.setFontScale(scale)
+                val header = TextView(context, null, 0, R.style.TunnlHomeHeaderText)
+                header.setTextColor(context.getColor(R.color.tunnl_ink_3))
+                BindingAdapters.setHomeHeaderTunnels(header, emptyList())
+                val density = header.resources.displayMetrics.density
+                val width = (320 * density).toInt()
+                header.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec((80 * density).toInt(), View.MeasureSpec.AT_MOST))
+                header.layout(0, 0, width, header.measuredHeight)
+                assertEquals(1, header.layout.lineCount)
+                val bitmap = Bitmap.createBitmap(width, header.height, Bitmap.Config.ARGB_8888)
+                header.draw(Canvas(bitmap))
+                try {
+                    val text = header.text as Spanned
+                    val logoWidth = text.getSpans(0, text.length, ImageSpan::class.java).single().drawable.bounds.width()
+                    val logoCenter = visibleInkCenter(bitmap, 0 until logoWidth)
+                    val countCenter = visibleInkCenter(bitmap, logoWidth until width)
+                    assertTrue("$scale text: logo center $logoCenter, count center $countCenter",
+                        kotlin.math.abs(logoCenter - countCenter) <= density)
+                } finally {
+                    bitmap.recycle()
+                }
+            }
+        } finally {
+            RuntimeEnvironment.setFontScale(1f)
+        }
+    }
+
+    private fun visibleInkCenter(bitmap: Bitmap, columns: IntRange): Float {
+        val rows = (0 until bitmap.height).filter { y ->
+            columns.any { x -> bitmap.getPixel(x, y) ushr 24 >= 128 }
+        }
+        assertTrue("Expected rendered ink", rows.isNotEmpty())
+        return (rows.first() + rows.last()) / 2f
+    }
+
     @Test
     fun homeStatusColorsOnlyStateAndLeavesCipherTextMixedCase() {
         val config = Config.parse("""
