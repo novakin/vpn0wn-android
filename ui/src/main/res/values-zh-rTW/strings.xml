@@ -215,16 +215,6 @@
     <string name="type_name_go_userspace">Go 使用者空間</string>
     <string name="type_name_kernel_module">核心模組</string>
     <string name="unknown_error">未知的錯誤</string>
-    <string name="updater_avalable">已有新的更新，請立刻更新。</string>
-    <string name="updater_action">下載 &amp; 更新</string>
-    <string name="updater_rechecking">正在下載更新描述檔...</string>
-    <string name="updater_download_progress">正在下載更新：%1$s / %2$s (%3$.2f%%)</string>
-    <string name="updater_download_progress_nototal">正在下載更新：%s</string>
-    <string name="updater_installing">安裝更新中</string>
-    <string name="updater_failure">更新失敗：%s。稍後將自動重試...</string>
-    <string name="updater_corrupt_title">應用程式已損毀</string>
-    <string name="updater_corrupt_message">此應用程式已損毀。請從下方的網站連結重新下載 APK 安裝檔。在解除安裝此應用程式後，再使用下載的 APK 安裝檔重新安裝。</string>
-    <string name="updater_corrupt_navigate">開啟網站</string>
     <string name="version_summary">%1$s 後端 %2$s</string>
     <string name="version_summary_checking">檢查 %s 後端版本</string>
     <string name="version_summary_unknown">未知的版本 %s</string>

@@ -159,6 +159,7 @@ Keep `maxIssues: 0`, analysis enabled and failures visible. Name meaningful dura
 ./gradlew :ui:testDebugUnitTest --tests com.wireguard.android.provisioning.ProvisioningJsonTest --console=plain
 ./gradlew :tunnel:testDebugUnitTest --tests com.wireguard.config.ConfigTest --console=plain
 ./gradlew :ui:detekt --console=plain
+./gradlew :ui:testReleaseUnitTest --tests com.wireguard.android.ApplicationBackendLifecycleTest --console=plain
 ```
 
 For Windows/WSL, keep the real exit status:
@@ -170,6 +171,8 @@ Invoke-CodexQuiet -Command 'wsl -- bash -c "cd /mnt/c/Users/Guillaume/Documents/
 `Invoke-CodexQuiet` is an existing local PowerShell helper, not a project dependency. Other environments should redirect noisy output to an ignored task log while preserving the command's exit code. Do not hide Gradle failure behind `tail` or a successful shell pipeline.
 
 UI unit-test workers use a 1 GiB heap in [the UI build script](../ui/build.gradle.kts). A local full-suite run during the [#96 CI repair](https://github.com/novakin/vpn0wn-android/pull/96) exhausted Gradle's default 512 MiB worker heap while retaining Robolectric SDK/resource/graphics sandboxes. `org.gradle.jvmargs` sizes the Gradle daemon, not test workers. Keep the existing single-fork default and focused test filters; no timeout or assertion is relaxed by this setting.
+
+Pinned AGP 9.1's `HostTestBuilder` enables the release unit-test variant explicitly. Use the targeted release startup command above for [#71 updater retirement](qa-test-plan.md#upstream-app-updater-retirement--71): debug startup skips the former updater guard and cannot establish independent-package compatibility. Release unit testing compiles source/resources without assembling or signing an APK; full release-suite execution and artifact distribution are separate scopes.
 
 | Test/check owner | Relevant proof |
 | --- | --- |
@@ -190,9 +193,9 @@ For documentation-only work, validate relative links, fences, examples/source cl
 
 The existing workflow also runs the stdlib offline VPS harness suite with `python3 -m unittest discover -s scripts/tests -p 'test_vps_integration_test.py'` after checkout. The suite injects remote responses and temporary fake package queries; it makes no SSH, root, package or live-server operation. This protects C9 postcondition/redaction behavior in ordinary CI without enabling the destructive `vpsIntegrationTest`. Final-head execution and results still need their own readback.
 
-The [Android checks workflow](../.github/workflows/android.yml) runs `:ui:testDebugUnitTest :tunnel:testDebugUnitTest :ui:detekt` on pull requests, pushes to `master` and manual dispatch. It checks out the actual PR head SHA rather than the synthetic merge revision, initializes recursive native submodules and uses Ubuntu 24.04, Temurin Java 21 and the Android toolchain above. Actions use reviewed commit pins; token permissions are `contents: read`, checkout credentials are not persisted and no repository secrets are configured. PR/push checks never assemble an APK. Unit/static checks do not establish native VPN execution or device behavior.
+The [Android checks workflow](../.github/workflows/android.yml) runs `:ui:testDebugUnitTest :tunnel:testDebugUnitTest :ui:detekt` and targeted `:ui:testReleaseUnitTest --tests com.wireguard.android.ApplicationBackendLifecycleTest` on pull requests, pushes to `master` and manual dispatch. It checks out the actual PR head SHA rather than the synthetic merge revision, initializes recursive native submodules and uses Ubuntu 24.04, Temurin Java 21 and the Android toolchain above. Actions use reviewed commit pins; token permissions are `contents: read`, checkout credentials are not persisted and no repository secrets are configured. PR/push checks never assemble an APK. Unit/static checks do not establish native VPN execution or device behavior.
 
-The `Native checks` job fails when Gradle fails and retains available synthetic JUnit XML/Detekt reports for seven days, including on failure. Reports may be absent if setup/compilation fails; inspect the job log in that case. Superseded PR/push runs are canceled; manual runs are not automatically canceled. Require successful checks covering the final reviewed head before merge under the authorized goal. Read the actual run and source revision; automatic execution alone does not configure required branch checks or prove enforcement. Repository protection settings are not changed by this workflow.
+The `Native checks` job fails when Gradle fails and retains available synthetic debug/release JUnit XML/Detekt reports for seven days, including on failure. Reports may be absent if setup/compilation fails; inspect the job log in that case. Superseded PR/push runs are canceled; manual runs are not automatically canceled. Require successful checks covering the final reviewed head before merge under the authorized goal. Read the actual run and source revision; automatic execution alone does not configure required branch checks or prove enforcement. Repository protection settings are not changed by this workflow.
 
 For an explicitly requested debug APK, manually dispatch `android.yml` on the intended branch/ref with `build_apk=true`. The input defaults to false; ordinary dispatch runs checks only. Assembly and upload execute only after the checks succeed. This dispatch is an APK build authorization boundary, not an install, release or deployment action. Actual APK execution/artifact acceptance remains G4 of the [active goal](improvement-plan.md#active-enhancement-and-performance-goal).
 

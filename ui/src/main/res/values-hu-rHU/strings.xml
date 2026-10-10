@@ -99,7 +99,6 @@
     <string name="tunnel_name">Csatorna neve</string>
     <string name="type_name_kernel_module">Kernel modul</string>
     <string name="unknown_error">Ismeretlen hiba</string>
-    <string name="updater_corrupt_navigate">Weboldal megnyitása</string>
 
     <string name="tunnl_settings_title">beállítások</string>
     <string name="tunnl_settings_subtitle">GLOBÁLIS · APPVEZÉRLÉS</string>

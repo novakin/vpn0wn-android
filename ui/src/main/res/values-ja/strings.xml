@@ -215,16 +215,6 @@
     <string name="type_name_go_userspace">Go ユーザースペース</string>
     <string name="type_name_kernel_module">カーネルモジュール</string>
     <string name="unknown_error">未知のエラー</string>
-    <string name="updater_avalable">アプリを更新できます。今すぐ更新してください。</string>
-    <string name="updater_action">ダウンロードして更新</string>
-    <string name="updater_rechecking">更新のメタデータを取得しています…</string>
-    <string name="updater_download_progress">更新のダウンロード中: %1$s / %2$s (%3$.2f%%)</string>
-    <string name="updater_download_progress_nototal">更新のダウンロード中: %s</string>
-    <string name="updater_installing">更新をインストール中…</string>
-    <string name="updater_failure">更新に失敗しました: %s. 一定時間後に再試行します…</string>
-    <string name="updater_corrupt_title">アプリケーションが破損しています</string>
-    <string name="updater_corrupt_message">このアプリケーションは破損しています。下記のリンク先のウェブサイトから APK を再ダウンロードしてください。その後、このアプリケーションをアンインストールし、ダウンロードした APK から再インストールしてください。</string>
-    <string name="updater_corrupt_navigate">ウェブサイトを開く</string>
     <string name="version_summary">%1$s バックエンド %2$s</string>
     <string name="version_summary_checking">%s バックエンドのバージョンを確認中</string>
     <string name="version_summary_unknown">未知の %s バージョン</string>

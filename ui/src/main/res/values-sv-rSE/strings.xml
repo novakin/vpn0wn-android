@@ -228,16 +228,6 @@
     <string name="type_name_go_userspace">Go userspace</string>
     <string name="type_name_kernel_module">Kärnmodul</string>
     <string name="unknown_error">Okänt fel</string>
-    <string name="updater_avalable">Det finns en uppdatering till appen. Vänligen uppdatera nu.</string>
-    <string name="updater_action">Ladda ner &amp; uppdatera</string>
-    <string name="updater_rechecking">Hämtar uppdateringens metadata…</string>
-    <string name="updater_download_progress">Laddar ner uppdatering: %1$s / %2$s (%3$.2f%%)</string>
-    <string name="updater_download_progress_nototal">Laddar ner uppdatering: %s</string>
-    <string name="updater_installing">Installerar uppdatering…</string>
-    <string name="updater_failure">Uppdatering misslyckades: %s. Försöker igen inom kort…</string>
-    <string name="updater_corrupt_title">Applikationen är korrupt</string>
-    <string name="updater_corrupt_message">Applikationen är korrupt. Vänligen ladda ner en APK från hemsidan länkad nedan. Avinstallera därefter denna applikation och installera den nerladdade APKn.</string>
-    <string name="updater_corrupt_navigate">Öppna hemsida</string>
     <string name="version_summary">%1$s bakstycke %2$s</string>
     <string name="version_summary_checking">Kontrollerar %s backstycke utgåva</string>
     <string name="version_summary_unknown">Okänd %s utgåva</string>

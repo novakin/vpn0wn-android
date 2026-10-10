@@ -228,16 +228,6 @@
     <string name="type_name_go_userspace">Anar a l\'espai d\'usuari</string>
     <string name="type_name_kernel_module">Mòdul del kernel</string>
     <string name="unknown_error">Error desconegut</string>
-    <string name="updater_avalable">Hi ha una actualització disponible. Si us plau, actualitzi ara.</string>
-    <string name="updater_action">Descarregar &amp; Actualitzar</string>
-    <string name="updater_rechecking">Obtenint metadades de l\'actualització…</string>
-    <string name="updater_download_progress">Descarregant actualització: %1$s / %2$s (%3$.2f%%)</string>
-    <string name="updater_download_progress_nototal">Descarregant actualització: %s</string>
-    <string name="updater_installing">Instal·lant actualització…</string>
-    <string name="updater_failure">Error en actualitzar: %s. S\'intentarà de nou en uns instants…</string>
-    <string name="updater_corrupt_title">Aplicació corrupta</string>
-    <string name="updater_corrupt_message">L\'aplicació és corrupta. Si us plau, descarregui de nou l\'APK des del lloc web enllaçat a continuació. A continuació, desinstal·li i reinstal·li-la de l\'APK descarregat.</string>
-    <string name="updater_corrupt_navigate">Obrir el lloc web</string>
     <string name="version_summary">%1$s backend %2$s</string>
     <string name="version_summary_checking">Comprovant la versió de backend %s</string>
     <string name="version_summary_unknown">Versió de %s desconeguda</string>

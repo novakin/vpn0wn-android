@@ -254,16 +254,6 @@
     <string name="type_name_go_userspace">Go userspace</string>
     <string name="type_name_kernel_module">Модуль ядра</string>
     <string name="unknown_error">Невідома помилка</string>
-    <string name="updater_avalable">Доступне оновлення додатка. Будь ласка, оновіть.</string>
-    <string name="updater_action">Завантажити та оновити</string>
-    <string name="updater_rechecking">Отримання оновлених метаданих…</string>
-    <string name="updater_download_progress">Завантаження оновлення: %1$s / %2$s (%3$.2f%%)</string>
-    <string name="updater_download_progress_nototal">Завантаження оновлення: %s</string>
-    <string name="updater_installing">Встановдення оновлення…</string>
-    <string name="updater_failure">Помилка оновлення: %s. За мить спробуємо знову…</string>
-    <string name="updater_corrupt_title">Додаток пошкоджено</string>
-    <string name="updater_corrupt_message">Цей додаток пошкоджений. Будь ласка, повторно завантажте APK-файл із сайту нижче. Після цього, видаліть цей додаток і перевстановіть його з завантаженого APK.</string>
-    <string name="updater_corrupt_navigate">Перейти на сайт</string>
     <string name="version_summary">%1$s backend %2$s</string>
     <string name="version_summary_checking">Перевірка %s backend версії</string>
     <string name="version_summary_unknown">Невідома версія %s</string>

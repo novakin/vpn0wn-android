@@ -230,16 +230,6 @@
     <string name="type_name_go_userspace">رفتن به فضای کاربر</string>
     <string name="type_name_kernel_module">واحد هسته</string>
     <string name="unknown_error">خطای نامشخص</string>
-    <string name="updater_avalable">یک بروزرسانی برای برنامه موجود است. لطفا اکنون بروزرسانی کنید.</string>
-    <string name="updater_action">دانلود &amp; بروزرسانی</string>
-    <string name="updater_rechecking">در حال دریافت فراداده ی بروزرسانی…</string>
-    <string name="updater_download_progress">در حال دانلود بروزرسانی %1$s از %2$s (%3$.2f%%)</string>
-    <string name="updater_download_progress_nototal">در حال دانلود بروزرسانی: %s</string>
-    <string name="updater_installing">در حال نصب بروزسانی …</string>
-    <string name="updater_failure">خطا در بروزرسانی: %s. مجددا تلاش خواهد شد…</string>
-    <string name="updater_corrupt_title">برنامه خراب</string>
-    <string name="updater_corrupt_message">این برنامه خراب است. لطفا مجدد فایل نصبی APK برنامه را از وبسایت های زیر دانلود کنید. سپس، این برنامه را حذف، و از طریق فایل APK برنامه سالم را نصب کنید.</string>
-    <string name="updater_corrupt_navigate">باز کردن تارنما</string>
     <string name="version_summary">%1$s بک اند %2$s</string>
     <string name="version_summary_checking">در حال بررسی نگارش پس‌زمینه %s</string>
     <string name="version_summary_unknown">نگارش %s ناشناخته</string>
