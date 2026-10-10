@@ -22,21 +22,44 @@ import (
 	"golang.org/x/crypto/curve25519"
 	"golang.zx2c4.com/wireguard/conn"
 	"golang.zx2c4.com/wireguard/device"
+	"golang.zx2c4.com/wireguard/tun"
 	"golang.zx2c4.com/wireguard/tun/tuntest"
 )
 
-func quietDevice(t *testing.T, bind conn.Bind) (*device.Device, *tuntest.ChannelTUN) {
+type trackedTUN struct {
+	tun.Device
+	closeCalls atomic.Int32
+}
+
+func (tunnel *trackedTUN) Close() error {
+	tunnel.closeCalls.Add(1)
+	return tunnel.Device.Close()
+}
+
+func quietDevice(t *testing.T, bind conn.Bind) (*device.Device, *tuntest.ChannelTUN, *trackedTUN) {
 	t.Helper()
 	tunnel := tuntest.NewChannelTUN()
 	<-tunnel.TUN().Events()
-	d := device.NewDevice(tunnel.TUN(), bind, device.NewLogger(device.LogLevelSilent, ""))
+	tracked := &trackedTUN{Device: tunnel.TUN()}
+	d := device.NewDevice(tracked, bind, device.NewLogger(device.LogLevelSilent, ""))
 	t.Cleanup(func() {
 		if b, ok := bind.(*Bind); ok {
 			b.Shutdown()
 		}
 		d.Close()
 	})
-	return d, tunnel
+	return d, tunnel, tracked
+}
+
+func TestQuietDeviceTracksTUNClosure(t *testing.T) {
+	d, _, tunnel := quietDevice(t, conn.NewStdNetBind())
+	if tunnel.closeCalls.Load() != 0 {
+		t.Fatal("new TUN already closed")
+	}
+	d.Close()
+	if tunnel.closeCalls.Load() != 1 {
+		t.Fatal("device closure did not close tracked TUN")
+	}
 }
 
 func configPort(t *testing.T, d *device.Device) uint16 {
@@ -69,7 +92,7 @@ func TestFailedProtectionRetainsConfiguredPort(t *testing.T) {
 		return nil
 	}, func() bool { return true })
 	b.newBind = func() conn.Bind { return newFakeBind() }
-	d, _ := quietDevice(t, b)
+	d, _, _ := quietDevice(t, b)
 	if err := d.IpcSet("listen_port=51820\n"); err != nil {
 		t.Fatal(err)
 	}
@@ -110,7 +133,7 @@ func TestMarkFailureClosesBindAndKeepsRequestedPort(t *testing.T) {
 		}
 		return base
 	}
-	d, _ := quietDevice(t, b)
+	d, _, _ := quietDevice(t, b)
 	if err := d.IpcSet("listen_port=51820\nfwmark=1\n"); err != nil {
 		t.Fatal(err)
 	}
@@ -169,7 +192,7 @@ func TestRebindCancelsCapturedPeerSendBeforeNetworkLock(t *testing.T) {
 		return nil
 	}, func() bool { return true })
 	b.newBind = func() conn.Bind { return newFakeBind() }
-	d, tunnel := quietDevice(t, b)
+	d, _, tunnel := quietDevice(t, b)
 	publicKey := device.NoisePublicKey{1}
 	config := fmt.Sprintf("listen_port=51820\npublic_key=%s\nendpoint=127.0.0.1:51821\n", hex.EncodeToString(publicKey[:]))
 	if err := d.IpcSet(config); err != nil {
@@ -204,12 +227,8 @@ func TestRebindCancelsCapturedPeerSendBeforeNetworkLock(t *testing.T) {
 		t.Fatal("rebind closed device")
 	default:
 	}
-	select {
-	case _, open := <-tunnel.Inbound:
-		if !open {
-			t.Fatal("rebind closed retained TUN")
-		}
-	default:
+	if tunnel.closeCalls.Load() != 0 {
+		t.Fatal("rebind closed retained TUN")
 	}
 	if err := peer.SendBuffers([][]byte{initiation()}); err != nil || len(replacement.sent()) != 2 {
 		t.Fatal("replacement did not send warm-up and initiation")
@@ -234,7 +253,7 @@ func TestRebindRejectsPartialUAPIWithoutSocketMutation(t *testing.T) {
 	var opened atomic.Int32
 	b := New(func(conn.Bind, int) error { opened.Add(1); return nil }, func() bool { return true })
 	b.newBind = func() conn.Bind { return newFakeBind() }
-	d, _ := quietDevice(t, b)
+	d, _, _ := quietDevice(t, b)
 	if err := d.Up(); err != nil {
 		t.Fatal(err)
 	}
@@ -284,7 +303,7 @@ func TestRebindRejectsConcurrentRecoveryBeforeMutation(t *testing.T) {
 		return nil
 	}, func() bool { return true })
 	b.newBind = func() conn.Bind { return newFakeBind() }
-	d, _ := quietDevice(t, b)
+	d, _, _ := quietDevice(t, b)
 	t.Cleanup(func() { released.Do(func() { close(release) }) })
 	if err := d.Up(); err != nil {
 		t.Fatal(err)
@@ -314,7 +333,7 @@ func TestRebindProtectionFailurePreservesPortAndRetry(t *testing.T) {
 				return nil
 			}, func() bool { return true })
 			b.newBind = func() conn.Bind { return newFakeBind() }
-			d, tunnel := quietDevice(t, b)
+			d, _, tunnel := quietDevice(t, b)
 			if err := d.IpcSet(fmt.Sprintf("listen_port=%d\n", port)); err != nil {
 				t.Fatal(err)
 			}
@@ -341,12 +360,8 @@ func TestRebindProtectionFailurePreservesPortAndRetry(t *testing.T) {
 			if err := d.Rebind(); err != nil || generations[2].openPort != selectedPort || configPort(t, d) != selectedPort {
 				t.Fatal("retained device retry lost selected port")
 			}
-			select {
-			case _, open := <-tunnel.Inbound:
-				if !open {
-					t.Fatal("failed rebind closed TUN")
-				}
-			default:
+			if tunnel.closeCalls.Load() != 0 {
+				t.Fatal("failed rebind closed TUN")
 			}
 		})
 	}
@@ -366,7 +381,7 @@ func TestRebindShutdownDuringProtectionCannotPublish(t *testing.T) {
 		return nil
 	}, func() bool { return true })
 	b.newBind = func() conn.Bind { return newFakeBind() }
-	d, _ := quietDevice(t, b)
+	d, _, _ := quietDevice(t, b)
 	t.Cleanup(func() { released.Do(func() { close(release) }) })
 	if err := d.Up(); err != nil {
 		t.Fatal(err)
@@ -407,7 +422,7 @@ func TestRebindRejectsDownAndClosedDevice(t *testing.T) {
 	var opened atomic.Int32
 	b := New(func(conn.Bind, int) error { opened.Add(1); return nil }, func() bool { return true })
 	b.newBind = func() conn.Bind { return newFakeBind() }
-	d, _ := quietDevice(t, b)
+	d, _, _ := quietDevice(t, b)
 	if err := d.Rebind(); !errors.Is(err, net.ErrClosed) || opened.Load() != 0 {
 		t.Fatalf("DOWN device rebind: %v", err)
 	}
@@ -422,7 +437,7 @@ func TestRebindRejectsDeviceCloseWithoutBindShutdown(t *testing.T) {
 	var opened atomic.Int32
 	b := New(func(conn.Bind, int) error { opened.Add(1); return nil }, func() bool { return true })
 	b.newBind = func() conn.Bind { return newFakeBind() }
-	d, _ := quietDevice(t, b)
+	d, _, _ := quietDevice(t, b)
 	if err := d.Up(); err != nil {
 		t.Fatal(err)
 	}
@@ -481,7 +496,7 @@ func TestStandardPeerAuthenticatedLoopbackTraffic(t *testing.T) {
 		}
 	})
 	bind.newBind = func() conn.Bind { return observed }
-	client, clientTun := quietDevice(t, bind)
+	client, clientTun, _ := quietDevice(t, bind)
 	serverBind := &observedBind{Bind: conn.NewStdNetBind()}
 	serverBind.handshake = func(peer [32]byte, event int, _ bool, endpoint string) {
 		if event == HandshakeAuthenticated {
@@ -490,7 +505,7 @@ func TestStandardPeerAuthenticatedLoopbackTraffic(t *testing.T) {
 			observationMu.Unlock()
 		}
 	}
-	server, serverTun := quietDevice(t, serverBind)
+	server, serverTun, _ := quietDevice(t, serverBind)
 	var private [2][32]byte
 	var public [2][]byte
 	for i := range private {
