@@ -26,7 +26,7 @@ import com.vpn0wn.android.databinding.TunnelDetailFragmentBinding
 import com.vpn0wn.android.databinding.TunnelListItemBinding
 import com.vpn0wn.android.model.ObservableTunnel
 import com.vpn0wn.android.util.ErrorMessages
-import com.vpn0wn.android.util.tunnlStyle
+import com.vpn0wn.android.util.vpn0wnStyle
 import kotlinx.coroutines.launch
 
 /**
@@ -72,7 +72,7 @@ abstract class BaseFragment : Fragment(), OnSelectedTunnelChangedListener {
             val message = activity.getString(R.string.error_prepare, ErrorMessages[error])
             Snackbar.make(view, message, Snackbar.LENGTH_LONG)
                 .setAnchorView(view.findViewById(R.id.create_fab))
-                .tunnlStyle()
+                .vpn0wnStyle()
                 .show()
             Log.e(TAG, message, error)
         }
@@ -113,7 +113,7 @@ abstract class BaseFragment : Fragment(), OnSelectedTunnelChangedListener {
                 if (view != null)
                     Snackbar.make(view, message, Snackbar.LENGTH_LONG)
                         .setAnchorView(view.findViewById(R.id.create_fab))
-                        .tunnlStyle()
+                        .vpn0wnStyle()
                         .show()
                 else
                     Toast.makeText(activity, message, Toast.LENGTH_LONG).show()

@@ -101,7 +101,7 @@ class VpsProvisioningRequestTest {
             val factory = object : RemoteShellClientFactory {
                 override fun create(connection: VpsConnection) = remote
             }
-            val client = TunnlProvisioningClient(context, factory)
+            val client = Vpn0wnProvisioningClient(context, factory)
             val install = VpsInstallRequest(hostileValue, "10.8.0.0/24", "1.1.1.1, example.internal", force = true)
             client.plan(connection, install)
             client.install(connection, install)
@@ -136,7 +136,7 @@ class VpsProvisioningRequestTest {
         val factory = object : RemoteShellClientFactory {
             override fun create(connection: VpsConnection) = remote
         }
-        val client = TunnlProvisioningClient(ApplicationProvider.getApplicationContext(), factory)
+        val client = Vpn0wnProvisioningClient(ApplicationProvider.getApplicationContext(), factory)
         val connection = VpsConnection(VpsEndpoint("vpn.example"), VpsCredential.Password(charArrayOf()), true)
         try {
             client.removePeer(connection, "missing")

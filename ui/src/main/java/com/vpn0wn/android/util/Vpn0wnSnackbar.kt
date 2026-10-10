@@ -13,7 +13,7 @@ import androidx.core.view.updateLayoutParams
 import com.google.android.material.snackbar.Snackbar
 import com.vpn0wn.android.R
 
-object TunnlSnackbar {
+object Vpn0wnSnackbar {
     // Literal dimensions/type settings describe this local design, like XML layout values.
     @Suppress("MagicNumber")
     fun style(snackbar: Snackbar): Snackbar {
@@ -66,4 +66,4 @@ object TunnlSnackbar {
         }
 }
 
-fun Snackbar.tunnlStyle(): Snackbar = TunnlSnackbar.style(this)
+fun Snackbar.vpn0wnStyle(): Snackbar = Vpn0wnSnackbar.style(this)

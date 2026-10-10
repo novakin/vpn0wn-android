@@ -37,7 +37,7 @@ import com.vpn0wn.android.model.ObservableTunnel
 import com.vpn0wn.android.util.AdminKnobs
 import com.vpn0wn.android.util.BiometricAuthenticator
 import com.vpn0wn.android.util.ErrorMessages
-import com.vpn0wn.android.util.tunnlStyle
+import com.vpn0wn.android.util.vpn0wnStyle
 import com.vpn0wn.android.viewmodel.ConfigProxy
 import com.vpn0wn.config.Config
 import kotlinx.coroutines.launch
@@ -66,7 +66,7 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
             Log.e(TAG, message, throwable)
             val binding = binding
             if (binding != null)
-                Snackbar.make(binding.mainContainer, message, Snackbar.LENGTH_LONG).tunnlStyle().show()
+                Snackbar.make(binding.mainContainer, message, Snackbar.LENGTH_LONG).vpn0wnStyle().show()
             else
                 Toast.makeText(ctx, message, Toast.LENGTH_SHORT).show()
         }
@@ -121,7 +121,7 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
         if (selectedTunnel != tunnel)
             selectedTunnel = tunnel
         if (activity is MainActivity) {
-            Snackbar.make(activity.findViewById(R.id.main_activity_container), message, Snackbar.LENGTH_SHORT).tunnlStyle().show()
+            Snackbar.make(activity.findViewById(R.id.main_activity_container), message, Snackbar.LENGTH_SHORT).vpn0wnStyle().show()
         }
     }
 
@@ -151,11 +151,11 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
             val tunnelName = if (tunnel == null) binding.name else tunnel!!.name
             val message = getString(R.string.config_save_error, tunnelName, error)
             Log.e(TAG, message, e)
-            Snackbar.make(binding.mainContainer, error, Snackbar.LENGTH_LONG).tunnlStyle().show()
+            Snackbar.make(binding.mainContainer, error, Snackbar.LENGTH_LONG).vpn0wnStyle().show()
             return
         }
         val name = binding.name?.takeIf { it.isNotBlank() } ?: run {
-            Snackbar.make(binding.mainContainer, getString(R.string.tunnel_error_invalid_name), Snackbar.LENGTH_LONG).tunnlStyle().show()
+            Snackbar.make(binding.mainContainer, getString(R.string.tunnel_error_invalid_name), Snackbar.LENGTH_LONG).vpn0wnStyle().show()
             return
         }
         val activity = requireActivity()
@@ -278,7 +278,7 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
             Log.e(TAG, message, throwable)
             val binding = binding
             if (binding != null)
-                Snackbar.make(binding.mainContainer, message, Snackbar.LENGTH_LONG).tunnlStyle().show()
+                Snackbar.make(binding.mainContainer, message, Snackbar.LENGTH_LONG).vpn0wnStyle().show()
             else
                 Toast.makeText(ctx, message, Toast.LENGTH_SHORT).show()
         }
@@ -311,7 +311,7 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
             Log.e(TAG, message, throwable)
             val binding = binding
             if (binding != null)
-                Snackbar.make(binding.mainContainer, message, Snackbar.LENGTH_LONG).tunnlStyle().show()
+                Snackbar.make(binding.mainContainer, message, Snackbar.LENGTH_LONG).vpn0wnStyle().show()
             else
                 Toast.makeText(ctx, message, Toast.LENGTH_SHORT).show()
         }
@@ -354,7 +354,7 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
 
                     is BiometricAuthenticator.Result.Failure -> {
                         binding?.let { b ->
-                            Snackbar.make(b.mainContainer, it.message, Snackbar.LENGTH_SHORT).tunnlStyle().show()
+                            Snackbar.make(b.mainContainer, it.message, Snackbar.LENGTH_SHORT).vpn0wnStyle().show()
                         }
                     }
 

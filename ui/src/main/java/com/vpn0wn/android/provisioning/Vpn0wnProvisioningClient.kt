@@ -9,7 +9,7 @@ import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
-class TunnlProvisioningClient(
+class Vpn0wnProvisioningClient(
     private val context: Context,
     private val remoteShellClientFactory: RemoteShellClientFactory,
 ) {
@@ -55,7 +55,7 @@ class TunnlProvisioningClient(
 
     private suspend fun <T> withClient(connection: VpsConnection, block: suspend (RemoteShellClient, String) -> T): T = withContext(Dispatchers.IO) {
         val client = remoteShellClientFactory.create(connection)
-        val remoteDir = client.execute("mktemp -d /tmp/tunnl-provisioning.XXXXXX").requireSuccess().stdout.trim()
+        val remoteDir = client.execute("mktemp -d /tmp/vpn0wn-provisioning.XXXXXX").requireSuccess().stdout.trim()
         if (remoteDir.isBlank())
             throw ProvisioningException("Remote temp directory creation returned no path")
         try {

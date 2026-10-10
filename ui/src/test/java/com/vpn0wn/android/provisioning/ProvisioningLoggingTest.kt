@@ -77,7 +77,7 @@ class ProvisioningLoggingTest {
         val secret = "synthetic-cleanup-secret"
         val remote = object : RemoteShellClient {
             override suspend fun execute(command: String): ProvisioningCommandOutput = when {
-                command.startsWith("mktemp ") -> ProvisioningCommandOutput(0, "/tmp/tunnl-provisioning.test", "")
+                command.startsWith("mktemp ") -> ProvisioningCommandOutput(0, "/tmp/vpn0wn-provisioning.test", "")
                 command.startsWith("rm -rf ") -> throw ProvisioningException(secret)
                 else -> ProvisioningCommandOutput(0, """{"ok":true,"os":"debian","version":"12","supported":true,"packageManager":"apt","firewall":"iptables","wireGuardInstalled":true,"configExists":true,"interface":"wg0","endpoint":"vpn.example","listenPort":"51820","cidr":"10.8.0.0/24","ipv4Forwarding":"1"}""", "")
             }
@@ -87,7 +87,7 @@ class ProvisioningLoggingTest {
         val factory = object : RemoteShellClientFactory {
             override fun create(connection: VpsConnection) = remote
         }
-        val client = TunnlProvisioningClient(ApplicationProvider.getApplicationContext(), factory)
+        val client = Vpn0wnProvisioningClient(ApplicationProvider.getApplicationContext(), factory)
         val connection = VpsConnection(VpsEndpoint("203.0.113.10"), VpsCredential.Password(charArrayOf()), true)
 
         assertEquals("debian", client.detect(connection).os)

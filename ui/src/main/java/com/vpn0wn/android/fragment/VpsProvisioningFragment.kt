@@ -47,7 +47,7 @@ import com.vpn0wn.android.provisioning.VpsDeployUser
 import com.vpn0wn.android.provisioning.VpsDeployUserStatus
 import com.vpn0wn.android.provisioning.VpsDeployMapper
 import com.vpn0wn.android.provisioning.VpsServerStore
-import com.vpn0wn.android.util.tunnlStyle
+import com.vpn0wn.android.util.vpn0wnStyle
 import com.vpn0wn.android.widget.VpsQrCodeView
 import com.vpn0wn.android.widget.VpsCornerLayout
 import com.vpn0wn.android.widget.VpsSwitchGlyphView
@@ -1035,7 +1035,7 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     private fun toast(message: String) {
-        Snackbar.make(root, message, Snackbar.LENGTH_SHORT).tunnlStyle().show()
+        Snackbar.make(root, message, Snackbar.LENGTH_SHORT).vpn0wnStyle().show()
     }
 
     private fun goBack() {

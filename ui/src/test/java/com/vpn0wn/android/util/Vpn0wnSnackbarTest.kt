@@ -23,7 +23,7 @@ import org.robolectric.util.ReflectionHelpers
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, sdk = [28])
-class TunnlSnackbarTest {
+class Vpn0wnSnackbarTest {
     @Test
     fun themedTintCannotOverrideCustomBackgroundAndHideMessage() {
         val controller = Robolectric.buildActivity(AppCompatActivity::class.java)
@@ -34,7 +34,7 @@ class TunnlSnackbarTest {
             activity.setContentView(content)
             val snackbar = Snackbar.make(content, "Synthetic validation error", Snackbar.LENGTH_INDEFINITE)
             snackbar.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(activity, R.color.tunnl_ink)))
-            snackbar.tunnlStyle()
+            snackbar.vpn0wnStyle()
             assertNull(ReflectionHelpers.getField<ColorStateList>(snackbar.view, "backgroundTint"))
             val background = snackbar.view.background as GradientDrawable
             assertEquals(ContextCompat.getColor(activity, R.color.tunnl_paper_2), background.color!!.defaultColor)

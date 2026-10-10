@@ -42,7 +42,7 @@ import com.vpn0wn.android.provisioning.VpsServerStore
 import com.vpn0wn.android.util.AdminKnobs
 import com.vpn0wn.android.util.AppDataTransfer
 import com.vpn0wn.android.util.applySafeAreaInsets
-import com.vpn0wn.android.util.tunnlStyle
+import com.vpn0wn.android.util.vpn0wnStyle
 import com.vpn0wn.android.util.UserKnobs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -77,7 +77,7 @@ class SettingsActivity : AppCompatActivity() {
                     findViewById(android.R.id.content),
                     getString(R.string.app_data_transfer_import_success, importedCount),
                     Snackbar.LENGTH_LONG,
-                ).tunnlStyle().show()
+                ).vpn0wnStyle().show()
             }
         }
     }
@@ -294,7 +294,7 @@ class SettingsActivity : AppCompatActivity() {
         }
 
         private fun showVpnSettingsFailure(message: Int) {
-            Snackbar.make(requireView(), message, Snackbar.LENGTH_SHORT).tunnlStyle().show()
+            Snackbar.make(requireView(), message, Snackbar.LENGTH_SHORT).vpn0wnStyle().show()
         }
 
         private fun readAppData(uri: Uri, ownerView: View) {
@@ -413,7 +413,7 @@ class SettingsActivity : AppCompatActivity() {
                 R.string.app_data_transfer_error
             }
             val ownerView = view ?: return
-            Snackbar.make(ownerView, message, Snackbar.LENGTH_LONG).tunnlStyle().show()
+            Snackbar.make(ownerView, message, Snackbar.LENGTH_LONG).vpn0wnStyle().show()
         }
 
         private fun clearPreferenceViewIds(group: PreferenceGroup) {
