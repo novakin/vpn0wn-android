@@ -1,6 +1,6 @@
 # Tunnl QA Test Plan
 
-Last updated: 2026-10-10 (Europe/Paris).
+Last updated: 2026-10-11 (Europe/Paris).
 
 This document tracks the automated and manual QA coverage required for the Tunnl Android redesign.
 
@@ -38,7 +38,7 @@ Exercise diagnostic clearing on DOWN/retirement, selected-tunnel replacement, vi
 
 `PeerHandshakePresentationTest` contains focused controls for event/retry wording, unavailable/empty/missing maps, numeric endpoint/family independence, configuration replacement with an unchanged map, null/DOWN state, actual Fragment selection/retirement/replacement/recreation and destroyed generated observers. Its native Robolectric preview control targets 320×640dp English portrait in both themes, 640×320dp English dark landscape at 1×/2× text, and 320×640dp Arabic RTL and French portrait at 2× text in both themes. Top/bottom captures exercise long IPv6 wrapping, full event text without ellipsis and reachable address-family rows. The PR owns executed results and inspected renders; these synthetic JVM controls retain their own scope.
 
-[Scoped rooted Android presenter acceptance](reviews/2026-10-10-peer-diagnostics-acceptance.md) separately records physical peer-event, kernel/DOWN/no-event, selection/reconnect and synthetic authenticated-traffic controls, plus six full-Detail output/recreation sequences and restoration. The record owns exact source/APK provenance, capture failures and inspection limits. The fixed dark palette remained under both system day/night requests; physical IPv6 traffic, send-failure injection, packet and TalkBack proof remain open. The unchanged 2× RTL topology-header gap remains under [#35](ui-redesign-roadmap.md#fidelity-gaps--remaining); this run does not establish complete Detail fidelity. [PR #113](https://github.com/novakin/vpn0wn-android/pull/113) merged on 2026-10-10 after final-head ultra, CI and publication gates.
+[Scoped rooted Android presenter acceptance](reviews/2026-10-10-peer-diagnostics-acceptance.md) separately records physical peer-event, kernel/DOWN/no-event, selection/reconnect and synthetic authenticated-traffic controls, plus six full-Detail output/recreation sequences and restoration. The record owns exact source/APK provenance, capture failures and inspection limits. The fixed dark palette remained under both system day/night requests; physical IPv6 traffic, send-failure injection, packet and TalkBack proof remain open. That run observed a 2× RTL topology-header gap; the later [scoped header repair](reviews/2026-10-11-detail-header-acceptance.md) corrects it without establishing complete Detail fidelity or closing #35. [PR #113](https://github.com/novakin/vpn0wn-android/pull/113) merged on 2026-10-10 after final-head ultra, CI and publication gates.
 
 ### Native rebind controls — #73
 
@@ -113,6 +113,8 @@ For [#48](https://github.com/novakin/vpn0wn-android/issues/48), `TunnelStatistic
   - no signal with stale handshake
 
 ### Robolectric View Tests
+
+`AddPeerPresentationTest.nativeTopologyHeaderKeepsCompleteLabelsSeparatedAtSmallWidthsAndLargeText` inflates the actual bound Detail header with UP and CONNECTING states. Native raster/layout controls cover 320dp portrait at 1×/2× text, the observed 411dp RTL portrait at 2× text and 480dp short landscape at 2× text, in LTR/Arabic RTL and both system themes. Require complete title/status text, no ellipsis or clipping, and at least 4dp between rendered lines sharing vertical space. Inspect the generated `topology-*.png` files under ignored `.artifacts/add-peer-previews`; measured JVM output does not establish physical or spoken-accessibility acceptance.
 
 `HomeSelectionTest` uses synthetic managed tunnels and actual Home row/header/dialog actions for sorted insertion/rename, zero-selected/select-all/Back, recreation, active confirmation cancellation, mixed-delete restoration/progress, complete deletion, admitted and pre-entry cancellation, view recreation during admitted deletion, inventory replacement, programming-defect attempt ordering and checkable row semantics/inset restoration. Native content previews cover six theme/size/large-text/RTL configurations, complete status/cipher wrapping without ellipsis and scrolling confirmation actions. The 2026-10-10 short-viewport regression dispatches header touch gestures at 640×320dp/2× text and requires fully visible tunnel names/switches above fixed Add, restored selection actions, unchanged scrolling during count updates, safe confirmation cancellation/Back exit, and reachable empty-state guidance. Fixtures hide the stock ActionBar as production Home does and invalidate descendant measurements before traversing the actual window tree at each controlled preview size. Separate [installed API 36 acceptance](reviews/2026-10-10-home-avd-acceptance.md) covers six configurations, active bottom statistics and empty guidance; physical provider, system-bar and TalkBack proof remains required under #36/G4. See [Home recovery evidence](development.md#home-selection-and-safe-delete-recovery--2026-10-07); content previews and installed results retain their distinct scopes.
 

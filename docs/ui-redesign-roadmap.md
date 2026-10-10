@@ -1,6 +1,6 @@
 # Tunnl UI Redesign Roadmap
 
-Last updated: 2026-10-10 (Europe/Paris).
+Last updated: 2026-10-11 (Europe/Paris).
 
 ## Design Source
 
@@ -481,6 +481,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
+- [x] Detail topology-header separation — 2026-10-11: `tunnel_detail_fragment.xml` keeps an 8dp relative gap between the wrapping `FIG.01` title and live status. Full title/status text, font scale, RTL mirroring, palette, animation and state bindings remain intact. `AddPeerPresentationTest` measures rendered line separation and complete text in narrow LTR/RTL layouts at 1×/2× text under both system themes. [Scoped acceptance](reviews/2026-10-11-detail-header-acceptance.md) records the failing baseline, focused/native proof and seven restored physical output cases. This repairs the previously recorded touching-label gap; broader #35 physical/accessibility acceptance remains separate.
+
 - [x] **Android brand artwork source adoption — #71 preparation, 2026-10-10:** existing launcher/round/themed, tile and TV resources use approved vpn0wn artwork; Home uses its standalone symbol and outlined wordmark with localized accessible count. Visible app/version titles identify vpn0wn while installed IDs and UI font roles remain. [The adoption contract](#android-brand-asset-adoption--2026-10-10) separates output proof from package/migration and distribution acceptance.
 
 - [x] **Upstream updater presentation retired — #71 preparation, 2026-10-10:** `TunnelListFragment.onCreateView` no longer attaches the upstream update Snackbar; its localized update/corruption prompts and exit flow are removed with the updater. Existing Home controls and shared `TunnlSnackbar` remain. [Update policy](operations.md#app-updates) owns the functional boundary; this source retirement is not APK/device or full identity-migration acceptance.
@@ -597,7 +599,6 @@ This is a historical implementation ledger, not newly executed build/device proo
 
 ### Fidelity Gaps — Remaining
 
-- [~] **Detail topology header — #35 (2026-10-10):** [Scoped rooted presenter acceptance](reviews/2026-10-10-peer-diagnostics-acceptance.md) exposes the existing UP marker touching `FIG.01` in 2× RTL portrait. The topology header is unchanged by [PR #113](https://github.com/novakin/vpn0wn-android/pull/113); #35 retains correction and output acceptance. Peer-row acceptance does not establish complete Detail fidelity or TalkBack acceptance.
 
 - [~] **Full app-data transfer actions — 2026-10-09:** Settings reuses its existing Data action-row layout/tokens and native biometric, document-picker and Material confirmation patterns. [Scoped authorized AVD proof](reviews/2026-10-09-app-data-transfer-acceptance.md) covers the inspected themes, sizes, large text, real RTL and native Downloads/PIN paths. Broader physical biometric/provider failures, TalkBack, translation and old/new-installation acceptance remain [#71 gates](qa-test-plan.md#full-app-data-transfer-acceptance).
 
