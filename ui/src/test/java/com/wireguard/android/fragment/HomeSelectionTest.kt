@@ -15,6 +15,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.databinding.DataBindingUtil
 import androidx.core.widget.NestedScrollView
 import com.wireguard.android.R
+import com.wireguard.android.databinding.BindingAdapters
 import com.wireguard.android.databinding.TunnelListFragmentBinding
 import com.wireguard.android.model.TunnelTestEnvironment
 import com.wireguard.android.backend.Statistics
@@ -366,6 +367,8 @@ class HomeSelectionTest {
                 active.setStateAsync(Tunnel.State.UP)
                 runCurrent()
                 active.onStatisticsChanged(recentStatistics(), f.env.backend)
+                assertEquals("${case.name}: active model endpoint", "198.51.100.42",
+                    BindingAdapters.homeEndpointHost(f.binding.tunnels))
                 layout(f.binding, case.width, case.height)
                 assertEquals(Tunnel.State.UP, f.binding.tunnels!!["charlie"]!!.state)
                 assertEquals("198.51.100.42", f.binding.homeEndpointHost.text.toString())
@@ -679,7 +682,7 @@ class HomeSelectionTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val env = TunnelTestEnvironment(folder.newFolder(), backgroundScope)
         names.forEach { env.store.configs[it] = TunnelTestEnvironment.profile() }
-        env.manager.getTunnels()
+        env.manager.getTunnels().forEach { it.getConfigAsync() }
         val controller = Robolectric.buildActivity(HostActivity::class.java)
         controllers += controller
         controller.get().setTheme(R.style.AppTheme)

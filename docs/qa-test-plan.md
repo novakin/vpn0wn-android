@@ -105,7 +105,7 @@ Use for Android resources, data binding, programmatic fragment UI, and lightweig
   - unreachable server renders the provisioning error state
 - Data binding:
   - tunnel list status label updates for every mode
-- Detail PSK badge visibility follows peer PSK presence; Home uses a conditional PSK suffix beside status.
+  - Detail PSK badge visibility follows peer PSK presence; Home uses a conditional PSK suffix beside status.
   - detail peer endpoint/keepalive rows hide when absent
   - detail peer titles render as `PEER #01`, `PEER #02`, ...
   - server detail renders the empty peer list state before any VPN users are added
