@@ -1,10 +1,14 @@
 package com.wireguard.android.fragment
 
 import android.app.Application
+import android.graphics.Canvas
 import androidx.appcompat.app.AppCompatActivity
 import androidx.databinding.DataBindingUtil
+import androidx.databinding.BaseObservable
+import androidx.databinding.Observable
 import androidx.lifecycle.lifecycleScope
 import com.wireguard.android.R
+import com.wireguard.android.BR
 import com.wireguard.android.databinding.TunnelDetailFragmentBinding
 import com.wireguard.android.databinding.TunnelDetailPeerBinding
 import com.wireguard.android.backend.Backend
@@ -37,6 +41,7 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.android.controller.ActivityController
 import kotlin.coroutines.Continuation
@@ -226,6 +231,109 @@ class TunnelDetailLifecycleTest {
         }
     }
 
+    @Test fun selectedConfigNotificationsReplaceAndClearBindingWithoutLoading() = runTest {
+        val fixture = statsFixture()
+        try {
+            val loads = fixture.environment.store.loadAttempts.toList()
+            val key = fixture.first.peekConfig()!!.peers.single().publicKey
+            for (state in listOf(Tunnel.State.UP, Tunnel.State.DOWN)) {
+                fixture.first.setStateAsync(state)
+                for (config in listOf(profile(key, 1280), profile(key, 1380), profile(key, 0), profile(key), null)) {
+                    fixture.first.onConfigChanged(config)
+                    assertSame(config, fixture.binding.config)
+                    fixture.binding.executePendingBindings()
+                    val value = config?.`interface`?.mtu?.map { it.toString() }?.orElse("—") ?: "—"
+                    assertEquals(listOf("MTU $value"), drawnMtu(fixture.binding))
+                    assertEquals(loads, fixture.environment.store.loadAttempts.toList())
+                }
+            }
+        } finally {
+            fixture.close()
+        }
+    }
+
+    @Test fun selectionRebindsTopologyMtuAndClearingSelectionRemovesPreviousValue() = runTest {
+        val fixture = statsFixture()
+        try {
+            fixture.first.onConfigChanged(profile(fixture.first.peekConfig()!!.peers.single().publicKey, 1280))
+            fixture.fragment.onSelectedTunnelChanged(fixture.first, fixture.first)
+            configJob(fixture.fragment).join()
+            fixture.binding.executePendingBindings()
+            assertEquals(listOf("MTU 1280"), drawnMtu(fixture.binding))
+            fixture.second.onConfigChanged(profile(fixture.second.peekConfig()!!.peers.single().publicKey, 1380))
+            fixture.fragment.onSelectedTunnelChanged(fixture.first, fixture.second)
+            configJob(fixture.fragment).join()
+            fixture.binding.executePendingBindings()
+            assertSame(fixture.second.peekConfig(), fixture.binding.config)
+            assertEquals(listOf("MTU 1380"), drawnMtu(fixture.binding))
+            fixture.fragment.onSelectedTunnelChanged(fixture.second, null)
+            fixture.binding.executePendingBindings()
+            assertNull(fixture.binding.config)
+            assertNull(fixture.binding.tunnel)
+            assertEquals(listOf("MTU —"), drawnMtu(fixture.binding))
+        } finally {
+            fixture.close()
+        }
+    }
+
+    @Test fun staleAndUnrelatedCallbacksCannotChangeCurrentConfigOrRefreshStatistics() = runTest {
+        val fixture = statsFixture()
+        try {
+            val callback = tunnelCallback(fixture.fragment)
+            fixture.fragment.onSelectedTunnelChanged(fixture.first, fixture.second)
+            configJob(fixture.fragment).join()
+            fixture.binding.executePendingBindings()
+            runCurrent()
+            val current = fixture.binding.config
+            val stale = profile(fixture.first.peekConfig()!!.peers.single().publicKey, 1280)
+            fixture.first.onConfigChanged(stale)
+            fixture.second.onStatisticsChanged(null)
+            val calls = fixture.backend.calls.get()
+            for (sender in listOf(fixture.first, BaseObservable(), null)) {
+                callback.onPropertyChanged(sender, BR.config)
+                callback.onPropertyChanged(sender, BR.state)
+            }
+            for (job in fixture.fragment.viewLifecycleOwner.lifecycleScope.coroutineContext[Job]!!.children.toList())
+                job.join()
+            runCurrent()
+            assertSame(fixture.second, fixture.binding.tunnel)
+            assertSame(current, fixture.binding.config)
+            assertEquals(calls, fixture.backend.calls.get())
+        } finally {
+            fixture.close()
+        }
+    }
+
+    @Test fun callbacksAfterViewDestructionCannotChangeDetachedBindingOrAccessViewLifecycle() = runTest {
+        val fixture = statsFixture()
+        try {
+            val callback = tunnelCallback(fixture.fragment)
+            val config = fixture.binding.config
+            fixture.controller.get().supportFragmentManager.beginTransaction().remove(fixture.fragment).commitNow()
+            val replacement = profile(fixture.first.peekConfig()!!.peers.single().publicKey, 1280)
+            fixture.first.onConfigChanged(replacement)
+            callback.onPropertyChanged(fixture.first, BR.config)
+            callback.onPropertyChanged(fixture.first, BR.state)
+            runCurrent()
+            assertNull(fixture.fragment.view)
+            assertSame(config, fixture.binding.config)
+        } finally {
+            fixture.close()
+        }
+    }
+
+    private fun tunnelCallback(fragment: TunnelDetailFragment): Observable.OnPropertyChangedCallback =
+        TunnelDetailFragment::class.java.getDeclaredField("tunnelCallback").apply { isAccessible = true }
+            .get(fragment) as Observable.OnPropertyChangedCallback
+
+    private fun drawnMtu(binding: TunnelDetailFragmentBinding): List<String> {
+        binding.throughputView.layout(0, 0, TOPOLOGY_WIDTH, TOPOLOGY_HEIGHT)
+        val canvas = Canvas()
+        binding.throughputView.draw(canvas)
+        val shadow = shadowOf(canvas)
+        return (0 until shadow.textHistoryCount).map { shadow.getDrawnTextEvent(it).text }.filter { it.startsWith("MTU ") }
+    }
+
     private suspend fun TestScope.statsFixture(): StatsFixture {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val env = TunnelTestEnvironment(folder.root, backgroundScope)
@@ -265,10 +373,11 @@ class TunnelDetailLifecycleTest {
         if (result !== COROUTINE_SUSPENDED) continuation.resume(Unit)
     }
 
-    private fun profile(key: Key): TunnelConfig = TunnelConfig.parse("""
+    private fun profile(key: Key, mtu: Int? = null): TunnelConfig = TunnelConfig.parse("""
         [Interface]
         PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
         Address = 192.0.2.2/32
+        ${mtu?.let { "MTU = $it" } ?: ""}
         [Peer]
         PublicKey = ${key.toBase64()}
         AllowedIPs = 0.0.0.0/0
@@ -329,4 +438,9 @@ class TunnelDetailLifecycleTest {
     }
 
     class HostActivity : AppCompatActivity()
+
+    private companion object {
+        const val TOPOLOGY_WIDTH = 272
+        const val TOPOLOGY_HEIGHT = 206
+    }
 }

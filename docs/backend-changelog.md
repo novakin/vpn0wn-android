@@ -58,6 +58,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **Detail config projection refresh — #111 (2026-10-10, Europe/Paris)**
+  `TunnelDetailFragment.tunnelCallback` handles `BR.config` through `peekConfig` for the current binding/observed tunnel and ignores stale, unrelated and destroyed-view callbacks. `BindingAdapters.setTopologyConfig` passes explicit configured MTU to the topology; omitted/zero/null remains unknown. This presentation fix changes no persistence, backend MTU, statistics cadence or tunnel transition. [The UI roadmap](ui-redesign-roadmap.md#done) owns visual scope; [the presentation contract](backend-contracts.md#persistence-and-presentation) distinguishes configuration from effective runtime MTU.
+
 - **Retained-TUN host assertion repair — #73 (2026-10-10, Europe/Paris)**
   `androidbind/device_test.go.quietDevice` wraps the actual device-owned TUN with an atomic close counter. Rebind/failed-protection retention controls now observe real closure rather than `ChannelTUN.Inbound`, which the pinned fixture never closes. `TestQuietDeviceTracksTUNClosure` verifies the counter against real `Device.Close`. Focused race checks and the full native/JNI host recipe pass; [QA](qa-test-plan.md#native-rebind-controls--73) owns the assertion contract. Production behavior and the separately recorded Android acceptance are unchanged.
 

@@ -43,10 +43,15 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
     private var configJob: Job? = null
     private val tunnelCallback = object : Observable.OnPropertyChangedCallback() {
         override fun onPropertyChanged(sender: Observable?, propertyId: Int) {
-            if (propertyId == BR.state) {
-                viewLifecycleOwner.lifecycleScope.launch { updateStats() }
-                if (sender is ObservableTunnel && sender.state == Tunnel.State.UP) {
-                    refreshSelectedStats()
+            val binding = binding ?: return
+            if (sender !is ObservableTunnel || sender !== observedTunnel || sender !== binding.tunnel) return
+            when (propertyId) {
+                BR.config -> binding.config = sender.peekConfig()
+                BR.state -> {
+                    viewLifecycleOwner.lifecycleScope.launch { updateStats() }
+                    if (sender.state == Tunnel.State.UP) {
+                        refreshSelectedStats()
+                    }
                 }
             }
         }

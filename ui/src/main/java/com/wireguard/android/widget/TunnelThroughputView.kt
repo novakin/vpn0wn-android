@@ -112,6 +112,7 @@ class TunnelThroughputView @JvmOverloads constructor(
     private var txRate = "--"
     private var deviceAddress = "—"
     private var peerEndpoint = "—"
+    private var mtu = "—"
 
     var live = false
         set(value) {
@@ -142,6 +143,11 @@ class TunnelThroughputView @JvmOverloads constructor(
 
     fun setEndpoint(endpoint: String) {
         this.peerEndpoint = endpoint
+        invalidate()
+    }
+
+    fun setMtu(mtu: String) {
+        this.mtu = mtu
         invalidate()
     }
 
@@ -245,7 +251,7 @@ class TunnelThroughputView @JvmOverloads constructor(
 
         // Node labels
         drawNodeLabel(canvas, pathLeft, midY - dp(24f), "DEVICE", deviceAddress, Paint.Align.LEFT)
-        drawNodeLabel(canvas, (segmentLeft + segmentRight) / 2f, contentTop + dp(22f), "ENCRYPTED · CHACHA20-POLY1305", "MTU 1420", Paint.Align.CENTER)
+        drawNodeLabel(canvas, (segmentLeft + segmentRight) / 2f, contentTop + dp(22f), "ENCRYPTED · CHACHA20-POLY1305", "MTU $mtu", Paint.Align.CENTER)
         drawNodeLabel(canvas, pathRight, midY - dp(24f), "PEER", peerEndpoint, Paint.Align.RIGHT)
 
         // Footer: ↓ / ↑
