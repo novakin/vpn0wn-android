@@ -139,7 +139,7 @@
     <string name="latest_handshake">Siste håndtrykk</string>
     <string name="listen_port">Lytt på port</string>
     <string name="log_export_error">Kan ikke eksportere logg: %s</string>
-    <string name="log_export_subject">WireGuard Android loggfil</string>
+    <string name="log_export_subject">vpn0wn Android loggfil</string>
     <string name="log_export_success">Lagret til «%s»</string>
     <string name="log_export_title">Eksporter loggfil</string>
     <string name="log_saver_activity_label">Lagre logg</string>

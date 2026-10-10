@@ -47,7 +47,7 @@ class ZipExporterPreference(context: Context, attrs: AttributeSet?) : Preference
                         tunnels.map { async { it.getConfigAsync() } }.awaitAll()
                     }
                     require(configs.isNotEmpty()) { context.getString(R.string.no_tunnels_error) }
-                    downloadsFileSaver.save("wireguard-export.zip", "application/zip", true) { stream ->
+                    downloadsFileSaver.save("vpn0wn-export.zip", "application/zip", true) { stream ->
                         ZipOutputStream(stream).use { zip ->
                             for (i in configs.indices) {
                                 zip.putNextEntry(ZipEntry(tunnels[i].name + ".conf"))

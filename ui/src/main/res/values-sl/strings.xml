@@ -165,7 +165,7 @@
     <string name="latest_handshake">Zadnje rokovanje</string>
     <string name="listen_port">Vrata poslušanja</string>
     <string name="log_export_error">Dnevnika ni bilo mogoče izvoziti: %s</string>
-    <string name="log_export_subject">Dnevniška datoteka WireGuard za Android</string>
+    <string name="log_export_subject">Dnevniška datoteka vpn0wn za Android</string>
     <string name="log_export_success">Shranjeno v „%s“</string>
     <string name="log_export_title">Izvozi dnevniško datoteko</string>
     <string name="log_saver_activity_label">Shrani dnevnik</string>

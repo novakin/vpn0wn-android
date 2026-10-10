@@ -139,7 +139,7 @@
     <string name="latest_handshake">ਆਖਰੀ ਹੈਂਡ-ਸ਼ੇਕ</string>
     <string name="listen_port">ਸੁਣਨ ਵਾਲੀ ਪੋਰਟ</string>
     <string name="log_export_error">ਲਾਗ ਐਕਸਪੋਰਟ ਕਰਨ ਲਈ ਅਸਮਰੱਥ: %s</string>
-    <string name="log_export_subject">ਵਾਇਰਗਾਰਡ ਐਂਡਰਾਈਡ ਲਾਗ ਫ਼ਾਇਲ</string>
+    <string name="log_export_subject">vpn0wn ਐਂਡਰਾਈਡ ਲਾਗ ਫ਼ਾਇਲ</string>
     <string name="log_export_success">“%s” ਵਜੋਂ ਸੰਭਾਲਿਆ ਗਿਆ</string>
     <string name="log_export_title">ਲਾਗ ਫ਼ਾਇਲ ਬਰਾਮਦ ਕਰੋ</string>
     <string name="log_saver_activity_label">ਲਾਗ ਸੰਭਾਲੋ</string>

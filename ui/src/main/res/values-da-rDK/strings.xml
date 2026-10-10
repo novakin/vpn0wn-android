@@ -139,7 +139,7 @@
     <string name="latest_handshake">Seneste håndtryk</string>
     <string name="listen_port">Lytteport</string>
     <string name="log_export_error">Kunne ikke eksportere log: %s</string>
-    <string name="log_export_subject">WireGuard Android Log-fil</string>
+    <string name="log_export_subject">vpn0wn Android Log-fil</string>
     <string name="log_export_success">Gemt til \"%s\"</string>
     <string name="log_export_title">Eksportér log-fil</string>
     <string name="log_saver_activity_label">Gem log</string>

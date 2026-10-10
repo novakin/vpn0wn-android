@@ -139,7 +139,7 @@
     <string name="latest_handshake">Dernière liaison</string>
     <string name="listen_port">Port d\'écoute</string>
     <string name="log_export_error">Impossible d\'exporter le journal : %s</string>
-    <string name="log_export_subject">Fichier journal d\'Android WireGuard</string>
+    <string name="log_export_subject">Fichier journal d\'Android vpn0wn</string>
     <string name="log_export_success">Enregistré dans « %s »</string>
     <string name="log_export_title">Exporter le fichier journal</string>
     <string name="log_saver_activity_label">Enregistrer le journal</string>

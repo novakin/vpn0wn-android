@@ -82,7 +82,7 @@
     <string name="key_length_explanation_hex">: WireGuard hex kľúče musia mať 64 znakov (32 bytes)</string>
     <string name="listen_port">Otvorený port</string>
     <string name="log_export_error">Nepodarilo sa exportovať log: %s</string>
-    <string name="log_export_subject">WireGuard Android Denník udalostí</string>
+    <string name="log_export_subject">vpn0wn Android Denník udalostí</string>
     <string name="log_export_success">Uložené do “%s”</string>
     <string name="log_export_title">Exportovať denník udalostí</string>
     <string name="log_saver_activity_label">Uložiť denník udalostí</string>

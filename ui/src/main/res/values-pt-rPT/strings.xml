@@ -135,7 +135,7 @@
     <string name="key_length_explanation_hex">: Chaves hexadecimais do WireGuard têm que ter 64 caracteres (32 bytes)</string>
     <string name="listen_port">Porta de escuta</string>
     <string name="log_export_error">Não foi possível exportar o log: %s</string>
-    <string name="log_export_subject">Arquivo de log do WireGuard Android</string>
+    <string name="log_export_subject">Arquivo de log do vpn0wn Android</string>
     <string name="log_export_success">Guardado em “%s”</string>
     <string name="log_export_title">Exportar ficheiro de log</string>
     <string name="log_saver_activity_label">Guardar log</string>

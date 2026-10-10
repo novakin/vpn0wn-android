@@ -126,7 +126,7 @@
     <string name="latest_handshake">마지막 정보교환</string>
     <string name="listen_port">수신 대기 포트</string>
     <string name="log_export_error">로그를 내보낼 수 없음: %s</string>
-    <string name="log_export_subject">WireGuard 안드로이드 로그 파일</string>
+    <string name="log_export_subject">vpn0wn 안드로이드 로그 파일</string>
     <string name="log_export_success">“%s”에 저장됨</string>
     <string name="log_export_title">로그 파일 내보내기</string>
     <string name="log_saver_activity_label">로그를 저장하기</string>

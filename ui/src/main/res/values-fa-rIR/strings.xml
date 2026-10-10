@@ -140,7 +140,7 @@
     <string name="latest_handshake">آخرین handshake</string>
     <string name="listen_port">شنود پورت</string>
     <string name="log_export_error">نمی‌توان گزارش رویداد را برون‌برد: %s</string>
-    <string name="log_export_subject">پرونده گزارش رویداد WireGuard اندروید</string>
+    <string name="log_export_subject">پرونده گزارش رویداد vpn0wn اندروید</string>
     <string name="log_export_success">ذخیره شد در “%s”</string>
     <string name="log_export_title">برون‌برد پرونده گزارش رویداد</string>
     <string name="log_saver_activity_label">ذخیره گزارش رویداد</string>

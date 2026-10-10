@@ -165,7 +165,7 @@
     <string name="latest_handshake">Ostatnie uzgadnianie</string>
     <string name="listen_port">Port nasłuchu</string>
     <string name="log_export_error">Nie można wyeksportować logu: %s</string>
-    <string name="log_export_subject">Plik logu programu WireGuard dla systemu Android</string>
+    <string name="log_export_subject">Plik logu programu vpn0wn dla systemu Android</string>
     <string name="log_export_success">Zapisano w „%s”</string>
     <string name="log_export_title">Wyeksportuj plik logu</string>
     <string name="log_saver_activity_label">Zapisz log</string>

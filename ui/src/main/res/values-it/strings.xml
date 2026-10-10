@@ -139,7 +139,7 @@
     <string name="latest_handshake">Ultima negoziazione</string>
     <string name="listen_port">Porta in ascolto</string>
     <string name="log_export_error">Impossibile esportare il log: %s</string>
-    <string name="log_export_subject">File di log WireGuard Android</string>
+    <string name="log_export_subject">File di log vpn0wn Android</string>
     <string name="log_export_success">Salvato in “%s”</string>
     <string name="log_export_title">Esporta file di log</string>
     <string name="log_saver_activity_label">Salva log</string>

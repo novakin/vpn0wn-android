@@ -139,7 +139,7 @@
     <string name="latest_handshake">Última comunicación</string>
     <string name="listen_port">Puerto de escucha</string>
     <string name="log_export_error">No se pudo exportar el registro: %s</string>
-    <string name="log_export_subject">Archivo de registro WireGuard Android</string>
+    <string name="log_export_subject">Archivo de registro vpn0wn Android</string>
     <string name="log_export_success">Guardado en “%s”</string>
     <string name="log_export_title">Exportar archivo de registro</string>
     <string name="log_saver_activity_label">Guardar registro</string>

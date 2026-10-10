@@ -165,7 +165,7 @@
     <string name="latest_handshake">Последнее рукопожатие</string>
     <string name="listen_port">Порт</string>
     <string name="log_export_error">Не удалось экспортировать журнал: %s</string>
-    <string name="log_export_subject">Файл журнала WireGuard Android</string>
+    <string name="log_export_subject">Файл журнала vpn0wn Android</string>
     <string name="log_export_success">Сохранено в “%s”</string>
     <string name="log_export_title">Экспорт журнала в файл</string>
     <string name="log_saver_activity_label">Сохранить журнал</string>
