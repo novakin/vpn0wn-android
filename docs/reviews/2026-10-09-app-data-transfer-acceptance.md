@@ -1,6 +1,6 @@
 # App-data transfer acceptance — legacy-ID preparation
 
-Last updated: 2026-10-09 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 ## Scope and provenance
 
@@ -78,6 +78,27 @@ The target package was initially absent. Installing the retained candidate requi
 
 The private fixture and owned MediaStore row were removed after hash/identity checks. Original timeout and rotation values were verified, and uninstall restored the initially absent package, removing its app data and permission identity. No package service remained. Only the owned private emulator was stopped; its frontend and ports were read back absent. The original AVD configuration stayed byte-identical, and `emulator-5580` remained online with the original DataStore hash. Private AVD files and evidence were retained rather than recursively deleted.
 
-### Remaining smoke boundaries
+### Remaining smoke boundaries at the 2026-10-09 checkpoint
 
-Nonzero live statistics remain untested: endpoint-free UP establishes backend activation and presentation, not authenticated traffic or VPN health. VPS-wizard rotation was unavailable through production navigation; this source contains the `VpsProvisioningFragment` declaration without a caller or Home route. No route was injected and no provisioning action was taken. These two smoke boundaries remain explicit; the run does not complete physical, root/kernel, provider-fault, TalkBack, full identity-migration, DPI, performance or energy acceptance. Existing guides already own those gates; this evidence-only update changes no behavior, setup, contract or process.
+At that checkpoint, nonzero live statistics remained untested: endpoint-free UP established backend activation and presentation, not authenticated traffic or VPN health. VPS-wizard rotation was unavailable through production navigation; this source contains the `VpsProvisioningFragment` declaration without a caller or Home route. No route was injected and no provisioning action was taken. Those two smoke boundaries remained explicit; that run did not complete physical, root/kernel, provider-fault, TalkBack, full identity-migration, DPI, performance or energy acceptance. Existing guides already own those gates; this evidence-only update changes no behavior, setup, contract or process.
+
+## Live-counter smoke — 2026-10-10
+
+This later authorized run completed the scoped live-statistics smoke in the owned private API 36 x86_64 AVD, `emulator-5584`. The shared visible AVD and physical phone received no commands from this session. Working head was `100b00e5db99159980c9adac74542148ad169512`; its only difference from the APK's earlier source head was this acceptance document. No APK was rebuilt. The retained APK was installed into the initially absent package, and its installed SHA256 matched the revised candidate above. Fresh device and authorization baselines were captured before test mutations. Evidence remains ignored under `.artifacts/transfer-live-private-20261010/`.
+
+The reviewed pinned WireGuard loopback peer ran as an owned host process with a 180-second maximum lifetime. Actual UDP ownership readback verified only `127.0.0.1` and `::1` listeners before importing any profile. The fresh native ZIP import contained one synthetic client at `198.18.71.2/32`, routed only `198.18.71.1/32`, with endpoint `10.0.2.2:63765`, no DNS, ListenPort or default route. These interface addresses belong to the benchmark range. Android's native VPN consent preceded UP. No root, firewall change, public endpoint or remote-server action was used.
+
+With the selected profile open in resumed Detail, a bounded 60-packet ICMP run generated real authenticated traffic through the native backend to the loopback peer. All 60 packets received replies. The rendered hero displayed 370 B/s download and upload. Two time-separated peer captures showed increasing native RX and TX totals:
+
+| Capture time, Europe/Paris | Rendered RX | Rendered TX | Rendered latest handshake | Private capture |
+| --- | --- | --- | --- | --- |
+| 2026-10-10 08:12:00.818 | 2.09 KiB | 2.14 KiB | 4s | `09-detail-peer-first.png` |
+| 2026-10-10 08:12:05.003 | 3.84 KiB | 3.89 KiB | 8s | `10-detail-peer-second.png` |
+
+The earlier rate capture is `08-detail-rates.png`. The corresponding retained host samples independently showed RX/TX/replies increasing from 1172/1116 bytes and eight replies to 3348/3292 bytes and 25 replies, with a nonzero handshake timestamp. Host reports have a five-second cadence, so they are correlated samples rather than simultaneous byte-equality assertions. The final host sample contained 7860 RX bytes, 7772 TX bytes and 60 ICMP replies. No statistics were mocked or injected through UAPI, and no app data was manually rewritten.
+
+After traffic finished, normal UI actions returned the owned tunnel DOWN and deleted exactly its name through native confirmation. Persistent config inventory was empty. The original pre-import app file and mode remained unchanged; normal first use had added a 0600 DataStore file, so byte equality of the whole pre-import sandbox is not claimed. Uninstall restored the initially absent package and removed its owned app data and authorization identity. The uploaded ZIP and exact MediaStore row were removed only after hash and identity checks. Recorded system settings were verified against the fresh baseline, the temporary timeout was restored, and the owned AVD configuration stayed byte-identical.
+
+The bounded ping, loopback peer and owned private emulator ended. Final readback verified their processes absent, the peer's UDP sockets closed, private emulator ports absent, no package VPN service, no uploaded fixture or owned MediaStore row, and package absence. Private userdata and host evidence were retained. No shared AVD or phone restoration was needed because this session did not operate them.
+
+This supplies the missing native live-counter smoke for the retained candidate. VPS-wizard rotation remains conditional because production navigation has no wizard route; no route or provisioning action was injected. Physical acceptance, public-server interoperability and general VPN health, root/kernel, provider faults, TalkBack, full identity migration, DPI, speed and battery gates remain separate. The small loopback packet run is functional evidence, not a performance benchmark or gain. This evidence-only update changes no behavior, setup, contract or process; existing owning guides retain their applicable gates.
