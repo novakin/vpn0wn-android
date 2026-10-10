@@ -15,9 +15,12 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.databinding.DataBindingUtil
 import androidx.core.widget.NestedScrollView
 import com.wireguard.android.R
+import com.wireguard.android.databinding.BindingAdapters
 import com.wireguard.android.databinding.TunnelListFragmentBinding
 import com.wireguard.android.model.TunnelTestEnvironment
+import com.wireguard.android.backend.Statistics
 import com.wireguard.android.backend.Tunnel
+import com.wireguard.crypto.Key
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import java.util.concurrent.TimeUnit
 import java.io.File
@@ -357,10 +360,18 @@ class HomeSelectionTest {
             RuntimeEnvironment.setFontScale(case.scale)
             val f = host("bravo", "charlie")
             try {
-                f.binding.tunnels!!["charlie"]!!.setStateAsync(Tunnel.State.UP)
+                assertEquals("—", f.binding.homeEndpointHost.text.toString())
+                val active = f.binding.tunnels!!["charlie"]!!
+                active.setConfigAsync(profileWithPeer(withPsk = true))
+                f.env.backend.statisticsReader = { recentStatistics() }
+                active.setStateAsync(Tunnel.State.UP)
                 runCurrent()
+                active.onStatisticsChanged(recentStatistics(), f.env.backend)
+                assertEquals("${case.name}: active model endpoint", "198.51.100.42",
+                    BindingAdapters.homeEndpointHost(f.binding.tunnels))
                 layout(f.binding, case.width, case.height)
                 assertEquals(Tunnel.State.UP, f.binding.tunnels!!["charlie"]!!.state)
+                assertEquals("198.51.100.42", f.binding.homeEndpointHost.text.toString())
                 val targets = listOf(f.binding.homeSearch, f.binding.homeLogs, f.binding.homeSettings)
                 val targetBounds = targets.map { target ->
                     assertTrue("${case.name}: Home action width", target.width >= 48 * target.resources.displayMetrics.density)
@@ -377,9 +388,10 @@ class HomeSelectionTest {
                 assertEquals("${case.name}: wordmark stays together", summaryLayout.getLineForOffset(0),
                     summaryLayout.getLineForOffset(wordmark.length - 1))
                 assertTextFits(f.binding.homeStatusContainer, case.name)
+                assertEndpointLayout(f.binding, case.name)
                 assertTextFits(f.binding.createFab, case.name)
                 assertTrue("${case.name}: Add target", f.binding.createFab.height >= 48 * f.binding.createFab.resources.displayMetrics.density)
-                assertSingleLineBadge(f.binding, case.name)
+                assertCompleteBadge(f.binding, case.name)
                 save(f.binding.root, "home-${case.name}")
                 dragHomeHeader(f.binding)
                 layout(f.binding, case.width, case.height)
@@ -405,7 +417,7 @@ class HomeSelectionTest {
                 }
                 assertTextFits(f.binding.selectionHeaderContainer, case.name)
                 assertTextFits(f.binding.selectionStatusContainer, case.name)
-                assertSingleLineBadge(f.binding, case.name)
+                assertCompleteBadge(f.binding, case.name)
                 save(f.binding.root, "selected-${case.name}")
                 row(f.binding, 0).performClick()
                 row(f.binding, 1).performClick()
@@ -505,7 +517,8 @@ class HomeSelectionTest {
     @Test fun homeHeaderActionsKeepExistingNavigationAndDisabledSearch() = runHomeTest {
         val f = host("bravo")
         assertFalse(f.binding.homeSearch.isEnabled)
-        assertEquals("Vpn0wn · 1 configured", f.binding.homeHeaderSummary.text.toString())
+        assertEquals("vpnøwn · 1 configured", f.binding.homeHeaderSummary.text.toString())
+        assertEquals("vpn0wn · 1 configured", f.binding.homeHeaderSummary.contentDescription.toString())
         f.binding.homeLogs.performClick()
         assertEquals("com.wireguard.android.activity.LogViewerActivity",
             shadowOf(f.controller.get()).nextStartedActivity.component!!.className)
@@ -514,6 +527,77 @@ class HomeSelectionTest {
             shadowOf(f.controller.get()).nextStartedActivity.component!!.className)
         f.binding.createFab.performClick()
         assertNotNull(f.fragment.childFragmentManager.findFragmentByTag("BOTTOM_SHEET"))
+    }
+
+    @Test fun cipherAppearsOnlyBesideStatusAndTracksPskChanges() = runHomeTest {
+        val f = host("bravo")
+        val tunnel = f.binding.tunnels!!["bravo"]!!
+        for (withPsk in listOf(false, true)) {
+            tunnel.setConfigAsync(profileWithPeer(withPsk))
+            runCurrent()
+            layout(f.binding)
+            val item = row(f.binding, 0)
+            val badge = item.findViewById<TextView>(R.id.tunnel_peer_badge)
+            val cipher = if (withPsk) "ChaCha20 + PSK" else "ChaCha20"
+            val expected = "${f.fragment.getString(R.string.tunnl_tunnel_status_inactive)} · $cipher"
+            assertEquals(expected, badge.text.toString())
+            assertEquals("cipher retains mixed case", expected,
+                badge.transformationMethod?.getTransformation(badge.text, badge)?.toString() ?: badge.text.toString())
+            assertEquals(item.findViewById<View>(R.id.tunnel_header), badge.parent)
+            assertEquals(listOf(badge), textViews(item).filter { it.text.contains("ChaCha20") })
+            assertFalse(textViews(item.findViewById(R.id.tunnel_stats)).any { it.text.contains("ChaCha20") })
+        }
+    }
+
+    private fun profileWithPeer(withPsk: Boolean): com.wireguard.config.Config {
+        val psk = if (withPsk) "PresharedKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=" else ""
+        return com.wireguard.config.Config.parse("""
+            [Interface]
+            PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+            [Peer]
+            PublicKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+            $psk
+            Endpoint = 198.51.100.42:51820
+        """.trimIndent().byteInputStream())
+    }
+
+    private fun recentStatistics(): Statistics {
+        val snapshot = Statistics::class.java.getDeclaredConstructor().apply { isAccessible = true }.newInstance()
+        Statistics::class.java.getDeclaredMethod("add", Key::class.java, Long::class.javaPrimitiveType,
+            Long::class.javaPrimitiveType, Long::class.javaPrimitiveType).apply { isAccessible = true }
+            .invoke(snapshot, Key.fromBytes(ByteArray(32)), 0L, 0L, System.currentTimeMillis() - 5_000L)
+        return snapshot
+    }
+
+    private fun assertEndpointLayout(binding: TunnelListFragmentBinding, name: String) {
+        val icon = binding.homeEndpointIcon
+        val label = binding.homeEndpointLabel
+        val value = binding.homeEndpointHost
+        assertFullyVisible(icon, "$name: endpoint icon")
+        assertFullyVisible(label, "$name: endpoint label")
+        assertFullyVisible(value, "$name: endpoint value")
+        assertEquals(View.IMPORTANT_FOR_ACCESSIBILITY_NO, icon.importantForAccessibility)
+        assertFalse(icon.isClickable)
+        assertEquals(binding.root.context.getString(R.string.tunnl_home_endpoint), label.text.toString())
+        val iconBounds = Rect().also { icon.getGlobalVisibleRect(it) }
+        for (text in listOf(label, value)) {
+            val textBounds = Rect().also { text.getGlobalVisibleRect(it) }
+            assertFalse("$name: endpoint text overlaps icon", Rect.intersects(iconBounds, textBounds))
+            if (binding.root.layoutDirection == View.LAYOUT_DIRECTION_RTL) {
+                assertTrue("$name: icon at logical end", iconBounds.right <= textBounds.left)
+            } else {
+                assertTrue("$name: icon at logical end", textBounds.right <= iconBounds.left)
+            }
+        }
+    }
+
+    private fun textViews(view: View): List<TextView> {
+        val texts = mutableListOf<TextView>()
+        if (view is TextView) texts += view
+        if (view is ViewGroup) {
+            for (index in 0 until view.childCount) texts += textViews(view.getChildAt(index))
+        }
+        return texts
     }
 
     private fun assertTextFits(view: View, name: String) {
@@ -550,11 +634,19 @@ class HomeSelectionTest {
         dispatch(MotionEvent.ACTION_UP, 1800, startY - distance)
     }
 
-    private fun assertSingleLineBadge(binding: TunnelListFragmentBinding, name: String) {
+    private fun assertCompleteBadge(binding: TunnelListFragmentBinding, name: String) {
         for (index in 0 until binding.tunnelList.childCount) {
-            val badge = binding.tunnelList.getChildAt(index).findViewById<TextView>(R.id.tunnel_peer_badge)
-            assertEquals("$name: ${badge.text}", 1, badge.lineCount)
-            assertEquals("NO PEER", badge.text.toString())
+            val item = binding.tunnelList.getChildAt(index)
+            val badge = item.findViewById<TextView>(R.id.tunnel_peer_badge)
+            val tunnel = binding.tunnels!![item.findViewById<TextView>(R.id.tunnel_name).text.toString()]!!
+            val expectedCipher = if (tunnel.name == "charlie") "ChaCha20 + PSK" else "unbound"
+            assertTrue("$name: complete cipher", badge.text.endsWith(" · $expectedCipher"))
+            assertEquals("$name: all badge characters laid out", badge.text.length,
+                badge.layout.getLineEnd(badge.layout.lineCount - 1))
+            assertTextFits(badge, name)
+            for (line in 0 until badge.layout.lineCount) {
+                assertEquals("$name: no hidden cipher", 0, badge.layout.getEllipsisCount(line))
+            }
         }
     }
 
@@ -590,7 +682,7 @@ class HomeSelectionTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val env = TunnelTestEnvironment(folder.newFolder(), backgroundScope)
         names.forEach { env.store.configs[it] = TunnelTestEnvironment.profile() }
-        env.manager.getTunnels()
+        env.manager.getTunnels().forEach { it.getConfigAsync() }
         val controller = Robolectric.buildActivity(HostActivity::class.java)
         controllers += controller
         controller.get().setTheme(R.style.AppTheme)
