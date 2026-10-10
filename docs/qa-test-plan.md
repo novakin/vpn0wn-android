@@ -1,6 +1,6 @@
 # Tunnl QA Test Plan
 
-Last updated: 2026-10-09 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 This document tracks the automated and manual QA coverage required for the Tunnl Android redesign.
 
@@ -28,7 +28,7 @@ Close the actual native `Device`, including concurrent closure after ATTEMPT and
 
 Backend/model controls require at most five staged event kinds per configured peer, coalesced Handler callbacks outside every backend/native/context lock, activation IDs independent of backend instance/statistics invalidation, startup-success publication, failed-startup discard, null versus active empty diagnostics, distinct latest attempt/send/authentication/exhaustion retention, and obsolete events before and after Main dispatch during DOWN/reconnect/service destruction. Verify sequence ordering, honest coalescing gaps without inferred counters and monotonic observation time. Unknown/unconfigured peer events must not become per-peer health or grow staging storage. Run focused lifecycle/statistics/model suites before full UI/tunnel unit tests and Detekt; the actual final-head PR/CI record owns executions. This section declares required coverage, not passing test counts or publication evidence.
 
-Retained-TUN rebind, hostname refresh, family fallback and network automation remain later #73/#74 work. Before rebind, inject a blocked send while DOWN/destruction competes and prove captured-bind I/O cancellation precedes waiting, handle borrow lifetime, Java-lock separation, UAPI/recovery serialization, terminal shutdown and generation rejection. Future leak/packet tests must enforce [fail-closed lockdown bootstrap](operations.md#recovery-and-bootstrap-policy--73-draft). No APK, device, peer/server or packet run is part of this first draft; separately authorized handover/wake/Doze and reachability evidence remain open. Presentation requires UI-roadmap/design/output acceptance when implemented.
+Retained-TUN rebind, hostname refresh, family fallback and network automation remain later #73/#74 work. Before rebind, inject a blocked send while DOWN/destruction competes and prove captured-bind I/O cancellation precedes waiting, handle borrow lifetime, Java-lock separation, UAPI/recovery serialization, terminal shutdown and generation rejection. Future leak/packet tests must enforce [fail-closed lockdown bootstrap](operations.md#recovery-and-bootstrap-policy--73-draft). [Private API 36 Android acceptance](reviews/2026-10-10-native-handshake-avd-acceptance.md) records actual protection entry, single-peer ATTEMPT/SENT/AUTHENTICATED model facts, manual DOWN/replacement and corrected forced screen-off idle/private wake reachability, separately from failed instrumentation and debugger timing. Unavailable packet/physical/handover/family gates stay explicit; private standard-peer HTTP is not Internet reachability. Presentation requires UI-roadmap/design/output acceptance when implemented.
 
 ### JVM Unit Tests
 

@@ -1,6 +1,6 @@
 # Backend and provisioning contracts
 
-Last updated: 2026-10-09 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -45,7 +45,7 @@ In retained baseline logs, `UDP preflight sent` means the protected Java socket 
 
 ## Native handshake observations — #73 draft
 
-The first [#73](https://github.com/novakin/wireguard-android/issues/73) source slice is a local draft for userspace observations only. The version/match-checked overlay extends actual pinned protocol owners; it does not replace WireGuard retry/rekey timing. No recovery mutation, underlying-network callback, endpoint/DNS rewrite, UI, ping, wake lock or additional polling is included. Kernel observations and recovery are unavailable.
+The first [#73](https://github.com/novakin/wireguard-android/issues/73) source slice is published in draft [PR #101](https://github.com/novakin/wireguard-android/pull/101) for userspace observations only. The version/match-checked overlay extends actual pinned protocol owners; it does not replace WireGuard retry/rekey timing. No recovery mutation, underlying-network callback, endpoint/DNS rewrite, UI, ping, wake lock or additional polling is included. Kernel observations and recovery are unavailable.
 
 | Observation | Protocol-owned meaning |
 | --- | --- |
@@ -63,7 +63,7 @@ Native `Device.Close` has a monotonic terminal state. The shared observation sea
 
 `ObservableTunnel.handshakeDiagnostics` exposes nullable read-only `Map<Key, PeerHandshakeDiagnostics>` snapshots: null means unavailable, DOWN or kernel; an empty map means active userspace with no observed event. Each observed peer retains `lastObservation`, `lastAttempt`, `lastSendResult`, `lastAuthenticated` and `lastExhausted` within that activation. Missing event kinds remain null. A later event does not erase those distinct facts or make an old failure current health. No observation infers reachability, active transport recovery or counters; no history survives as active diagnostics after DOWN/replacement. This activation identity is separate from statistics cache invalidation. Existing Fragments/DataBinding receive no new presentation in this slice.
 
-Local native/JNI/JVM checks and draft source establish only their executed scope; PR/CI/merge, device handover/wake, endpoint refresh, family fallback, recovery and leak behavior remain unproved. [Architecture](architecture.md#handshake-observations-follow-native-protocol-and-activation-owners--2026-10-09) owns the retained-TUN rebind prerequisite; [operations](operations.md#recovery-and-bootstrap-policy--73-draft) owns fail-closed bootstrap policy, and [QA](qa-test-plan.md#native-handshake-observation-controls--73-draft) owns required controls. #73's remaining acceptance stays open.
+Local native/JNI/JVM checks and [private Android acceptance](reviews/2026-10-10-native-handshake-avd-acceptance.md) establish only their executed scope. The Android record proves actual protection callback entry, per-peer publication and manual retirement/replacement; entry does not directly prove the protection return value. It records corrected forced screen-off idle/private wake reachability separately from failed instrumentation, debugger timing and unavailable packet coverage. Current PR acceptance owns review/CI/publication state; source integration, handover/rebind, endpoint refresh, family fallback, recovery and leak behavior remain separate. [Architecture](architecture.md#handshake-observations-follow-native-protocol-and-activation-owners--2026-10-09) owns the retained-TUN rebind prerequisite; [operations](operations.md#recovery-and-bootstrap-policy--73-draft) owns fail-closed bootstrap policy, and [QA](qa-test-plan.md#native-handshake-observation-controls--73-draft) owns required controls. #73's remaining acceptance stays open.
 
 ## Import, ordering and export
 

@@ -1,6 +1,6 @@
 # Operations and recovery
 
-Last updated: 2026-10-09 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -84,7 +84,7 @@ Peer detail now shows separate cumulative RX/TX byte totals; these are not trans
 
 ## Recovery and bootstrap policy — #73 draft
 
-The local [#73](https://github.com/novakin/wireguard-android/issues/73) draft adds model observations from actual userspace handshake owners; it adds no visible health/recovery controls or automatic recovery. Kernel diagnostics remain unavailable. An initiation attempt, successful local send, authenticated handshake and retry exhaustion are separate facts. A peer's authentication proves neither other peers nor Internet reachability; idle/Doze alone produces no failure. Active diagnostics clear on DOWN/replacement. [Backend contracts](backend-contracts.md#native-handshake-observations--73-draft) owns the per-peer scope and unavailable values. Draft source/local checks are not a released or installed capability and do not complete #73's runtime acceptance.
+The [#73](https://github.com/novakin/wireguard-android/issues/73) slice in draft [PR #101](https://github.com/novakin/wireguard-android/pull/101) adds model observations from actual userspace handshake owners; it adds no visible health/recovery controls or automatic recovery. Kernel diagnostics remain unavailable. An initiation attempt, successful local send, authenticated handshake and retry exhaustion are separate facts. A peer's authentication proves neither other peers nor Internet reachability; idle/Doze alone produces no failure. Active diagnostics clear on DOWN/replacement. [Backend contracts](backend-contracts.md#native-handshake-observations--73-draft) owns the per-peer scope and unavailable values. [Private Android acceptance](reviews/2026-10-10-native-handshake-avd-acceptance.md) records an authorized synthetic installation, actual callback/model/retirement proof and corrected forced screen-off idle/private wake reachability. Protection-return, packet and physical limits remain explicit. It establishes no release or complete #73 runtime acceptance.
 
 Future recovery must preserve manual UP/DOWN/toggle intent, saved hostnames/settings, unrelated peers and explicit ListenPort. Restoration/refresh observations are not manual overrides; #74's automation must classify user actions at manager admission. Retained-TUN transport rebind still requires the [native lock/cancellation prerequisite](architecture.md#handshake-observations-follow-native-protocol-and-activation-owners--2026-10-09) before implementation.
 

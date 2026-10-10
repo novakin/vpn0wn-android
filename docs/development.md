@@ -199,6 +199,10 @@ Do not end required work while commands or reviewers are still running. State be
 
 ## Recorded verification
 
+### Native handshake private Android acceptance — 2026-10-10
+
+The [scoped API 36 record](reviews/2026-10-10-native-handshake-avd-acceptance.md) identifies the authorized debug APK/installed checksum, independent unchanged userspace peer, actual callback/model/retirement results and corrected forced screen-off idle/private wake reachability for draft PR #101. It preserves failed instrumentation, an explicitly truncated reader snapshot, debugger timing, the limited initial screen-on run and unavailable packet coverage. This actual Android evidence complements the earlier host/JVM/native compilation record below without extending its historical scope or claiming recovery, physical suspend, leak/DPI/performance acceptance. The current PR record owns final-head independent ultra, checks, publication and merge state; #73 remains open.
+
 ### Native handshake observation draft — 2026-10-09
 
 The first [#73 source slice](backend-contracts.md#native-handshake-observations--73-draft) extends the pinned overlay, bind/JNI bridge and existing backend/model owners without transport recovery or UI. In WSL Linux/OpenJDK 21.0.10/Gradle 9.8.1, the full `./gradlew :ui:testDebugUnitTest :tunnel:testDebugUnitTest :ui:detekt :tunnel:externalNativeBuildDebug --console=plain` gate passed 293 UI and 16 tunnel tests with zero failures/errors/skips and zero Detekt findings. Native CMake compilation passed arm64-v8a, armeabi-v7a, x86 and x86_64 with NDK 28.2.13676358/API 24; ELF inspection confirms the four expected architectures. This compiles the changed Go/C/JNI ABI without assembling an APK. The first combined attempt stopped because this new worktree's tracked native submodules were absent; initializing their exact gitlinks corrected setup. Retained logs and full XML reports stay under ignored `.artifacts`; no raw host/profile evidence enters source distribution.
