@@ -76,12 +76,15 @@ public interface Backend {
 
     /**
      * Set the state of a tunnel, updating it's configuration. If the tunnel is already up, config
-     * may update the running configuration; config may be null when setting the tunnel down.
+     * may update the running configuration. Config may be null when setting the tunnel down if
+     * the backend retains the teardown configuration or does not need one. The kernel backend
+     * requires the saved configuration for an active tunnel after backend recreation.
      *
      * @param tunnel The tunnel to control the state of.
      * @param state  The new state for this tunnel. Must be {@code UP}, {@code DOWN}, or
      *               {@code TOGGLE}.
-     * @param config The configuration for this tunnel, may be null if state is {@code DOWN}.
+     * @param config The configuration for this tunnel, may be null for {@code DOWN} when teardown
+     *               does not require caller-supplied configuration.
      * @return The updated state of the tunnel.
      * @throws Exception Exception raised while changing state.
      */
