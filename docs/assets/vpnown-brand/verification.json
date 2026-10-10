@@ -1,0 +1,25 @@
+{
+  "board": {
+    "width": 1600,
+    "height": 1200
+  },
+  "exactSwatchSamples": {
+    "background": "#071220",
+    "secondaryBackground": "#0A1727",
+    "surface": "#162436",
+    "accent": "#2ABFF7",
+    "secondaryAccent": "#68C6FD",
+    "border": "#233B54",
+    "activeBorder": "#3E5B78",
+    "text": "#FAFAFA",
+    "secondaryText": "#C9D5E3",
+    "mutedText": "#94AECB"
+  },
+  "sharedGeometry": [
+    "symbol",
+    "symbol-solid",
+    "symbol-white",
+    "symbol-navy"
+  ],
+  "opticalMasterSize": 16
+}

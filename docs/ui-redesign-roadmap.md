@@ -8,6 +8,8 @@ Reference: `.design/` — React/JSX prototype for **Tunnl**, a WireGuard tunnel 
 
 Prototype sections below describe visual targets, not implemented Android guarantees. Initial committed-source reconciliation used `11d4a9b1`; the Done ledger also retains superseded implementation history. Read the explicit gaps and [full documentation review](reviews/2026-10-06-full-documentation-review.md) for evidence limits.
 
+The [reviewed vpnØwn brand artwork](assets/vpnown-brand/README.md) is retained as a separate user-requested reference: outlined SVGs, exact palette values, a 16px optical mark, and reproducible PNG exports. Its [visual acceptance](assets/vpnown-brand/ACCEPTANCE.md) covers artwork only. Sora lettering in that board does not replace the existing native Inter Tight contract; launcher/source identity migration remains with [#71](https://github.com/novakin/vpn0wn-android/issues/71).
+
 | File | Contents |
 |------|----------|
 | `screens-home.jsx` | Home screen, `TunnelCard`, `MiniDiagram` (3 variants), multi-select mode, status strip |
