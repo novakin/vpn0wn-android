@@ -51,6 +51,14 @@ Gradle 9.8.1 configuration reports AGP-owned `Configuration.setVisible` and Proj
 
 Regenerate tracked wrapper configuration, JAR and Unix launcher together through two official `wrapper` task passes, as [Gradle's wrapper guide](https://docs.gradle.org/9.8.1/userguide/gradle_wrapper.html#sec:upgrading_wrapper) requires for fully updated artifacts. Verify the distribution and JAR against [official release checksums](https://gradle.org/release-checksums/). Preserve the existing Unix-only launcher scope; generation of an optional batch launcher does not establish native Windows build support. Rollback restores all three tracked wrapper artifacts together. [#70](https://github.com/novakin/vpn0wn-android/issues/70) owns final-head repository/CI acceptance; wrapper generation and `--version` alone do not discharge it.
 
+## Brand artwork export
+
+The [approved artwork source](assets/vpnown-brand/README.md#android-export) owns deterministic Android export. Run its locked `npm ci`, then `node docs/assets/vpnown-brand/generate.mjs --android` from the repository root when changing approved geometry or outlines. The opt-in export updates existing launcher/tile/TV resources and Home artwork; default generation leaves Android resources untouched. Retain generated resources and Sora attribution together. Export does not build an APK or change installed identity.
+
+Run focused `BrandAssetsTest`, `BindingAdaptersTest`, `HomeSelectionTest`, `SettingsActivityTest`, `QuickTileServiceTest` and `LicensesActivityTest` through `:ui:testDebugUnitTest`, plus `:ui:detekt`. Inspect generated native previews under ignored `.artifacts/android-brand-previews` and `.artifacts/home-selection-previews`. [QA controls](qa-test-plan.md#android-brand-artwork-controls) distinguish native JVM output from separately authorized launcher/system/TV runtime proof.
+
+The [2026-10-10 scoped artwork/placement record](reviews/2026-10-10-android-brand-adoption-acceptance.md) retains source/artifact identities, native coverage, focus and compact-header regressions, rejected capture scope and remaining device/distribution limits. Current final-head CI and ultra publication/merge acceptance belong to the delivering PR.
+
 ## Document ownership
 
 | Owner | Content |

@@ -1,4 +1,4 @@
-# Tunnl — WireGuard Android
+# vpn0wn — WireGuard Android fork
 
 Last updated: 2026-10-10 (Europe/Paris).
 
@@ -8,9 +8,10 @@ Last updated: 2026-10-10 (Europe/Paris).
 
 ## Project Context
 
-Tunnl ports the engineering-console UI in `.design/` onto WireGuard Android and adds the documented VPS provisioning flow. Discover the active branch from Git; do not assume a branch name or a clean worktree.
+vpn0wn ports the engineering-console UI in `.design/` onto WireGuard Android and adds the documented VPS provisioning flow. Discover the active branch from Git; do not assume a branch name or a clean worktree. Current source/resource names and installed IDs retain their legacy identities until the coordinated #71 migration.
 
 - Design reference: `.design/` — **read-only, never modify**
+- Brand reference: `docs/assets/vpnown-brand/` — approved artwork; the [Android adoption contract](docs/ui-redesign-roadmap.md#android-brand-asset-adoption--2026-10-10) owns logo use. Outlined Sora logos do not replace Inter Tight/JetBrains Mono UI font roles.
 - UI progress: `docs/ui-redesign-roadmap.md` — **read before every UI task**
 - Backend/functional changes: `docs/backend-changelog.md` — **read before every non-UI task**
 - Architecture: existing DataBinding + Fragment pattern — keep it, don't refactor the foundation

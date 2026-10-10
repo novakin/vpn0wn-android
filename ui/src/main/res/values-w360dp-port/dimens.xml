@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <dimen name="tunnl_home_wordmark_size">22sp</dimen>
+    <dimen name="vpnown_home_wordmark_height">26dp</dimen>
 </resources>

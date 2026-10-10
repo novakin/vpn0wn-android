@@ -6,8 +6,13 @@ package com.wireguard.android.databinding
 
 import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
+import kotlin.math.ceil
+import kotlin.math.floor
 import android.content.Context
 import android.content.res.ColorStateList
+import android.graphics.Canvas
+import android.graphics.Paint
+import android.graphics.Rect
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.os.SystemClock
@@ -15,7 +20,7 @@ import android.text.InputFilter
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
-import android.text.style.TextAppearanceSpan
+import android.text.style.ImageSpan
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -375,13 +380,15 @@ object BindingAdapters {
     fun setHomeHeaderTunnels(view: TextView, tunnels: Iterable<ObservableTunnel>?) {
         val summary = homeHeaderSummary(view.context, tunnels)
         val wordmark = view.context.getString(R.string.tunnl_home_wordmark)
+        val artwork = requireNotNull(ContextCompat.getDrawable(view.context, R.drawable.vpnown_wordmark))
+        val height = view.resources.getDimensionPixelSize(R.dimen.vpnown_home_wordmark_height)
+        val width = (height * artwork.intrinsicWidth.toFloat() / artwork.intrinsicHeight).roundToInt()
+        artwork.setBounds(0, 0, width, height)
         view.contentDescription = summary.replace('ø', '0')
-        view.text = SpannableString(summary).apply {
-            setSpan(TextAppearanceSpan(view.context, R.style.TunnlHomeWordmarkText),
+        val countLabel = summary.substring(wordmark.length).trimStart().replace(' ', '\u00a0')
+        view.text = SpannableString("$wordmark $countLabel").apply {
+            setSpan(HomeWordmarkSpan(artwork),
                 0, wordmark.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-            val zeroIndex = wordmark.indexOf('ø')
-            setSpan(ForegroundColorSpan(ContextCompat.getColor(view.context, R.color.tunnl_signal)),
-                zeroIndex, zeroIndex + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
     }
 
@@ -798,4 +805,38 @@ object BindingAdapters {
         view.connecting = connecting
     }
 
+}
+
+private class HomeWordmarkSpan(artwork: Drawable) : ImageSpan(artwork) {
+    override fun getSize(paint: Paint, text: CharSequence, start: Int, end: Int, fm: Paint.FontMetricsInt?): Int {
+        val metrics = paint.fontMetricsInt
+        val bounds = drawable.bounds
+        val artworkTop = artworkTop(paint, text, end)
+        fm?.apply {
+            ascent = minOf(metrics.ascent, floor(artworkTop).toInt())
+            descent = maxOf(metrics.descent, ceil(artworkTop + bounds.height()).toInt())
+            top = minOf(metrics.top, ascent)
+            bottom = maxOf(metrics.bottom, descent)
+        }
+        return bounds.width()
+    }
+
+    override fun draw(canvas: Canvas, text: CharSequence, start: Int, end: Int, x: Float,
+                      top: Int, y: Int, bottom: Int, paint: Paint) {
+        canvas.save()
+        canvas.translate(x, y + artworkTop(paint, text, end))
+        drawable.draw(canvas)
+        canvas.restore()
+    }
+
+    private fun artworkTop(paint: Paint, text: CharSequence, end: Int): Float {
+        val countBounds = Rect()
+        paint.getTextBounds(text.toString(), end, text.length, countBounds)
+        return countBounds.exactCenterY() - drawable.bounds.height() * WORDMARK_INK_CENTER
+    }
+
+    private companion object {
+        // Approved wordmark ink spans y=38.6467..190 in its 206-unit viewport, including the cyan slash.
+        const val WORDMARK_INK_CENTER = 0.5549677f
+    }
 }

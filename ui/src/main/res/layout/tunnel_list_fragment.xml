@@ -65,7 +65,7 @@
                             android:orientation="vertical"
                             android:paddingStart="14dp"
                             android:paddingTop="10dp"
-                            android:paddingEnd="14dp"
+                            android:paddingEnd="2dp"
                             android:paddingBottom="12dp">
 
                             <LinearLayout
@@ -86,7 +86,6 @@
                                     app:homeHeaderTunnels="@{tunnels}"
                                     tools:text="vpnøwn · 3 configured" />
 
-                                <!-- Keep compact glyph spacing without overlapping the 48dp native touch targets. -->
                                 <androidx.appcompat.widget.AppCompatImageButton
                                     android:id="@+id/home_search"
                                     android:layout_width="48dp"
@@ -96,8 +95,6 @@
                                     android:contentDescription="@string/search"
                                     android:enabled="@{false}"
                                     android:padding="12dp"
-                                    android:paddingStart="22dp"
-                                    android:paddingEnd="2dp"
                                     app:srcCompat="@drawable/ic_tunnl_search"
                                     app:tint="@color/tunnl_ink" />
 
@@ -120,8 +117,6 @@
                                     android:contentDescription="@string/settings"
                                     android:onClick="@{fragment::onOpenSettings}"
                                     android:padding="12dp"
-                                    android:paddingStart="2dp"
-                                    android:paddingEnd="22dp"
                                     app:srcCompat="@drawable/ic_tunnl_settings"
                                     app:tint="@color/tunnl_ink" />
                             </LinearLayout>
@@ -362,12 +357,13 @@
 
                         <androidx.appcompat.widget.AppCompatImageView
                             android:id="@+id/logo_placeholder"
-                            android:layout_width="140dp"
-                            android:layout_height="140dp"
+                            android:layout_width="112dp"
+                            android:layout_height="112dp"
                             android:layout_gravity="center"
-                            android:layout_marginBottom="20dp"
+                            android:layout_marginBottom="16dp"
                             android:alpha="0.3333333"
-                            android:src="@mipmap/ic_launcher" />
+                            android:importantForAccessibility="no"
+                            android:src="@drawable/vpnown_symbol" />
 
                         <TextView
                             android:id="@+id/home_empty_placeholder"

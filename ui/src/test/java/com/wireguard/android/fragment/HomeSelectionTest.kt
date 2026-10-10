@@ -344,15 +344,7 @@ class HomeSelectionTest {
 
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun nativeHomeAndConfirmationFitThemesLandscapeLargeTextAndRtl() = runHomeTest {
-        val cases = listOf(
-            Preview("portrait-light", 320, 640, 1f, "en", false),
-            Preview("portrait-dark", 320, 640, 1f, "en", true),
-            Preview("landscape-dark", 640, 320, 1f, "en", true),
-            Preview("large-landscape-dark", 640, 320, 2f, "en", true),
-            Preview("large-rtl-light", 320, 640, 2f, "ar", false),
-            Preview("large-rtl-dark", 320, 640, 2f, "ar", true)
-        )
-        for (case in cases) {
+        for (case in homePreviewCases()) {
             val direction = if (case.locale == "ar") "ldrtl" else "ldltr"
             val orientation = if (case.width > case.height) "land" else "port"
             val night = if (case.night) "night" else "notnight"
@@ -450,6 +442,36 @@ class HomeSelectionTest {
     }
 
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun nativeEmptyHomeKeepsArtworkAndAddReachableAcrossConfigurations() = runHomeTest {
+        for (case in homePreviewCases()) {
+            val direction = if (case.locale == "ar") "ldrtl" else "ldltr"
+            val orientation = if (case.width > case.height) "land" else "port"
+            val night = if (case.night) "night" else "notnight"
+            RuntimeEnvironment.setQualifiers("${case.locale}-$direction-w${case.width}dp-h${case.height}dp-$orientation-$night")
+            RuntimeEnvironment.setFontScale(case.scale)
+            val f = host()
+            try {
+                layout(f.binding, case.width, case.height)
+                assertTrue(f.binding.homeHeaderSummary.contentDescription.startsWith("vpn0wn"))
+                assertFullyVisible(f.binding.homeHeaderSummary, "${case.name}: brand")
+                val header = f.binding.homeHeaderSummary
+                val countStart = f.fragment.getString(R.string.tunnl_home_wordmark).length + 1
+                assertEquals("${case.name}: complete count stays together",
+                    header.layout.getLineForOffset(countStart), header.layout.getLineForOffset(header.text.length - 1))
+                for (line in 0 until header.layout.lineCount) {
+                    assertEquals("${case.name}: complete count remains visible", 0, header.layout.getEllipsisCount(line))
+                }
+                assertFullyVisible(f.binding.createFab, "${case.name}: Add")
+                assertTextFits(f.binding.homeHeaderContainer, case.name)
+                save(f.binding.root, "brand-empty-${case.name}")
+            } finally {
+                f.controller.pause().stop().destroy()
+                controllers.remove(f.controller)
+            }
+        }
+    }
+
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun largeLandscapeHeaderDragRevealsTunnelAndRestoresSelectionActions() = runHomeTest {
         RuntimeEnvironment.setQualifiers("en-ldltr-w640dp-h320dp-land-night")
         RuntimeEnvironment.setFontScale(2f)
@@ -517,7 +539,7 @@ class HomeSelectionTest {
     @Test fun homeHeaderActionsKeepExistingNavigationAndDisabledSearch() = runHomeTest {
         val f = host("bravo")
         assertFalse(f.binding.homeSearch.isEnabled)
-        assertEquals("vpnøwn · 1 configured", f.binding.homeHeaderSummary.text.toString())
+        assertEquals("vpnøwn · 1 configured", f.binding.homeHeaderSummary.text.toString().replace('\u00a0', ' '))
         assertEquals("vpn0wn · 1 configured", f.binding.homeHeaderSummary.contentDescription.toString())
         f.binding.homeLogs.performClick()
         assertEquals("com.wireguard.android.activity.LogViewerActivity",
@@ -668,6 +690,15 @@ class HomeSelectionTest {
     }
 
     private data class Preview(val name: String, val width: Int, val height: Int, val scale: Float, val locale: String, val night: Boolean)
+
+    private fun homePreviewCases() = listOf(
+        Preview("portrait-light", 320, 640, 1f, "en", false),
+        Preview("portrait-dark", 320, 640, 1f, "en", true),
+        Preview("landscape-dark", 640, 320, 1f, "en", true),
+        Preview("large-landscape-dark", 640, 320, 2f, "en", true),
+        Preview("large-rtl-light", 320, 640, 2f, "ar", false),
+        Preview("large-rtl-dark", 320, 640, 2f, "ar", true)
+    )
 
     private fun runHomeTest(block: suspend TestScope.() -> Unit) = runTest {
         try {

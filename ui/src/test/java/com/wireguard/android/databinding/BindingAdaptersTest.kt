@@ -10,7 +10,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
-import android.text.style.TextAppearanceSpan
+import android.text.style.ImageSpan
 import android.widget.TextView
 import android.view.View
 import androidx.test.core.app.ApplicationProvider
@@ -67,20 +67,56 @@ class BindingAdaptersTest {
     }
 
     @Test
-    fun homeWordmarkColorsOnlySlashedZeroAndKeepsReadableBrandDescription() {
+    fun homeWordmarkUsesArtworkWithoutReplacingLocalizedCountOrBrandDescription() {
         val header = TextView(context)
         BindingAdapters.setHomeHeaderTunnels(header, emptyList())
         val text = header.text as Spanned
-        val color = text.getSpans(0, text.length, ForegroundColorSpan::class.java).single()
-        assertEquals(3, text.getSpanStart(color))
-        assertEquals(4, text.getSpanEnd(color))
-        assertEquals("ø", text.subSequence(text.getSpanStart(color), text.getSpanEnd(color)).toString())
-        assertEquals(context.getColor(R.color.tunnl_signal), color.foregroundColor)
-        val appearance = text.getSpans(0, text.length, TextAppearanceSpan::class.java).single()
-        assertEquals(0, text.getSpanStart(appearance))
-        assertEquals(6, text.getSpanEnd(appearance))
-        assertEquals(null, appearance.family)
+        val artwork = text.getSpans(0, text.length, ImageSpan::class.java).single()
+        assertEquals(0, text.getSpanStart(artwork))
+        assertEquals(6, text.getSpanEnd(artwork))
+        assertEquals(" · 0 configured", text.subSequence(text.getSpanEnd(artwork), text.length).toString().replace('\u00a0', ' '))
+        assertTrue(artwork.drawable.bounds.width() > artwork.drawable.bounds.height())
         assertEquals("vpn0wn · 0 configured", header.contentDescription.toString())
+    }
+
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun homeWordmarkAndCountShareVisibleVerticalCenterAtNormalAndLargeText() {
+        try {
+            for (scale in listOf(1f, 2f)) {
+                RuntimeEnvironment.setFontScale(scale)
+                val header = TextView(context, null, 0, R.style.TunnlHomeHeaderText)
+                header.setTextColor(context.getColor(R.color.tunnl_ink_3))
+                BindingAdapters.setHomeHeaderTunnels(header, emptyList())
+                val density = header.resources.displayMetrics.density
+                val width = (320 * density).toInt()
+                header.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec((80 * density).toInt(), View.MeasureSpec.AT_MOST))
+                header.layout(0, 0, width, header.measuredHeight)
+                assertEquals(1, header.layout.lineCount)
+                val bitmap = Bitmap.createBitmap(width, header.height, Bitmap.Config.ARGB_8888)
+                header.draw(Canvas(bitmap))
+                try {
+                    val text = header.text as Spanned
+                    val logoWidth = text.getSpans(0, text.length, ImageSpan::class.java).single().drawable.bounds.width()
+                    val logoCenter = visibleInkCenter(bitmap, 0 until logoWidth)
+                    val countCenter = visibleInkCenter(bitmap, logoWidth until width)
+                    assertTrue("$scale text: logo center $logoCenter, count center $countCenter",
+                        kotlin.math.abs(logoCenter - countCenter) <= density)
+                } finally {
+                    bitmap.recycle()
+                }
+            }
+        } finally {
+            RuntimeEnvironment.setFontScale(1f)
+        }
+    }
+
+    private fun visibleInkCenter(bitmap: Bitmap, columns: IntRange): Float {
+        val rows = (0 until bitmap.height).filter { y ->
+            columns.any { x -> bitmap.getPixel(x, y) ushr 24 >= 128 }
+        }
+        assertTrue("Expected rendered ink", rows.isNotEmpty())
+        return (rows.first() + rows.last()) / 2f
     }
 
     @Test
@@ -133,7 +169,7 @@ class BindingAdaptersTest {
         assertEquals("—", BindingAdapters.homeEndpointHost(listOf(inactive)))
         val header = TextView(context)
         BindingAdapters.setHomeHeaderTunnels(header, tunnels)
-        assertEquals("vpnøwn · 2 configured", header.text.toString())
+        assertEquals("vpnøwn · 2 configured", header.text.toString().replace('\u00a0', ' '))
         assertEquals("vpn0wn · 2 configured", header.contentDescription.toString())
     }
 

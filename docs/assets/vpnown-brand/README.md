@@ -4,7 +4,7 @@ Last updated: 2026-10-10 (Europe/Paris).
 
 The supplied navy/cyan identity is preserved. This reviewed brand reference replaces approximate raster colors with exact SVG geometry and palette values, gives the wordmark deliberate optical spacing, and adds a dedicated 16px symbol.
 
-This directory owns the reviewed brand artwork and its authoring inputs. The [UI roadmap](../../ui-redesign-roadmap.md) owns Android visual intent and implementation status. The ten palette values match the existing Android color resources; these SVG/PNG files have not replaced launcher resources or completed the identity migration in [#71](https://github.com/novakin/vpn0wn-android/issues/71).
+This directory owns the reviewed brand artwork, its authoring inputs and the deterministic Android artwork export. The [UI roadmap](../../ui-redesign-roadmap.md) owns Android visual intent and implementation status. The ten palette values match the existing Android color resources. The approved symbol and outlined wordmark now supply Android launcher, tile, Home and TV artwork; broader identity migration remains in [#71](https://github.com/novakin/vpn0wn-android/issues/71).
 
 ## Files
 
@@ -34,7 +34,7 @@ Use the plain wordmark below 360px width; the WireGuard descriptor becomes too s
 
 ## Typography and reproduction
 
-Sora Variable is the artwork font: weight 800 for the outlined wordmark, 600 for headings, 500 for labels, and 400 for body copy. Android's existing Inter Tight branding contract remains with the UI roadmap. Optical gaps are explicitly set in `generate.mjs`. SVG exports contain outlines, so they do not require installed fonts. The source font and its SIL Open Font License are in `fonts/`; retain the license when distributing the font.
+Sora Variable is the artwork font: weight 800 for the outlined wordmark, 600 for headings, 500 for labels, and 400 for body copy. Android uses the approved outlined wordmark as artwork and retains Inter Tight and JetBrains Mono for interface text. Optical gaps are explicitly set in `generate.mjs`. SVG and Android wordmarks contain outlines, so they do not require installed Sora fonts. The source font and its SIL Open Font License are in `fonts/`; retain the license when distributing the font.
 
 Font source: <https://github.com/google/fonts/tree/main/ofl/sora>.
 
@@ -48,5 +48,29 @@ Pop-Location
 ```
 
 Dependencies stay in this artwork directory and are ignored by Git. The generator checks every palette swatch's rendered center against its declared hex value. [Development](../../development.md) owns Android build and verification commands.
+
+## Android export
+
+From the repository root, after installing the locked artwork dependencies, run:
+
+```powershell
+node docs/assets/vpnown-brand/generate.mjs --android
+```
+
+The optional flag also writes the resources below into [`ui/src/main/res`](../../../ui/src/main/res), using the same frame, slash, gradient, font outlines and optical gaps as the reference assets. It leaves the reference artwork byte-identical. Running without the flag writes only the reference artwork and palette records. Android export uses no additional dependency, font installation, SVG parser or small-PNG resampling.
+
+| Resource | Geometry and use |
+| --- | --- |
+| `drawable/vpnown_symbol.xml` | Transparent 96 × 112 main-master gradient symbol for standalone artwork at 24dp and above. |
+| `drawable/vpnown_wordmark.xml` | Transparent plain outlined wordmark, 730 × 206 viewport and 146 × 41.2dp intrinsic size; interface code controls displayed size. |
+| `drawable/ic_launcher_foreground.xml` | Bare gradient symbol on a 108 × 108dp adaptive layer. Main-master scale 0.5, translation (30, 26); visible bounds (35..73, 29..79). The furthest slash tip is 31.4dp from center, inside the central 66dp safe circle. |
+| `drawable/ic_launcher_monochrome.xml` | Separate solid white alpha mask with identical adaptive geometry. Both existing adaptive wrappers reference this mask. |
+| `values/ic_launcher_background.xml` | Existing background name now uses `tunnl_paper_2`, the approved app-icon navy `#0A1727`. |
+| `mipmap-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/ic_launcher*.png` | Native 48, 72, 96, 144 and 192px exports. The square variant retains the approved 200/1024 corner radius; the round variant uses the approved navy circle. Both retain the approved 650/1024 logical-height symbol. |
+| `drawable/ic_tile.xml` | Transparent solid white main master in a 24 × 24dp viewport; existing system tint and OFF-state treatment remain with the tile owner. |
+| `drawable/tv_logo_banner.xml` | Same transparent plain outlined wordmark and viewport as `vpnown_wordmark`; preserve its aspect ratio. |
+| `mipmap-xhdpi/banner.png` | 320 × 180px navy banner with the complete plain wordmark centered in a 272px-wide area. Its 24px side margins exceed one quarter of the rendered lowercase height. No small WireGuard descriptor. |
+
+All Android artwork disables automatic mirroring. No current Android consumer needs a 16dp standalone mark, so the separate optical 16px master remains in the reference assets. The original [visual acceptance](ACCEPTANCE.md) retains its static-reference scope; Android source checks, native output and device acceptance are separate evidence. Artwork generation does not assemble or install an APK.
 
 Brand copy is retained from the reference. This work covers visual identity and color usage; it does not verify VPN service behavior.

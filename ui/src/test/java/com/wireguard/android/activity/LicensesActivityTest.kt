@@ -62,7 +62,7 @@ class LicensesActivityTest {
         }
         val sourceLicense = File("../COPYING").readLines().joinToString("\n") { it.trimEnd() }
         assertTrue(payload.contains(sourceLicense.trim()))
-        for (font in listOf("inter-tight-OFL.txt", "jetbrains-mono-OFL.txt")) {
+        for (font in listOf("inter-tight-OFL.txt", "jetbrains-mono-OFL.txt", "sora-OFL.txt")) {
             val notice = activity.assets.open("licenses/$font").bufferedReader().use { it.readText() }
             val fullNotice = notice.lineSequence().joinToString("\n") { it.trimEnd() }
             assertTrue(payload.contains(fullNotice.trim()))
@@ -89,7 +89,7 @@ class LicensesActivityTest {
         val unsplitText = TextView(activity).apply { text = payload }
         assertEquals(ACCESSIBILITY_TEXT_LIMIT, unsplitText.createAccessibilityNodeInfo().text.length)
         val texts = notices(activity)
-        assertEquals(27, texts.size)
+        assertEquals(28, texts.size)
         val accessibleTexts = texts.map { text ->
             assertTrue(text.text.length < ACCESSIBILITY_TEXT_LIMIT)
             val accessibleText = text.createAccessibilityNodeInfo().text.toString()
@@ -100,8 +100,12 @@ class LicensesActivityTest {
         val fontNotice = activity.assets.open("licenses/jetbrains-mono-OFL.txt").bufferedReader().use { it.readText() }
         val fullFontNotice = fontNotice.lineSequence().joinToString("\n") { it.trimEnd() }.trim()
         assertTrue(accessibleTexts.any { it.contains(fullFontNotice) })
-        assertTrue(accessibleTexts.last().contains("GNU GENERAL PUBLIC LICENSE"))
-        assertEquals(payload.substring(payload.indexOf("Termux elf-cleaner — host build helper\n")), accessibleTexts.last())
+        val termuxNotice = accessibleTexts.single { it.startsWith("Termux elf-cleaner — host build helper\n") }
+        assertTrue(termuxNotice.contains("GNU GENERAL PUBLIC LICENSE"))
+        assertEquals(payload.substring(payload.indexOf("Termux elf-cleaner — host build helper\n"), payload.indexOf("Sora brand wordmark\n")), termuxNotice)
+        val soraNotice = activity.assets.open("licenses/sora-OFL.txt").bufferedReader().use { it.readText() }
+        assertTrue(accessibleTexts.last().startsWith("Sora brand wordmark\n"))
+        assertTrue(accessibleTexts.last().contains(soraNotice.lineSequence().joinToString("\n") { it.trimEnd() }.trim()))
     }
 
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -148,6 +152,49 @@ class LicensesActivityTest {
             assertFalse(scroll.canScrollVertically(1))
             preview(root, width, height, "${case.name}-bottom")
         }
+    }
+
+    @Test @Config(sdk = [36]) @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun keyboardFocusKeepsNoticeTextReadableAndSelectionAvailable() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val activity = open().get()
+        settle(activity)
+        val root = LinearLayout(activity).apply {
+            isFocusableInTouchMode = true
+            setBackgroundColor(activity.getColor(R.color.tunnl_paper))
+        }
+        val notice = activity.layoutInflater.inflate(R.layout.licenses_notice, root, false) as TextView
+        notice.text = "Sora brand wordmark\nSIL OPEN FONT LICENSE Version 1.1"
+        root.addView(notice)
+        activity.setContentView(root)
+        val width = 640
+        val height = 160
+        root.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY))
+        root.layout(0, 0, width, height)
+        assertTrue(root.requestFocusFromTouch())
+        val ink = activity.getColor(R.color.tunnl_ink)
+        val signal = activity.getColor(R.color.tunnl_signal)
+        val unfocusedInk = renderedColorCount(root, width, height, ink)
+        assertTrue(unfocusedInk > 0)
+        assertEquals(0, renderedColorCount(root, width, height, signal))
+        assertTrue(notice.requestFocusFromTouch())
+        shadowOf(android.os.Looper.getMainLooper()).idle()
+        assertTrue(notice.isFocused)
+        assertFalse(notice.isInTouchMode)
+        assertEquals(unfocusedInk, renderedColorCount(root, width, height, ink))
+        assertTrue("Keyboard focus needs a visible indicator", renderedColorCount(root, width, height, signal) > 0)
+        assertTrue(notice.isTextSelectable)
+        assertEquals(notice.text.toString(), notice.createAccessibilityNodeInfo().text.toString())
+    }
+
+    private fun renderedColorCount(view: View, width: Int, height: Int, color: Int): Int {
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        view.draw(Canvas(bitmap))
+        val pixels = IntArray(width * height)
+        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
+        bitmap.recycle()
+        return pixels.count { it == color }
     }
 
     private fun notices(activity: LicensesActivity): List<TextView> {
