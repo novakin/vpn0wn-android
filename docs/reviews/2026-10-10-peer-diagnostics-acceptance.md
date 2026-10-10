@@ -38,7 +38,7 @@ The matrix script requested settings/locale changes without checking every mutat
 
 ## Restoration and delivery boundary
 
-Original two profile files remained byte-identical and the final inventory contained exactly those files. Settings DataStore was restored while the process was stopped, then read back byte-identical after restart and explicit original-state restoration. The original kernel backend and one-UP/one-DOWN set were verified through native interface state. All 13 captured system values, app locale and night mode matched their initial values, including animation and authentication/accessibility policy values. This compares the recorded policy values; it does not exercise biometric/PIN prompts.
+Original two profile files remained byte-identical and the final inventory contained exactly those files. Settings DataStore was restored while the process was stopped, then read back byte-identical after restart and explicit original-state restoration. The original kernel backend and one-UP/one-DOWN set were verified through native interface state. All 13 captured system values, app locale and night mode matched their initial values, including animation, accessibility and VPN-policy values. This compares the recorded policy values; it does not exercise biometric/PIN prompts.
 
 Owned synthetic profiles, peer process, fixture directory, helper files and test UDP sockets were removed and absence verified. The peer command ended after intentional termination. No download/export or personal config edit was involved. The reviewed candidate remains installed; the original APK is retained privately for rollback. No phone operation remains required for this slice.
 
