@@ -1,6 +1,6 @@
 # Tunnl QA Test Plan
 
-Last updated: 2026-10-09 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 This document tracks the automated and manual QA coverage required for the Tunnl Android redesign.
 
@@ -162,6 +162,18 @@ Required before merging UI or backend provisioning work, except the explicitly a
 - Delete a tunnel.
 - Exercise Android VPN permission flow on a clean install.
 
+## Android system VPN policy acceptance
+
+The [#75](https://github.com/novakin/wireguard-android/issues/75) setup/status slice requires source controls separately from device/system-policy and packet proof. [Operations](operations.md#android-system-vpn-settings) owns support/setup; [backend contracts](backend-contracts.md#android-system-vpn-policy-observation) owns unchanged routing and pending #73/#74 policy boundaries. PR acceptance records actual executions; the requirements below are not a passing runtime report.
+
+- Extend existing Settings/backend lifecycle fixtures: API 24/28 omit tile setup without skipping the policy row and never call policy getters; API 29+ reports observed flags; missing service access and inconsistent flags remain unknown; kernel mode is unsupported without getter calls. Check checked-read failure/denial, administrator restriction and click recheck, missing/denied Settings launch and truthful feedback.
+- Exercise foreground-return refresh alongside the live API 33 tile observer and membership changes, pause/destruction/cancellation, stale completion rejection and runtime-defect/Error propagation. Verify the row is nonpersistent and neither status refresh nor navigation starts a VPN service, requests VPN authorization or changes system policy, profiles or routes. Preserve existing native controls and backend lifecycle regressions.
+- Inspect actual Settings output/navigation at supported sizes and both system themes, large text, RTL and accessibility. Retain unavailable OEM/admin/backend cases explicitly; JVM/raster controls do not establish the real system screen or lockdown behavior.
+
+Full packet acceptance requires a separately authorized device/profile/path plan and an agreed endpoint-bootstrap policy. Capture policy-off controls and always-on plus block-without-VPN candidates with IPv4/IPv6 application traffic and DNS, literal-IP/hostname endpoints, Private DNS modes, full/split routes, included/excluded apps and LAN destinations. Exercise startup, established traffic, recovery, process death, revocation and reboot. Distinguish permitted VPN-provider bootstrap/transport and platform traffic from application traffic; record administrator allowlists and inaccessible capture points. Public flags and a successful tunnel exchange cannot substitute for this matrix.
+
+Preserve original policies, profiles, installed APK and network/device settings; use synthetic credentials and verify restoration. No APK/device/policy/network mutation or packet capture follows from source-check authorization. Existing warm-up/Doze evidence retains its original scope and does not close #75.
+
 ## Full app-data transfer acceptance
 
 The [2026-10-09 synthetic AVD record](reviews/2026-10-09-app-data-transfer-acceptance.md) records executed native import/export, PIN, persistence and layout checks and retains the remaining physical, conditional-environment and cross-app gates. Reuse its scoped results only for matching source/artifact boundaries; they do not complete #71 or other G4 issues.
@@ -272,7 +284,9 @@ The separate [Bash provisioning safety suite](../scripts/tests/provisioning_safe
 - `TunnelManagerTest`, `ApplicationBackendLifecycleTest`, `TunnelDetailLifecycleTest`, `KernelModuleEnablerPreferenceTest`, `GoBackendLifecycleTest` — scoped #13 owner/lifecycle regressions.
 - `TunnelStatisticsTest` — #48 shared model reads, session validity, cancellation/failure settlement, retry and continued visible polling, as described under [JVM unit tests](#jvm-unit-tests).
 - `SettingsActivityTest` — #34 native preferences, recreation, scoped navigation/insets and native raster layout controls described above.
+- `SettingsVpnPolicyTest` — #75 API availability, truthful policy observations, restricted/public Settings navigation, read/launch failures and lifecycle cancellation/refresh controls; device/system-policy/packet acceptance remains separate.
 - `AddPeerPresentationTest` — #35 source actions/accessibility, peer snapshots and native content layout controls described above.
+- `QrScannerPermissionTest` — #84 Home scanner options, injected denial/dialog callbacks, cancelled/no-import retry, valid-result naming and separate genuine camera-error feedback; native/physical acceptance is scoped separately above.
 - `WgQuickBackendTransitionTest` — concurrent UP with disabled/enabled multiple mode, failed activation/shutdown/config update and visible rollback failure through a simulated command-serialized RootShell; the real Application mode collector stays responsive on Main while the backend monitor is held. No real tools or root run.
 - `TunnelComparatorTest` — natural-order controls, equal normalized-name antisymmetry and distinct inventory lookup.
 - `QrCodeFromFileScannerTest` — reopened/recycled retries, allocation recovery/exhaustion, first Reader failure and cancellation/programming errors.
