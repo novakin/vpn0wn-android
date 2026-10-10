@@ -1,6 +1,6 @@
 # Development and contribution workflow
 
-Last updated: 2026-10-09 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Setup substantively updated 2026-10-09 (Europe/Paris); historical process/runtime evidence retains its original scope.
 
@@ -66,6 +66,8 @@ Use the [bug template](../.github/ISSUE_TEMPLATE/bug_report.md) for reproducible
 Apply actual GitHub labels matching scope, using existing `bug`, `enhancement` or `documentation` labels as relevant. Default new agent-created issues/PRs to `novakin`; preserve deliberate existing assignments and unrelated labels. Read current fields, prefer additive changes and verify the response/readback; disclose rejected or unverified fields. GitHub fields own mutable metadata. Issue templates provide defaults only for their submissions; API-created issues/PRs need explicit metadata. PR templates do not apply labels/assignees automatically. Do not invent labels, deadlines, assignment automation or a project board. Assignment and absence of flags do not grant approval.
 
 Before editing, identify repository, branch, revision and intended integration base. Inspect working/staged scope and refresh the authorized remote base before branching or reviewing; a local reference can be stale. Group pre-existing changes by purpose; a dirty worktree is not permission to commit everything. Preserve unrelated tracked/untracked files and the user's index. Use a dedicated branch from the intended integration base, normally `master`, without stashing/resetting unrelated work merely for convenience.
+
+Use ignored `.artifacts/worktrees/` for linked worktrees by default. Relocation must preserve branches, indexes, dirty work and ignored evidence. `git worktree move` does not support worktrees with initialized submodules; repair linked-worktree and submodule Git paths when relocating them, then verify access from each supported command environment. Archive native build caches containing old absolute paths before rebuilding instead of deleting retained evidence. Historical log paths describe their original locations; they do not assert where relocated evidence now resides.
 
 The improvement plan owns priorities/action states; issues own concrete acceptance, approval and dependencies; PRs own current change-specific acceptance. Read current issue/PR discussion during tracked work, not chat memory alone. Check duplicates before creating/updating an issue for concrete unresolved work within the authorized GitHub workflow. Include observed/expected behavior, impact, bounded scope, approval source/dependencies and observable acceptance. Avoid speculative backlog and separate issues for small fixes already completed in the PR. Recording a proposal does not approve implementation or excuse an in-scope blocker.
 
