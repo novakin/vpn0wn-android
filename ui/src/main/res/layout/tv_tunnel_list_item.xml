@@ -10,9 +10,9 @@
 
         <import type="android.view.View" />
 
-        <import type="com.wireguard.android.model.ObservableTunnel" />
+        <import type="com.vpn0wn.android.model.ObservableTunnel" />
 
-        <import type="com.wireguard.android.backend.Tunnel.State" />
+        <import type="com.vpn0wn.android.backend.Tunnel.State" />
 
         <variable
             name="isDeleting"
@@ -28,10 +28,10 @@
 
         <variable
             name="item"
-            type="com.wireguard.android.model.ObservableTunnel" />
+            type="com.vpn0wn.android.model.ObservableTunnel" />
     </data>
 
-    <com.wireguard.android.widget.TvCardView
+    <com.vpn0wn.android.widget.TvCardView
         android:layout_width="225dp"
         android:layout_height="110dp"
         android:layout_margin="8dp"
@@ -80,6 +80,6 @@
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
-    </com.wireguard.android.widget.TvCardView>
+    </com.vpn0wn.android.widget.TvCardView>
 
 </layout>

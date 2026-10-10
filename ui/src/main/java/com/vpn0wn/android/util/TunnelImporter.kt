@@ -1,0 +1,169 @@
+/*
+ * Copyright © 2017-2025 WireGuard LLC. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package com.vpn0wn.android.util
+
+import android.content.ContentResolver
+import android.net.Uri
+import android.provider.OpenableColumns
+import android.util.Log
+import androidx.fragment.app.FragmentManager
+import com.vpn0wn.android.Application
+import com.vpn0wn.android.R
+import com.vpn0wn.android.fragment.ConfigNamingDialogFragment
+import com.vpn0wn.android.model.ObservableTunnel
+import com.vpn0wn.config.BadConfigException
+import java.io.IOException
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.supervisorScope
+import com.vpn0wn.config.Config
+import kotlinx.coroutines.Deferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.withContext
+import java.io.BufferedReader
+import java.io.ByteArrayInputStream
+import java.io.InputStreamReader
+import java.nio.charset.StandardCharsets
+import java.util.zip.ZipEntry
+import java.util.zip.ZipInputStream
+
+object TunnelImporter {
+    // Awaited creations use ConfigStore's generic Exception contract; cancellation and Errors escape.
+    @Suppress("TooGenericExceptionCaught")
+    suspend fun importTunnel(contentResolver: ContentResolver, uri: Uri, messageCallback: (CharSequence) -> Unit) = withContext(Dispatchers.IO) {
+        supervisorScope {
+            val context = Application.get().applicationContext
+            val profiles = ArrayList<Pair<String, Config>>()
+            val futureTunnels = ArrayList<Deferred<ObservableTunnel>>()
+            val throwables = ArrayList<Throwable>()
+            var appDataTransfer = false
+            try {
+                var name = ""
+                contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                    if (cursor.moveToFirst() && !cursor.isNull(0)) name = cursor.getString(0)
+                }
+                if (name.isEmpty()) name = Uri.decode(uri.lastPathSegment).orEmpty()
+                name = name.substringAfterLast('/')
+                require(name.isNotEmpty()) { context.getString(R.string.illegal_filename_error, name) }
+                val isZip = name.lowercase().endsWith(".zip")
+                if (name.lowercase().endsWith(".conf")) {
+                    name = name.dropLast(".conf".length)
+                } else {
+                    require(isZip) { context.getString(R.string.bad_extension_error) }
+                }
+
+                val input = contentResolver.openInputStream(uri) ?: throw IOException("Unable to open tunnel input")
+                if (isZip) {
+                    ZipInputStream(input).use { zip ->
+                        val reader = BufferedReader(InputStreamReader(zip, StandardCharsets.UTF_8))
+                        var entry: ZipEntry? = zip.nextEntry
+                        while (entry != null) {
+                            if (entry.name == AppDataTransfer.MANIFEST) {
+                                appDataTransfer = true
+                                break
+                            }
+                            val entryName = entry.name.substringAfterLast('/')
+                            if (entryName.lowercase().endsWith(".conf")) {
+                                val config = try {
+                                    Config.parse(reader)
+                                } catch (e: BadConfigException) {
+                                    throwables.add(e)
+                                    null
+                                } catch (e: IOException) {
+                                    throwables.add(e)
+                                    null
+                                }
+                                if (config != null) {
+                                    val tunnelName = entryName.dropLast(".conf".length)
+                                    profiles.add(tunnelName to config)
+                                }
+                            }
+                            entry = zip.nextEntry
+                        }
+                    }
+                } else {
+                    val config = input.use { Config.parse(it) }
+                    profiles.add(name to config)
+                }
+                require(appDataTransfer || profiles.isNotEmpty() || throwables.isNotEmpty()) { context.getString(R.string.no_configs_error) }
+            } catch (e: IOException) {
+                throwables.add(e)
+            } catch (e: BadConfigException) {
+                throwables.add(e)
+            } catch (e: IllegalArgumentException) {
+                throwables.add(e)
+            } catch (e: SecurityException) {
+                throwables.add(e)
+            }
+
+            if (appDataTransfer) {
+                withContext(Dispatchers.Main.immediate) {
+                    messageCallback(context.getString(R.string.app_data_transfer_use_settings))
+                }
+                return@supervisorScope
+            }
+            for ((name, config) in profiles)
+                futureTunnels.add(async { Application.getTunnelManager().create(name, config) })
+
+            val tunnels = futureTunnels.mapNotNull {
+                try {
+                    it.await()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    throwables.add(e)
+                    null
+                }
+            }
+            withContext(Dispatchers.Main.immediate) { onTunnelImportFinished(tunnels, throwables, messageCallback) }
+        }
+    }
+
+    fun importTunnel(parentFragmentManager: FragmentManager, configText: String, messageCallback: (CharSequence) -> Unit) {
+        try {
+            Config.parse(ByteArrayInputStream(configText.toByteArray(StandardCharsets.UTF_8)))
+        } catch (e: BadConfigException) {
+            onTunnelImportFinished(emptyList(), listOf(e), messageCallback)
+            return
+        } catch (e: IOException) {
+            onTunnelImportFinished(emptyList(), listOf(e), messageCallback)
+            return
+        }
+        try {
+            ConfigNamingDialogFragment.newInstance(configText).show(parentFragmentManager, null)
+        } catch (e: IllegalStateException) {
+            onTunnelImportFinished(emptyList(), listOf(e), messageCallback)
+        }
+    }
+
+    private fun onTunnelImportFinished(tunnels: List<ObservableTunnel>, throwables: Collection<Throwable>, messageCallback: (CharSequence) -> Unit) {
+        val context = Application.get().applicationContext
+        var message = ""
+        for (throwable in throwables) {
+            val error = ErrorMessages[throwable]
+            message = context.getString(R.string.import_error, error)
+            Log.e(TAG, "Tunnel import failed: ${throwable.javaClass.simpleName}")
+        }
+        if (tunnels.size == 1 && throwables.isEmpty())
+            message = context.getString(R.string.import_success, tunnels[0].name)
+        else if (tunnels.isEmpty() && throwables.size == 1)
+        else if (throwables.isEmpty())
+            message = context.resources.getQuantityString(
+                R.plurals.import_total_success,
+                tunnels.size, tunnels.size
+            )
+        else if (!throwables.isEmpty())
+            message = context.resources.getQuantityString(
+                R.plurals.import_partial_success,
+                tunnels.size + throwables.size,
+                tunnels.size, tunnels.size + throwables.size
+            )
+
+        messageCallback(message)
+    }
+
+    private const val TAG = "WireGuard/TunnelImporter"
+}

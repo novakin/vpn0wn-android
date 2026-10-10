@@ -7,7 +7,7 @@
 
     <data>
 
-        <import type="com.wireguard.android.activity.TvMainActivity.KeyedFile" />
+        <import type="com.vpn0wn.android.activity.TvMainActivity.KeyedFile" />
 
         <variable
             name="key"

@@ -1,8 +1,8 @@
 # Development and contribution workflow
 
-Last updated: 2026-10-10 (Europe/Paris).
+Last updated: 2026-10-11 (Europe/Paris).
 
-[Documentation index](../README.md#project-documentation) · Setup substantively updated 2026-10-10 (Europe/Paris); historical process/runtime evidence retains its original scope.
+[Documentation index](../README.md#project-documentation) · Setup substantively updated 2026-10-11 (Europe/Paris); historical process/runtime evidence retains its original scope.
 
 Use focused changes, the existing Android architecture and explicit verification limits. [AGENTS.md](../AGENTS.md) is the sole project agent-instruction file; edit it directly when instructions change.
 
@@ -37,7 +37,7 @@ Native builds use the [CMake configuration](../tunnel/tools/CMakeLists.txt) and 
 
 Each CMake native invocation calls cached `go build`, even when the output library exists. Go owns dependency evaluation for changed Go/JNI/helper inputs; an unchanged build can reuse its compiled packages. In the native transport implementation, `cmd/wireguard-overlay` validates the exact pinned WireGuard version, rejects replacements and patches `device/device.go`, `device/uapi.go`, `device/send.go`, `device/timers.go` and `conn/boundif_android.go`. Those patches preserve requested-port/rebind cleanup, explicit ListenPort intent and unavailable-family descriptor guards, and expose protocol-owned handshake observations and the [retained-TUN rebind primitive](backend-contracts.md#retained-tun-userspace-rebind--73). When module metadata has no extracted source directory, the helper downloads that validated pin before reading it. Make invokes the helper on the host platform, writes per-ABI output under `BUILDDIR`, then builds Android source through the overlay. Cached upstream source is never patched; a cold build may download the validated module. Host-native race checks run with `bash tunnel/tools/libwg-go/test-host.sh`, using the same pinned/prepared Go 1.24.3 recipe and standard host C compiler. Both native library builds and host overlay checks append `goindex=0` to `GODEBUG`, preserving other options: Go 1.24.3's cached module index misses imports introduced by modified overlay source as well as virtual test files. This disables module indexing for these commands, not Go's compiled-package cache or Android runtime checks. `BUILDDIR` and `GRADLE_USER_HOME` retain their existing meanings. The [Android workflow](../.github/workflows/android.yml) runs host tests alongside JVM/static checks; this step does not assemble an APK or compile Android native ABIs. Confirm actual CI execution/results rather than inferring them from the workflow.
 
-From that environment, `./gradlew :ui:assembleDebug --console=plain` assembles a debug APK after setup. The debug application ID is `com.wireguard.android.debug`, derived from [Gradle properties](../gradle.properties) and the UI module's `.debug` suffix. Agent APK assembly requires an explicit request. Release signing, Maven publication and distribution are separate actions; version/publication configuration does not prove an artifact was released.
+From that environment, `./gradlew :ui:assembleDebug --console=plain` assembles a debug APK after setup. The debug application ID is `com.vpn0wn.android.debug`, derived from [Gradle properties](../gradle.properties) and the UI module's `.debug` suffix; release/googleplay use `com.vpn0wn.android`. `vpn0wnPackageName`, `vpn0wnVersionName` and `vpn0wnVersionCode` replace the old property names; `settings.gradle.kts` names the project `vpn0wn-android`. The tunnel namespace is `com.vpn0wn.android.tunnel`, and its fork POM configures `com.vpn0wn.android:tunnel` with fork metadata. No fork Maven artifact is established as published. Agent APK assembly requires an explicit request. Release signing, Maven publication and distribution are separate actions; version/publication configuration does not prove an artifact was released.
 
 `.design/` is a read-only, locally supplied visual reference. It is ignored and may be absent from a clean checkout. Do not modify or publish it as part of runtime work. Keep native/backend ownership described in [architecture](architecture.md), config and script behavior in [backend contracts](backend-contracts.md), and user handling in [operations](operations.md).
 
@@ -164,10 +164,10 @@ The Detekt configuration is compatible with pinned 1.23.8 after the merged #20 r
 Keep `maxIssues: 0`, analysis enabled and failures visible. Name meaningful durations, limits and state/protocol values; keep exact drawing geometry in its existing renderer. Declaration-scoped suppressions need an owner-specific WHY, such as drawing dimensions, a required Android vararg API or Backend/ConfigStore's generic Exception contract. Cancellation and unrelated Errors must propagate; admitted tunnel mutations still finish their existing noncancellable reconciliation before rethrowing. ReturnCount excludes guard clauses so clear early validation needs no artificial nesting. Generic catches have no exception-name bypass. Do not add a blanket baseline, disable rules wholesale, set `ignoreFailures` or compress correct control flow to satisfy a count.
 
 ```bash
-./gradlew :ui:testDebugUnitTest --tests com.wireguard.android.provisioning.ProvisioningJsonTest --console=plain
-./gradlew :tunnel:testDebugUnitTest --tests com.wireguard.config.ConfigTest --console=plain
+./gradlew :ui:testDebugUnitTest --tests com.vpn0wn.android.provisioning.ProvisioningJsonTest --console=plain
+./gradlew :tunnel:testDebugUnitTest --tests com.vpn0wn.config.ConfigTest --console=plain
 ./gradlew :ui:detekt --console=plain
-./gradlew :ui:testReleaseUnitTest --tests com.wireguard.android.ApplicationBackendLifecycleTest --console=plain
+./gradlew :ui:testReleaseUnitTest --tests com.vpn0wn.android.ApplicationBackendLifecycleTest --console=plain
 ```
 
 For Windows/WSL, keep the real exit status:
@@ -181,6 +181,8 @@ Invoke-CodexQuiet -Command 'wsl -- bash -c "cd /mnt/c/Users/Guillaume/Documents/
 UI unit-test workers use a 1 GiB heap in [the UI build script](../ui/build.gradle.kts). A local full-suite run during the [#96 CI repair](https://github.com/novakin/vpn0wn-android/pull/96) exhausted Gradle's default 512 MiB worker heap while retaining Robolectric SDK/resource/graphics sandboxes. `org.gradle.jvmargs` sizes the Gradle daemon, not test workers. Keep the existing single-fork default and focused test filters; no timeout or assertion is relaxed by this setting.
 
 Pinned AGP 9.1's `HostTestBuilder` enables the release unit-test variant explicitly. Use the targeted release startup command above for [#71 updater retirement](qa-test-plan.md#upstream-app-updater-retirement--71): debug startup skips the former updater guard and cannot establish independent-package compatibility. Release unit testing compiles source/resources without assembling or signing an APK; full release-suite execution and artifact distribution are separate scopes.
+
+Current source/test selectors use `com.vpn0wn.*`; historical executed commands below retain their original `com.wireguard.*` selectors and tested revisions. Do not use historical selectors against renamed source or treat a reduced test inventory as migration proof. [Namespace QA](qa-test-plan.md#source-and-application-namespace-checks--71) owns source, merged-manifest, native symbol and old/new-installation gates. Native package arguments follow each variant's application ID; retain `cache/wireguard`, `libwg-go.so`, `libwg.so`, `libwg-quick.so`, `wg` and `wg-quick` identities.
 
 | Test/check owner | Relevant proof |
 | --- | --- |
@@ -201,7 +203,7 @@ For documentation-only work, validate relative links, fences, examples/source cl
 
 The existing workflow also runs the stdlib offline VPS harness suite with `python3 -m unittest discover -s scripts/tests -p 'test_vps_integration_test.py'` after checkout. The suite injects remote responses and temporary fake package queries; it makes no SSH, root, package or live-server operation. This protects C9 postcondition/redaction behavior in ordinary CI without enabling the destructive `vpsIntegrationTest`. Final-head execution and results still need their own readback.
 
-The [Android checks workflow](../.github/workflows/android.yml) runs `:ui:testDebugUnitTest :tunnel:testDebugUnitTest :ui:detekt` and targeted `:ui:testReleaseUnitTest --tests com.wireguard.android.ApplicationBackendLifecycleTest` on pull requests, pushes to `master` and manual dispatch. It checks out the actual PR head SHA rather than the synthetic merge revision, initializes recursive native submodules and uses Ubuntu 24.04, Temurin Java 21 and the Android toolchain above. Actions use reviewed commit pins; token permissions are `contents: read`, checkout credentials are not persisted and no repository secrets are configured. PR/push checks never assemble an APK. Unit/static checks do not establish native VPN execution or device behavior.
+The [Android checks workflow](../.github/workflows/android.yml) runs `:ui:testDebugUnitTest :tunnel:testDebugUnitTest :ui:detekt` and targeted `:ui:testReleaseUnitTest --tests com.vpn0wn.android.ApplicationBackendLifecycleTest` on pull requests, pushes to `master` and manual dispatch. It checks out the actual PR head SHA rather than the synthetic merge revision, initializes recursive native submodules and uses Ubuntu 24.04, Temurin Java 21 and the Android toolchain above. Actions use reviewed commit pins; token permissions are `contents: read`, checkout credentials are not persisted and no repository secrets are configured. PR/push checks never assemble an APK. Unit/static checks do not establish native VPN execution or device behavior.
 
 The `Native checks` job fails when Gradle fails and retains available synthetic debug/release JUnit XML/Detekt reports for seven days, including on failure. Reports may be absent if setup/compilation fails; inspect the job log in that case. Superseded PR/push runs are canceled; manual runs are not automatically canceled. Require successful checks covering the final reviewed head before merge under the authorized goal. Read the actual run and source revision; automatic execution alone does not configure required branch checks or prove enforcement. Repository protection settings are not changed by this workflow.
 
@@ -230,6 +232,10 @@ Use these meanings consistently:
 Do not end required work while commands or reviewers are still running. State behavior/files changed, commit/PR state, actual verification and residual risk. Update plan action states by linking here; keep broader unimplemented actions visible.
 
 ## Recorded verification
+
+### Namespace source and rooted debug acceptance — 2026-10-11
+
+For namespace source represented by `7ead52cdc71c06bda92b83c6b60e43a021790dbc`, debug UI/tunnel XML reports total 483 tests across 53 suites with zero failures/errors/skips; Detekt has zero findings. Debug/host checks retain source-equivalent precommit scope; release startup, APK and runtime checks used literal `7ead52c`. The targeted release startup control passed one test. Configured `test-host.sh` passed six Go race groups and seven JNI controls after an initial unset-`JAVA_HOME` setup failure, retained as failed evidence. Authorized debug assembly passed all four ABIs; three merged manifests, 46 generated binding classes, exact five renamed JNI exports per ABI and fork POM metadata were inspected. No Maven publication occurred. [The scoped namespace record](reviews/2026-10-11-namespace-acceptance.md) pins the APK checksum and rooted Pixel 7 Pro/API 34 new-ID startup, synthetic native-provider import, authenticated same-phone peer HTTP, one manual rebind with two successful protection callbacks and sequential DOWN/reconnect. It keeps missing descriptor/generation snapshots, unproved destruction, synthetic-archive/cross-app limits separate, and records checked 12-field restoration with zero mismatches. Final-head independent review, CI and publication/integration remain PR acceptance, not inferred from this local run.
 
 ### Detail configured MTU repair — 2026-10-10
 

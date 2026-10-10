@@ -1,0 +1,747 @@
+/*
+ * Copyright © 2017-2025 WireGuard LLC. All Rights Reserved.
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+package com.vpn0wn.android.backend;
+
+import android.content.Context;
+import android.content.Intent;
+import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.ParcelFileDescriptor;
+import android.os.SystemClock;
+import android.system.OsConstants;
+import android.util.Log;
+
+import com.vpn0wn.android.backend.BackendException.Reason;
+import com.vpn0wn.android.backend.Tunnel.State;
+import com.vpn0wn.android.util.SharedLibraryLoader;
+import com.vpn0wn.config.Config;
+import com.vpn0wn.config.InetEndpoint;
+import com.vpn0wn.config.InetAddresses;
+import com.vpn0wn.config.InetNetwork;
+import com.vpn0wn.config.Peer;
+import com.vpn0wn.config.ParseException;
+import com.vpn0wn.crypto.Key;
+import com.vpn0wn.crypto.KeyFormatException;
+import com.vpn0wn.util.NonNullForAll;
+
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.Inet4Address;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicReference;
+
+import androidx.annotation.Keep;
+import androidx.annotation.Nullable;
+import androidx.collection.ArraySet;
+
+/**
+ * Implementation of {@link Backend} that uses the wireguard-go userspace implementation to provide
+ * WireGuard tunnels.
+ */
+@NonNullForAll
+public final class GoBackend implements Backend {
+    private static final int DNS_RESOLUTION_RETRIES = 10;
+    private static final int NATIVE_HANDSHAKE_EVENT_FIRST = 1;
+    private static final String TAG = "WireGuard/GoBackend";
+    @Nullable private static AlwaysOnCallback alwaysOnCallback;
+    private static final AtomicReference<CompletableFuture<VpnService>> vpnServiceRef =
+            new AtomicReference<>(new CompletableFuture<>());
+    private final Context context;
+    private final Object stateLock = new Object();
+    @Nullable private Config currentConfig;
+    @Nullable private Tunnel currentTunnel;
+    @Nullable private VpnService currentService;
+    private int currentTunnelHandle = -1;
+    private final Handler observationHandler = new Handler(Looper.getMainLooper());
+    @Nullable private volatile Activation activation;
+
+    private final class Activation {
+        private final HandshakeSession session = new HandshakeSession();
+        private final Tunnel tunnel;
+        private final VpnService service;
+        private final Map<Key, EnumMap<HandshakeObservation.Event, HandshakeObservation>> pending = new HashMap<>();
+        private final Runnable drain = this::deliver;
+        private boolean retired;
+        private boolean committed;
+        private boolean queued;
+        private long sequence;
+
+        private Activation(final Tunnel tunnel, final VpnService service, final Config config) {
+            this.tunnel = tunnel;
+            this.service = service;
+            for (final Peer peer : config.getPeers())
+                pending.put(peer.getPublicKey(), new EnumMap<>(HandshakeObservation.Event.class));
+        }
+
+        private synchronized void observe(final Key peer, final HandshakeObservation.Event event, final boolean retry,
+                                          @Nullable final InetEndpoint endpoint, final HandshakeObservation.AddressFamily family) {
+            final EnumMap<HandshakeObservation.Event, HandshakeObservation> events = pending.get(peer);
+            if (retired || events == null)
+                return;
+            events.put(event, new HandshakeObservation(session, peer, event, retry, endpoint, family,
+                    ++sequence, SystemClock.elapsedRealtime()));
+            if (committed && !queued) {
+                queued = true;
+                observationHandler.post(drain);
+            }
+        }
+
+        private synchronized void commit() {
+            if (retired)
+                return;
+            committed = true;
+            session.activate();
+            queued = true;
+            observationHandler.post(drain);
+        }
+
+        private void retire() {
+            final boolean notify;
+            synchronized (this) {
+                if (retired)
+                    return;
+                retired = true;
+                session.retire();
+                notify = published;
+                for (final Map<HandshakeObservation.Event, HandshakeObservation> events : pending.values())
+                    events.clear();
+            }
+            observationHandler.removeCallbacks(drain);
+            if (notify)
+                observationHandler.post(() -> tunnel.onHandshakeSessionChange(session));
+        }
+
+        private boolean published;
+
+        private void deliver() {
+            final List<HandshakeObservation> observations = new ArrayList<>();
+            final boolean publishSession;
+            synchronized (this) {
+                queued = false;
+                if (retired || !committed || activation != this)
+                    return;
+                publishSession = !published;
+                published = true;
+                for (final Map<HandshakeObservation.Event, HandshakeObservation> events : pending.values()) {
+                    observations.addAll(events.values());
+                    events.clear();
+                }
+            }
+            if (!session.isActive() || activation != this)
+                return;
+            if (publishSession)
+                tunnel.onHandshakeSessionChange(session);
+            observations.sort(Comparator.comparingLong(HandshakeObservation::sequence));
+            for (final HandshakeObservation observation : observations) {
+                if (!session.isActive() || activation != this)
+                    return;
+                tunnel.onHandshakeObservation(observation);
+            }
+        }
+    }
+
+    /**
+     * Public constructor for GoBackend.
+     *
+     * @param context An Android {@link Context}
+     */
+    public GoBackend(final Context context) {
+        SharedLibraryLoader.loadSharedLibrary(context, "wg-go");
+        this.context = context;
+    }
+
+    /**
+     * Set a {@link AlwaysOnCallback} to be invoked when {@link VpnService} is started by the
+     * system's Always-On VPN mode.
+     *
+     * @param cb Callback to be invoked
+     */
+    public static void setAlwaysOnCallback(final AlwaysOnCallback cb) {
+        alwaysOnCallback = cb;
+    }
+
+    @Nullable private static native String wgGetConfig(int handle);
+
+    private static native int wgRebind(int handle);
+
+    private static native void wgTurnOff(int handle);
+
+    private static native int wgTurnOn(String ifName, int tunFd, String settings, VpnService service, Thread activationThread, long activationId);
+
+    private void captureHandshakeObservation(final VpnService service, final long activationId, final byte[] publicKey,
+                                             final int eventCode, final boolean retry, final String endpoint) {
+        final Activation captured = activation;
+        if (captured == null || captured.service != service || captured.session.getId() != activationId)
+            return;
+        final HandshakeObservation.Event[] events = HandshakeObservation.Event.values();
+        if (eventCode < NATIVE_HANDSHAKE_EVENT_FIRST || eventCode > events.length)
+            throw new IllegalArgumentException("Invalid native handshake event");
+        InetEndpoint numericEndpoint = null;
+        HandshakeObservation.AddressFamily family = HandshakeObservation.AddressFamily.UNKNOWN;
+        if (!endpoint.isEmpty()) {
+            try {
+                numericEndpoint = InetEndpoint.parse(endpoint);
+                final InetAddress address = InetAddresses.parse(numericEndpoint.getHost());
+                family = address instanceof Inet4Address ? HandshakeObservation.AddressFamily.IPV4 : HandshakeObservation.AddressFamily.IPV6;
+            } catch (final ParseException e) {
+                throw new IllegalArgumentException("Invalid native numeric endpoint");
+            }
+        }
+        try {
+            captured.observe(Key.fromBytes(publicKey), events[eventCode - NATIVE_HANDSHAKE_EVENT_FIRST], retry, numericEndpoint, family);
+        } catch (final KeyFormatException e) {
+            throw new IllegalArgumentException("Invalid native peer identity");
+        }
+    }
+
+    private void retireActivation() {
+        final Activation captured = activation;
+        activation = null;
+        if (captured != null)
+            captured.retire();
+    }
+
+    private void retireServiceActivation(final VpnService service) {
+        final Activation captured = activation;
+        if (captured != null && captured.service == service)
+            captured.retire();
+    }
+
+    private static native String wgVersion();
+
+    private static CompletableFuture<VpnService> newVpnServiceFuture(final CompletableFuture<VpnService> previous) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S)
+            return previous.newIncompleteFuture();
+        return new CompletableFuture<>();
+    }
+
+    private static void resetVpnServiceFuture(final CompletableFuture<VpnService> staleFuture) {
+        vpnServiceRef.compareAndSet(staleFuture, newVpnServiceFuture(staleFuture));
+    }
+
+    private static void resetVpnServiceFutureForService(final VpnService staleService) {
+        final CompletableFuture<VpnService> currentFuture = vpnServiceRef.get();
+        if (currentFuture.isDone() && !currentFuture.isCompletedExceptionally() && currentFuture.getNow(null) == staleService)
+            resetVpnServiceFuture(currentFuture);
+    }
+
+    /**
+     * Method to get the names of running tunnels.
+     *
+     * @return A set of string values denoting names of running tunnels.
+     */
+    @Override
+    public Set<String> getRunningTunnelNames() {
+        synchronized (stateLock) {
+            if (currentTunnel != null) {
+                final Set<String> runningTunnels = new ArraySet<>();
+                runningTunnels.add(currentTunnel.getName());
+                return runningTunnels;
+            }
+        }
+        return Collections.emptySet();
+    }
+
+    /**
+     * Get the associated {@link State} for a given {@link Tunnel}.
+     *
+     * @param tunnel The tunnel to examine the state of.
+     * @return {@link State} associated with the given tunnel.
+     */
+    @Override
+    public State getState(final Tunnel tunnel) {
+        synchronized (stateLock) {
+            return currentTunnel == tunnel ? State.UP : State.DOWN;
+        }
+    }
+
+    /**
+     * Rebind only the captured userspace activation; a successful rebind does not prove reachability.
+     * Returns false for an inactive, busy or obsolete activation without bringing a tunnel up.
+     * Call off the main thread: admitted native socket replacement can block until captured I/O settles.
+     * Admitted native work settles before interruption is reported; it may have replaced the sockets.
+     *
+     * @param tunnel the already-active tunnel whose native sockets should be replaced
+     * @return true if rebind completed for the still-current activation, false if unavailable or busy
+     * @throws IOException if native rebind fails; the retained activation may have no ready transport
+     *                     until a later successful rebind or manual reconnection
+     * @throws InterruptedException if the caller is interrupted before admission or after settlement;
+     *                              the interrupt flag is preserved
+     * @throws Exception if service liveness fails or JNI propagates an existing callback exception
+     */
+    public boolean rebind(final Tunnel tunnel) throws Exception {
+        if (Thread.currentThread().isInterrupted())
+            throw new InterruptedException("VPN rebind interrupted");
+        final int handle;
+        final VpnService service;
+        final Activation capturedActivation;
+        synchronized (stateLock) {
+            if (currentTunnel != tunnel || currentTunnelHandle == -1 || currentService == null)
+                return false;
+            handle = currentTunnelHandle;
+            service = currentService;
+            capturedActivation = activation;
+            requireActiveService(service);
+        }
+        final int result = wgRebind(handle);
+        if (Thread.currentThread().isInterrupted())
+            throw new InterruptedException("VPN rebind interrupted");
+        synchronized (stateLock) {
+            if (currentTunnel != tunnel || currentTunnelHandle != handle || currentService != service ||
+                    activation != capturedActivation || service.destroyed)
+                return false;
+            requireActiveService(service);
+        }
+        if (result == -OsConstants.EBUSY || result == -OsConstants.ENODEV)
+            return false;
+        if (result != 0)
+            throw new IOException("Native tunnel rebind failed: " + result);
+        return true;
+    }
+
+    /**
+     * Get the associated {@link Statistics} for a given {@link Tunnel}.
+     *
+     * @param tunnel The tunnel to retrieve statistics for.
+     * @return {@link Statistics} associated with the given tunnel.
+     */
+    @Override
+    public Statistics getStatistics(final Tunnel tunnel) {
+        final Statistics stats = new Statistics();
+        final int handle;
+        synchronized (stateLock) {
+            if (tunnel != currentTunnel || currentTunnelHandle == -1)
+                return stats;
+            handle = currentTunnelHandle;
+        }
+        final String config = wgGetConfig(handle);
+        synchronized (stateLock) {
+            if (tunnel != currentTunnel || currentTunnelHandle != handle)
+                return stats;
+        }
+        if (config == null)
+            return stats;
+        Key key = null;
+        long rx = 0;
+        long tx = 0;
+        long latestHandshakeMSec = 0;
+        for (final String line : config.split("\\n")) {
+            if (line.startsWith("public_key=")) {
+                if (key != null)
+                    stats.add(key, rx, tx, latestHandshakeMSec);
+                rx = 0;
+                tx = 0;
+                latestHandshakeMSec = 0;
+                try {
+                    key = Key.fromHex(line.substring(11));
+                } catch (final KeyFormatException ignored) {
+                    key = null;
+                }
+            } else if (line.startsWith("rx_bytes=")) {
+                if (key == null)
+                    continue;
+                try {
+                    rx = Long.parseLong(line.substring(9));
+                } catch (final NumberFormatException ignored) {
+                    rx = 0;
+                }
+            } else if (line.startsWith("tx_bytes=")) {
+                if (key == null)
+                    continue;
+                try {
+                    tx = Long.parseLong(line.substring(9));
+                } catch (final NumberFormatException ignored) {
+                    tx = 0;
+                }
+            } else if (line.startsWith("last_handshake_time_sec=")) {
+                if (key == null)
+                    continue;
+                try {
+                    latestHandshakeMSec += Long.parseLong(line.substring(24)) * 1000;
+                } catch (final NumberFormatException ignored) {
+                    latestHandshakeMSec = 0;
+                }
+            } else if (line.startsWith("last_handshake_time_nsec=")) {
+                if (key == null)
+                    continue;
+                try {
+                    latestHandshakeMSec += Long.parseLong(line.substring(25)) / 1000000;
+                } catch (final NumberFormatException ignored) {
+                    latestHandshakeMSec = 0;
+                }
+            }
+        }
+        if (key != null)
+            stats.add(key, rx, tx, latestHandshakeMSec);
+        return stats;
+    }
+
+    /**
+     * Get the version of the underlying wireguard-go library.
+     *
+     * @return {@link String} value of the version of the wireguard-go library.
+     */
+    @Override
+    public String getVersion() {
+        return wgVersion();
+    }
+
+    /**
+     * Determines if the service is running in always-on VPN mode.
+     * @return {@link boolean} whether the service is running in always-on VPN mode.
+     */
+    @Override
+    public boolean isAlwaysOn() throws ExecutionException, InterruptedException, TimeoutException {
+        return vpnServiceRef.get().get(0, TimeUnit.NANOSECONDS).isAlwaysOn();
+    }
+
+    /**
+     * Determines if the service is running in always-on VPN lockdown mode.
+     * @return {@link boolean} whether the service is running in always-on VPN lockdown mode.
+     */
+    @Override
+    public boolean isLockdownEnabled() throws ExecutionException, InterruptedException, TimeoutException {
+        return vpnServiceRef.get().get(0, TimeUnit.NANOSECONDS).isLockdownEnabled();
+    }
+
+    /**
+     * Change the state of a given {@link Tunnel}, optionally applying a given {@link Config}.
+     *
+     * @param tunnel The tunnel to control the state of.
+     * @param state  The new state for this tunnel. Must be {@code UP}, {@code DOWN}, or
+     *               {@code TOGGLE}.
+     * @param config The configuration for this tunnel, may be null if state is {@code DOWN}.
+     * @return {@link State} of the tunnel after state changes are applied.
+     * @throws Exception Exception raised while changing tunnel state.
+     */
+    @Override
+    public State setState(final Tunnel tunnel, State state, @Nullable final Config config) throws Exception {
+        synchronized (stateLock) {
+            final State originalState = currentTunnel == tunnel ? State.UP : State.DOWN;
+
+            if (state == State.TOGGLE)
+                state = originalState == State.UP ? State.DOWN : State.UP;
+            if (state == originalState && tunnel == currentTunnel && config == currentConfig)
+                return originalState;
+            if (state == State.UP) {
+                final Config originalConfig = currentConfig;
+                final Tunnel originalTunnel = currentTunnel;
+                if (currentTunnel != null)
+                    setStateInternal(currentTunnel, null, State.DOWN);
+                try {
+                    setStateInternal(tunnel, config, state);
+                } catch (final Exception e) {
+                    if (originalTunnel != null)
+                        setStateInternal(originalTunnel, originalConfig, State.UP);
+                    throw e;
+                }
+            } else if (state == State.DOWN && tunnel == currentTunnel) {
+                setStateInternal(tunnel, null, State.DOWN);
+            }
+            return currentTunnel == tunnel ? State.UP : State.DOWN;
+        }
+    }
+
+    private static void requireActiveService(final VpnService service) throws BackendException, InterruptedException {
+        if (Thread.currentThread().isInterrupted())
+            throw new InterruptedException("VPN activation interrupted");
+        if (service.destroyed)
+            throw new BackendException(Reason.UNABLE_TO_START_VPN);
+    }
+
+    private void setStateInternal(final Tunnel tunnel, @Nullable final Config config, final State state)
+            throws Exception {
+        Log.i(TAG, "Bringing tunnel " + tunnel.getName() + ' ' + state);
+
+        if (state == State.UP) {
+            if (config == null)
+                throw new BackendException(Reason.TUNNEL_MISSING_CONFIG);
+
+            if (VpnService.prepare(context) != null)
+                throw new BackendException(Reason.VPN_NOT_AUTHORIZED);
+
+            final VpnService service;
+            final CompletableFuture<VpnService> serviceFuture = vpnServiceRef.get();
+            if (!serviceFuture.isDone()) {
+                Log.d(TAG, "Requesting to start VpnService");
+                context.startService(new Intent(context, VpnService.class));
+            } else {
+                Log.d(TAG, "VpnService future already complete; reusing existing service reference");
+            }
+
+            try {
+                service = serviceFuture.get(2, TimeUnit.SECONDS);
+            } catch (final TimeoutException e) {
+                final Exception be = new BackendException(Reason.UNABLE_TO_START_VPN);
+                be.initCause(e);
+                throw be;
+            }
+            service.setOwner(this);
+            requireActiveService(service);
+
+            if (currentTunnelHandle != -1) {
+                Log.w(TAG, "Tunnel already up");
+                return;
+            }
+
+
+            dnsRetry: for (int i = 0; i < DNS_RESOLUTION_RETRIES; ++i) {
+                requireActiveService(service);
+                // Pre-resolve IPs so they're cached when building the userspace string
+                for (final Peer peer : config.getPeers()) {
+                    final InetEndpoint ep = peer.getEndpoint().orElse(null);
+                    if (ep == null)
+                        continue;
+                    if (ep.getResolved().orElse(null) == null) {
+                        if (i < DNS_RESOLUTION_RETRIES - 1) {
+                            Log.w(TAG, "DNS host \"" + ep.getHost() + "\" failed to resolve; trying again");
+                            Thread.sleep(1000);
+                            continue dnsRetry;
+                        } else
+                            throw new BackendException(Reason.DNS_RESOLUTION_FAILURE, ep.getHost());
+                    }
+                }
+                break;
+            }
+
+            requireActiveService(service);
+
+            // Build config
+            final String goConfig = config.toWgUserspaceString();
+
+            // Create the vpn tunnel with android API
+            final VpnService.Builder builder = service.getBuilder();
+            builder.setSession(tunnel.getName());
+
+            for (final String excludedApplication : config.getInterface().getExcludedApplications())
+                builder.addDisallowedApplication(excludedApplication);
+
+            for (final String includedApplication : config.getInterface().getIncludedApplications())
+                builder.addAllowedApplication(includedApplication);
+
+            for (final InetNetwork addr : config.getInterface().getAddresses())
+                builder.addAddress(addr.getAddress(), addr.getMask());
+
+            for (final InetAddress addr : config.getInterface().getDnsServers())
+                builder.addDnsServer(addr.getHostAddress());
+
+            for (final String dnsSearchDomain : config.getInterface().getDnsSearchDomains())
+                builder.addSearchDomain(dnsSearchDomain);
+
+            boolean sawDefaultRoute = false;
+            for (final Peer peer : config.getPeers()) {
+                for (final InetNetwork addr : peer.getAllowedIps()) {
+                    if (addr.getMask() == 0)
+                        sawDefaultRoute = true;
+                    builder.addRoute(addr.getAddress(), addr.getMask());
+                }
+            }
+
+            // "Kill-switch" semantics
+            if (!(sawDefaultRoute && config.getPeers().size() == 1)) {
+                builder.allowFamily(OsConstants.AF_INET);
+                builder.allowFamily(OsConstants.AF_INET6);
+            }
+
+            builder.setMtu(config.getInterface().getMtu().orElse(1280));
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+                builder.setMetered(false);
+            service.setUnderlyingNetworks(null);
+
+            builder.setBlocking(true);
+            try (final ParcelFileDescriptor tun = builder.establish()) {
+                if (tun == null) {
+                    Log.e(TAG, "establish() returned null; resetting stale VpnService reference");
+                    resetVpnServiceFuture(serviceFuture);
+                    context.startService(new Intent(context, VpnService.class));
+                    throw new BackendException(Reason.TUN_CREATION_ERROR);
+                }
+                Log.d(TAG, "Go backend " + wgVersion());
+                final Activation starting = new Activation(tunnel, service, config);
+                activation = starting;
+                final int tunnelHandle;
+                try {
+                    tunnelHandle = wgTurnOn(tunnel.getName(), tun.detachFd(), goConfig, service, Thread.currentThread(), starting.session.getId());
+                    if (tunnelHandle < 0)
+                        throw new BackendException(Reason.GO_ACTIVATION_ERROR_CODE, tunnelHandle);
+                } catch (final Exception | Error e) {
+                    retireActivation();
+                    throw e;
+                }
+                try {
+                    requireActiveService(service);
+                } catch (final Exception | Error e) {
+                    retireActivation();
+                    try {
+                        wgTurnOff(tunnelHandle);
+                    } catch (final Exception | Error cleanupFailure) {
+                        e.addSuppressed(cleanupFailure);
+                    }
+                    throw e;
+                }
+                currentTunnelHandle = tunnelHandle;
+                currentService = service;
+                starting.commit();
+            }
+
+            currentTunnel = tunnel;
+            currentConfig = config;
+
+        } else {
+            if (currentTunnelHandle == -1) {
+                Log.w(TAG, "Tunnel already down");
+                return;
+            }
+            int handleToClose = currentTunnelHandle;
+            retireActivation();
+            final VpnService service = currentService;
+            currentTunnel = null;
+            currentTunnelHandle = -1;
+            currentConfig = null;
+            currentService = null;
+            try {
+                wgTurnOff(handleToClose);
+            } finally {
+                if (service != null) {
+                    resetVpnServiceFutureForService(service);
+                    service.stopSelf();
+                }
+                tunnel.onStateChange(State.DOWN);
+            }
+            return;
+        }
+
+        tunnel.onStateChange(state);
+    }
+
+    private void handleServiceDestroyed(final VpnService service) {
+        final Tunnel tunnel;
+        try {
+            synchronized (stateLock) {
+                if (currentService != service)
+                    return;
+                Log.i(TAG, "VpnService.onDestroy(); tunnel active=" + (currentTunnelHandle != -1));
+                tunnel = currentTunnel;
+                final int handle = currentTunnelHandle;
+                retireActivation();
+                currentTunnel = null;
+                currentTunnelHandle = -1;
+                currentConfig = null;
+                currentService = null;
+                try {
+                    if (handle != -1)
+                        wgTurnOff(handle);
+                } finally {
+                    if (tunnel != null)
+                        tunnel.onStateChange(State.DOWN);
+                }
+            }
+        } finally {
+            resetVpnServiceFutureForService(service);
+        }
+    }
+
+    /**
+     * Callback for {@link GoBackend} that is invoked when {@link VpnService} is started by the
+     * system's Always-On VPN mode.
+     */
+    public interface AlwaysOnCallback {
+        void alwaysOnTriggered();
+    }
+
+    /**
+     * {@link android.net.VpnService} implementation for {@link GoBackend}
+     */
+    public static class VpnService extends android.net.VpnService {
+        @Nullable private volatile GoBackend owner;
+        private volatile boolean destroyed;
+
+        @Keep
+        private boolean protectNativeSocket(final int socket) {
+            return protect(socket);
+        }
+
+        @Keep
+        private void onNativeHandshakeObservation(final long activationId, final byte[] publicKey, final int event,
+                                                  final boolean retry, final String endpoint) {
+            final GoBackend currentOwner = owner;
+            if (currentOwner != null)
+                currentOwner.captureHandshakeObservation(this, activationId, publicKey, event, retry, endpoint);
+        }
+
+        @Keep
+        private boolean isNativeServiceActive(@Nullable final Thread activationThread)
+                throws BackendException, InterruptedException {
+            if (activationThread != null && activationThread.isInterrupted())
+                throw new InterruptedException("VPN activation interrupted");
+            if (destroyed)
+                throw new BackendException(Reason.UNABLE_TO_START_VPN);
+            return true;
+        }
+
+        public Builder getBuilder() {
+            return new Builder();
+        }
+
+        @Override
+        public void onCreate() {
+            vpnServiceRef.get().complete(this);
+            super.onCreate();
+        }
+
+        @Override
+        public void onDestroy() {
+            final GoBackend currentOwner;
+            synchronized (this) {
+                destroyed = true;
+                currentOwner = owner;
+                owner = null;
+            }
+            resetVpnServiceFutureForService(this);
+            if (currentOwner != null)
+                currentOwner.retireServiceActivation(this);
+            if (currentOwner != null)
+                CompletableFuture.runAsync(() -> currentOwner.handleServiceDestroyed(this))
+                        .whenComplete((ignored, failure) -> {
+                            if (failure != null)
+                                Log.e(TAG, "Failed to release destroyed VPN service", failure);
+                        });
+            super.onDestroy();
+        }
+
+        @Override
+        public int onStartCommand(@Nullable final Intent intent, final int flags, final int startId) {
+            if (destroyed)
+                return START_NOT_STICKY;
+            vpnServiceRef.get().complete(this);
+            if (intent == null || intent.getComponent() == null || !intent.getComponent().getPackageName().equals(getPackageName())) {
+                Log.d(TAG, "Service started by Always-on VPN feature");
+                if (alwaysOnCallback != null)
+                    alwaysOnCallback.alwaysOnTriggered();
+            }
+            return super.onStartCommand(intent, flags, startId);
+        }
+
+        public synchronized void setOwner(final GoBackend owner) throws BackendException {
+            if (destroyed)
+                throw new BackendException(Reason.UNABLE_TO_START_VPN);
+            this.owner = owner;
+        }
+    }
+}

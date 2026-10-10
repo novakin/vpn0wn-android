@@ -1,6 +1,6 @@
 # Native handshake observations: private Android acceptance
 
-Last updated: 2026-10-10 (Europe/Paris).
+Last updated: 2026-10-11 (Europe/Paris).
 
 ## Scope and provenance
 
@@ -16,7 +16,7 @@ The maintainer authorized a private synthetic AVD/peer session. Root executed in
 | Synthetic route and reachability | One peer, client `10.7.0.2/32`, IPv4 default route, numeric endpoint `10.0.2.2:51890`, keepalive 25 seconds, no DNS. App-UID HTTP to virtual-TUN endpoint `10.7.0.1:8080/health` returned HTTP200 and fixed `tunnl-native-peer` body. This is private peer reachability, not Internet reachability. |
 | Reader | Standard JDI, four exact service/model entry breakpoints; selected primitive arguments and model fields only. No application methods were invoked. Reader class SHA256 `C32B11561B11C429412D183E325033D1C08F3CF4C2412D768DA4D41F070D2242`. |
 
-The existing protocol overlay, [`GoBackend`](../../tunnel/src/main/java/com/wireguard/android/backend/GoBackend.java), [`HandshakeSession`](../../tunnel/src/main/java/com/wireguard/android/backend/HandshakeSession.java) and [`ObservableTunnel`](../../ui/src/main/java/com/wireguard/android/model/ObservableTunnel.kt) remain the observation/activation owners. No recovery transport, binding adapter, UI consumer, resolver, dependency or product logging was added for this runtime proof. Source meanings and null/empty guards remain in [the contract](../backend-contracts.md#native-handshake-observations--73-draft).
+The existing protocol overlay, [`GoBackend`](https://github.com/novakin/vpn0wn-android/blob/861a7cd89f13ec5676d2c8b5fe4af3102bd03c79/tunnel/src/main/java/com/wireguard/android/backend/GoBackend.java), [`HandshakeSession`](https://github.com/novakin/vpn0wn-android/blob/861a7cd89f13ec5676d2c8b5fe4af3102bd03c79/tunnel/src/main/java/com/wireguard/android/backend/HandshakeSession.java) and [`ObservableTunnel`](https://github.com/novakin/vpn0wn-android/blob/861a7cd89f13ec5676d2c8b5fe4af3102bd03c79/ui/src/main/java/com/wireguard/android/model/ObservableTunnel.kt) remain the observation/activation owners. No recovery transport, binding adapter, UI consumer, resolver, dependency or product logging was added for this runtime proof. Source meanings and null/empty guards remain in [the contract](../backend-contracts.md#native-handshake-observations--73-draft).
 
 ## Callback, publication and retirement results
 

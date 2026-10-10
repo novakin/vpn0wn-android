@@ -8,19 +8,19 @@
 
     <data>
 
-        <import type="com.wireguard.android.databinding.BindingAdapters" />
+        <import type="com.vpn0wn.android.databinding.BindingAdapters" />
 
-        <import type="com.wireguard.android.util.ClipboardUtils" />
+        <import type="com.vpn0wn.android.util.ClipboardUtils" />
 
         <variable
             name="item"
-            type="com.wireguard.config.Peer" />
+            type="com.vpn0wn.config.Peer" />
         <variable
             name="statistics"
-            type="com.wireguard.android.backend.Statistics.PeerStats" />
+            type="com.vpn0wn.android.backend.Statistics.PeerStats" />
         <variable
             name="diagnostics"
-            type="com.wireguard.android.model.ObservableTunnel.PeerHandshakeDiagnostics" />
+            type="com.vpn0wn.android.model.ObservableTunnel.PeerHandshakeDiagnostics" />
         <variable
             name="diagnosticsAvailable"
             type="boolean" />

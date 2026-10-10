@@ -9,21 +9,21 @@
 
         <import type="android.view.View" />
 
-        <import type="com.wireguard.android.widget.KeyInputFilter" />
+        <import type="com.vpn0wn.android.widget.KeyInputFilter" />
 
-        <import type="com.wireguard.android.databinding.BindingAdapters" />
+        <import type="com.vpn0wn.android.databinding.BindingAdapters" />
 
         <variable
             name="collection"
-            type="androidx.databinding.ObservableList&lt;com.wireguard.android.viewmodel.PeerProxy&gt;" />
+            type="androidx.databinding.ObservableList&lt;com.vpn0wn.android.viewmodel.PeerProxy&gt;" />
 
         <variable
             name="item"
-            type="com.wireguard.android.viewmodel.PeerProxy" />
+            type="com.vpn0wn.android.viewmodel.PeerProxy" />
 
         <variable
             name="fragment"
-            type="com.wireguard.android.fragment.TunnelEditorFragment" />
+            type="com.vpn0wn.android.fragment.TunnelEditorFragment" />
     </data>
 
     <!-- Peer FieldGroup card -->

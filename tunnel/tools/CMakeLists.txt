@@ -3,7 +3,7 @@
 # Copyright © 2017-2025 WireGuard LLC. All Rights Reserved.
 
 cmake_minimum_required(VERSION 3.4.1)
-project("WireGuard")
+project("vpn0wn")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 add_link_options(LINKER:--build-id=none)
 add_compile_options(-Wall -Werror)
