@@ -4,7 +4,7 @@ Last updated: 2026-10-10 (Europe/Paris).
 
 ## Scope and provenance
 
-This record covers the manually invoked userspace primitive in [PR #107](https://github.com/novakin/wireguard-android/pull/107), related to [#73](https://github.com/novakin/wireguard-android/issues/73) and the remaining native warm-up acceptance in [#61](https://github.com/novakin/wireguard-android/issues/61). Tests were executed on 2026-10-10 under the maintainer's existing ongoing rooted-phone/APK authorization. Root operated the phone; a separate audit checked retained socket, interface, probe, traffic, screenshot and restoration artifacts. No emulator operation or production-server trial forms part of this record.
+This record covers the manually invoked userspace primitive in [PR #107](https://github.com/novakin/wireguard-android/pull/107), related to [#73](https://github.com/novakin/wireguard-android/issues/73) and the remaining native warm-up acceptance in [#61](https://github.com/novakin/wireguard-android/issues/61). Tests were executed on 2026-10-10 under the maintainer's existing ongoing rooted-phone/APK authorization. Root operated the phone. The initial audit checked retained socket, interface, probe, traffic, screenshot and restoration artifacts. The follow-up audit checked runtime/resource readbacks, saved-profile hashes, preferences and system policy; the same-process claim uses retained operator readbacks corroborated by the continuous observer connection. Final follow-up screenshots, handshake presentation and fixture cleanup were root-observed, not independently revalidated by that audit. No emulator operation or production-server trial forms part of this record.
 
 | Boundary | Executed provenance |
 | --- | --- |
@@ -51,7 +51,7 @@ The follow-up independently restored both original saved profile hashes and the 
 
 The initial kernel shutdown failure occurred before native rebind and belonged to [#109](https://github.com/novakin/wireguard-android/issues/109). [PR #110](https://github.com/novakin/wireguard-android/pull/110) delivered that separate repair; merge and issue closure were read back on 2026-10-10. It is not a failed native rebind.
 
-The earlier `bbfb3afa` CI checkpoint retains its scope: run `38049341272` attempt 1 failed an unchanged tile test with `UncompletedCoroutinesError`; the focused tile rerun and [attempt 2](https://github.com/novakin/wireguard-android/actions/runs/38049341272/attempts/2) passed without suppression. The scheduling hypothesis remains unproved. [PR #107](https://github.com/novakin/wireguard-android/pull/107) remains draft/unmerged pending current final-head independent ultra review, required CI and publication gates. This record establishes no issue closure, merge or release.
+The earlier `bbfb3afa` CI checkpoint retains its scope: run `38049341272` attempt 1 failed an unchanged tile test with `UncompletedCoroutinesError`; the focused tile rerun and [attempt 2](https://github.com/novakin/wireguard-android/actions/runs/38049341272/attempts/2) passed without suppression. The scheduling hypothesis remains unproved. [PR #107](https://github.com/novakin/wireguard-android/pull/107) was draft/unmerged at the 2026-10-10 pre-publication checkpoint; the linked PR owns current final-head review, checks, publication and delivery state. This record establishes no issue closure, merge or release.
 
 ## Remaining acceptance
 
