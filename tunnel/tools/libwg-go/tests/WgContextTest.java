@@ -1,11 +1,15 @@
 /* SPDX-License-Identifier: Apache-2.0 */
 public final class WgContextTest {
     private static native int exercise(Service service, Thread startup) throws InterruptedException;
+    private static native long createRetained(Service service, Thread startup);
+    private static native int checkRetained(long handle);
+    private static native void closeRetained(long handle);
 
     private static final class Service {
         final Thread expectedStartup = Thread.currentThread();
         boolean allowProtection = true;
         boolean destroyed;
+        boolean workerCallbacksOnly = true;
         Error failure;
         Error observationFailure;
         int protectedCalls;
@@ -14,7 +18,7 @@ public final class WgContextTest {
         int observationCalls;
 
         private boolean isNativeServiceActive(Thread startup) throws InterruptedException {
-            if (Thread.currentThread() == expectedStartup)
+            if (workerCallbacksOnly && Thread.currentThread() == expectedStartup)
                 throw new AssertionError("Callback did not attach a worker");
             if (startup == expectedStartup)
                 startupCalls++;
@@ -37,7 +41,7 @@ public final class WgContextTest {
         }
 
         private void onNativeHandshakeObservation(long activation, byte[] peer, int event, boolean retry, String endpoint) {
-            if (Thread.currentThread() == expectedStartup || activation != 73 || peer.length != 32
+            if ((workerCallbacksOnly && Thread.currentThread() == expectedStartup) || activation != 73 || peer.length != 32
                     || peer[0] != 9 || event != 3 || !retry || !endpoint.equals("[::1]:51820"))
                 throw new AssertionError("Handshake callback lost scoped observation");
             observationCalls++;
@@ -94,6 +98,26 @@ public final class WgContextTest {
         } finally {
             Thread.interrupted();
         }
-        System.out.println("JNI context: six worker/lifetime/observation/failure controls PASS");
+
+        Service retained = new Service();
+        retained.workerCallbacksOnly = false;
+        long handle = createRetained(retained, Thread.currentThread());
+        if (handle == 0)
+            throw new AssertionError("Retained context creation failed");
+        try {
+            Thread.currentThread().interrupt();
+            try {
+                if (checkRetained(handle) != 3 || !Thread.currentThread().isInterrupted())
+                    throw new AssertionError("Retained context rejected or cleared caller interruption");
+            } finally {
+                Thread.interrupted();
+            }
+            if (checkRetained(handle) != 3 || retained.protectedCalls != 2 || retained.laterCalls != 6
+                    || retained.startupCalls != 0 || retained.observationCalls != 2)
+                throw new AssertionError("Retained context interruption poisoned retry callbacks");
+        } finally {
+            closeRetained(handle);
+        }
+        System.out.println("JNI context: seven worker/lifetime/observation/failure/retained-interruption controls PASS");
     }
 }

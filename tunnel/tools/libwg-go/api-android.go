@@ -11,7 +11,9 @@ package main
 import "C"
 
 import (
+	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"runtime"
@@ -167,6 +169,38 @@ func wgGetConfig(tunnelHandle int32, env *C.JNIEnv) *C.char {
 		return nil
 	}
 	return C.CString(settings)
+}
+
+//export wgRebind
+func wgRebind(tunnelHandle int32, env *C.JNIEnv) int32 {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	handle := tunnelHandles.acquire(tunnelHandle)
+	if handle == nil {
+		return -int32(unix.ENODEV)
+	}
+	defer handle.queries.Done()
+	if C.wgRethrowException(env, handle.context) != 0 {
+		return -int32(unix.EIO)
+	}
+	if C.wgServiceActive(handle.context) == 0 {
+		C.wgRethrowException(env, handle.context)
+		return -int32(unix.EIO)
+	}
+	err := handle.device.Rebind()
+	if C.wgRethrowException(env, handle.context) != 0 {
+		return -int32(unix.EIO)
+	}
+	if handle.bind.IsStopped() || errors.Is(err, net.ErrClosed) {
+		return -int32(unix.ENODEV)
+	}
+	if errors.Is(err, unix.EBUSY) {
+		return -int32(unix.EBUSY)
+	}
+	if err != nil {
+		return -int32(unix.EIO)
+	}
+	return 0
 }
 
 //export wgVersion

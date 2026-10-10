@@ -1,6 +1,6 @@
 # Tunnl — WireGuard Android
 
-Last updated: 2026-10-09 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 Tunnl is [novakin's WireGuard Android fork](https://github.com/novakin/wireguard-android), adding an engineering-console redesign and a partial VPS fleet/provisioning flow to the existing Android DataBinding/Fragment architecture.
 
@@ -14,7 +14,7 @@ Read [operations and recovery](docs/operations.md) and [backend contracts](docs/
 
 Settings also provides a [full app-data transfer ZIP](docs/operations.md#app-data-transfer): tunnel profiles, selected settings and non-secret saved VPS records. The archive contains private tunnel keys. [Scoped synthetic AVD acceptance](docs/reviews/2026-10-09-app-data-transfer-acceptance.md) covers the legacy-ID preparation; renamed release and complete cross-app/device acceptance remain open.
 
-The userspace source uses native UDP warm-up on the same protected socket as each outgoing handshake initiation. An explicit nonzero ListenPort enables one best-effort one-byte zero datagram attempt before each initiation; absent/zero ListenPort disables it. Native protection covers socket creation/rebind, and the WireGuard protocol remains unchanged. On 2026-10-08 (Europe/Paris), the maintainer authorized adoption through [PR #63](https://github.com/novakin/wireguard-android/pull/63). PR #63 records exact-head review/checks and actual delivery state. The maintainer reported sleep/wake recovery without manual action. [The experiment record](docs/reviews/2026-10-07-protocol-preflight-experiment.md#authorized-local-apk-and-pixel-checks--2026-10-07) retains scoped Pixel 10a checks and the measured [195-second forced deep Doze recovery](docs/reviews/2026-10-07-protocol-preflight-experiment.md#forced-deep-doze-recovery--2026-10-07). The new report is not a new measured trial. [#61](https://github.com/novakin/wireguard-android/issues/61) remains open for physical lifecycle, unchanged-server interoperability and DPI acceptance; hardware deep suspend, network rebind, warm-up packet capture and broader interoperability remain unverified. No DPI, speed or battery gain is established.
+The userspace source uses native UDP warm-up on the same protected socket as each outgoing handshake initiation. An explicit nonzero ListenPort enables one best-effort one-byte zero datagram attempt before each initiation; absent/zero ListenPort disables it. Native protection covers socket creation/rebind, and the WireGuard protocol remains unchanged. On 2026-10-08 (Europe/Paris), the maintainer authorized adoption through [PR #63](https://github.com/novakin/wireguard-android/pull/63). PR #63 records exact-head review/checks and actual delivery state. The maintainer reported sleep/wake recovery without manual action. [The experiment record](docs/reviews/2026-10-07-protocol-preflight-experiment.md#authorized-local-apk-and-pixel-checks--2026-10-07) retains scoped Pixel 10a checks and the measured [195-second forced deep Doze recovery](docs/reviews/2026-10-07-protocol-preflight-experiment.md#forced-deep-doze-recovery--2026-10-07). The new report is not a new measured trial. [#61](https://github.com/novakin/wireguard-android/issues/61) remains open for physical lifecycle, unchanged-server interoperability and DPI acceptance; hardware deep suspend, underlying-network handover, warm-up packet capture and broader interoperability remain unverified. No DPI, speed or battery gain is established.
 
 ## Get started
 
@@ -63,6 +63,8 @@ Tunnl redesign and functional work are tracked in:
 - [Font attribution](docs/font-attribution.md) and [provisioning upstream reference](third_party/wireguard-install/UPSTREAM.md).
 
 ## Embedding
+
+This checkout also exposes [userspace retained-TUN rebind](docs/backend-contracts.md#retained-tun-userspace-rebind--73) through `GoBackend.rebind(Tunnel)`. It replaces protected native UDP sockets for the captured active tunnel without rewriting saved profiles. It adds no automatic recovery trigger. [Scoped rooted Android acceptance](docs/reviews/2026-10-10-native-rebind-acceptance.md) verifies manual protected socket replacement, retained TUN/session, synthetic authenticated traffic, debugger-injected protection failure/retry and actual Android service destruction followed by fresh activation. Actual OS protection denial, concurrent races, interruption, handover, packet controls and full #73 acceptance remain open. Run it off Main and handle busy, unavailable, failure and cancellation results under the documented contract.
 
 The published upstream tunnel library is [on Maven Central](https://search.maven.org/artifact/com.wireguard.android/tunnel), with [library documentation](https://javadoc.io/doc/com.wireguard.android/tunnel). That artifact provides the upstream tunnel API; it does not distribute this fork's Tunnl UI or provisioning flow. For this checkout's library source, see the [tunnel module](tunnel/build.gradle.kts).
 

@@ -28,6 +28,7 @@ import com.wireguard.crypto.Key;
 import com.wireguard.crypto.KeyFormatException;
 import com.wireguard.util.NonNullForAll;
 
+import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Inet4Address;
 import java.util.ArrayList;
@@ -176,6 +177,8 @@ public final class GoBackend implements Backend {
 
     @Nullable private static native String wgGetConfig(int handle);
 
+    private static native int wgRebind(int handle);
+
     private static native void wgTurnOff(int handle);
 
     private static native int wgTurnOn(String ifName, int tunFd, String settings, VpnService service, Thread activationThread, long activationId);
@@ -265,6 +268,50 @@ public final class GoBackend implements Backend {
         synchronized (stateLock) {
             return currentTunnel == tunnel ? State.UP : State.DOWN;
         }
+    }
+
+    /**
+     * Rebind only the captured userspace activation; a successful rebind does not prove reachability.
+     * Returns false for an inactive, busy or obsolete activation without bringing a tunnel up.
+     * Call off the main thread: admitted native socket replacement can block until captured I/O settles.
+     * Admitted native work settles before interruption is reported; it may have replaced the sockets.
+     *
+     * @param tunnel the already-active tunnel whose native sockets should be replaced
+     * @return true if rebind completed for the still-current activation, false if unavailable or busy
+     * @throws IOException if native rebind fails; the retained activation may have no ready transport
+     *                     until a later successful rebind or manual reconnection
+     * @throws InterruptedException if the caller is interrupted before admission or after settlement;
+     *                              the interrupt flag is preserved
+     * @throws Exception if service liveness fails or JNI propagates an existing callback exception
+     */
+    public boolean rebind(final Tunnel tunnel) throws Exception {
+        if (Thread.currentThread().isInterrupted())
+            throw new InterruptedException("VPN rebind interrupted");
+        final int handle;
+        final VpnService service;
+        final Activation capturedActivation;
+        synchronized (stateLock) {
+            if (currentTunnel != tunnel || currentTunnelHandle == -1 || currentService == null)
+                return false;
+            handle = currentTunnelHandle;
+            service = currentService;
+            capturedActivation = activation;
+            requireActiveService(service);
+        }
+        final int result = wgRebind(handle);
+        if (Thread.currentThread().isInterrupted())
+            throw new InterruptedException("VPN rebind interrupted");
+        synchronized (stateLock) {
+            if (currentTunnel != tunnel || currentTunnelHandle != handle || currentService != service ||
+                    activation != capturedActivation || service.destroyed)
+                return false;
+            requireActiveService(service);
+        }
+        if (result == -OsConstants.EBUSY || result == -OsConstants.ENODEV)
+            return false;
+        if (result != 0)
+            throw new IOException("Native tunnel rebind failed: " + result);
+        return true;
     }
 
     /**
@@ -643,7 +690,8 @@ public final class GoBackend implements Backend {
                 throws BackendException, InterruptedException {
             if (activationThread != null && activationThread.isInterrupted())
                 throw new InterruptedException("VPN activation interrupted");
-            requireActiveService(this);
+            if (destroyed)
+                throw new BackendException(Reason.UNABLE_TO_START_VPN);
             return true;
         }
 
