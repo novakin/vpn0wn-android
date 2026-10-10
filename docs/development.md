@@ -8,7 +8,7 @@ Use focused changes, the existing Android architecture and explicit verification
 
 ## Setup and source boundaries
 
-The canonical fork repository is [`novakin/vpn0wn-android`](https://github.com/novakin/vpn0wn-android). The maintainer authorized its GitHub rename from `novakin/wireguard-android` on 2026-10-10 (Europe/Paris). The repository identity, visibility, history and default branch were preserved; Git fetch and existing issue/PR access were verified at the new location. Current and historical source links use the canonical location while retaining original revisions and event/test dates.
+The canonical fork repository is [`novakin/vpn0wn-android`](https://github.com/novakin/vpn0wn-android). The maintainer authorized its GitHub rename from `novakin/wireguard-android` on 2026-10-10 (Europe/Paris). Rename readback retained the repository identity, prior visibility and default branch; Git fetch and existing issue/PR access were verified at the new location. The maintainer subsequently confirmed public visibility as intentional, separately from the rename. Current and historical source links use the canonical location while retaining original revisions and event/test dates.
 
 Existing clones should update their shared origin:
 
