@@ -12,9 +12,11 @@ import android.util.Log
 import android.widget.Toast
 import androidx.databinding.BaseObservable
 import androidx.databinding.Bindable
+import androidx.datastore.preferences.core.edit
 import com.wireguard.android.Application.Companion.get
 import com.wireguard.android.Application.Companion.getBackend
 import com.wireguard.android.Application.Companion.getTunnelManager
+import com.wireguard.android.Application.Companion.getPreferencesDataStore
 import com.wireguard.android.BR
 import com.wireguard.android.R
 import com.wireguard.android.backend.Backend
@@ -23,6 +25,7 @@ import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.configStore.ConfigStore
 import com.wireguard.android.databinding.ObservableSortedKeyedArrayList
 import com.wireguard.android.util.ErrorMessages
+import com.wireguard.android.util.AppDataTransfer
 import com.wireguard.android.util.UserKnobs
 import com.wireguard.android.util.applicationScope
 import com.wireguard.config.Config
@@ -57,6 +60,8 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     private val tunnelMap: ObservableSortedKeyedArrayList<String, ObservableTunnel> = ObservableSortedKeyedArrayList(TunnelComparator)
     private var haveLoaded = false
     private var backendSwitchPending = false
+    private var lastUsedPersistence: Job? = null
+    private var selectedLastUsedTunnel: ObservableTunnel? = null
     private val statisticsScope = applicationScope
     private val statisticsRequests = mutableMapOf<ObservableTunnel, StatisticsRequest>()
 
@@ -105,6 +110,81 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         addToList(name, withContext(Dispatchers.IO) { configStore.create(name, config) }, Tunnel.State.DOWN)
     }
 
+    internal suspend fun exportAppData(): AppDataTransfer.Archive = mutate {
+        getTunnels()
+        lastUsedPersistence?.join()
+        val profiles = withContext(Dispatchers.IO) {
+            tunnelMap.associate { it.name to configStore.load(it.name) }
+        }
+        val preferences = getPreferencesDataStore().data.first()
+        withContext(Dispatchers.IO) { AppDataTransfer.snapshot(profiles, preferences).also(AppDataTransfer::validate) }
+    }
+
+    // ConfigStore/metadata failure needs owned-file rollback before propagating cancellation or defects.
+    @Suppress("TooGenericExceptionCaught")
+    internal suspend fun importAppData(archive: AppDataTransfer.Archive): Int = mutate {
+        withContext(Dispatchers.IO) { AppDataTransfer.validate(archive) }
+        getTunnels()
+        lastUsedPersistence?.join()
+        val existingNames = tunnelMap.map { it.name }.toSet()
+        val newProfiles = withContext(Dispatchers.IO) {
+            archive.profiles.filter { (name, config) ->
+                if (name !in existingNames) true
+                else {
+                    if (configStore.load(name).toWgQuickString() != config.toWgQuickString()) throw AppDataTransfer.ConflictException()
+                    false
+                }
+            }
+        }
+        val selection = archive.lastUsedTunnel
+        if (selection != null && selection !in archive.profiles && !tunnelMap.containsKey(selection)) {
+            throw AppDataTransfer.InvalidArchiveException()
+        }
+        val preferencesStore = getPreferencesDataStore()
+        val restoreNames = preferencesStore.data.first()[UserKnobs.RUNNING_TUNNELS].orEmpty()
+        if (restoreNames.any { it in newProfiles }) {
+            // Commit stale-intent removal before files can survive a failed metadata commit and rollback.
+            preferencesStore.edit { preferences ->
+                AppDataTransfer.validateMetadata(archive, preferences)
+                AppDataTransfer.clearRestoreMarkers(preferences, newProfiles.keys)
+            }
+        }
+        val created = linkedMapOf<String, Config>()
+        try {
+            preferencesStore.edit { preferences ->
+                val servers = AppDataTransfer.validateMetadata(archive, preferences)
+                for ((name, config) in newProfiles) {
+                    created[name] = withContext(Dispatchers.IO) { configStore.create(name, config) }
+                }
+                AppDataTransfer.applyMetadata(archive, preferences, servers, created.keys)
+            }
+        } catch (failure: Throwable) {
+            var incomplete = false
+            for ((name, config) in created) {
+                try {
+                    withContext(Dispatchers.IO) { configStore.delete(name) }
+                } catch (recovery: Throwable) {
+                    incomplete = true
+                    failure.addSuppressed(recovery)
+                    // Coroutine stack recovery may unwrap a same-class copy at the next suspension boundary.
+                    val cause = failure.cause
+                    if (cause != null && cause.javaClass == failure.javaClass && cause !== recovery) cause.addSuppressed(recovery)
+                    addToList(name, config, Tunnel.State.DOWN)
+                }
+            }
+            if (incomplete) throwIncompleteTransferRecovery(failure)
+            throw failure
+        }
+        for ((name, config) in created) addToList(name, config, Tunnel.State.DOWN)
+        if (selection != null) publishLastUsedTunnel(tunnelMap[selection])
+        created.size
+    }
+
+    private fun throwIncompleteTransferRecovery(failure: Throwable): Nothing {
+        if (failure !is Exception || failure is RuntimeException && failure !is SecurityException) throw failure
+        throw AppDataTransfer.IncompleteRecoveryException().apply { initCause(failure) }
+    }
+
     // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
     @Suppress("TooGenericExceptionCaught")
     suspend fun delete(tunnel: ObservableTunnel) = mutate {
@@ -135,13 +215,23 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     }
 
     @get:Bindable
-    var lastUsedTunnel: ObservableTunnel? = null
+    var lastUsedTunnel: ObservableTunnel?
+        get() = selectedLastUsedTunnel
         private set(value) {
-            if (value == field) return
-            field = value
-            notifyPropertyChanged(BR.lastUsedTunnel)
-            applicationScope.launch { UserKnobs.setLastUsedTunnel(value?.name) }
+            if (!publishLastUsedTunnel(value)) return
+            val previous = lastUsedPersistence
+            lastUsedPersistence = applicationScope.launch {
+                previous?.join()
+                UserKnobs.setLastUsedTunnel(value?.name)
+            }
         }
+
+    private fun publishLastUsedTunnel(value: ObservableTunnel?): Boolean {
+        if (value == selectedLastUsedTunnel) return false
+        selectedLastUsedTunnel = value
+        notifyPropertyChanged(BR.lastUsedTunnel)
+        return true
+    }
 
     suspend fun getTunnelConfig(tunnel: ObservableTunnel): Config = withContext(Dispatchers.Main.immediate) {
         tunnel.onConfigChanged(withContext(Dispatchers.IO) { configStore.load(tunnel.name) })!!
@@ -187,7 +277,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         for (name in present)
             addToList(name, null, if (running.contains(name)) Tunnel.State.UP else Tunnel.State.DOWN)
         if (lastUsedName != null)
-            lastUsedTunnel = tunnelMap[lastUsedName]
+            publishLastUsedTunnel(tunnelMap[lastUsedName])
         haveLoaded = true
     }
 
@@ -212,10 +302,11 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     suspend fun restoreState(force: Boolean) {
         if (!haveLoaded || (!force && !UserKnobs.restoreOnBoot.first()))
             return
+        val eligible = tunnelMap.toList()
         val previouslyRunning = UserKnobs.runningTunnels.first()
         if (previouslyRunning.isEmpty()) return
         coroutineScope {
-            tunnelMap.filter { previouslyRunning.contains(it.name) }.map { tunnel ->
+            eligible.filter { previouslyRunning.contains(it.name) }.map { tunnel ->
                 async {
                     try {
                         setTunnelState(tunnel, Tunnel.State.UP)

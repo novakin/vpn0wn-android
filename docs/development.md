@@ -1,14 +1,16 @@
 # Development and contribution workflow
 
-Last updated: 2026-10-09 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
-[Documentation index](../README.md#project-documentation) · Setup/process substantively updated 2026-10-07 (Europe/Paris); historical runtime evidence retains its original scope.
+[Documentation index](../README.md#project-documentation) · Setup substantively updated 2026-10-09 (Europe/Paris); historical process/runtime evidence retains its original scope.
 
 Use focused changes, the existing Android architecture and explicit verification limits. [AGENTS.md](../AGENTS.md) is the sole project agent-instruction file; edit it directly when instructions change.
 
 ## Setup and source boundaries
 
 The [Gradle wrapper](../gradle/wrapper/gradle-wrapper.properties) pins Gradle 9.8.1 and the official binary-distribution SHA256; the [version catalog](../gradle/libs.versions.toml) pins AGP 9.1.0 and dependencies. Both [UI](../ui/build.gradle.kts) and [tunnel](../tunnel/build.gradle.kts) modules compile against SDK 36, target Java 17 source compatibility and declare minimum API 24. Source compatibility is separate from the JDK running Gradle. Use a wrapper/AGP-compatible JDK; local wrapper execution uses OpenJDK 21.0.10, not proof of every JDK combination. These declarations are not an executed device support matrix. Earlier verification entries retain their actual Gradle versions and dates.
+
+UI unit-test workers use a 1 GiB maximum heap for the resource-backed, multi-SDK Robolectric suite. Gradle's default 512 MiB worker exhausted Java heap in unchanged log-stream controls after adding real authentication coverage; the daemon's separate heap setting does not size test workers. This changes test execution resources, not APK runtime memory or test coverage.
 
 Clone the fork with `git clone --recurse-submodules https://github.com/novakin/wireguard-android.git`, or run `git submodule update --init --recursive` in an existing checkout. Install Android SDK Platform 36 and Build Tools 36.0.0; the [tunnel module](../tunnel/build.gradle.kts) pins NDK 28.2.13676358 and CMake 3.22.1, matching the existing local native toolchain. CI uses Temurin Java 21. Keep SDK paths in ignored `local.properties`; do not commit machine-specific paths, signing material or credentials. These declared versions define the check/build recipe, not a tested device matrix or byte-identical APK guarantee.
 
@@ -64,6 +66,8 @@ Use the [bug template](../.github/ISSUE_TEMPLATE/bug_report.md) for reproducible
 Apply actual GitHub labels matching scope, using existing `bug`, `enhancement` or `documentation` labels as relevant. Default new agent-created issues/PRs to `novakin`; preserve deliberate existing assignments and unrelated labels. Read current fields, prefer additive changes and verify the response/readback; disclose rejected or unverified fields. GitHub fields own mutable metadata. Issue templates provide defaults only for their submissions; API-created issues/PRs need explicit metadata. PR templates do not apply labels/assignees automatically. Do not invent labels, deadlines, assignment automation or a project board. Assignment and absence of flags do not grant approval.
 
 Before editing, identify repository, branch, revision and intended integration base. Inspect working/staged scope and refresh the authorized remote base before branching or reviewing; a local reference can be stale. Group pre-existing changes by purpose; a dirty worktree is not permission to commit everything. Preserve unrelated tracked/untracked files and the user's index. Use a dedicated branch from the intended integration base, normally `master`, without stashing/resetting unrelated work merely for convenience.
+
+Use ignored `.artifacts/worktrees/` for linked worktrees by default. Relocation must preserve branches, indexes, dirty work and ignored evidence. `git worktree move` does not support worktrees with initialized submodules; repair linked-worktree and submodule Git paths when relocating them, then verify access from each supported command environment. Archive native build caches containing old absolute paths before rebuilding instead of deleting retained evidence. Historical log paths describe their original locations; they do not assert where relocated evidence now resides.
 
 The improvement plan owns priorities/action states; issues own concrete acceptance, approval and dependencies; PRs own current change-specific acceptance. Read current issue/PR discussion during tracked work, not chat memory alone. Check duplicates before creating/updating an issue for concrete unresolved work within the authorized GitHub workflow. Include observed/expected behavior, impact, bounded scope, approval source/dependencies and observable acceptance. Avoid speculative backlog and separate issues for small fixes already completed in the PR. Recording a proposal does not approve implementation or excuse an in-scope blocker.
 

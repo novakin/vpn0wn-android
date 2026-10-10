@@ -347,7 +347,7 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
             BiometricAuthenticator.authenticate(R.string.biometric_prompt_private_key_title, this) {
                 showingAuthenticator = false
                 when (it) {
-                    is BiometricAuthenticator.Result.Success, is BiometricAuthenticator.Result.HardwareUnavailableOrDisabled -> {
+                    is BiometricAuthenticator.Result.Success, is BiometricAuthenticator.Result.NoAuthenticationConfigured -> {
                         haveShownKeys = true
                         showPrivateKey(edit)
                     }

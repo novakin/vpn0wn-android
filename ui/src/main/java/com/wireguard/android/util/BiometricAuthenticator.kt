@@ -5,6 +5,7 @@
 
 package com.wireguard.android.util
 
+import android.app.KeyguardManager
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -26,7 +27,7 @@ object BiometricAuthenticator {
     sealed class Result {
         data class Success(val cryptoObject: BiometricPrompt.CryptoObject?) : Result()
         data class Failure(val code: Int?, val message: CharSequence) : Result()
-        object HardwareUnavailableOrDisabled : Result()
+        object NoAuthenticationConfigured : Result()
         object Cancelled : Result()
     }
 
@@ -44,11 +45,6 @@ object BiometricAuthenticator {
                         BiometricPrompt.ERROR_CANCELED, BiometricPrompt.ERROR_USER_CANCELED,
                         BiometricPrompt.ERROR_NEGATIVE_BUTTON -> {
                             Result.Cancelled
-                        }
-
-                        BiometricPrompt.ERROR_HW_NOT_PRESENT, BiometricPrompt.ERROR_HW_UNAVAILABLE,
-                        BiometricPrompt.ERROR_NO_BIOMETRICS, BiometricPrompt.ERROR_NO_DEVICE_CREDENTIAL -> {
-                            Result.HardwareUnavailableOrDisabled
                         }
 
                         else -> Result.Failure(errorCode, fragment.getString(R.string.biometric_auth_error_reason, errString))
@@ -71,10 +67,17 @@ object BiometricAuthenticator {
             .setTitle(fragment.getString(dialogTitleRes))
             .setAllowedAuthenticators(allowedAuthenticators)
             .build()
-        if (BiometricManager.from(fragment.requireContext()).canAuthenticate(allowedAuthenticators) == BiometricManager.BIOMETRIC_SUCCESS) {
-            biometricPrompt.authenticate(promptInfo)
-        } else {
-            callback(Result.HardwareUnavailableOrDisabled)
+        val context = fragment.requireContext()
+        val authenticationStatus = BiometricManager.from(context).canAuthenticate(allowedAuthenticators)
+        val keyguardManager = context.getSystemService(KeyguardManager::class.java)
+        when {
+            authenticationStatus == BiometricManager.BIOMETRIC_SUCCESS -> biometricPrompt.authenticate(promptInfo)
+            keyguardManager != null && !keyguardManager.isDeviceSecure &&
+                (authenticationStatus == BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED ||
+                    authenticationStatus == BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE) -> {
+                callback(Result.NoAuthenticationConfigured)
+            }
+            else -> callback(Result.Failure(authenticationStatus, fragment.getString(R.string.biometric_auth_error)))
         }
     }
 }
