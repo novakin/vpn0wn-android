@@ -247,6 +247,35 @@ class DownloadsFileSaverTest {
 
     @Test
     @Config(sdk = [28])
+    fun legacyNoOverwritePreservesExistingFileAndNeverInvokesWriter() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        withLegacy { saver, activity, directory ->
+            shadowOf(activity).grantPermissions(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            val existing = File(directory, "transfer.zip").apply { writeText("old private backup") }
+            var writes = 0
+            assertTrue(failureOf { saver.save(existing.name, "application/zip", false) { writes++ } } is IOException)
+            assertEquals(0, writes)
+            assertEquals("old private backup", existing.readText())
+        }
+    }
+
+    @Test
+    @Config(sdk = [28])
+    fun legacyNoOverwriteFailureRemovesOnlyReservedNewFile() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        withLegacy { saver, activity, directory ->
+            shadowOf(activity).grantPermissions(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            val old = File(directory, "old.zip").apply { writeText("old private backup") }
+            assertTrue(failureOf {
+                saver.save("transfer.zip", "application/zip", false) { throw IOException("fixture write failure") }
+            } is IOException)
+            assertFalse(File(directory, "transfer.zip").exists())
+            assertEquals("old private backup", old.readText())
+        }
+    }
+
+    @Test
+    @Config(sdk = [28])
     fun legacyOpenFailurePreservesPreexistingDirectory() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         withLegacy { saver, activity, directory ->

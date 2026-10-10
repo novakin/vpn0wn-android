@@ -12,7 +12,9 @@ import android.provider.OpenableColumns
 import androidx.test.core.app.ApplicationProvider
 import com.wireguard.android.Application
 import com.wireguard.android.R
+import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.model.TunnelTestEnvironment
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
 import java.util.zip.ZipEntry
@@ -145,6 +147,95 @@ class TunnelImporterTest {
         assertEquals(second.toWgQuickString(), tunnels["beta"]!!.getConfigAsync().toWgQuickString())
         assertEquals(existing, tunnels["duplicate"])
         assertEquals(TunnelTestEnvironment.profile().toWgQuickString(), env.store.configs.getValue("duplicate").toWgQuickString())
+    }
+
+    @Test
+    fun appDataManifestBeforeProfilesRejectsOrdinaryImportWithoutMutation() = runBlocking {
+        assertAppDataTransferRejected(manifestFirst = true)
+    }
+
+    @Test
+    fun appDataManifestAfterProfilesRejectsOrdinaryImportWithoutMutation() = runBlocking {
+        assertAppDataTransferRejected(manifestFirst = false)
+    }
+
+    @Test
+    fun nestedManifestNameDoesNotRejectOrdinaryProfiles() = runBlocking {
+        val env = TunnelTestEnvironment(temporary.root, CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate))
+        application = env.application
+        useZipInput("nested.zip", linkedMapOf(
+            "folder/${AppDataTransfer.MANIFEST}" to "ignored",
+            "alpha.conf" to TunnelTestEnvironment.profile().toWgQuickString(),
+        ))
+        val messages = mutableListOf<CharSequence>()
+        TunnelImporter.importTunnel(context.contentResolver, uri) { messages.add(it) }
+        assertEquals(setOf("alpha"), env.store.configs.keys)
+        assertEquals(listOf(context.getString(R.string.import_success, "alpha")), messages)
+    }
+
+    @Test
+    fun laterZipInputFailureKeepsParsedProfilesAndReportsOnce() = runBlocking {
+        val env = TunnelTestEnvironment(temporary.root, CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate))
+        application = env.application
+        val archive = ByteArrayOutputStream()
+        var ignoredEntryStart = 0
+        ZipOutputStream(archive).use { zip ->
+            zip.putNextEntry(ZipEntry("alpha.conf"))
+            zip.write(TunnelTestEnvironment.profile().toWgQuickString().toByteArray())
+            zip.closeEntry()
+            ignoredEntryStart = archive.size()
+            zip.putNextEntry(ZipEntry("notes.txt"))
+            zip.write("ignored".repeat(100).toByteArray())
+            zip.closeEntry()
+        }
+        val localHeaderBytes = 30
+        val truncatedLength = ignoredEntryStart + localHeaderBytes + "notes.txt".length + 1
+        provider.input = temporary.newFile("truncated.zip").apply {
+            writeBytes(archive.toByteArray().copyOf(truncatedLength))
+        }
+        provider.displayName = "truncated.zip"
+        val messages = mutableListOf<CharSequence>()
+        TunnelImporter.importTunnel(context.contentResolver, uri) {
+            assertEquals(setOf("alpha"), env.store.configs.keys)
+            messages.add(it)
+        }
+        assertEquals(listOf(context.resources.getQuantityString(R.plurals.import_partial_success, 2, 1, 2)), messages)
+    }
+
+    private suspend fun assertAppDataTransferRejected(manifestFirst: Boolean) {
+        val env = TunnelTestEnvironment(temporary.root, CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate))
+        application = env.application
+        val existing = env.manager.create("existing", TunnelTestEnvironment.profile())
+        existing.setStateAsync(Tunnel.State.UP)
+        val storedProfiles = env.store.configs.toMap()
+        val appliedConfigs = env.backend.appliedConfigs.toMap()
+        val profiles = linkedMapOf(
+            "profiles/alpha.conf" to TunnelTestEnvironment.profile(51821).toWgQuickString(),
+            "profiles/beta.conf" to TunnelTestEnvironment.profile(51822).toWgQuickString(),
+        )
+        val manifest = mapOf(AppDataTransfer.MANIFEST to "{}")
+        useZipInput("transfer.zip", if (manifestFirst) manifest + profiles else profiles + manifest)
+        val messages = mutableListOf<CharSequence>()
+        TunnelImporter.importTunnel(context.contentResolver, uri) { messages.add(it) }
+        assertEquals(listOf(context.getString(R.string.app_data_transfer_use_settings)), messages)
+        assertEquals(storedProfiles, env.store.configs)
+        assertEquals(listOf(existing), env.manager.getTunnels().toList())
+        assertEquals(appliedConfigs, env.backend.appliedConfigs)
+        assertEquals(setOf("existing"), env.backend.getRunningTunnelNames())
+        assertTrue(env.store.deleteAttempts.isEmpty())
+    }
+
+    private fun useZipInput(name: String, entries: Map<String, String>) {
+        provider.input = temporary.newFile(name).apply {
+            ZipOutputStream(outputStream()).use { zip ->
+                for ((entryName, text) in entries) {
+                    zip.putNextEntry(ZipEntry(entryName))
+                    zip.write(text.toByteArray())
+                    zip.closeEntry()
+                }
+            }
+        }
+        provider.displayName = name
     }
 
     private class InputProvider(var input: File) : ContentProvider() {

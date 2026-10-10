@@ -84,8 +84,7 @@ class ZipExporterPreference(context: Context, attrs: AttributeSet?) : Preference
         val fragment = activity.supportFragmentManager.fragments.first()
         BiometricAuthenticator.authenticate(R.string.biometric_prompt_zip_exporter_title, fragment) {
             when (it) {
-                // When we have successful authentication, or when there is no biometric hardware available.
-                is BiometricAuthenticator.Result.Success, is BiometricAuthenticator.Result.HardwareUnavailableOrDisabled -> {
+                is BiometricAuthenticator.Result.Success, is BiometricAuthenticator.Result.NoAuthenticationConfigured -> {
                     isEnabled = false
                     exportZip()
                 }
