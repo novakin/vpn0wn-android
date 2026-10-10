@@ -22,6 +22,7 @@ import com.wireguard.android.R
 import com.wireguard.android.backend.Backend
 import com.wireguard.android.backend.Statistics
 import com.wireguard.android.backend.Tunnel
+import com.wireguard.android.backend.WgQuickBackend
 import com.wireguard.android.configStore.ConfigStore
 import com.wireguard.android.databinding.ObservableSortedKeyedArrayList
 import com.wireguard.android.util.ErrorMessages
@@ -193,7 +194,8 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         val backend = getBackend()
         val originalState = withContext(Dispatchers.IO) { backend.getState(tunnel) }
         val wasLastUsed = tunnel == lastUsedTunnel
-        withContext(Dispatchers.IO) { backend.setState(tunnel, Tunnel.State.DOWN, null) }
+        val config = getDownConfig(tunnel, backend, originalState)
+        withContext(Dispatchers.IO) { backend.setState(tunnel, Tunnel.State.DOWN, config) }
         tunnel.onStateChanged(Tunnel.State.DOWN)
         try {
             withContext(Dispatchers.IO) { configStore.delete(tunnel.name) }
@@ -369,8 +371,10 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         if (wasLastUsed)
             lastUsedTunnel = null
         try {
-            if (originalState == Tunnel.State.UP)
-                withContext(Dispatchers.IO) { backend.setState(tunnel, Tunnel.State.DOWN, null) }
+            if (originalState == Tunnel.State.UP) {
+                val config = getDownConfig(tunnel, backend, originalState)
+                withContext(Dispatchers.IO) { backend.setState(tunnel, Tunnel.State.DOWN, config) }
+            }
             withContext(Dispatchers.IO) { configStore.rename(tunnel.name, name) }
             tunnelMap.remove(tunnel)
             tunnel.onNameChanged(name)
@@ -413,6 +417,9 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         }
     }
 
+    private suspend fun getDownConfig(tunnel: ObservableTunnel, backend: Backend, observedState: Tunnel.State): Config? =
+        if (backend is WgQuickBackend && observedState == Tunnel.State.UP) tunnel.getConfigAsync() else null
+
     // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
     @Suppress("TooGenericExceptionCaught")
     private suspend fun changeTunnelState(tunnel: ObservableTunnel, state: Tunnel.State): Tunnel.State {
@@ -430,7 +437,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         var failure: Exception? = null
         tunnel.onTransitionStarted(target)
         try {
-            val config = if (target == Tunnel.State.DOWN) null else tunnel.getConfigAsync()
+            val config = if (target == Tunnel.State.DOWN) getDownConfig(tunnel, backend, newState) else tunnel.getConfigAsync()
             newState = withContext(Dispatchers.IO) { backend.setState(tunnel, target, config) }
             if (newState == Tunnel.State.UP)
                 lastUsedTunnel = tunnel

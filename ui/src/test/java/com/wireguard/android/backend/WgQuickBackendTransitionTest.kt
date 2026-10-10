@@ -13,6 +13,7 @@ import com.wireguard.android.util.RootShell
 import com.wireguard.android.util.ToolsInstaller
 import com.wireguard.android.util.UserKnobs
 import java.io.File
+import java.io.IOException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -28,6 +29,7 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -54,6 +56,7 @@ class WgQuickBackendTransitionTest {
     @get:Rule val folder = TemporaryFolder()
     private lateinit var shell: SimulatedRootShell
     private lateinit var backend: WgQuickBackend
+    private lateinit var context: Context
     private val profile = TunnelTestEnvironment.profile()
 
     @After
@@ -66,7 +69,7 @@ class WgQuickBackendTransitionTest {
         ToolsShadow.blockAtCall = 0
         ToolsShadow.entered = CountDownLatch(1)
         ToolsShadow.release = CountDownLatch(1)
-        val context = object : ContextWrapper(ApplicationProvider.getApplicationContext<Context>()) {
+        context = object : ContextWrapper(ApplicationProvider.getApplicationContext<Context>()) {
             override fun getCacheDir(): File = folder.root
         }
         assertTrue(File(folder.root, "tmp").mkdir())
@@ -80,6 +83,150 @@ class WgQuickBackendTransitionTest {
 
     @Test
     fun concurrentUpRetainsBothTunnelsWhenMultipleModeIsEnabled() = concurrentUp(true)
+
+    @Test
+    fun managerDisconnectsKernelTunnelAfterBackendRecreation() = runTest {
+        val env = recreatedKernelEnvironment(true)
+        val tunnel = env.manager.getTunnels()["one"]!!
+        assertEquals(Tunnel.State.UP, tunnel.state)
+        assertEquals(Tunnel.State.DOWN, tunnel.setStateAsync(Tunnel.State.DOWN))
+        assertEquals(Tunnel.State.DOWN, tunnel.state)
+        assertTrue(backend.runningTunnelNames.isEmpty())
+        assertSame(profile, env.store.configs["one"])
+        assertEquals(listOf("one"), env.store.loadAttempts)
+        assertEquals(listOf("down:one"), shell.events)
+    }
+
+    @Test
+    fun managerRenamesActiveKernelTunnelAfterBackendRecreation() = runTest {
+        val env = recreatedKernelEnvironment(true)
+        val tunnel = env.manager.getTunnels()["one"]!!
+        assertEquals("renamed", tunnel.setNameAsync("renamed"))
+        assertEquals(Tunnel.State.UP, tunnel.state)
+        assertEquals(setOf("renamed"), backend.runningTunnelNames)
+        assertEquals(setOf("renamed"), env.store.configs.keys)
+        assertSame(profile, env.store.configs["renamed"])
+        assertEquals(listOf("down:one", "up:renamed"), shell.events)
+    }
+
+    @Test
+    fun managerDeletesActiveKernelTunnelAfterBackendRecreation() = runTest {
+        val env = recreatedKernelEnvironment(true)
+        val tunnel = env.manager.getTunnels()["one"]!!
+        env.manager.delete(tunnel)
+        assertEquals(Tunnel.State.DOWN, tunnel.state)
+        assertTrue(backend.runningTunnelNames.isEmpty())
+        assertTrue(env.manager.getTunnels().isEmpty())
+        assertTrue(env.store.configs.isEmpty())
+        assertEquals(listOf("down:one"), shell.events)
+    }
+
+    @Test
+    fun unreadableActiveKernelProfileFailsBeforeShutdownAndCanRetry() = runTest {
+        val env = recreatedKernelEnvironment(true)
+        val tunnel = env.manager.getTunnels()["one"]!!
+        env.store.failLoadNames += "one"
+        try {
+            tunnel.setStateAsync(Tunnel.State.DOWN)
+            fail("Expected profile load failure")
+        } catch (_: IOException) { }
+        assertEquals(Tunnel.State.UP, tunnel.state)
+        assertEquals(setOf("one"), backend.runningTunnelNames)
+        assertSame(profile, env.store.configs["one"])
+        assertTrue(shell.events.isEmpty())
+        env.store.failLoadNames.clear()
+        assertEquals(Tunnel.State.DOWN, tunnel.setStateAsync(Tunnel.State.DOWN))
+    }
+
+    @Test
+    fun failedRecreatedKernelShutdownPreservesProfileAndObservedUp() = runTest {
+        val env = recreatedKernelEnvironment(true)
+        val tunnel = env.manager.getTunnels()["one"]!!
+        shell.failDown["one"] = 1
+        try {
+            tunnel.setStateAsync(Tunnel.State.DOWN)
+            fail("Expected shutdown failure")
+        } catch (_: BackendException) { }
+        assertEquals(Tunnel.State.UP, tunnel.state)
+        assertEquals(setOf("one"), backend.runningTunnelNames)
+        assertSame(profile, env.store.configs["one"])
+        assertSame(tunnel, env.manager.getTunnels()["one"])
+        assertEquals(Tunnel.State.DOWN, tunnel.setStateAsync(Tunnel.State.DOWN))
+    }
+
+    @Test
+    fun unreadableActiveKernelProfilePreventsDeleteBeforeAnyMutation() = runTest {
+        val env = recreatedKernelEnvironment(true)
+        val tunnel = env.manager.getTunnels()["one"]!!
+        env.store.failLoadNames += "one"
+        try {
+            env.manager.delete(tunnel)
+            fail("Expected profile load failure")
+        } catch (_: IOException) { }
+        assertEquals(Tunnel.State.UP, tunnel.state)
+        assertEquals(setOf("one"), backend.runningTunnelNames)
+        assertSame(tunnel, env.manager.getTunnels()["one"])
+        assertSame(profile, env.store.configs["one"])
+        assertTrue(shell.events.isEmpty())
+        assertTrue(env.store.deleteAttempts.isEmpty())
+    }
+
+    @Test
+    fun unreadableActiveKernelProfilePreservesNameBeforeAnyMutation() = runTest {
+        val env = recreatedKernelEnvironment(true)
+        val tunnel = env.manager.getTunnels()["one"]!!
+        env.store.failLoadNames += "one"
+        try {
+            tunnel.setNameAsync("renamed")
+            fail("Expected profile load failure")
+        } catch (_: IOException) { }
+        assertEquals("one", tunnel.name)
+        assertEquals(Tunnel.State.UP, tunnel.state)
+        assertEquals(setOf("one"), backend.runningTunnelNames)
+        assertSame(tunnel, env.manager.getTunnels()["one"])
+        assertSame(profile, env.store.configs["one"])
+        assertTrue(shell.events.isEmpty())
+    }
+
+    @Test
+    fun failedDeleteRestoresRecreatedKernelTunnel() = runTest {
+        val env = recreatedKernelEnvironment(true)
+        val tunnel = env.manager.getTunnels()["one"]!!
+        env.store.failDelete = true
+        try {
+            env.manager.delete(tunnel)
+            fail("Expected profile delete failure")
+        } catch (_: IOException) { }
+        assertEquals(Tunnel.State.UP, tunnel.state)
+        assertEquals(setOf("one"), backend.runningTunnelNames)
+        assertSame(profile, env.store.configs["one"])
+        assertSame(tunnel, env.manager.getTunnels()["one"])
+        assertEquals(listOf("down:one", "up:one"), shell.events)
+    }
+
+    @Test
+    fun inactiveKernelDownAndDeleteDoNotLoadUnreadableProfile() = runTest {
+        val env = recreatedKernelEnvironment(false)
+        val tunnel = env.manager.getTunnels()["one"]!!
+        env.store.failLoadNames += "one"
+        assertEquals(Tunnel.State.DOWN, tunnel.setStateAsync(Tunnel.State.DOWN))
+        env.manager.delete(tunnel)
+        assertTrue(env.manager.getTunnels().isEmpty())
+        assertTrue(env.store.configs.isEmpty())
+        assertTrue(env.store.loadAttempts.isEmpty())
+        assertTrue(shell.events.isEmpty())
+    }
+
+    private suspend fun TestScope.recreatedKernelEnvironment(active: Boolean): TunnelTestEnvironment {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val env = TunnelTestEnvironment(folder.root, backgroundScope)
+        env.store.configs["one"] = profile
+        if (active) backend.setState(NamedTunnel("one"), Tunnel.State.UP, profile)
+        backend = WgQuickBackend(context, shell, ToolsInstaller(context, shell))
+        env.replaceBackend(backend)
+        shell.events.clear()
+        return env
+    }
 
     private fun concurrentUp(multiple: Boolean) {
         backend.setMultipleTunnels(multiple)

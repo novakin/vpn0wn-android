@@ -14,9 +14,16 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
 import org.junit.Assert.*
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
@@ -28,6 +35,7 @@ import org.robolectric.annotation.Implements
 @RunWith(RobolectricTestRunner::class)
 @RobolectricConfig(application = Application::class, sdk = [28], shadows = [GoBackendLifecycleTest.LibraryShadow::class, GoBackendLifecycleTest.NativeShadow::class])
 class GoBackendLifecycleTest {
+    @get:Rule val folder = TemporaryFolder()
     private lateinit var backend: GoBackend
     private lateinit var serviceRef: AtomicReference<CompletableFuture<GoBackend.VpnService>>
 
@@ -41,6 +49,35 @@ class GoBackendLifecycleTest {
         NativeShadow.failure = null
         NativeShadow.query = null
         NativeShadow.turnOff = null
+    }
+
+    @Test
+    fun managerDisconnectsUserspaceTunnelWithoutLoadingUnreadableProfile() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        try {
+            val env = TunnelTestEnvironment(folder.root, backgroundScope)
+            val profile = TunnelTestEnvironment.profile()
+            env.store.configs["one"] = profile
+            env.replaceBackend(backend)
+            val tunnel = env.manager.getTunnels()["one"]!!
+            val service = Robolectric.buildService(GoBackend.VpnService::class.java).create().get()
+            service.setOwner(backend)
+            for ((name, value) in mapOf("currentService" to service, "currentTunnel" to tunnel,
+                    "currentTunnelHandle" to 7, "currentConfig" to profile))
+                GoBackend::class.java.getDeclaredField(name).apply { isAccessible = true }.set(backend, value)
+            tunnel.onStateChanged(Tunnel.State.UP)
+            env.store.failLoadNames += "one"
+            var nativeShutdowns = 0
+            NativeShadow.turnOff = { nativeShutdowns++ }
+            assertEquals(Tunnel.State.DOWN, tunnel.setStateAsync(Tunnel.State.DOWN))
+            assertEquals(Tunnel.State.DOWN, backend.getState(tunnel))
+            assertEquals(Tunnel.State.DOWN, tunnel.state)
+            assertEquals(1, nativeShutdowns)
+            assertTrue(env.store.loadAttempts.isEmpty())
+            assertSame(profile, env.store.configs["one"])
+        } finally {
+            Dispatchers.resetMain()
+        }
     }
 
     @Test
