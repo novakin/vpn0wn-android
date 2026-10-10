@@ -27,7 +27,7 @@ import com.vpn0wn.android.databinding.AppListDialogFragmentBinding
 import com.vpn0wn.android.databinding.ObservableKeyedArrayList
 import com.vpn0wn.android.model.ApplicationData
 import com.vpn0wn.android.util.ErrorMessages
-import com.vpn0wn.android.util.tunnlStyle
+import com.vpn0wn.android.util.vpn0wnStyle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -71,14 +71,14 @@ class AppListDialogFragment : DialogFragment() {
                 withContext(Dispatchers.Main.immediate) {
                     val error = ErrorMessages[e]
                     val message = activity.getString(R.string.error_fetching_apps, error)
-                    Snackbar.make(activity.findViewById(android.R.id.content), message, Snackbar.LENGTH_LONG).tunnlStyle().show()
+                    Snackbar.make(activity.findViewById(android.R.id.content), message, Snackbar.LENGTH_LONG).vpn0wnStyle().show()
                     dismissAllowingStateLoss()
                 }
             } catch (e: Resources.NotFoundException) {
                 withContext(Dispatchers.Main.immediate) {
                     val error = ErrorMessages[e]
                     val message = activity.getString(R.string.error_fetching_apps, error)
-                    Snackbar.make(activity.findViewById(android.R.id.content), message, Snackbar.LENGTH_LONG).tunnlStyle().show()
+                    Snackbar.make(activity.findViewById(android.R.id.content), message, Snackbar.LENGTH_LONG).vpn0wnStyle().show()
                     dismissAllowingStateLoss()
                 }
             }

@@ -21,7 +21,7 @@ import com.vpn0wn.android.util.AppDataTransfer
 import com.vpn0wn.android.util.BiometricAuthenticator
 import com.vpn0wn.android.util.DownloadsFileSaver
 import com.vpn0wn.android.util.activity
-import com.vpn0wn.android.util.tunnlStyle
+import com.vpn0wn.android.util.vpn0wnStyle
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
@@ -61,7 +61,7 @@ class AppDataExporterPreference(context: Context, attrs: AttributeSet?) : Prefer
                             ownerView,
                             R.string.biometric_auth_error,
                             Snackbar.LENGTH_SHORT,
-                        ).tunnlStyle().show()
+                        ).vpn0wnStyle().show()
                     }
                     return@authenticate
                 }
@@ -164,7 +164,7 @@ class AppDataExporterPreference(context: Context, attrs: AttributeSet?) : Prefer
             activity.findViewById(android.R.id.content),
             R.string.app_data_transfer_error,
             Snackbar.LENGTH_LONG,
-        ).tunnlStyle().show()
+        ).vpn0wnStyle().show()
     }
 
     companion object {

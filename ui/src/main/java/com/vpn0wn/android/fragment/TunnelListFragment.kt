@@ -45,7 +45,7 @@ import com.vpn0wn.android.model.TunnelManager
 import com.vpn0wn.android.util.ErrorMessages
 import com.vpn0wn.android.util.QrCodeFromFileScanner
 import com.vpn0wn.android.util.TunnelImporter
-import com.vpn0wn.android.util.tunnlStyle
+import com.vpn0wn.android.util.vpn0wnStyle
 import com.vpn0wn.android.widget.MultiselectableRelativeLayout
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -60,7 +60,7 @@ class TunnelListFragment : BaseFragment() {
     private val tunnelCreatorResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
         if (result.resultCode != Activity.RESULT_OK) return@registerForActivityResult
         val message = result.data?.getStringExtra(TunnelCreatorActivity.EXTRA_SAVE_MESSAGE) ?: return@registerForActivityResult
-        binding?.let { Snackbar.make(it.mainContainer, message, Snackbar.LENGTH_SHORT).tunnlStyle().show() }
+        binding?.let { Snackbar.make(it.mainContainer, message, Snackbar.LENGTH_SHORT).vpn0wnStyle().show() }
     }
     private val selectedTunnels = linkedSetOf<ObservableTunnel>()
     private var selectionMode = false
@@ -368,7 +368,7 @@ class TunnelListFragment : BaseFragment() {
         if (binding != null)
             Snackbar.make(binding.mainContainer, message, Snackbar.LENGTH_LONG)
                 .setAnchorView(if (binding.createFab.visibility == View.VISIBLE) binding.createFab else null)
-                .tunnlStyle()
+                .vpn0wnStyle()
                 .show()
         else
             Toast.makeText(activity ?: Application.get(), message, Toast.LENGTH_SHORT).show()

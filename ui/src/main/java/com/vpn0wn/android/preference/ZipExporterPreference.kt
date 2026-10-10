@@ -17,7 +17,7 @@ import com.vpn0wn.android.util.DownloadsFileSaver
 import com.vpn0wn.android.util.ErrorMessages
 import com.vpn0wn.android.util.activity
 import com.vpn0wn.android.util.lifecycleScope
-import com.vpn0wn.android.util.tunnlStyle
+import com.vpn0wn.android.util.vpn0wnStyle
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.supervisorScope
@@ -67,7 +67,7 @@ class ZipExporterPreference(context: Context, attrs: AttributeSet?) : Preference
                 Snackbar.make(
                     activity.findViewById(android.R.id.content),
                     message, Snackbar.LENGTH_LONG
-                ).tunnlStyle().show()
+                ).vpn0wnStyle().show()
             } finally {
                 isEnabled = true
             }
@@ -94,7 +94,7 @@ class ZipExporterPreference(context: Context, attrs: AttributeSet?) : Preference
                         activity.findViewById(android.R.id.content),
                         it.message,
                         Snackbar.LENGTH_SHORT
-                    ).tunnlStyle().show()
+                    ).vpn0wnStyle().show()
                 }
 
                 is BiometricAuthenticator.Result.Cancelled -> {}

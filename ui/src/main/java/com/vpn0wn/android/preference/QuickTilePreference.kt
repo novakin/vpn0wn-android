@@ -21,7 +21,7 @@ import com.vpn0wn.android.QuickTileService
 import com.vpn0wn.android.R
 import com.vpn0wn.android.util.activity
 import com.vpn0wn.android.util.applicationScope
-import com.vpn0wn.android.util.tunnlStyle
+import com.vpn0wn.android.util.vpn0wnStyle
 import com.vpn0wn.android.util.UserKnobs
 import kotlinx.coroutines.launch
 import java.io.IOException
@@ -60,7 +60,7 @@ class QuickTilePreference(context: Context, attrs: AttributeSet?) : Preference(c
                 StatusBarManager.TILE_ADD_REQUEST_ERROR_NO_STATUS_BAR_SERVICE -> {
                     val message = context.getString(R.string.quick_settings_tile_add_failure, it)
                     if (activity.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
-                        Snackbar.make(activity.findViewById(android.R.id.content), message, Snackbar.LENGTH_SHORT).tunnlStyle().show()
+                        Snackbar.make(activity.findViewById(android.R.id.content), message, Snackbar.LENGTH_SHORT).vpn0wnStyle().show()
                     } else {
                         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                     }
