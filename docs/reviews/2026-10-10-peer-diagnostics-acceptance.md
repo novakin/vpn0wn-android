@@ -1,6 +1,6 @@
 # Detail peer handshake observations: rooted Android acceptance
 
-Last updated: 2026-10-10 (Europe/Paris).
+Last updated: 2026-10-11 (Europe/Paris).
 
 ## Scope and provenance
 
@@ -26,7 +26,9 @@ This record covers the presentation slice in [PR #113](https://github.com/novaki
 | Endpoint-free activation | An active userspace peer without Endpoint or PersistentKeepalive displayed `No handshake event observed` and unknown endpoint/family. No traffic was generated for this control. UP alone did not become authentication. |
 | Output and recreation | Six full-Detail scrolling sequences covered portrait with system day/night requests, landscape, landscape at 2× text, Arabic RTL portrait at 2× text and French portrait at 2× text with a system day request. The fixed dark palette remained in both system modes. Retained physical output confirms rotation, enlarged text and mirrored RTL navigation; representative top, peer-event and bottom captures were visually inspected. New rows wrap, remain readable and scroll into view without ellipsis. Captures are 1080×2340 or 2340×1080 pixels at the device's existing density. |
 
-The complete screen inspection also exposed an existing topology-header gap: in 2× RTL portrait, the UP marker touches the `FIG.01` title. The topology header was unchanged by this PR. The [UI roadmap](../ui-redesign-roadmap.md#fidelity-gaps--remaining) retains that unresolved output issue under the broader [#35](https://github.com/novakin/vpn0wn-android/issues/35) acceptance. This run does not establish complete Detail fidelity or close that issue.
+The complete screen inspection also exposed an existing topology-header gap: in 2× RTL portrait, the UP marker touches the `FIG.01` title. The topology header was unchanged by this PR. At that revision, the UI roadmap retained the unresolved output issue under the broader [#35](https://github.com/novakin/vpn0wn-android/issues/35) acceptance. This run does not establish complete Detail fidelity or close that issue.
+
+2026-10-11 follow-up (Europe/Paris): the [UI roadmap's completed header repair](../ui-redesign-roadmap.md#done) records relative title/status spacing and focused native checks. That later change does not alter this record's original presenter revision, runtime results or broader #35 acceptance limits.
 
 Exact public-key/map attribution, rebuilt configurations, selection/session invalidation and generated binding cleanup retain the separate 35-test source proof. Physical public keys are elided; observed endpoint/status consistency does not replace those deterministic controls. A destroyed-view unbind prevents later notifications but cannot cancel rendering already queued for a discarded view.
 

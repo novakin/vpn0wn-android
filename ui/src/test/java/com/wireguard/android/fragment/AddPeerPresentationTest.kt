@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.RectF
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
@@ -15,7 +16,10 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.wireguard.android.R
 import com.wireguard.android.backend.Statistics
+import com.wireguard.android.backend.Tunnel
+import com.wireguard.android.databinding.TunnelDetailFragmentBinding
 import com.wireguard.android.databinding.TunnelDetailPeerBinding
+import com.wireguard.android.model.ObservableTunnel
 import com.wireguard.android.model.TunnelTestEnvironment
 import com.wireguard.android.util.QuantityFormatter
 import com.wireguard.config.Peer
@@ -172,6 +176,64 @@ class AddPeerPresentationTest {
     }
 
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun nativeTopologyHeaderKeepsCompleteLabelsSeparatedAtSmallWidthsAndLargeText() = runTest {
+        environment = TunnelTestEnvironment(folder.root, backgroundScope)
+        val config = TunnelTestEnvironment.profile()
+        val tunnel = ObservableTunnel(environment.manager, "home-lab", config, Tunnel.State.UP)
+        val statistics = Statistics::class.java.getDeclaredConstructor().apply { isAccessible = true }.newInstance()
+        Statistics::class.java.getDeclaredMethod("add", Key::class.java, Long::class.javaPrimitiveType,
+            Long::class.javaPrimitiveType, Long::class.javaPrimitiveType).apply { isAccessible = true }
+            .invoke(statistics, publicKey, 2048L, 1024L, System.currentTimeMillis())
+        val cases = listOf(
+            Preview("portrait", 320, 640, 1f, "en", false),
+            Preview("rtl-portrait", 320, 640, 1f, "ar", false),
+            Preview("large-portrait", 320, 640, 2f, "en", false),
+            Preview("large-rtl-portrait", 320, 640, 2f, "ar", false),
+            Preview("pixel-rtl-portrait", 411, 891, 2f, "ar", false),
+            Preview("large-landscape", 480, 320, 2f, "en", false),
+            Preview("large-rtl-landscape", 480, 320, 2f, "ar", false)
+        )
+        for (preview in cases) for (nightMode in listOf(false, true)) {
+            val case = preview.copy(name = "${preview.name}-${if (nightMode) "dark" else "light"}", night = nightMode)
+            val direction = if (case.locale == "ar") "ldrtl" else "ldltr"
+            val orientation = if (case.width > case.height) "land" else "port"
+            val night = if (case.night) "night" else "notnight"
+            RuntimeEnvironment.setQualifiers("${case.locale}-$direction-w${case.width}dp-h${case.height}dp-$orientation-$night")
+            RuntimeEnvironment.setFontScale(case.fontScale)
+            val activity = host()
+            val binding = TunnelDetailFragmentBinding.inflate(activity.layoutInflater)
+            activity.setContentView(binding.root)
+            binding.config = config
+            binding.tunnel = tunnel
+            val header = (binding.throughputView.parent as ViewGroup).getChildAt(0) as ViewGroup
+            val title = header.getChildAt(0) as TextView
+            val status = header.getChildAt(1) as TextView
+            val expectedDirection = if (case.locale == "ar") View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
+            for ((snapshot, statusResource) in listOf(statistics to R.string.tunnl_mode_up, null to R.string.tunnl_mode_connecting)) {
+                tunnel.onStatisticsChanged(snapshot)
+                binding.executePendingBindings()
+                measure(binding.root, case)
+                assertEquals(case.name, expectedDirection, header.layoutDirection)
+                assertEquals("FIG.01 - TUNNEL TOPOLOGY", title.text.toString())
+                assertEquals(activity.getString(statusResource), status.text.toString())
+                assertHeaderTextFits(title, case.name)
+                assertHeaderTextFits(status, case.name)
+                val titleLines = textLines(title)
+                val statusLines = textLines(status)
+                val minimumVisibleGap = 4 * activity.resources.displayMetrics.density
+                for (titleLine in titleLines) for (statusLine in statusLines) {
+                    if (titleLine.top >= statusLine.bottom || statusLine.top >= titleLine.bottom) continue
+                    val gap = if (expectedDirection == View.LAYOUT_DIRECTION_RTL)
+                        titleLine.left - statusLine.right else statusLine.left - titleLine.right
+                    assertTrue("${case.name}: ${status.text} gap $gap", gap >= minimumVisibleGap)
+                }
+                val statusName = if (snapshot == null) "connecting" else "up"
+                save(header, "topology-${case.name}-$statusName")
+            }
+        }
+    }
+
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun nativeOutputWrapsAndScrollsInSmallLandscapeAndLargeRtlConfigurations() = runTest {
         environment = TunnelTestEnvironment(folder.root, backgroundScope)
         val cases = listOf(
@@ -263,6 +325,24 @@ class AddPeerPresentationTest {
             assertTrue("$name: ${view.text}", view.layout.getLineTop(view.layout.lineCount) <= view.height)
         }
         if (view is ViewGroup) for (index in 0 until view.childCount) assertTextFits(view.getChildAt(index), name)
+    }
+
+    private fun assertHeaderTextFits(view: TextView, name: String) {
+        val layout = view.layout
+        assertEquals("$name: ${view.text}", view.text.length, layout.getLineEnd(layout.lineCount - 1))
+        assertTrue("$name: ${view.text} height", layout.height <= view.height - view.compoundPaddingTop - view.compoundPaddingBottom)
+        for (line in 0 until layout.lineCount) {
+            assertEquals("$name: ${view.text} ellipsis", 0, layout.getEllipsisCount(line))
+            assertTrue("$name: ${view.text} left", layout.getLineLeft(line) >= 0)
+            assertTrue("$name: ${view.text} right", layout.getLineRight(line) <= view.width - view.compoundPaddingLeft - view.compoundPaddingRight)
+        }
+    }
+
+    private fun textLines(view: TextView): List<RectF> = (0 until view.layout.lineCount).map { line ->
+        RectF(view.left + view.totalPaddingLeft + view.layout.getLineLeft(line),
+            (view.top + view.totalPaddingTop + view.layout.getLineTop(line)).toFloat(),
+            view.left + view.totalPaddingLeft + view.layout.getLineRight(line),
+            (view.top + view.totalPaddingTop + view.layout.getLineBottom(line)).toFloat())
     }
 
     private fun save(view: View, name: String) {
