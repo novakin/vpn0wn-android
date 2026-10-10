@@ -201,6 +201,10 @@ Do not end required work while commands or reviewers are still running. State be
 
 ## Recorded verification
 
+### Retained-TUN rooted Android acceptance — 2026-10-10
+
+The [scoped native rebind record](reviews/2026-10-10-native-rebind-acceptance.md) identifies the authorized Pixel 7 Pro / Android 14 integration APK and unchanged native candidate, debugger invocation boundary, actual successful protection returns, replaced UDP sockets with retained TUN/session, authenticated synthetic HTTP traffic and sequential retirement/fresh activation. Original profiles, settings, backend and VPN state were restored; owned fixture/peer/Download/JDWP resources were removed. The record preserves earlier failed tile CI and its successful unchanged-head rerun, without claiming a scheduling cause or extending their revision scope. PR #107 owns current final-head review/CI and delivery. Phone failure/race, handover, packet/IPv6 traffic, DPI, timing and performance acceptance remain open.
+
 ### Native handshake private Android acceptance — 2026-10-10
 
 The [scoped API 36 record](reviews/2026-10-10-native-handshake-avd-acceptance.md) identifies the authorized debug APK/installed checksum, independent unchanged userspace peer, actual callback/model/retirement results and corrected forced screen-off idle/private wake reachability for the bounded observation slice merged through [PR #101](https://github.com/novakin/wireguard-android/pull/101). It preserves failed instrumentation, an explicitly truncated reader snapshot, debugger timing, the limited initial screen-on run and unavailable packet coverage. This actual Android evidence complements the earlier host/JVM/native compilation record below without extending its historical scope or claiming recovery, physical suspend, leak/DPI/performance acceptance. The PR record owns final-head independent ultra, checks, publication and merge state; #73 remains open.
