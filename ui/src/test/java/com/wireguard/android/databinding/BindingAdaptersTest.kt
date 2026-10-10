@@ -6,8 +6,12 @@ package com.wireguard.android.databinding
 
 import android.content.Context
 import android.content.res.Configuration
+import android.text.Spanned
+import android.text.style.ForegroundColorSpan
+import android.text.style.TextAppearanceSpan
 import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
+import com.wireguard.android.R
 import com.wireguard.android.backend.Statistics
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.model.ObservableTunnel
@@ -49,7 +53,44 @@ class BindingAdaptersTest {
 
     @Test
     fun emptyHomeHeaderKeepsWordmarkAndConfiguredCount() {
-        assertEquals("Vpn0wn · 0 configured", BindingAdapters.homeHeaderSummary(context, emptyList()))
+        assertEquals("vpnøwn · 0 configured", BindingAdapters.homeHeaderSummary(context, emptyList()))
+    }
+
+    @Test
+    fun homeWordmarkColorsOnlySlashedZeroAndKeepsReadableBrandDescription() {
+        val header = TextView(context)
+        BindingAdapters.setHomeHeaderTunnels(header, emptyList())
+        val text = header.text as Spanned
+        val color = text.getSpans(0, text.length, ForegroundColorSpan::class.java).single()
+        assertEquals(3, text.getSpanStart(color))
+        assertEquals(4, text.getSpanEnd(color))
+        assertEquals("ø", text.subSequence(text.getSpanStart(color), text.getSpanEnd(color)).toString())
+        assertEquals(context.getColor(R.color.tunnl_signal), color.foregroundColor)
+        val appearance = text.getSpans(0, text.length, TextAppearanceSpan::class.java).single()
+        assertEquals(0, text.getSpanStart(appearance))
+        assertEquals(6, text.getSpanEnd(appearance))
+        assertEquals(null, appearance.family)
+        assertEquals("vpn0wn · 0 configured", header.contentDescription.toString())
+    }
+
+    @Test
+    fun homeStatusColorsOnlyStateAndLeavesCipherTextMixedCase() {
+        val config = Config.parse("""
+            [Interface]
+            PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+            [Peer]
+            PublicKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+            PresharedKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+        """.trimIndent().byteInputStream())
+        val view = TextView(context)
+        BindingAdapters.setTunnelStatusTunnel(view, null, Tunnel.State.DOWN, null, config)
+        val status = context.getString(R.string.tunnl_tunnel_status_inactive)
+        val text = view.text as Spanned
+        assertEquals("$status · ChaCha20 + PSK", text.toString())
+        val color = text.getSpans(0, text.length, ForegroundColorSpan::class.java).single()
+        assertEquals(0, text.getSpanStart(color))
+        assertEquals(status.length, text.getSpanEnd(color))
+        assertEquals(context.getColor(R.color.tunnl_ink_3), color.foregroundColor)
     }
 
     @Test
@@ -76,13 +117,14 @@ class BindingAdaptersTest {
         val active = ObservableTunnel(env.manager, "active", config, Tunnel.State.UP)
         active.onStatisticsChanged(statistics(System.currentTimeMillis()))
         val tunnels = listOf(inactive, active)
-        assertEquals("Vpn0wn · 2 configured", BindingAdapters.homeHeaderSummary(context, tunnels))
+        assertEquals("vpnøwn · 2 configured", BindingAdapters.homeHeaderSummary(context, tunnels))
         assertEquals("VPN connected", BindingAdapters.homeProtectionLabel(context, tunnels))
         assertEquals("unresolvable.invalid", BindingAdapters.homeEndpointHost(tunnels))
         assertEquals("—", BindingAdapters.homeEndpointHost(listOf(inactive)))
         val header = TextView(context)
         BindingAdapters.setHomeHeaderTunnels(header, tunnels)
-        assertEquals("Vpn0wn · 2 configured", header.text.toString())
+        assertEquals("vpnøwn · 2 configured", header.text.toString())
+        assertEquals("vpn0wn · 2 configured", header.contentDescription.toString())
     }
 
     @Test
@@ -98,7 +140,10 @@ class BindingAdaptersTest {
         val frenchView = TextView(french)
         BindingAdapters.setHomeHandshakeStatistics(frenchView, snapshot)
         assertEquals("il y a 14s", frenchView.text.toString())
-        assertEquals("Vpn0wn · 0 configurés", BindingAdapters.homeHeaderSummary(french, emptyList()))
+        assertEquals("vpnøwn · 0 configurés", BindingAdapters.homeHeaderSummary(french, emptyList()))
+        val frenchHeader = TextView(french)
+        BindingAdapters.setHomeHeaderTunnels(frenchHeader, emptyList())
+        assertEquals("vpn0wn · 0 configurés", frenchHeader.contentDescription.toString())
     }
 
     @Test
