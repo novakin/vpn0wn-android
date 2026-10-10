@@ -741,6 +741,7 @@ object BindingAdapters {
         val endpoint = config?.peers?.firstOrNull()?.endpoint?.map { it.toString() }?.orElse("—") ?: "—"
         view.setAddress(address)
         view.setEndpoint(endpoint)
+        view.setMtu(config?.`interface`?.mtu?.map { it.toString() }?.orElse("—") ?: "—")
     }
 
     @JvmStatic

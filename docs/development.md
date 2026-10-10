@@ -201,6 +201,10 @@ Do not end required work while commands or reviewers are still running. State be
 
 ## Recorded verification
 
+### Detail configured MTU repair — 2026-10-10
+
+At merged base `8fba177c`, focused regression controls reproduced the literal `MTU 1420` for explicit 1280 and stale Detail config after current-tunnel notification. The scoped repair extends existing DataBinding/widget setters and the view-owned callback, preserving saved profiles and backend policy. Focused `BindingAdaptersTest` and `TunnelDetailLifecycleTest` pass 26 tests with no failures/errors/skips; Detekt reports zero findings under WSL JDK 21 and Robolectric API 28. Five native topology rasters were inspected for light/dark, landscape, explicit/unknown MTU and 2× Arabic RTL. These retain their fixture scope. [Scoped rooted Android acceptance](reviews/2026-10-10-detail-mtu-acceptance.md) adds checksum-matched installed kernel/userspace explicit/omitted UP/DOWN, selection/editor refresh, six physical-output configurations and original data/settings/state restoration, with capture and Canvas limits. [#111](https://github.com/novakin/wireguard-android/issues/111) and its PR own final-head review/CI and delivery; [the QA controls](qa-test-plan.md#detail-configured-mtu-checks--111) retain the scope and existing Canvas limits.
+
 ### Retained-TUN rooted Android acceptance — 2026-10-10
 
 Final ultra review found two inert host TUN-liveness assertions: pinned `ChannelTUN.Close` does not close `Inbound`. `androidbind/device_test.go` now counts `Close` calls on the actual device-owned TUN, with a real `Device.Close` control. The focused closure/retention race tests and full `test-host.sh` recipe passed on 2026-10-10 using prepared Go 1.24.3 and WSL JDK 21; the latter includes conn/device/UAPI/androidbind/overlay/handle race controls and seven JNI controls. This is a test-only correction; production paths match installed integration `2db34843` when excluding that test file, so the recorded Android run remains applicable without another APK build. Exact-head CI and published ultra verdict belong to PR #107.

@@ -165,6 +165,14 @@ Baseline requirements:
 - Tunnel list row states, including rail color and stats-row visibility
 - Detail peer card transfer/handshake visual states
 
+### Detail configured MTU checks — #111
+
+`BindingAdaptersTest` checks actual Canvas MTU text for explicit 1280/1380, omitted/zero/null configuration, UP/DOWN presentation and sequential rebinding. Native raster previews cover light/dark portrait, landscape with unknown MTU and 2× Arabic RTL in both themes at the existing diagram dimensions. Inspect the generated output; the unchanged Canvas font/dp sizing limitation remains in the [UI roadmap](ui-redesign-roadmap.md#fidelity-gaps--remaining).
+
+`TunnelDetailLifecycleTest` covers current config notifications without another load, selection/reset and stale/unrelated/destroyed-view config/state callbacks, alongside existing reversed-load and statistics controls. Separately authorized installed checks must compare diagram and Interface values, inspect selection/config refresh and relevant theme/rotation/font-scale output, and restore original profiles/settings/VPN state. Peerless UP proves activation/rendering only; #52 still owns broader device/accessibility acceptance.
+
+The [2026-10-10 installed acceptance](reviews/2026-10-10-detail-mtu-acceptance.md) records kernel/userspace explicit/omitted UP/DOWN, selection and MTU-only edit, six physical-output configurations, excluded/obscured captures and exact original data/settings/state restoration. It supplements the source controls without promoting configured MTU into effective-MTU observation or completing #52.
+
 ### Home reference source checks
 
 The #80 Home source controls add cached endpoint-host semantics, latest/missing/future handshake ages and English/French wording in `BindingAdaptersTest`. `HomeSelectionTest` adds existing Add/Logs/Settings navigation, disabled Search, non-overlapping 48dp action targets and normal header/status/footer content checks to its six native preview configurations. Compact landscape and narrow-portrait dimensions preserve font scaling; verify the wordmark stays together and the final tunnel name remains scrollable and clear at 640×320dp with 2× text. Run these controls and inspect the resulting content before recording source acceptance; physical safe-area, TalkBack, real tunnel-state and provider acceptance remain separate requirements.

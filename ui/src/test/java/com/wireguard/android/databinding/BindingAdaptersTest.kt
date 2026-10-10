@@ -6,26 +6,36 @@ package com.wireguard.android.databinding
 
 import android.content.Context
 import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.text.style.TextAppearanceSpan
 import android.widget.TextView
+import android.view.View
 import androidx.test.core.app.ApplicationProvider
 import com.wireguard.android.R
 import com.wireguard.android.backend.Statistics
 import com.wireguard.android.backend.Tunnel
 import com.wireguard.android.model.ObservableTunnel
 import com.wireguard.android.model.TunnelTestEnvironment
+import com.wireguard.android.widget.TunnelThroughputView
 import com.wireguard.config.Config
 import com.wireguard.crypto.Key
 import java.util.Locale
+import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Robolectric
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.GraphicsMode
 import org.robolectric.annotation.Config as RobolectricConfig
 
 @RunWith(RobolectricTestRunner::class)
@@ -158,6 +168,110 @@ class BindingAdaptersTest {
         assertEquals("0s ago", view.text.toString())
     }
 
+    @Test
+    fun topologyDrawsConfiguredMtuInUpAndDownStates() {
+        val view = TunnelThroughputView(context)
+        for (mtu in listOf(1280, 1380)) {
+            val config = topologyConfig(mtu)
+            for (state in listOf(Tunnel.State.UP, Tunnel.State.DOWN)) {
+                BindingAdapters.setTopologyConfig(view, config)
+                BindingAdapters.setThroughputModeTunnel(view, null, state, statistics(System.currentTimeMillis()))
+                assertEquals(state == Tunnel.State.UP, view.live)
+                assertEquals(listOf("MTU ${config.`interface`.mtu.get()}"), drawnMtu(view))
+            }
+        }
+    }
+
+    @Test
+    fun topologyDoesNotInventMtuForOmittedZeroOrMissingConfig() {
+        val view = TunnelThroughputView(context)
+        for (config in listOf(topologyConfig(null), topologyConfig(0), null)) {
+            for (state in listOf(Tunnel.State.UP, Tunnel.State.DOWN)) {
+                BindingAdapters.setTopologyConfig(view, config)
+                BindingAdapters.setThroughputModeTunnel(view, null, state, statistics(System.currentTimeMillis()))
+                assertEquals(listOf("MTU —"), drawnMtu(view))
+            }
+        }
+    }
+
+    @Test
+    fun topologyRebindingReplacesMtuAndClearsPreviousValue() {
+        val view = TunnelThroughputView(context)
+        val updates = listOf(topologyConfig(1280), topologyConfig(0), topologyConfig(1380),
+            topologyConfig(null), topologyConfig(1420), null, topologyConfig(1280))
+        val labels = listOf("MTU 1280", "MTU —", "MTU 1380", "MTU —", "MTU 1420", "MTU —", "MTU 1280")
+        for ((index, config) in updates.withIndex()) {
+            BindingAdapters.setTopologyConfig(view, config)
+            assertEquals(listOf(labels[index]), drawnMtu(view))
+        }
+    }
+
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun nativeTopologyOutputCoversConfiguredAndUnknownMtuAcrossLayouts() {
+        val cases = listOf(
+            Preview("portrait-light-1280-up", 320, 640, 1f, "en", false, 1280, Tunnel.State.UP),
+            Preview("portrait-dark-1380-down", 320, 640, 1f, "en", true, 1380, Tunnel.State.DOWN),
+            Preview("landscape-dark-unknown-up", 640, 320, 1f, "en", true, null, Tunnel.State.UP),
+            Preview("large-rtl-light-1280-down", 320, 640, 2f, "ar", false, 1280, Tunnel.State.DOWN),
+            Preview("large-rtl-dark-zero-up", 320, 640, 2f, "ar", true, 0, Tunnel.State.UP)
+        )
+        for (case in cases) {
+            val direction = if (case.locale == "ar") "ldrtl" else "ldltr"
+            val orientation = if (case.width > case.height) "land" else "port"
+            val night = if (case.night) "night" else "notnight"
+            RuntimeEnvironment.setQualifiers("${case.locale}-$direction-w${case.width}dp-h${case.height}dp-$orientation-$night")
+            RuntimeEnvironment.setFontScale(case.fontScale)
+            val controller = Robolectric.buildActivity(android.app.Activity::class.java)
+            controller.get().setTheme(R.style.AppTheme)
+            controller.setup()
+            try {
+                val view = TunnelThroughputView(controller.get())
+                controller.get().setContentView(view)
+                BindingAdapters.setTopologyConfig(view, topologyConfig(case.mtu))
+                BindingAdapters.setThroughputModeTunnel(view, null, case.state, statistics(System.currentTimeMillis()))
+                view.setBackgroundColor(context.getColor(R.color.tunnl_paper_2))
+                val density = view.resources.displayMetrics.density
+                val width = ((case.width - DETAIL_HORIZONTAL_GUTTER_DP) * density).toInt()
+                val height = (DETAIL_TOPOLOGY_HEIGHT_DP * density).toInt()
+                view.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY))
+                view.layout(0, 0, width, height)
+                assertEquals(case.state == Tunnel.State.UP, view.live)
+                assertEquals(if (case.locale == "ar") View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR, view.layoutDirection)
+                val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                view.draw(Canvas(bitmap))
+                val directory = File("../.artifacts/detail-mtu-previews").apply { mkdirs() }
+                File(directory, "${case.name}.png").outputStream().use {
+                    assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
+                }
+                bitmap.recycle()
+            } finally {
+                controller.pause().stop().destroy()
+            }
+        }
+    }
+
+    private fun topologyConfig(mtu: Int?): Config = Config.parse("""
+        [Interface]
+        PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+        Address = 192.0.2.2/32
+        ${mtu?.let { "MTU = $it" } ?: ""}
+        [Peer]
+        PublicKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+        Endpoint = 192.0.2.1:51820
+    """.trimIndent().byteInputStream())
+
+    private fun drawnMtu(view: TunnelThroughputView): List<String> {
+        view.layout(0, 0, DETAIL_TOPOLOGY_TEST_WIDTH, DETAIL_TOPOLOGY_HEIGHT_DP)
+        val canvas = Canvas()
+        view.draw(canvas)
+        val shadow = shadowOf(canvas)
+        return (0 until shadow.textHistoryCount).map { shadow.getDrawnTextEvent(it).text }.filter { it.startsWith("MTU ") }
+    }
+
+    private data class Preview(val name: String, val width: Int, val height: Int, val fontScale: Float,
+        val locale: String, val night: Boolean, val mtu: Int?, val state: Tunnel.State)
+
     private fun statistics(vararg epochs: Long): Statistics {
         val snapshot = Statistics::class.java.getDeclaredConstructor().apply { isAccessible = true }.newInstance()
         val add = Statistics::class.java.getDeclaredMethod("add", Key::class.java, Long::class.javaPrimitiveType,
@@ -166,5 +280,11 @@ class BindingAdaptersTest {
             add.invoke(snapshot, Key.fromBytes(ByteArray(32) { index.toByte() }), 0L, 0L, epoch)
         }
         return snapshot
+    }
+
+    private companion object {
+        const val DETAIL_HORIZONTAL_GUTTER_DP = 48
+        const val DETAIL_TOPOLOGY_HEIGHT_DP = 206
+        const val DETAIL_TOPOLOGY_TEST_WIDTH = 272
     }
 }
