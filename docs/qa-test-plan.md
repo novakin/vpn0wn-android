@@ -105,7 +105,7 @@ Use for Android resources, data binding, programmatic fragment UI, and lightweig
   - unreachable server renders the provisioning error state
 - Data binding:
   - tunnel list status label updates for every mode
-  - PSK badge visibility follows peer PSK presence
+- Detail PSK badge visibility follows peer PSK presence; Home uses a conditional PSK suffix beside status.
   - detail peer endpoint/keepalive rows hide when absent
   - detail peer titles render as `PEER #01`, `PEER #02`, ...
   - server detail renders the empty peer list state before any VPN users are added
@@ -156,6 +156,8 @@ Baseline requirements:
 ### Home reference source checks
 
 The #80 Home source controls add cached endpoint-host semantics, latest/missing/future handshake ages and English/French wording in `BindingAdaptersTest`. `HomeSelectionTest` adds existing Add/Logs/Settings navigation, disabled Search, non-overlapping 48dp action targets and normal header/status/footer content checks to its six native preview configurations. Compact landscape and narrow-portrait dimensions preserve font scaling; verify the wordmark stays together and the final tunnel name remains scrollable and clear at 640×320dp with 2× text. Run these controls and inspect the resulting content before recording source acceptance; physical safe-area, TalkBack, real tunnel-state and provider acceptance remain separate requirements.
+
+For the [2026-10-10 screenshot correction](ui-redesign-roadmap.md#home-detail-correction--2026-10-10), verify visual `vpnøwn` and its cyan zero with accessible `vpn0wn`, Inter Tight branding/labels/cipher, and regular 13sp JetBrains Mono endpoint value. Check the end-aligned endpoint block and decorative external-link icon do not overlap, clip the value or become an unintended action. Preserve cached configured-host semantics without DNS or public-IP lookup. Exercise existing cipher selection with and without PSK; render that value once beside status and keep it absent beneath LAST HANDSHAKE. Inspect both themes, narrow portrait, 2× short landscape and RTL, including unavailable endpoint/handshake and long-hostname cases. Exact-head source/native results and PR acceptance for this correction remain pending; prior Home evidence retains its original scope.
 
 ### Security Regression Tests
 

@@ -14,6 +14,7 @@ import android.os.SystemClock
 import android.text.InputFilter
 import android.text.SpannableString
 import android.text.Spanned
+import android.text.style.ForegroundColorSpan
 import android.text.style.TextAppearanceSpan
 import android.view.LayoutInflater
 import android.view.View
@@ -326,9 +327,13 @@ object BindingAdapters {
     fun setHomeHeaderTunnels(view: TextView, tunnels: Iterable<ObservableTunnel>?) {
         val summary = homeHeaderSummary(view.context, tunnels)
         val wordmark = view.context.getString(R.string.tunnl_home_wordmark)
+        view.contentDescription = summary.replace('ø', '0')
         view.text = SpannableString(summary).apply {
             setSpan(TextAppearanceSpan(view.context, R.style.TunnlHomeWordmarkText),
                 0, wordmark.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+            val zeroIndex = wordmark.indexOf('ø')
+            setSpan(ForegroundColorSpan(ContextCompat.getColor(view.context, R.color.tunnl_signal)),
+                zeroIndex, zeroIndex + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
     }
 
@@ -650,16 +655,19 @@ object BindingAdapters {
     }
 
     @JvmStatic
-    @BindingAdapter(requireAll = false, value = ["tunnelStatusTunnel", "tunnelStatusState", "tunnelStatusStatistics"])
-    fun setTunnelStatusTunnel(view: TextView, tunnel: ObservableTunnel?, state: Tunnel.State?, statistics: Statistics?) {
+    @BindingAdapter(requireAll = false, value = ["tunnelStatusTunnel", "tunnelStatusState", "tunnelStatusStatistics", "tunnelStatusConfig"])
+    fun setTunnelStatusTunnel(view: TextView, tunnel: ObservableTunnel?, state: Tunnel.State?, statistics: Statistics?, config: Config?) {
         val mode = tunnelMode(tunnel, state, statistics)
-        view.text = statusModeLabel(view.context, mode)
-        view.setTextColor(ContextCompat.getColor(view.context, when (mode) {
+        val status = statusModeLabel(view.context, mode)
+        val statusColor = ContextCompat.getColor(view.context, when (mode) {
             TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_signal_deep
             TunnelSignalView.TunnelMode.CONNECTING -> R.color.tunnl_warn
             TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_error
             TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_ink_3
-        }))
+        })
+        view.text = SpannableString("$status · ${tunnelCipher(config)}").apply {
+            setSpan(ForegroundColorSpan(statusColor), 0, status.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        }
     }
 
     @JvmStatic

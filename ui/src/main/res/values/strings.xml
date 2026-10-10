@@ -475,7 +475,7 @@
     <string name="tunnl_user_status_active">◆ ACTIVE</string>
     <string name="tunnl_user_status_idle">◑ IDLE</string>
     <string name="tunnl_user_status_revoked">✕ REVOKED</string>
-    <string name="tunnl_home_wordmark" translatable="false">Vpn0wn</string>
+    <string name="tunnl_home_wordmark" translatable="false">vpnøwn</string>
     <string name="tunnl_home_header_summary">%1$s · %2$d configured</string>
 
     <string name="tunnl_settings_title">settings</string>

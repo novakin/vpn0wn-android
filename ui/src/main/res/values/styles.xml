@@ -92,14 +92,23 @@
     </style>
 
     <style name="TunnlHomeHeaderText" parent="TunnlMonoSubText">
+        <item name="android:fontFamily">@font/inter_tight</item>
+        <item name="android:includeFontPadding">false</item>
         <item name="android:textSize">12sp</item>
     </style>
 
     <style name="TunnlHomeWordmarkText">
-        <item name="android:fontFamily">@font/inter_tight</item>
         <item name="android:textColor">@color/tunnl_ink</item>
         <item name="android:textSize">@dimen/tunnl_home_wordmark_size</item>
+        <item name="android:textFontWeight">650</item>
         <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="TunnlHomeSecondaryText">
+        <item name="android:fontFamily">@font/inter_tight</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:textColor">@color/tunnl_ink_3</item>
+        <item name="android:textSize">12sp</item>
     </style>
 
     <style name="TunnlHomeConnectionText">
