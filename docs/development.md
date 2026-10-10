@@ -2,13 +2,15 @@
 
 Last updated: 2026-10-09 (Europe/Paris).
 
-[Documentation index](../README.md#project-documentation) · Setup/process substantively updated 2026-10-07 (Europe/Paris); historical runtime evidence retains its original scope.
+[Documentation index](../README.md#project-documentation) · Setup substantively updated 2026-10-09 (Europe/Paris); historical process/runtime evidence retains its original scope.
 
 Use focused changes, the existing Android architecture and explicit verification limits. [AGENTS.md](../AGENTS.md) is the sole project agent-instruction file; edit it directly when instructions change.
 
 ## Setup and source boundaries
 
 The [Gradle wrapper](../gradle/wrapper/gradle-wrapper.properties) pins Gradle 9.8.1 and the official binary-distribution SHA256; the [version catalog](../gradle/libs.versions.toml) pins AGP 9.1.0 and dependencies. Both [UI](../ui/build.gradle.kts) and [tunnel](../tunnel/build.gradle.kts) modules compile against SDK 36, target Java 17 source compatibility and declare minimum API 24. Source compatibility is separate from the JDK running Gradle. Use a wrapper/AGP-compatible JDK; local wrapper execution uses OpenJDK 21.0.10, not proof of every JDK combination. These declarations are not an executed device support matrix. Earlier verification entries retain their actual Gradle versions and dates.
+
+UI unit-test workers use a 1 GiB maximum heap for the resource-backed, multi-SDK Robolectric suite. Gradle's default 512 MiB worker exhausted Java heap in unchanged log-stream controls after adding real authentication coverage; the daemon's separate heap setting does not size test workers. This changes test execution resources, not APK runtime memory or test coverage.
 
 Clone the fork with `git clone --recurse-submodules https://github.com/novakin/wireguard-android.git`, or run `git submodule update --init --recursive` in an existing checkout. Install Android SDK Platform 36 and Build Tools 36.0.0; the [tunnel module](../tunnel/build.gradle.kts) pins NDK 28.2.13676358 and CMake 3.22.1, matching the existing local native toolchain. CI uses Temurin Java 21. Keep SDK paths in ignored `local.properties`; do not commit machine-specific paths, signing material or credentials. These declared versions define the check/build recipe, not a tested device matrix or byte-identical APK guarantee.
 

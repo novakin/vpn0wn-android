@@ -85,6 +85,20 @@
             android:singleLineTitle="false"
             android:layout="@layout/tunnl_preference_item" />
 
+        <com.wireguard.android.preference.AppDataExporterPreference
+            android:icon="@drawable/ic_tunnl_file"
+            android:key="export_app_data"
+            android:singleLineTitle="false"
+            android:layout="@layout/tunnl_preference_item" />
+
+        <Preference
+            android:icon="@drawable/ic_tunnl_file"
+            android:key="import_app_data"
+            android:layout="@layout/tunnl_preference_item"
+            android:singleLineTitle="false"
+            android:summary="@string/app_data_transfer_import_summary"
+            android:title="@string/app_data_transfer_import_title" />
+
         <Preference
             android:icon="@drawable/ic_tunnl_logs"
             android:key="log_viewer"
