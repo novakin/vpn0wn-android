@@ -1,6 +1,6 @@
 # Architecture and maintenance boundaries
 
-Last updated: 2026-10-08 (Europe/Paris).
+Last updated: 2026-10-09 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -150,6 +150,16 @@ Alternatives include Compose/MVVM or a general controller/DI rewrite. Current re
 Status: boundary implemented; concrete SSH integration pending. Existing client/factory separation supports injected remote responses and preserves non-interactive packaged scripts.
 
 Alternatives include embedding all server management in Android or invoking the upstream interactive installer. Neither fits the current machine-readable flow. Before choosing an SSH dependency, record maintenance/Android fit, alternatives, host-key/auth behavior, deadlines, session cleanup and credential exposure. Real library verification remains required; no library choice is claimed here.
+
+### Full transfer uses existing profile and metadata owners — 2026-10-09
+
+**Problem:** the selected vpn0wn application ID has a separate sandbox, while the existing ZIP path transfers profiles only. Independent per-profile creates and fire-and-forget settings writes cannot preserve batch admission or report metadata failure safely. A stale destination restore marker can also match a newly imported profile.
+
+**Decision/status:** the maintainer selected settings and saved VPS transfer in [#71](https://github.com/novakin/wireguard-android/issues/71#issuecomment-6086430555). This source slice adds a bounded versioned archive under the legacy ID, through existing Settings/biometric/Downloads/document-picker patterns. AppDataTransfer owns schema parsing; TunnelManager owns admission, config-file recovery and publication; the existing settings DataStore owns the combined settings/fleet commit. Lock order remains manager then DataStore. An optional preparatory edit validates fleet conflicts and durably clears stale restore markers matching absent profiles being imported before file creation; that invalid-intent cleanup is retained after later failure, preventing rollback survivors from boot activation. Strict archive fleet decoding is confined to transfer, with the original local-store shape's missing running observation normalized to unknown; normal legacy reads retain their current behavior. Pending last-used writes form an ordered chain, and transfer waits for that chain before reading or committing metadata. Restoration also captures current identities before asynchronous saved-state reads.
+
+**Alternatives/consequences:** private sandbox copying is unavailable across independent app IDs and would bypass native permissions. Reusing ordinary ZIP creation would allow profiles-only partial migration. A new migration service or database would duplicate current ownership without making filesystem/DataStore commits globally atomic. The chosen batch skips identical data, rejects conflicting identities and rolls back only newly created files before metadata commit; failed rollback leaves owned survivors visible and reports the limit. Existing active tunnels and kernel selection are preserved. Historical server health remains an observation. The archive is unencrypted and must be handled privately.
+
+**Verification/migration impact:** focused codec, fleet, manager, importer, Settings and Downloads controls cover schema, corruption, conflicts, cancellation, recovery and no-autoactivation. Their actual execution and final-head independent ultra verdict belong in the scoped PR. [Authorized synthetic AVD acceptance](reviews/2026-10-09-app-data-transfer-acceptance.md) adds native credential, picker, persistence and scoped layout proof; physical/conditional-provider/accessibility and old/new-installation gates remain open under [QA](qa-test-plan.md#full-app-data-transfer-acceptance). Ship a signer-compatible exporter update under the old ID before changing identity; preserve old app/data until migration and rollback are verified. This decision does not authorize another APK, root/server operation or release. [Backend contracts](backend-contracts.md#full-app-data-transfer) owns the exact schema and sequencing.
 
 ### Documentation has one owner per detailed fact
 
