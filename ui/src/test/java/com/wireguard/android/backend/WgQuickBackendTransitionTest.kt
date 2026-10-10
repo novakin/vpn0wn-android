@@ -3,6 +3,8 @@ package com.wireguard.android.backend
 import android.app.Application
 import android.content.Context
 import android.content.ContextWrapper
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.test.core.app.ApplicationProvider
@@ -22,6 +24,9 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
@@ -113,7 +118,28 @@ class WgQuickBackendTransitionTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val env = TunnelTestEnvironment(folder.root, backgroundScope)
         val app = env.application
-        for ((name, value) in mapOf("rootShell" to shell, "toolsInstaller" to ToolsInstaller(app, shell)))
+        val deadlockGuardSeconds = 5L
+        val initialSettingApplied = CountDownLatch(1)
+        val settingEntered = CountDownLatch(1)
+        val settingApplied = CountDownLatch(1)
+        val multipleTunnels = booleanPreferencesKey("multiple_tunnels")
+        val preferences = com.wireguard.android.Application.getPreferencesDataStore()
+        val observedPreferences = object : DataStore<Preferences> by preferences {
+            override val data = flow {
+                preferences.data.collect { value ->
+                    val multiple = value[multipleTunnels] == true
+                    if (multiple) settingEntered.countDown()
+                    emit(value)
+                    if (multiple) {
+                        settingApplied.countDown()
+                    } else {
+                        // first() aborts emit; only the live collector acknowledges its initial setting.
+                        initialSettingApplied.countDown()
+                    }
+                }
+            }
+        }
+        for ((name, value) in mapOf("rootShell" to shell, "toolsInstaller" to ToolsInstaller(app, shell), "preferencesDataStore" to observedPreferences))
             com.wireguard.android.Application::class.java.getDeclaredField(name)
                 .apply { isAccessible = true }.set(app, value)
         UserKnobs.setEnableKernelModule(true)
@@ -124,40 +150,51 @@ class WgQuickBackendTransitionTest {
             if (result !== COROUTINE_SUSPENDED) continuation.resume(result as Backend)
         } as WgQuickBackend
         assertEquals(1, shell.startCalls)
+        assertTrue("Initial Application setting was not applied", withContext(Dispatchers.IO) {
+            initialSettingApplied.await(deadlockGuardSeconds, TimeUnit.SECONDS)
+        })
         val held = CountDownLatch(1)
         val release = CountDownLatch(1)
         val executor = Executors.newSingleThreadExecutor()
         val transition = executor.submit {
             synchronized(kernel) {
                 held.countDown()
-                assertTrue(release.await(5, TimeUnit.SECONDS))
+                try {
+                    assertTrue("Kernel transition monitor timed out", release.await(deadlockGuardSeconds, TimeUnit.SECONDS))
+                } finally {
+                    release.countDown()
+                }
             }
         }
         try {
-            assertTrue(withContext(Dispatchers.IO) { held.await(5, TimeUnit.SECONDS) })
-            val start = System.nanoTime()
+            assertTrue("Kernel transition monitor was not acquired", withContext(Dispatchers.IO) {
+                held.await(deadlockGuardSeconds, TimeUnit.SECONDS)
+            })
             com.wireguard.android.Application.getPreferencesDataStore().edit {
-                it[booleanPreferencesKey("multiple_tunnels")] = true
+                it[multipleTunnels] = true
             }
+            assertTrue("Application did not receive the live setting", withContext(Dispatchers.IO) {
+                settingEntered.await(deadlockGuardSeconds, TimeUnit.SECONDS)
+            })
+            var mainProgress = false
+            backgroundScope.launch(Dispatchers.Main) { mainProgress = true }
             runCurrent()
-            withContext(Dispatchers.IO) { Thread.sleep(100) }
-            runCurrent()
-            assertTrue("Main blocked behind kernel transition", System.nanoTime() - start < TimeUnit.SECONDS.toNanos(1))
+            assertTrue("Main blocked behind kernel transition", mainProgress)
+            assertEquals("Kernel transition released before Main progress", 1L, release.count)
+            assertEquals("Setting applied before the kernel transition released", 1L, settingApplied.count)
             release.countDown()
-            withContext(Dispatchers.IO) { transition.get(5, TimeUnit.SECONDS) }
+            withContext(Dispatchers.IO) { transition.get(deadlockGuardSeconds, TimeUnit.SECONDS) }
+            assertTrue("Application did not finish applying the live setting", withContext(Dispatchers.IO) {
+                settingApplied.await(deadlockGuardSeconds, TimeUnit.SECONDS)
+            })
             val setting = WgQuickBackend::class.java.getDeclaredField("multipleTunnels").apply { isAccessible = true }
             assertTrue(withContext(Dispatchers.IO) {
-                val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2)
-                while (System.nanoTime() < deadline) {
-                    if (synchronized(kernel) { setting.getBoolean(kernel) }) return@withContext true
-                    Thread.sleep(10)
-                }
-                false
+                synchronized(kernel) { setting.getBoolean(kernel) }
             })
         } finally {
             release.countDown()
             executor.shutdownNow()
-            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+            assertTrue(executor.awaitTermination(deadlockGuardSeconds, TimeUnit.SECONDS))
         }
     }
 
