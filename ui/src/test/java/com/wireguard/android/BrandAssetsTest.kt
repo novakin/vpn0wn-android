@@ -28,6 +28,11 @@ import org.robolectric.annotation.GraphicsMode
 @Config(application = Application::class, sdk = [33], qualifiers = "mdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class BrandAssetsTest {
+    @Test fun applicationLabelKeepsProductAndBuildVariantIdentity() {
+        val expected = if (BuildConfig.DEBUG) "vpn0wn β" else "vpn0wn"
+        assertEquals(expected, RuntimeEnvironment.getApplication().getString(R.string.app_name))
+    }
+
     @Test fun adaptiveGradientAndMonochromeKeepCounterAndCentralSafeArea() {
         val icon = drawable(R.mipmap.ic_launcher) as AdaptiveIconDrawable
         val foreground = render(icon.foreground, ADAPTIVE_LAYER_SIZE, ADAPTIVE_LAYER_SIZE)
