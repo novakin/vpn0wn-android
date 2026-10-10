@@ -1,6 +1,6 @@
 # Operations and recovery
 
-Last updated: 2026-10-09 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -83,7 +83,7 @@ Flags describe this app's Android policy, not another VPN package, authenticated
 
 The [Android VPN guide](https://developer.android.com/develop/connectivity/vpn) owns setup and lockdown behavior. [`ACTION_VPN_SETTINGS`](https://developer.android.com/reference/android/provider/Settings#ACTION_VPN_SETTINGS) is available from API 24, but a matching activity is not guaranteed. [`isAlwaysOn`](https://developer.android.com/reference/android/net/VpnService#isAlwaysOn()) and [`isLockdownEnabled`](https://developer.android.com/reference/android/net/VpnService#isLockdownEnabled()) begin at API 29; [`DISALLOW_CONFIG_VPN`](https://developer.android.com/reference/android/os/UserManager#DISALLOW_CONFIG_VPN) describes administrator restrictions. OEM/profile controls can differ even without that restriction.
 
-This is the setup/status slice of [#75](https://github.com/novakin/wireguard-android/issues/75). Endpoint bootstrap DNS with [#73](https://github.com/novakin/wireguard-android/issues/73), manual/always-on arbitration with [#74](https://github.com/novakin/wireguard-android/issues/74), device output and packet acceptance remain open. The [QA boundary](qa-test-plan.md#android-system-vpn-policy-acceptance) requires separate authorized proof before making leak-protection claims.
+This is the setup/status slice of [#75](https://github.com/novakin/wireguard-android/issues/75). [Scoped private API 36 acceptance](reviews/2026-10-10-private-avd-policy-acceptance.md) verifies native flag changes, foreground refresh, rendered output and restoration. Endpoint bootstrap DNS with [#73](https://github.com/novakin/wireguard-android/issues/73), manual/always-on arbitration with [#74](https://github.com/novakin/wireguard-android/issues/74), physical/conditional environments and packet-leak acceptance remain open. The [QA boundary](qa-test-plan.md#android-system-vpn-policy-acceptance) requires separate authorized proof before making leak-protection claims.
 
 ## Diagnostics and evidence
 
