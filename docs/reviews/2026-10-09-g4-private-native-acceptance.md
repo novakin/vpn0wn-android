@@ -1,10 +1,10 @@
 # G4 isolated native acceptance follow-up
 
-Last updated: 2026-10-09 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 ## Scope and provenance
 
-Partial native Android framework evidence for [#28 Downloads](https://github.com/novakin/wireguard-android/issues/28), [#34 Settings](https://github.com/novakin/wireguard-android/issues/34), [#35 Add/peer](https://github.com/novakin/wireguard-android/issues/35) and [#36 Home](https://github.com/novakin/wireguard-android/issues/36), under [G4/#52](https://github.com/novakin/wireguard-android/issues/52). These separately scoped isolated emulator runs do not replace physical acceptance or complete any of these issues.
+Partial native Android framework evidence for [#28 Downloads](https://github.com/novakin/vpn0wn-android/issues/28), [#34 Settings](https://github.com/novakin/vpn0wn-android/issues/34), [#35 Add/peer](https://github.com/novakin/vpn0wn-android/issues/35) and [#36 Home](https://github.com/novakin/vpn0wn-android/issues/36), under [G4/#52](https://github.com/novakin/vpn0wn-android/issues/52). These separately scoped isolated emulator runs do not replace physical acceptance or complete any of these issues.
 
 ### Initial API 36 session provenance
 
@@ -30,9 +30,9 @@ The two ZIP-container hashes differ; canonical entry bytes match in both archive
 
 ## Unresolved findings
 
-[Camera-denial feedback (#84)](https://github.com/novakin/wireguard-android/issues/84): CAMERA denial displayed “Sorry, the Android camera encountered a problem. You may need to restart the device.” The denied permission was the observed cause; later granting it opened the scanner. Feedback should identify missing access or cancel the scan without camera-malfunction/restart advice. The existing ZXing missing-permission path supplies that generic message; no source repair or dependency change is delivered here.
+[Camera-denial feedback (#84)](https://github.com/novakin/vpn0wn-android/issues/84): CAMERA denial displayed “Sorry, the Android camera encountered a problem. You may need to restart the device.” The denied permission was the observed cause; later granting it opened the scanner. Feedback should identify missing access or cancel the scan without camera-malfunction/restart advice. The existing ZXing missing-permission path supplies that generic message; no source repair or dependency change is delivered here.
 
-[Tile-membership eligibility (#85)](https://github.com/novakin/wireguard-android/issues/85): Settings offered Add tile while native inventory still contained the installed component. The subsequent already-added handling remained idempotent. Current tile eligibility depends on a transient service flag; the exact preceding teardown or process-reset event was not captured and is not inferred. Installed membership and service lifetime need separate treatment in a bounded repair. Both issue drafts received independent ultra review before personal-account publication; their observable acceptance remains open. This record does not authorize their implementation or close #34/#35/#52.
+[Tile-membership eligibility (#85)](https://github.com/novakin/vpn0wn-android/issues/85): Settings offered Add tile while native inventory still contained the installed component. The subsequent already-added handling remained idempotent. Current tile eligibility depends on a transient service flag; the exact preceding teardown or process-reset event was not captured and is not inferred. Installed membership and service lifetime need separate treatment in a bounded repair. Both issue drafts received independent ultra review before personal-account publication; their observable acceptance remains open. This record does not authorize their implementation or close #34/#35/#52.
 
 Rejected launcher namespace/direct non-exported Settings launch, an invalid archive path, unsupported MediaStore column and a guessed nonexistent `shared_prefs` location were operator errors. Their failed evidence is retained and excluded from app-failure findings. Corrected commands and fresh readbacks supply the accepted results.
 

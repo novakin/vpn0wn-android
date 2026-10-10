@@ -1,10 +1,10 @@
 # Optional AmneziaWG engine assessment
 
-Last updated: 2026-10-09 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 ## Result and scope
 
-Recommend the official Go engine's version tag **`v3.1.20260828` (`b5928efb6ca19f0153958460c3d141f04abc5c2e`)** as the candidate for maintainer selection under [#76](https://github.com/novakin/wireguard-android/issues/76). Integrate only the userspace engine through the existing config, backend and native lifecycle owners. Retain the existing ordinary WireGuard engine and kernel path initially. The source defaults resemble ordinary WireGuard frames, but that does not establish interchangeable engines or justify replacing the verified lifecycle boundary.
+Recommend the official Go engine's version tag **`v3.1.20260828` (`b5928efb6ca19f0153958460c3d141f04abc5c2e`)** as the candidate for maintainer selection under [#76](https://github.com/novakin/vpn0wn-android/issues/76). Integrate only the userspace engine through the existing config, backend and native lifecycle owners. Retain the existing ordinary WireGuard engine and kernel path initially. The source defaults resemble ordinary WireGuard frames, but that does not establish interchangeable engines or justify replacing the verified lifecycle boundary.
 
 For AWG, recommend the engine's explicitly configured I/J packets as its sole pre-initiation packet behavior. Keep cookies enabled by default. Do not stack the current WireGuard one-byte warm-up onto AWG or send preflight packets from Java. Maintainer selection of the engine, admitted field contract and packet interaction remains open; this report approves none of them and adds no implementation.
 
@@ -83,7 +83,7 @@ The native bind sends those packets through the same selected address-family soc
 
 Tunnl's [current detector](../../tunnel/tools/libwg-go/androidbind/bind.go) recognizes exactly an ordinary 148-byte initiation with little-endian header type 1. AWG prefixes, custom headers, header protection and trailers invalidate that assumption; other configured packets could resemble its pattern. Therefore do not classify AWG traffic with this detector or add a blind one-byte send for every batch. Preserve its existing explicit-port behavior for ordinary WG only. Recommended AWG behavior is engine-owned I/J configuration, with all socket protection, liveness, generation, cancellation and teardown checks retained independently of packet decoration.
 
-Local source-port rotation remains [#77](https://github.com/novakin/wireguard-android/issues/77), and AWG server/provisioning changes remain outside this assessment. No random port, Java sender, extra scheduler, duplicate one-byte packet or automatic cookie disabling is selected here.
+Local source-port rotation remains [#77](https://github.com/novakin/vpn0wn-android/issues/77), and AWG server/provisioning changes remain outside this assessment. No random port, Java sender, extra scheduler, duplicate one-byte packet or automatic cookie disabling is selected here.
 
 ## Components and licenses
 
@@ -95,7 +95,7 @@ Local source-port rotation remains [#77](https://github.com/novakin/wireguard-an
 | `termux-elf-cleaner` submodule | Pin `7efc05090675ec6161b7def862728086a26c3b1f`; [GPL-3.0 COPYING][elf-license] | Host build helper, rather than the Go VPN engine. Retain attribution/obligations for any redistributed source/tool; do not attribute it as MIT or assume it is an APK engine component. |
 | Go runtime and dependency closure | Candidate [go.mod][awg-module] includes crypto/net/sys, Outline SDK modules, atomic, YAML and other dependencies | Module declarations are not an APK contents inventory. Determine the actual linked/imported closure and its notices at the selected build; modules used only by other packages/tests must not be reported as proven bundled components. |
 
-Coordinate the real offline Licenses & credits surface with [#71](https://github.com/novakin/wireguard-android/issues/71). Engine integration requires accurate credits even if the wider identity migration remains pending. This report adds no dependency, binary or copied upstream source.
+Coordinate the real offline Licenses & credits surface with [#71](https://github.com/novakin/vpn0wn-android/issues/71). Engine integration requires accurate credits even if the wider identity migration remains pending. This report adds no dependency, binary or copied upstream source.
 
 ## Selection and remaining acceptance
 

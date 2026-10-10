@@ -4,7 +4,7 @@ Last updated: 2026-10-10 (Europe/Paris).
 
 ## Scope and provenance
 
-Scoped synthetic AVD acceptance for [#71](https://github.com/novakin/wireguard-android/issues/71), through [PR #102](https://github.com/novakin/wireguard-android/pull/102). This records the original transfer APK and corrective working source; final reviewed/tested commit and current integration state belong in the PR acceptance record. At this handoff, #71 remains open and PR #102 remains draft. No new-ID migration, release or physical-phone acceptance is delivered.
+Scoped synthetic AVD acceptance for [#71](https://github.com/novakin/vpn0wn-android/issues/71), through [PR #102](https://github.com/novakin/vpn0wn-android/pull/102). This records the original transfer APK and corrective working source; final reviewed/tested commit and current integration state belong in the PR acceptance record. At this handoff, #71 remains open and PR #102 remains draft. No new-ID migration, release or physical-phone acceptance is delivered.
 
 The maintainer authorized APK assembly and installation while preserving existing AVD data, using synthetic fixtures only. Every device operation targeted Android 16/API 36 x86_64 `emulator-5580`, initially 1080×2400 at density 420. The physical phone received no commands. Private baseline data and evidence remain ignored under `.artifacts/transfer-avd/`.
 

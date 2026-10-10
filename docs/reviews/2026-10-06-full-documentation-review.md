@@ -1,12 +1,12 @@
 # Full documentation review — 2026-10-06
 
-Last updated: 2026-10-06 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 [Documentation index](../../README.md#project-documentation) · Substantive content audit, Europe/Paris.
 
 ## Scope and baseline
 
-[Issue #9](https://github.com/novakin/wireguard-android/issues/9) owns acceptance. Integration base: clean master `11d4a9b1dfdab834844c997e6ef2cc4f83c6bd43`, merged PR #8. Branch: `docs/full-documentation-review`, isolated from the original dirty worktree. Review covers all 17 previously maintained Markdown guides/templates plus this new record, referenced source/build/test files and the read-only local prototype. The prior [agent/README assessment](2026-10-06-agent-readme-review.md) retains its bounded historical score; it did not fully validate runtime/design guides.
+[Issue #9](https://github.com/novakin/vpn0wn-android/issues/9) owns acceptance. Integration base: clean master `11d4a9b1dfdab834844c997e6ef2cc4f83c6bd43`, merged PR #8. Branch: `docs/full-documentation-review`, isolated from the original dirty worktree. Review covers all 17 previously maintained Markdown guides/templates plus this new record, referenced source/build/test files and the read-only local prototype. The prior [agent/README assessment](2026-10-06-agent-readme-review.md) retains its bounded historical score; it did not fully validate runtime/design guides.
 
 This change reconciles documentation and includes full font-license notices as assets. Runtime repairs, dependencies/frameworks, CI, APK builds, device/root/SSH tests, destructive host changes and deployment are outside this PR. Server-Audit remains a process reference; its templates, metadata/readback, acceptance and decision/evidence conventions already adapted in PR #8 remain intact. No Server-Audit file is changed.
 

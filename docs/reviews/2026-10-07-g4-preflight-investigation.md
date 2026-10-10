@@ -1,16 +1,16 @@
 # G4 APK and UDP preflight investigation
 
-Last updated: 2026-10-07 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 ## Scope and authorization
 
-[#52](https://github.com/novakin/wireguard-android/issues/52), G4 of the [active goal](../improvement-plan.md#active-enhancement-and-performance-goal). Executed source revision: `39bb2c3cf6941a8b4ee0da8e666ca46e2f155031`. The maintainer explicitly authorized CI APK build/device testing, temporary toggling of the single saved tunnel, and installation of iperf3 on the named benchmark VPS with a temporary TCP 5201 listener restricted to the observed test source IPs. This did not authorize provisioning changes, permanent services or destructive VPN-server validation.
+[#52](https://github.com/novakin/vpn0wn-android/issues/52), G4 of the [active goal](../improvement-plan.md#active-enhancement-and-performance-goal). Executed source revision: `39bb2c3cf6941a8b4ee0da8e666ca46e2f155031`. The maintainer explicitly authorized CI APK build/device testing, temporary toggling of the single saved tunnel, and installation of iperf3 on the named benchmark VPS with a temporary TCP 5201 listener restricted to the observed test source IPs. This did not authorize provisioning changes, permanent services or destructive VPN-server validation.
 
 The original dirty checkout, installed APK and private profile backups remain local. This record publishes sanitized observations only. No app source, WireGuard packet format, MTU, routes or keepalive policy changed during the investigation. The maintainer confirmed changing ListenPort during recovery: an earlier port change failed, and the final change did not recover connectivity immediately. Snapshots do not establish exact port state at every trial or why delayed recovery occurred.
 
 ## Artifact and preservation proof
 
-- Authorized [CI run 37576390608](https://github.com/novakin/wireguard-android/actions/runs/37576390608) succeeded on the source revision above, including checks, APK assembly and upload. Artifact `11462148338` was downloaded before its seven-day expiry, `2026-10-14T05:31:58Z`; extracted source revision and SHA256 matched. This is a debug APK, not a release.
+- Authorized [CI run 37576390608](https://github.com/novakin/vpn0wn-android/actions/runs/37576390608) succeeded on the source revision above, including checks, APK assembly and upload. Artifact `11462148338` was downloaded before its seven-day expiry, `2026-10-14T05:31:58Z`; extracted source revision and SHA256 matched. This is a debug APK, not a release.
 - Test phone: Pixel 10a, Android 16/API 36, ARM64, `com.wireguard.android.debug`. The installed APK was pulled for rollback. A corrected app-data tar backup was validated and privately hashed; the initial archive containing a nonexistent `shared_prefs` path was invalid and remains failed evidence.
 - The CI APK used a different ephemeral signing key. A separate copy was signed locally with the existing debug key whose certificate matched the installed app. Signature verification and non-`META-INF` ZIP-entry comparison passed; the original CI artifact was retained untouched. No key was uploaded and no uninstall/data-clear occurred.
 - `adb install -r` succeeded. Immediately afterward the profile and preference files matched their backup hashes. The Android `profileInstalled` marker changed; it is not tunnel configuration. Later snapshots retained identical preferences and all profile fields except ListenPort. Preserve that newer profile rather than blindly restoring the earlier backup.

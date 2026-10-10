@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-10 (Europe/Paris).
 
-Tunnl is [novakin's WireGuard Android fork](https://github.com/novakin/wireguard-android), adding an engineering-console redesign and a partial VPS fleet/provisioning flow to the existing Android DataBinding/Fragment architecture.
+Tunnl is [novakin's WireGuard Android fork](https://github.com/novakin/vpn0wn-android), adding an engineering-console redesign and a partial VPS fleet/provisioning flow to the existing Android DataBinding/Fragment architecture.
 
 The app uses [WireGuard](https://www.wireguard.com/), with the [kernel implementation](https://git.zx2c4.com/android_kernel_wireguard/about/) when available and the non-root [userspace implementation](https://git.zx2c4.com/wireguard-go/about/). The [official WireGuard app on the Play Store](https://play.google.com/store/apps/details?id=com.wireguard.android) distributes upstream WireGuard, not this fork.
 
@@ -14,15 +14,15 @@ Read [operations and recovery](docs/operations.md) and [backend contracts](docs/
 
 Settings also provides a [full app-data transfer ZIP](docs/operations.md#app-data-transfer): tunnel profiles, selected settings and non-secret saved VPS records. The archive contains private tunnel keys. [Scoped synthetic AVD acceptance](docs/reviews/2026-10-09-app-data-transfer-acceptance.md) covers the legacy-ID preparation; renamed release and complete cross-app/device acceptance remain open.
 
-The userspace source uses native UDP warm-up on the same protected socket as each outgoing handshake initiation. An explicit nonzero ListenPort enables one best-effort one-byte zero datagram attempt before each initiation; absent/zero ListenPort disables it. Native protection covers socket creation/rebind, and the WireGuard protocol remains unchanged. On 2026-10-08 (Europe/Paris), the maintainer authorized adoption through [PR #63](https://github.com/novakin/wireguard-android/pull/63). PR #63 records exact-head review/checks and actual delivery state. The maintainer reported sleep/wake recovery without manual action. [The experiment record](docs/reviews/2026-10-07-protocol-preflight-experiment.md#authorized-local-apk-and-pixel-checks--2026-10-07) retains scoped Pixel 10a checks and the measured [195-second forced deep Doze recovery](docs/reviews/2026-10-07-protocol-preflight-experiment.md#forced-deep-doze-recovery--2026-10-07). The new report is not a new measured trial. [#61](https://github.com/novakin/wireguard-android/issues/61) remains open for physical lifecycle, unchanged-server interoperability and DPI acceptance; hardware deep suspend, underlying-network handover, warm-up packet capture and broader interoperability remain unverified. No DPI, speed or battery gain is established.
+The userspace source uses native UDP warm-up on the same protected socket as each outgoing handshake initiation. An explicit nonzero ListenPort enables one best-effort one-byte zero datagram attempt before each initiation; absent/zero ListenPort disables it. Native protection covers socket creation/rebind, and the WireGuard protocol remains unchanged. On 2026-10-08 (Europe/Paris), the maintainer authorized adoption through [PR #63](https://github.com/novakin/vpn0wn-android/pull/63). PR #63 records exact-head review/checks and actual delivery state. The maintainer reported sleep/wake recovery without manual action. [The experiment record](docs/reviews/2026-10-07-protocol-preflight-experiment.md#authorized-local-apk-and-pixel-checks--2026-10-07) retains scoped Pixel 10a checks and the measured [195-second forced deep Doze recovery](docs/reviews/2026-10-07-protocol-preflight-experiment.md#forced-deep-doze-recovery--2026-10-07). The new report is not a new measured trial. [#61](https://github.com/novakin/vpn0wn-android/issues/61) remains open for physical lifecycle, unchanged-server interoperability and DPI acceptance; hardware deep suspend, underlying-network handover, warm-up packet capture and broader interoperability remain unverified. No DPI, speed or battery gain is established.
 
 ## Get started
 
 Clone this fork with its native submodules:
 
 ```bash
-git clone --recurse-submodules https://github.com/novakin/wireguard-android.git
-cd wireguard-android
+git clone --recurse-submodules https://github.com/novakin/vpn0wn-android.git
+cd vpn0wn-android
 ```
 
 Prepare the compatible JDK, Android SDK/NDK and CMake toolchain described in [development setup](docs/development.md#setup-and-source-boundaries). Native command examples use Linux/macOS or a configured WSL Linux environment; use that environment's SDK paths. Existing checkouts can initialize submodules with `git submodule update --init --recursive`. macOS native builds need [flock](https://github.com/discoteq/flock).

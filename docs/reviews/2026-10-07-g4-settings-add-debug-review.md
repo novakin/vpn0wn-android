@@ -1,10 +1,10 @@
 # G4 Settings/Add inspection and debug-warning repair
 
-Last updated: 2026-10-07 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 ## Scope and revisions
 
-This scoped review continues [G4/#52](https://github.com/novakin/wireguard-android/issues/52) after the [APK/preflight investigation](2026-10-07-g4-preflight-investigation.md). The maintainer authorized device testing and confirmed the phone was ready. It does not establish complete Settings [#34](https://github.com/novakin/wireguard-android/issues/34), Add/peer [#35](https://github.com/novakin/wireguard-android/issues/35), Home #36 or Downloads #28 acceptance.
+This scoped review continues [G4/#52](https://github.com/novakin/vpn0wn-android/issues/52) after the [APK/preflight investigation](2026-10-07-g4-preflight-investigation.md). The maintainer authorized device testing and confirmed the phone was ready. It does not establish complete Settings [#34](https://github.com/novakin/vpn0wn-android/issues/34), Add/peer [#35](https://github.com/novakin/vpn0wn-android/issues/35), Home #36 or Downloads #28 acceptance.
 
 The inspected installation is the existing CI-derived, locally signed debug APK from source `39bb2c3c`, version code 519, on Pixel 10a, Android 16/API 36. Its pulled SHA256 is `35442b340247f5a7b3dba1da31b7318b1c61d606acb3ec18fe2e811c3be6a0ea`. This slice did not build or install another APK, toggle the tunnel, change profiles, export or delete data. The warning repair below is based on refreshed master `0f4c5c89b5c52dda98aa86eca8fbe9786cfde6bd`, branch `fix/g4-debug-warnings`; it was not present in the inspected installation. Final source acceptance and integration belong in the PR.
 
@@ -29,7 +29,7 @@ Validated before/after app-data archives contain the same three files, byte for 
 
 The maintainer-supplied debug capture contains a preflight send, handshake initiation 51 ms later, and handshake response a further 53 ms later, followed by three incoming keepalives. That capture contains no fatal crash or handshake timeout. Missing-private-key feedback came from an empty new profile and is expected validation before persistence. A completed handshake does not establish preflight benefit or explain the previous reported block.
 
-[Issue #55](https://github.com/novakin/wireguard-android/issues/55) owns two confirmed warnings:
+[Issue #55](https://github.com/novakin/vpn0wn-android/issues/55) owns two confirmed warnings:
 
 - `UntaggedSocketViolation`: `GoBackend.sendUdpPreflight` created its UDP socket without a thread TrafficStats tag. The socket owner now saves the caller's tag, sets tag 0 before construction and restores the previous tag in `finally`, including exceptional exits. Protection, configured-port policy, bind/payload, retry, interruption and service identity remain unchanged.
 - `DiskReadViolation`: a fresh physical Settings opening reproduced `File.exists()` in `WgQuickBackend.hasKernelSupport`, called by `SettingsFragment.onCreatePreferences` on Main. That probe now runs on IO inside the existing lifecycle coroutine. Preference removal and the pending Connection section retain their existing owners and eligibility/root handling.

@@ -1,6 +1,6 @@
 # Preserved local work and recovery boundaries
 
-Last updated: 2026-10-07 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 ## Scope and revision
 
@@ -28,11 +28,11 @@ The 77 entries consist of 56 tracked changes and 21 untracked files. Normalized 
 
 | Slice | Preserved candidates and constraints | Tracking |
 | --- | --- | --- |
-| Logs | `LogLineParser`, parser fixtures and `LogViewerActivity` stream/filter/export changes. Preserve merged error/cancellation handling; prove deadlines, retention/filter indices and pipe ownership. | [#33](https://github.com/novakin/wireguard-android/issues/33) |
-| Settings | `SettingsActivity`, preference XML and header/row/category resources. Preserve platform/admin/kernel visibility, existing values, feedback and inset ownership. | [#34](https://github.com/novakin/wireguard-android/issues/34) |
-| Add/detail | Add-sheet order/subtitles/header/resources and peer RX/TX cells. Preserve import actions, safe areas, surviving-view feedback and view/selection lifecycle guards. | [#35](https://github.com/novakin/wireguard-android/issues/35) |
-| Selection/delete | List fragment/layouts, checkbox/stats/delete-sheet resources and old menu deletion. Reconcile one selection owner, current 48dp compact header targets, Add footer and manager settlement. | [#36](https://github.com/novakin/wireguard-android/issues/36) |
-| UDP variant | `GoBackend`, its new error reason/message and related local documentation. The local mandatory/fresh-port behavior conflicts with merged endpoint-free and explicit ListenPort compatibility; review intent before compatible recovery. | [#37](https://github.com/novakin/wireguard-android/issues/37) |
+| Logs | `LogLineParser`, parser fixtures and `LogViewerActivity` stream/filter/export changes. Preserve merged error/cancellation handling; prove deadlines, retention/filter indices and pipe ownership. | [#33](https://github.com/novakin/vpn0wn-android/issues/33) |
+| Settings | `SettingsActivity`, preference XML and header/row/category resources. Preserve platform/admin/kernel visibility, existing values, feedback and inset ownership. | [#34](https://github.com/novakin/vpn0wn-android/issues/34) |
+| Add/detail | Add-sheet order/subtitles/header/resources and peer RX/TX cells. Preserve import actions, safe areas, surviving-view feedback and view/selection lifecycle guards. | [#35](https://github.com/novakin/vpn0wn-android/issues/35) |
+| Selection/delete | List fragment/layouts, checkbox/stats/delete-sheet resources and old menu deletion. Reconcile one selection owner, current 48dp compact header targets, Add footer and manager settlement. | [#36](https://github.com/novakin/vpn0wn-android/issues/36) |
+| UDP variant | `GoBackend`, its new error reason/message and related local documentation. The local mandatory/fresh-port behavior conflicts with merged endpoint-free and explicit ListenPort compatibility; review intent before compatible recovery. | [#37](https://github.com/novakin/vpn0wn-android/issues/37) |
 
 The 36 changed default/locale string files span several UI slices. Port reviewed keys with their owning change; resource presence alone does not prove translation quality. Preserve `.vscode/settings.json` as a local preference. Local Done claims describe unmerged candidates and must not replace current guides wholesale. Existing #28/#17 and requested APK CI remain separate priorities.
 

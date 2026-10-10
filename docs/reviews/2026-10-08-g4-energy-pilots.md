@@ -1,10 +1,10 @@
 # G4 unplugged energy pilots
 
-Last updated: 2026-10-08 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 ## Scope and authorization
 
-Stopped method investigation for [G4/#52](https://github.com/novakin/wireguard-android/issues/52), separate from the [charging/cellular CPU record](2026-10-08-g4-ui-cpu-baselines.md). The maintainer authorized wireless-device setup and physically unplugged Pixel 10a for these pilots, then confirmed another chat was using ADB during energy testing. The extent and timing of that interference are unquantified. The maintainer subsequently confirmed the other chat stopped, requested restoration and supplied unlocked USB access. Final cleanup is verified below and the device session is released. The completed endpoints remain uncontrolled diagnostic observations; no #47 implementation, numeric target or candidate comparison is accepted.
+Stopped method investigation for [G4/#52](https://github.com/novakin/vpn0wn-android/issues/52), separate from the [charging/cellular CPU record](2026-10-08-g4-ui-cpu-baselines.md). The maintainer authorized wireless-device setup and physically unplugged Pixel 10a for these pilots, then confirmed another chat was using ADB during energy testing. The extent and timing of that interference are unquantified. The maintainer subsequently confirmed the other chat stopped, requested restoration and supplied unlocked USB access. Final cleanup is verified below and the device session is released. The completed endpoints remain uncontrolled diagnostic observations; no #47 implementation, numeric target or candidate comparison is accepted.
 
 The installed debug/userspace baseline remains source `f4a4b147568e6aaa3c82a4307aa6690977e966bd`, with verified APK/payload/install provenance in the [CPU record](2026-10-08-g4-ui-cpu-baselines.md#build-and-installation-provenance). One saved personal profile remains unchanged. No app code, protocol, ListenPort, endpoint, MTU, routes, DNS or keepalive is edited, and no benchmark server or transfer load is introduced. Natural background traffic is not isolated.
 

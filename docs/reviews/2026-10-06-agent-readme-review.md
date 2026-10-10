@@ -1,6 +1,6 @@
 # Agent and README review — 2026-10-06
 
-Last updated: 2026-10-06 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 [Documentation index](../../README.md#project-documentation) · Substantive documentation review, Europe/Paris.
 
@@ -8,7 +8,7 @@ The initial review sections below describe the two-file instruction layout at ch
 
 ## Scope and acceptance
 
-[Issue #7](https://github.com/novakin/wireguard-android/issues/7) owns this review's acceptance. Integration base: `master` at `7e141dc39b256014cd5a8ce92a95ea5e4e2241a6`, the merged [PR #6](https://github.com/novakin/wireguard-android/pull/6). Review branch: `docs/agent-readme-review`. Seven intentional paths: `CLAUDE.md`, its verbatim `AGENTS.md` mirror, `README.md`, `docs/development.md`, `docs/improvement-plan.md`, `.github/PULL_REQUEST_TEMPLATE.md` and this record.
+[Issue #7](https://github.com/novakin/vpn0wn-android/issues/7) owns this review's acceptance. Integration base: `master` at `7e141dc39b256014cd5a8ce92a95ea5e4e2241a6`, the merged [PR #6](https://github.com/novakin/vpn0wn-android/pull/6). Review branch: `docs/agent-readme-review`. Seven intentional paths: `CLAUDE.md`, its verbatim `AGENTS.md` mirror, `README.md`, `docs/development.md`, `docs/improvement-plan.md`, `.github/PULL_REQUEST_TEMPLATE.md` and this record.
 
 The review assesses complete agent instructions and README, with their owning contribution guidance, PR template and plan pointers. Related guides, build files, source, JSX and current Server-Audit process were read to check claims. Runtime code, broader guide remediation, CI, dependencies, release and live operations are outside this change. The existing mixed worktree contains unrelated work; it is preserved, not included in the PR.
 
