@@ -1,6 +1,6 @@
 # Tunnl — WireGuard Android
 
-Last updated: 2026-10-07 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 ## Source of Truth — Prompt Instructions
 
@@ -23,6 +23,7 @@ Tunnl ports the engineering-console UI in `.design/` onto WireGuard Android and 
 ## Before Starting Any Task
 
 1. Identify repository, active branch, revision and intended integration base. Inspect working/staged scope and refresh the authorized remote base before branching or reviewing a PR; do not assume a local reference is current. Preserve unrelated tracked/untracked changes and retained evidence.
+   Put linked worktrees under ignored `.artifacts/worktrees/` by default; follow [workspace preservation and relocation rules](docs/development.md#issues-branches-and-scoped-commits).
 2. Read README, the improvement plan and the owning guide. Read the UI roadmap for UI work and backend changelog for functional work; read both when the task spans both. For tracked work, read the relevant live issue/PR discussion, acceptance, approval and dependencies; disclose unavailable GitHub state instead of inferring no work or permission.
 3. Define the smallest useful outcome, compatibility requirements and acceptance checks. Trace the failing layer before editing.
 4. For UI work, read the relevant `.design/*.jsx`, identify the exact component/prop and check existing `ui/src/main/res/values/colors.xml` and `styles.xml` tokens first.
