@@ -16,6 +16,15 @@ Existing clones should update their shared origin:
 git remote set-url origin git@github.com:novakin/vpn0wn-android.git
 ```
 
+Add WireGuard's [official GitHub mirror](https://github.com/WireGuard/wireguard-android) as `upstream` when that remote is absent, then fetch its branch refs:
+
+```bash
+git remote add upstream https://github.com/WireGuard/wireguard-android.git
+git fetch --no-tags upstream
+```
+
+WireGuard identifies [`git.zx2c4.com/wireguard-android`](https://git.zx2c4.com/wireguard-android) as its primary repository. `upstream/master` supports comparison and separately reviewed integration; fetching does not change the working tree or current branch. Fork branches continue tracking `origin`; the fetch leaves local tags intact. This shared Git remote configuration does not create GitHub's separate fork-network relationship.
+
 Fresh clones default to the `vpn0wn-android` directory. Existing checkout directories and Windows/WSL command paths remain valid; use the actual local path. Linked worktrees share the repository's origin configuration. [GitHub's rename guidance](https://docs.github.com/en/repositories/creating-and-managing-repositories/renaming-a-repository) documents redirects and their limits: reusing the old name removes redirects, and hosted-action references and project-site URLs need separate handling. This repository has no GitHub Pages site or hosted action definition; its Android workflow checks out the current repository without a hardcoded fork locator. Android/source/build identity migration remains tracked separately in [#71](https://github.com/novakin/vpn0wn-android/issues/71).
 
 The [Gradle wrapper](../gradle/wrapper/gradle-wrapper.properties) pins Gradle 9.8.1 and the official binary-distribution SHA256; the [version catalog](../gradle/libs.versions.toml) pins AGP 9.1.0 and dependencies. Both [UI](../ui/build.gradle.kts) and [tunnel](../tunnel/build.gradle.kts) modules compile against SDK 36, target Java 17 source compatibility and declare minimum API 24. Source compatibility is separate from the JDK running Gradle. Use a wrapper/AGP-compatible JDK; local wrapper execution uses OpenJDK 21.0.10, not proof of every JDK combination. These declarations are not an executed device support matrix. Earlier verification entries retain their actual Gradle versions and dates.
