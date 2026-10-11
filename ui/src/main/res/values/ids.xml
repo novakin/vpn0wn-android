@@ -5,6 +5,7 @@
   -->
 <resources>
     <item name="item_change_listener" type="id" />
+    <item name="vpn0wn_home_empty_offset_listener" type="id" />
     <item name="vpn0wn_dot_drawable" type="id" />
     <item name="vpn0wn_rail_drawable" type="id" />
 </resources>

@@ -36,8 +36,11 @@ import androidx.databinding.ObservableList
 import androidx.databinding.ViewDataBinding
 import androidx.databinding.adapters.ListenerUtil
 import androidx.fragment.app.Fragment
+import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.core.view.doOnLayout
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.card.MaterialCardView
 import com.vpn0wn.android.BR
 import com.vpn0wn.android.R
@@ -374,6 +377,40 @@ object BindingAdapters {
             ?.map { endpoint -> endpoint.host }
             ?.orElse("—")
             ?: "—"
+    }
+
+    @JvmStatic
+    @BindingAdapter("homeEmptyAppBar")
+    fun setHomeEmptyAppBar(view: LinearLayout, oldAppBar: AppBarLayout?, newAppBar: AppBarLayout?) {
+        if (oldAppBar === newAppBar) return
+        val padding = view.resources.getDimensionPixelSize(R.dimen.vpn0wn_home_empty_padding)
+        val listener = newAppBar?.let {
+            AppBarLayout.OnOffsetChangedListener { appBar, offset ->
+                // Material measures the scroll viewport with the header's still-hidden collapse space.
+                val bottomPadding = padding + (appBar.totalScrollRange + offset).coerceAtLeast(0)
+                if (view.paddingBottom != bottomPadding) {
+                    view.setPaddingRelative(view.paddingStart, view.paddingTop, view.paddingEnd, bottomPadding)
+                    if (view.isInLayout) {
+                        // Header layout dispatches offsets after this child's gravity calculation was measured.
+                        view.post { view.requestLayout() }
+                    }
+                }
+            }
+        }
+        val previous = ListenerUtil.trackListener(view, listener, R.id.vpn0wn_home_empty_offset_listener)
+        oldAppBar?.removeOnOffsetChangedListener(previous)
+        if (newAppBar != null) {
+            newAppBar.addOnOffsetChangedListener(listener)
+            newAppBar.doOnLayout { appBar ->
+                if (view.getTag(R.id.vpn0wn_home_empty_offset_listener) === listener) {
+                    val params = appBar.layoutParams as CoordinatorLayout.LayoutParams
+                    val behavior = params.behavior as AppBarLayout.Behavior
+                    listener?.onOffsetChanged(newAppBar, behavior.topAndBottomOffset)
+                }
+            }
+        } else {
+            view.setPaddingRelative(view.paddingStart, view.paddingTop, view.paddingEnd, padding)
+        }
     }
 
     @JvmStatic
