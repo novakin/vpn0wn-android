@@ -48,7 +48,7 @@ class QuickTilePreference(context: Context, attrs: AttributeSet?) : Preference(c
                         try {
                             UserKnobs.setQuickTileAdded(true, removalRevision)
                         } catch (_: IOException) {
-                            Log.w("WireGuard/QuickTile", "Unable to retain quick tile membership")
+                            Log.w("vpn0wn/QuickTile", "Unable to retain quick tile membership")
                         }
                     }
                 }

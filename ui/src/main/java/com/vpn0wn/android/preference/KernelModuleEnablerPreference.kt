@@ -91,6 +91,6 @@ class KernelModuleEnablerPreference(context: Context, attrs: AttributeSet?) : Pr
     }
 
     companion object {
-        private const val TAG = "WireGuard/KernelModuleEnablerPreference"
+        private const val TAG = "vpn0wn/KernelModuleEnablerPreference"
     }
 }

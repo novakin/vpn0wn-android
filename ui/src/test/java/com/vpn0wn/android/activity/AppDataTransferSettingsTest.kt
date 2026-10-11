@@ -255,7 +255,7 @@ class AppDataTransferSettingsTest {
         assertTrue(importer.isEnabled)
         assertEquals(activity.getString(R.string.app_data_transfer_error),
             activity.findViewById<TextView>(com.google.android.material.R.id.snackbar_text).text.toString())
-        val logs = ShadowLog.getLogsForTag("WireGuard/AppDataExporter")
+        val logs = ShadowLog.getLogsForTag("vpn0wn/AppDataExporter")
         assertEquals(listOf("App data export failed"), logs.map { it.msg })
         assertTrue(logs.all { it.throwable == null })
     }
@@ -383,7 +383,7 @@ class AppDataTransferSettingsTest {
         assertEquals(before.asMap(), preferences().data.first().asMap())
         assertEquals(activity.getString(R.string.app_data_transfer_error),
             activity.findViewById<TextView>(com.google.android.material.R.id.snackbar_text).text.toString())
-        val logs = ShadowLog.getLogsForTag("WireGuard/Settings")
+        val logs = ShadowLog.getLogsForTag("vpn0wn/Settings")
         assertEquals(listOf("App data import failed"), logs.map { it.msg })
         assertTrue(logs.all { it.throwable == null && payload !in it.msg })
         assertTrue(row(fragment(activity), "export_app_data").isEnabled)
@@ -405,7 +405,7 @@ class AppDataTransferSettingsTest {
 
         assertTrue(read.isCancelled)
         assertTrue(env.store.configs.isEmpty())
-        assertTrue(ShadowLog.getLogsForTag("WireGuard/Settings").isEmpty())
+        assertTrue(ShadowLog.getLogsForTag("vpn0wn/Settings").isEmpty())
         assertNull(activity.findViewById<View>(com.google.android.material.R.id.snackbar_text))
         assertTrue(row(fragment(activity), "export_app_data").isEnabled)
         assertTrue(row(fragment(activity), "import_app_data").isEnabled)
@@ -425,7 +425,7 @@ class AppDataTransferSettingsTest {
                 chooseInput(activity, input).join()
                 runCurrent()
                 assertTrue(env.store.configs.isEmpty())
-                assertTrue(ShadowLog.getLogsForTag("WireGuard/Settings").isEmpty())
+                assertTrue(ShadowLog.getLogsForTag("vpn0wn/Settings").isEmpty())
                 assertTrue(row(fragment(activity), "export_app_data").isEnabled)
                 assertTrue(row(fragment(activity), "import_app_data").isEnabled)
             }

@@ -247,7 +247,7 @@ class LogViewerActivity : AppCompatActivity() {
         private const val LOG_INITIAL_TAIL_LINES = 500
         private const val LOG_RESTART_DELAY_MS = 1000L
         private const val LOG_RESTART_TAIL_LINES = 50
-        private const val TAG = "WireGuard/LogViewerActivity"
+        private const val TAG = "vpn0wn/LogViewerActivity"
     }
 
     private inner class LogEntryAdapter : RecyclerView.Adapter<LogEntryAdapter.ViewHolder>() {

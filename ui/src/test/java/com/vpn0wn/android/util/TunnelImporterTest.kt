@@ -91,7 +91,7 @@ class TunnelImporterTest {
         val messages = mutableListOf<CharSequence>()
         TunnelImporter.importTunnel(context.contentResolver, uri) { messages.add(it) }
         assertEquals(1, messages.size)
-        val logs = ShadowLog.getLogsForTag("WireGuard/TunnelImporter")
+        val logs = ShadowLog.getLogsForTag("vpn0wn/TunnelImporter")
         assertTrue(logs.isNotEmpty())
         assertTrue(logs.none { it.msg.contains(payload) || it.throwable?.message?.contains(payload) == true })
     }
