@@ -41,4 +41,4 @@ Independent ultra evidence review returned PASS for this bounded native trial, r
 
 This proves one API 36 native DOWN partial-success environment. Admitted deletion cancellation, other APIs/backends, broader active-state recovery, physical/TalkBack and provider/export failure or cancellation acceptance remain open under [the G4 runbook](../qa-test-plan.md#remaining-g4-device-acceptance). It does not establish VPN health, kernel-backend behavior, physical deep suspend, performance or battery gains. #36/#52 remain open.
 
-No production source, UI design, operational policy or agent/process rule changed. The owning QA, development and improvement-plan summaries carry this new evidence without refreshing unrelated historical tests or expanding their acceptance.
+No production source, UI design, operational policy or agent/process rule changed. The owning QA, development, improvement-plan and roadmap summaries carry this new evidence without refreshing unrelated historical tests or expanding their acceptance.
