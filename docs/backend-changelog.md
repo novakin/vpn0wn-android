@@ -64,6 +64,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **Serialized private tools extraction — #71/#103 follow-up (2026-10-11, Europe/Paris)**
+  `ToolsInstaller.extract` shares the existing installer lock with `ensureToolsAvailable`, so cold Settings probes, installation and backend availability cannot consume each other's temporary binaries. The availability caller remains reentrant and retains its existing cache/failure policy. `ToolsInstallerAdmissionTest.concurrentColdProbeWaitsForBackendExtractionAndLeavesToolsAvailable` holds an injected library write while a probe enters, then checks caller settlement, complete executable files and usable cached backend availability; the unrepaired owner reproduces `Required tools unavailable`. This is focused JVM/file proof, not actual APK extraction, root/Magisk/SELinux or device acceptance.
+
 - **First-party log tags and startup header — #71 bounded source follow-up (2026-10-11, Europe/Paris)**
   `Application.onCreate`/`USER_AGENT`, JVM log owners and native `api-android.go` logger/stacktrace producers replace only the `WireGuard/` product prefix with `vpn0wn/`: 35 production literals across 30 files. Existing suffixes, metadata, privacy/failure handling and the viewer's unrestricted tag capture/parser remain unchanged. Startup and actual producer controls check the current prefix; the parser retains legacy rows and accepts current JVM/native tags. [The identity contract](backend-contracts.md#application-and-source-identity--71) owns compatibility and source/binary/runtime limits; this slice adds no new logging layer or device/runtime claim.
 
