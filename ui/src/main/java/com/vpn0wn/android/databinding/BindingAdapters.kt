@@ -390,6 +390,10 @@ object BindingAdapters {
                 val bottomPadding = padding + (appBar.totalScrollRange + offset).coerceAtLeast(0)
                 if (view.paddingBottom != bottomPadding) {
                     view.setPaddingRelative(view.paddingStart, view.paddingTop, view.paddingEnd, bottomPadding)
+                    if (view.isInLayout) {
+                        // Header layout dispatches offsets after this child's gravity calculation was measured.
+                        view.post { view.requestLayout() }
+                    }
                 }
             }
         }
