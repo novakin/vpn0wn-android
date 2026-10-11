@@ -71,12 +71,12 @@ class PeerHandshakePresentationTest {
         val session = session()
         var previous: Map<Key, ObservableTunnel.PeerHandshakeDiagnostics>? = null
         val cases = listOf(
-            Triple(HandshakeObservation.Event.ATTEMPT, false, R.string.tunnl_handshake_attempted),
-            Triple(HandshakeObservation.Event.ATTEMPT, true, R.string.tunnl_handshake_retry_attempted),
-            Triple(HandshakeObservation.Event.SENT, false, R.string.tunnl_handshake_sent),
-            Triple(HandshakeObservation.Event.SEND_FAILED, false, R.string.tunnl_handshake_send_failed),
-            Triple(HandshakeObservation.Event.AUTHENTICATED, false, R.string.tunnl_handshake_authenticated),
-            Triple(HandshakeObservation.Event.EXHAUSTED, true, R.string.tunnl_handshake_exhausted)
+            Triple(HandshakeObservation.Event.ATTEMPT, false, R.string.vpn0wn_handshake_attempted),
+            Triple(HandshakeObservation.Event.ATTEMPT, true, R.string.vpn0wn_handshake_retry_attempted),
+            Triple(HandshakeObservation.Event.SENT, false, R.string.vpn0wn_handshake_sent),
+            Triple(HandshakeObservation.Event.SEND_FAILED, false, R.string.vpn0wn_handshake_send_failed),
+            Triple(HandshakeObservation.Event.AUTHENTICATED, false, R.string.vpn0wn_handshake_authenticated),
+            Triple(HandshakeObservation.Event.EXHAUSTED, true, R.string.vpn0wn_handshake_exhausted)
         )
         assertEquals(HandshakeObservation.Event.values().toSet(), cases.map { it.first }.toSet())
         BindingAdapters.setDetailPeers(layout, null, null, null, peers, emptyMap(), Tunnel.State.UP)
@@ -102,19 +102,19 @@ class PeerHandshakePresentationTest {
             secondKey to diagnostics(observation(session, secondKey, HandshakeObservation.Event.SEND_FAILED))
         )
         BindingAdapters.setDetailPeers(layout, null, null, null, peers, recorded, Tunnel.State.UP)
-        assertStatus(binding(layout, 0), R.string.tunnl_handshake_authenticated)
-        assertStatus(binding(layout, 1), R.string.tunnl_handshake_send_failed)
-        assertStatus(binding(layout, 2), R.string.tunnl_handshake_unobserved)
+        assertStatus(binding(layout, 0), R.string.vpn0wn_handshake_authenticated)
+        assertStatus(binding(layout, 1), R.string.vpn0wn_handshake_send_failed)
+        assertStatus(binding(layout, 2), R.string.vpn0wn_handshake_unobserved)
         assertUnknownEndpoint(binding(layout, 2))
         BindingAdapters.setDetailPeers(layout, peers, recorded, Tunnel.State.UP, peers, emptyMap(), Tunnel.State.UP)
         for (index in peers.indices) {
-            assertStatus(binding(layout, index), R.string.tunnl_handshake_unobserved)
+            assertStatus(binding(layout, index), R.string.vpn0wn_handshake_unobserved)
             assertUnknownEndpoint(binding(layout, index))
         }
         binding(layout).statistics = Statistics.PeerStats(0L, 0L, 1L)
         BindingAdapters.setDetailPeers(layout, peers, emptyMap(), Tunnel.State.UP, peers, null, Tunnel.State.UP)
         for (index in peers.indices) {
-            assertStatus(binding(layout, index), R.string.tunnl_handshake_unavailable)
+            assertStatus(binding(layout, index), R.string.vpn0wn_handshake_unavailable)
             assertUnknownEndpoint(binding(layout, index))
         }
         assertEquals(View.VISIBLE, binding(layout).latestHandshakeRow.visibility)
@@ -140,7 +140,7 @@ class PeerHandshakePresentationTest {
             assertEquals("configured.example.test:51820", binding.endpointText.text.toString())
             assertEquals(endpoint ?: "—", binding.observedEndpointText.text.toString())
             assertEquals(familyText, binding.observedAddressFamilyText.text.toString())
-            assertStatus(binding, R.string.tunnl_handshake_sent)
+            assertStatus(binding, R.string.vpn0wn_handshake_sent)
         }
     }
 
@@ -160,9 +160,9 @@ class PeerHandshakePresentationTest {
         assertNotSame(old.root, binding(layout, 1).root)
         assertSame(recorded[secondKey], binding(layout, 0).diagnostics)
         assertSame(recorded[firstKey], binding(layout, 1).diagnostics)
-        assertStatus(binding(layout, 0), R.string.tunnl_handshake_exhausted)
-        assertStatus(binding(layout, 1), R.string.tunnl_handshake_authenticated)
-        assertStatus(binding(layout, 2), R.string.tunnl_handshake_unobserved)
+        assertStatus(binding(layout, 0), R.string.vpn0wn_handshake_exhausted)
+        assertStatus(binding(layout, 1), R.string.vpn0wn_handshake_authenticated)
+        assertStatus(binding(layout, 2), R.string.vpn0wn_handshake_unobserved)
         BindingAdapters.setDetailPeers(layout, replacement, recorded, Tunnel.State.UP, null, recorded, Tunnel.State.UP)
         assertEquals(0, layout.childCount)
     }
@@ -174,11 +174,11 @@ class PeerHandshakePresentationTest {
         BindingAdapters.setDetailPeers(layout, null, null, null, peers, recorded, Tunnel.State.UP)
         for (state in listOf(Tunnel.State.DOWN, null)) {
             BindingAdapters.setDetailPeers(layout, peers, recorded, state, peers, recorded, Tunnel.State.UP)
-            assertStatus(binding(layout), R.string.tunnl_handshake_authenticated)
+            assertStatus(binding(layout), R.string.vpn0wn_handshake_authenticated)
             BindingAdapters.setDetailPeers(layout, peers, recorded, Tunnel.State.UP, peers, recorded, state)
             assertNull(binding(layout).diagnostics)
             assertFalse(binding(layout).diagnosticsAvailable)
-            assertStatus(binding(layout), R.string.tunnl_handshake_unavailable)
+            assertStatus(binding(layout), R.string.vpn0wn_handshake_unavailable)
             assertUnknownEndpoint(binding(layout))
         }
     }
@@ -193,7 +193,7 @@ class PeerHandshakePresentationTest {
         fixture.second.onHandshakeObservation(observation(secondSession, secondKey, HandshakeObservation.Event.SEND_FAILED))
         runCurrent()
         fixture.binding.executePendingBindings()
-        assertStatus(fixture.peer(), R.string.tunnl_handshake_authenticated)
+        assertStatus(fixture.peer(), R.string.vpn0wn_handshake_authenticated)
         val snapshot = fixture.first.handshakeDiagnostics
         fixture.first.onConfigChanged(profile(firstKey, "replacement.example.test:51821"))
         fixture.binding.executePendingBindings()
@@ -203,14 +203,14 @@ class PeerHandshakePresentationTest {
         fixture.fragment.onSelectedTunnelChanged(fixture.first, fixture.second)
         configJob(fixture.fragment).join()
         fixture.binding.executePendingBindings()
-        assertStatus(fixture.peer(), R.string.tunnl_handshake_send_failed)
+        assertStatus(fixture.peer(), R.string.vpn0wn_handshake_send_failed)
         fixture.first.onHandshakeObservation(observation(firstSession, firstKey, HandshakeObservation.Event.EXHAUSTED, sequence = 2))
         tunnelCallback(fixture.fragment).onPropertyChanged(fixture.first, BR.handshakeDiagnostics)
         runCurrent()
         fixture.binding.executePendingBindings()
         assertSame(fixture.second, fixture.binding.tunnel)
         assertEquals(secondKey, fixture.peer().item!!.publicKey)
-        assertStatus(fixture.peer(), R.string.tunnl_handshake_send_failed)
+        assertStatus(fixture.peer(), R.string.vpn0wn_handshake_send_failed)
         fixture.fragment.onSelectedTunnelChanged(fixture.second, null)
         fixture.binding.executePendingBindings()
         assertEquals(0, fixture.binding.peersLayout.childCount)
@@ -223,28 +223,28 @@ class PeerHandshakePresentationTest {
         fixture.first.onHandshakeObservation(observation(old, firstKey, HandshakeObservation.Event.AUTHENTICATED))
         runCurrent()
         fixture.binding.executePendingBindings()
-        assertStatus(fixture.peer(), R.string.tunnl_handshake_authenticated)
+        assertStatus(fixture.peer(), R.string.vpn0wn_handshake_authenticated)
         retire(old)
         fixture.first.onHandshakeSessionChange(old)
         runCurrent()
         fixture.binding.executePendingBindings()
-        assertStatus(fixture.peer(), R.string.tunnl_handshake_unavailable)
+        assertStatus(fixture.peer(), R.string.vpn0wn_handshake_unavailable)
         assertUnknownEndpoint(fixture.peer())
         val current = session()
         fixture.first.onHandshakeSessionChange(current)
         fixture.first.onHandshakeObservation(observation(old, firstKey, HandshakeObservation.Event.AUTHENTICATED, sequence = 2))
         runCurrent()
         fixture.binding.executePendingBindings()
-        assertStatus(fixture.peer(), R.string.tunnl_handshake_unobserved)
+        assertStatus(fixture.peer(), R.string.vpn0wn_handshake_unobserved)
         assertUnknownEndpoint(fixture.peer())
         fixture.first.onHandshakeObservation(observation(current, firstKey, HandshakeObservation.Event.SENT))
         runCurrent()
         fixture.binding.executePendingBindings()
-        assertStatus(fixture.peer(), R.string.tunnl_handshake_sent)
+        assertStatus(fixture.peer(), R.string.vpn0wn_handshake_sent)
         fixture.first.setStateAsync(Tunnel.State.DOWN)
         runCurrent()
         fixture.binding.executePendingBindings()
-        assertStatus(fixture.peer(), R.string.tunnl_handshake_unavailable)
+        assertStatus(fixture.peer(), R.string.vpn0wn_handshake_unavailable)
         assertUnknownEndpoint(fixture.peer())
     }
 
@@ -268,7 +268,7 @@ class PeerHandshakePresentationTest {
         fixture.binding.executePendingBindings()
         detachedPeer.executePendingBindings()
         assertSame(detachedDiagnostics, detachedPeer.diagnostics)
-        assertStatus(detachedPeer, R.string.tunnl_handshake_sent)
+        assertStatus(detachedPeer, R.string.vpn0wn_handshake_sent)
         manager.beginTransaction().attach(fixture.fragment).commitNow()
         stopStatsRefresh(fixture.fragment)
         fixture.fragment.onSelectedTunnelChanged(null, fixture.first)
@@ -276,7 +276,7 @@ class PeerHandshakePresentationTest {
         val recreated = DataBindingUtil.getBinding<TunnelDetailFragmentBinding>(fixture.fragment.requireView())!!
         recreated.executePendingBindings()
         assertNotSame(fixture.binding.root, recreated.root)
-        assertStatus(binding(recreated.peersLayout), R.string.tunnl_handshake_authenticated)
+        assertStatus(binding(recreated.peersLayout), R.string.vpn0wn_handshake_authenticated)
         assertSame(fixture.first.handshakeDiagnostics!![firstKey], binding(recreated.peersLayout).diagnostics)
     }
 
@@ -317,7 +317,7 @@ class PeerHandshakePresentationTest {
             assertEquals(case.name, expectedDirection, binding.root.layoutDirection)
             assertEquals(View.TEXT_DIRECTION_LTR, binding.observedEndpointText.textDirection)
             assertEquals(endpoint, binding.observedEndpointText.text.toString())
-            assertStatus(binding, R.string.tunnl_handshake_send_failed)
+            assertStatus(binding, R.string.vpn0wn_handshake_send_failed)
             assertTextFits(binding.root, case.name)
             for (text in listOf(binding.handshakeObservationText, binding.observedEndpointText, binding.observedAddressFamilyText)) {
                 assertEquals(case.name, text.text.length, text.layout.getLineEnd(text.layout.lineCount - 1))

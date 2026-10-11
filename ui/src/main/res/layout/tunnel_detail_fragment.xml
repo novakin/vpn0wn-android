@@ -28,14 +28,14 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/tunnl_paper"
+        android:background="@color/vpn0wn_paper"
         android:orientation="vertical">
 
         <LinearLayout
             android:id="@+id/detail_header_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@color/tunnl_paper_2"
+            android:background="@color/vpn0wn_paper_2"
             android:orientation="vertical"
             android:paddingStart="14dp"
             android:paddingTop="10dp"
@@ -56,8 +56,8 @@
                     android:contentDescription="@string/cancel"
                     android:onClick="@{fragment::onBackPressed}"
                     android:padding="4dp"
-                    app:srcCompat="@drawable/ic_tunnl_chevron_left"
-                    app:tint="@color/tunnl_ink_2" />
+                    app:srcCompat="@drawable/ic_vpn0wn_chevron_left"
+                    app:tint="@color/vpn0wn_ink_2" />
 
                 <TextView
                     style="@style/Vpn0wnLabelText"
@@ -99,20 +99,20 @@
                     android:onClick="@{fragment::onEditPressed}"
                     android:padding="7dp"
                     app:srcCompat="@drawable/ic_action_edit"
-                    app:tint="@color/tunnl_ink_2" />
+                    app:tint="@color/vpn0wn_ink_2" />
             </LinearLayout>
         </LinearLayout>
 
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
-            android:background="@color/tunnl_rule" />
+            android:background="@color/vpn0wn_rule" />
 
         <ScrollView
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:background="@color/tunnl_paper"
+            android:background="@color/vpn0wn_paper"
             android:clipToPadding="false"
             android:paddingBottom="18dp">
 
@@ -129,7 +129,7 @@
                 android:id="@+id/tunnel_schematic_card"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:strokeColor="@color/tunnl_rule">
+                app:strokeColor="@color/vpn0wn_rule">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -195,7 +195,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginStart="10dp"
                             android:text="@{BindingAdapters.tunnelPeerBadge(config)}"
-                            android:textColor="@color/tunnl_signal_deep"
+                            android:textColor="@color/vpn0wn_signal_deep"
                             tools:text="PSK" />
                     </LinearLayout>
                 </LinearLayout>
@@ -274,7 +274,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="4dp"
                     android:layout_weight="1"
-                    app:strokeColor="@color/tunnl_signal_deep">
+                    app:strokeColor="@color/vpn0wn_signal_deep">
 
                     <LinearLayout
                         android:layout_width="match_parent"
@@ -301,7 +301,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@{BindingAdapters.tunnelRxRate(tunnel, tunnel.statistics)}"
-                            android:textColor="@color/tunnl_signal_deep"
+                            android:textColor="@color/vpn0wn_signal_deep"
                             android:textSize="11sp"
                             tools:text="343 KB/S" />
                     </LinearLayout>
@@ -356,7 +356,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="§01"
-                    android:textColor="@color/tunnl_rule_strong" />
+                    android:textColor="@color/vpn0wn_rule_strong" />
 
                 <TextView
                     style="@style/Vpn0wnMonoValueText"
@@ -371,7 +371,7 @@
                     android:layout_height="1dp"
                     android:layout_marginStart="10dp"
                     android:layout_weight="1"
-                    android:background="@color/tunnl_rule" />
+                    android:background="@color/vpn0wn_rule" />
 
                 <TextView
                     style="@style/Vpn0wnLabelText"
@@ -554,7 +554,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="§02"
-                    android:textColor="@color/tunnl_rule_strong" />
+                    android:textColor="@color/vpn0wn_rule_strong" />
 
                 <TextView
                     style="@style/Vpn0wnMonoValueText"
@@ -569,7 +569,7 @@
                     android:layout_height="1dp"
                     android:layout_marginStart="10dp"
                     android:layout_weight="1"
-                    android:background="@color/tunnl_rule" />
+                    android:background="@color/vpn0wn_rule" />
 
                 <TextView
                     style="@style/Vpn0wnLabelText"

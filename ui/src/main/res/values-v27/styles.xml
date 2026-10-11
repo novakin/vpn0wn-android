@@ -4,7 +4,7 @@
   -->
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
     <style name="AppTheme" parent="AppThemeBase">
-        <item name="android:statusBarColor">@color/tunnl_paper_2</item>
+        <item name="android:statusBarColor">@color/vpn0wn_paper_2</item>
         <item name="android:windowLightStatusBar">@bool/light_status_bar</item>
         <item name="android:navigationBarColor">?android:colorBackground</item>
         <item name="android:windowLightNavigationBar">@bool/light_navigation_bar</item>

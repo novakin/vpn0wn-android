@@ -133,29 +133,29 @@
     <string name="parse_error_inet_address">Địa chỉ IP</string>
     <string name="peer">Đồng trang lứa</string>
 
-    <string name="tunnl_settings_title">cài đặt</string>
-    <string name="tunnl_settings_subtitle">TOÀN CỤC · ĐIỀU KHIỂN ỨNG DỤNG</string>
-    <string name="tunnl_settings_section_connection">§01 KẾT NỐI · MẶC ĐỊNH</string>
-    <string name="tunnl_settings_section_control">§02 ĐIỀU KHIỂN · TỰ ĐỘNG HÓA</string>
-    <string name="tunnl_settings_section_data">§03 DỮ LIỆU · SAO LƯU</string>
-    <string name="tunnl_settings_section_appearance">§04 GIAO DIỆN · ỨNG DỤNG</string>
-    <string name="tunnl_settings_section_about">§05 GIỚI THIỆU · DỰ ÁN</string>
+    <string name="vpn0wn_settings_title">cài đặt</string>
+    <string name="vpn0wn_settings_subtitle">TOÀN CỤC · ĐIỀU KHIỂN ỨNG DỤNG</string>
+    <string name="vpn0wn_settings_section_connection">§01 KẾT NỐI · MẶC ĐỊNH</string>
+    <string name="vpn0wn_settings_section_control">§02 ĐIỀU KHIỂN · TỰ ĐỘNG HÓA</string>
+    <string name="vpn0wn_settings_section_data">§03 DỮ LIỆU · SAO LƯU</string>
+    <string name="vpn0wn_settings_section_appearance">§04 GIAO DIỆN · ỨNG DỤNG</string>
+    <string name="vpn0wn_settings_section_about">§05 GIỚI THIỆU · DỰ ÁN</string>
 
-    <string name="tunnl_add_sheet_title">THÊM ĐƯỜNG HẦM · CHỌN NGUỒN</string>
-    <string name="tunnl_add_sheet_qr_subtitle">Camera</string>
-    <string name="tunnl_add_sheet_file_subtitle">Từ tệp</string>
-    <string name="tunnl_add_sheet_manual_subtitle">Tạo cặp khóa · nhập thủ công</string>
+    <string name="vpn0wn_add_sheet_title">THÊM ĐƯỜNG HẦM · CHỌN NGUỒN</string>
+    <string name="vpn0wn_add_sheet_qr_subtitle">Camera</string>
+    <string name="vpn0wn_add_sheet_file_subtitle">Từ tệp</string>
+    <string name="vpn0wn_add_sheet_manual_subtitle">Tạo cặp khóa · nhập thủ công</string>
 
-    <string name="tunnl_selection_delete">Xóa đường hầm đã chọn</string>
-    <string name="tunnl_selection_exit">Thoát chọn</string>
-    <string name="tunnl_selection_mode">CHẾ ĐỘ CHỌN</string>
-    <string name="tunnl_selection_status_empty">0 ĐÃ CHỌN</string>
-    <string name="tunnl_selection_status_count">ĐÃ CHỌN %1$d/%2$d</string>
-    <plurals name="tunnl_selection_title">
+    <string name="vpn0wn_selection_delete">Xóa đường hầm đã chọn</string>
+    <string name="vpn0wn_selection_exit">Thoát chọn</string>
+    <string name="vpn0wn_selection_mode">CHẾ ĐỘ CHỌN</string>
+    <string name="vpn0wn_selection_status_empty">0 ĐÃ CHỌN</string>
+    <string name="vpn0wn_selection_status_count">ĐÃ CHỌN %1$d/%2$d</string>
+    <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d ĐÃ CHỌN</item>
         <item quantity="other">%d ĐÃ CHỌN</item>
     </plurals>
-    <plurals name="tunnl_delete_sheet_title">
+    <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">xóa %d đường hầm?</item>
         <item quantity="other">xóa %d đường hầm?</item>
     </plurals>

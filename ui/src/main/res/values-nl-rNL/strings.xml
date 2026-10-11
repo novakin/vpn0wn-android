@@ -235,29 +235,29 @@
     <string name="biometric_auth_error">Authenticatiefout</string>
     <string name="biometric_auth_error_reason">Authenticatiefout: %s</string>
 
-    <string name="tunnl_settings_title">instellingen</string>
-    <string name="tunnl_settings_subtitle">GLOBAAL · APPBEDIENING</string>
-    <string name="tunnl_settings_section_connection">§01 VERBINDING · STANDAARDEN</string>
-    <string name="tunnl_settings_section_control">§02 BEDIENING · AUTOMATISERING</string>
-    <string name="tunnl_settings_section_data">§03 GEGEVENS · BACK-UP</string>
-    <string name="tunnl_settings_section_appearance">§04 WEERGAVE · APP</string>
-    <string name="tunnl_settings_section_about">§05 OVER · PROJECT</string>
+    <string name="vpn0wn_settings_title">instellingen</string>
+    <string name="vpn0wn_settings_subtitle">GLOBAAL · APPBEDIENING</string>
+    <string name="vpn0wn_settings_section_connection">§01 VERBINDING · STANDAARDEN</string>
+    <string name="vpn0wn_settings_section_control">§02 BEDIENING · AUTOMATISERING</string>
+    <string name="vpn0wn_settings_section_data">§03 GEGEVENS · BACK-UP</string>
+    <string name="vpn0wn_settings_section_appearance">§04 WEERGAVE · APP</string>
+    <string name="vpn0wn_settings_section_about">§05 OVER · PROJECT</string>
 
-    <string name="tunnl_add_sheet_title">TUNNEL TOEVOEGEN · BRON KIEZEN</string>
-    <string name="tunnl_add_sheet_qr_subtitle">Camera</string>
-    <string name="tunnl_add_sheet_file_subtitle">Uit bestanden</string>
-    <string name="tunnl_add_sheet_manual_subtitle">Sleutelpaar genereren · handmatig invoeren</string>
+    <string name="vpn0wn_add_sheet_title">TUNNEL TOEVOEGEN · BRON KIEZEN</string>
+    <string name="vpn0wn_add_sheet_qr_subtitle">Camera</string>
+    <string name="vpn0wn_add_sheet_file_subtitle">Uit bestanden</string>
+    <string name="vpn0wn_add_sheet_manual_subtitle">Sleutelpaar genereren · handmatig invoeren</string>
 
-    <string name="tunnl_selection_delete">Geselecteerde tunnels verwijderen</string>
-    <string name="tunnl_selection_exit">Selectie verlaten</string>
-    <string name="tunnl_selection_mode">SELECTIEMODUS</string>
-    <string name="tunnl_selection_status_empty">0 GESELECTEERD</string>
-    <string name="tunnl_selection_status_count">%1$d VAN %2$d GESELECTEERD</string>
-    <plurals name="tunnl_selection_title">
+    <string name="vpn0wn_selection_delete">Geselecteerde tunnels verwijderen</string>
+    <string name="vpn0wn_selection_exit">Selectie verlaten</string>
+    <string name="vpn0wn_selection_mode">SELECTIEMODUS</string>
+    <string name="vpn0wn_selection_status_empty">0 GESELECTEERD</string>
+    <string name="vpn0wn_selection_status_count">%1$d VAN %2$d GESELECTEERD</string>
+    <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d GESELECTEERD</item>
         <item quantity="other">%d GESELECTEERD</item>
     </plurals>
-    <plurals name="tunnl_delete_sheet_title">
+    <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">%d tunnel verwijderen?</item>
         <item quantity="other">%d tunnels verwijderen?</item>
     </plurals>

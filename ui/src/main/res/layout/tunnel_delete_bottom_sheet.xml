@@ -3,7 +3,7 @@
     android:id="@+id/delete_sheet_scroll"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@drawable/tunnl_delete_sheet_background"
+    android:background="@drawable/vpn0wn_delete_sheet_background"
     android:clipToPadding="false">
 
     <LinearLayout
@@ -20,14 +20,14 @@
             android:layout_height="4dp"
             android:layout_gravity="center_horizontal"
             android:layout_marginBottom="20dp"
-            android:background="@drawable/tunnl_add_sheet_handle" />
+            android:background="@drawable/vpn0wn_add_sheet_handle" />
 
         <TextView
             style="@style/Vpn0wnLabelText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/tunnl_delete_irreversible"
-            android:textColor="@color/tunnl_error" />
+            android:text="@string/vpn0wn_delete_irreversible"
+            android:textColor="@color/vpn0wn_error" />
 
         <TextView
             android:id="@+id/delete_sheet_title"
@@ -41,7 +41,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
-            android:text="@string/tunnl_delete_no_undo" />
+            android:text="@string/vpn0wn_delete_no_undo" />
 
         <TextView
             android:id="@+id/delete_sheet_warning"
@@ -49,9 +49,9 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:background="@drawable/tunnl_delete_sheet_warning_background"
+            android:background="@drawable/vpn0wn_delete_sheet_warning_background"
             android:padding="12dp"
-            android:textColor="@color/tunnl_warn"
+            android:textColor="@color/vpn0wn_warn"
             android:visibility="gone" />
 
         <TextView
@@ -60,7 +60,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:background="@drawable/tunnl_delete_sheet_item_background"
+            android:background="@drawable/vpn0wn_delete_sheet_item_background"
             android:ellipsize="none"
             android:padding="12dp"
             android:singleLine="false" />
@@ -81,7 +81,7 @@
                 android:background="?attr/selectableItemBackground"
                 android:padding="12dp"
                 android:text="@string/cancel"
-                android:textColor="@color/tunnl_ink_2" />
+                android:textColor="@color/vpn0wn_ink_2" />
 
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/delete_sheet_confirm"
@@ -91,10 +91,10 @@
                 android:layout_marginStart="10dp"
                 android:layout_weight="1"
                 android:minHeight="48dp"
-                android:background="@drawable/tunnl_delete_button_background"
+                android:background="@drawable/vpn0wn_delete_button_background"
                 android:padding="12dp"
                 android:text="@string/delete"
-                android:textColor="@color/tunnl_error" />
+                android:textColor="@color/vpn0wn_error" />
         </LinearLayout>
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

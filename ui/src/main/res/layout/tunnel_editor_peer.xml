@@ -33,7 +33,7 @@
         android:layout_marginBottom="10dp"
         app:cardElevation="0dp"
         app:contentPadding="0dp"
-        app:strokeColor="@color/tunnl_rule"
+        app:strokeColor="@color/vpn0wn_rule"
         app:strokeWidth="1dp">
 
         <LinearLayout
@@ -45,7 +45,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@color/tunnl_paper_3"
+                android:background="@color/vpn0wn_paper_3"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
                 android:paddingStart="14dp"
@@ -70,7 +70,7 @@
                     android:nextFocusForward="@id/public_key_text"
                     android:onClick="@{() -> item.unbind()}"
                     android:text="remove"
-                    android:textColor="@color/tunnl_error" />
+                    android:textColor="@color/vpn0wn_error" />
             </LinearLayout>
 
             <!-- PUBLIC KEY -->
@@ -98,7 +98,7 @@
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="@color/tunnl_rule" />
+                android:background="@color/vpn0wn_rule" />
 
             <!-- PRESHARED KEY -->
             <LinearLayout
@@ -127,7 +127,7 @@
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="@color/tunnl_rule" />
+                android:background="@color/vpn0wn_rule" />
 
             <!-- ENDPOINT -->
             <LinearLayout
@@ -153,7 +153,7 @@
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="@color/tunnl_rule" />
+                android:background="@color/vpn0wn_rule" />
 
             <!-- ALLOWED IPs -->
             <LinearLayout
@@ -191,7 +191,7 @@
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="@color/tunnl_rule" />
+                android:background="@color/vpn0wn_rule" />
 
             <!-- PERSISTENT KEEPALIVE -->
             <LinearLayout

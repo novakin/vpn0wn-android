@@ -7,29 +7,29 @@
 
     <PreferenceCategory
         android:key="settings_connection"
-        android:layout="@layout/tunnl_preference_category"
-        android:title="@string/tunnl_settings_section_connection">
+        android:layout="@layout/vpn0wn_preference_category"
+        android:title="@string/vpn0wn_settings_section_connection">
 
         <Preference
-            android:icon="@drawable/ic_tunnl_settings"
+            android:icon="@drawable/ic_vpn0wn_settings"
             android:key="system_vpn_settings"
-            android:layout="@layout/tunnl_preference_item"
+            android:layout="@layout/vpn0wn_preference_item"
             android:persistent="false"
             android:singleLineTitle="false"
             android:summary="@string/system_vpn_settings_checking"
             android:title="@string/system_vpn_settings_title" />
 
         <com.vpn0wn.android.preference.KernelModuleEnablerPreference
-            android:icon="@drawable/ic_tunnl_server"
+            android:icon="@drawable/ic_vpn0wn_server"
             android:key="kernel_module_enabler"
             android:singleLineTitle="false"
-            android:layout="@layout/tunnl_preference_item" />
+            android:layout="@layout/vpn0wn_preference_item" />
 
         <SwitchPreferenceCompat
             android:defaultValue="false"
-            android:icon="@drawable/ic_tunnl_refresh"
+            android:icon="@drawable/ic_vpn0wn_refresh"
             android:key="restore_on_boot"
-            android:layout="@layout/tunnl_preference_item"
+            android:layout="@layout/vpn0wn_preference_item"
             android:singleLineTitle="false"
             android:summaryOff="@string/restore_on_boot_summary_off"
             android:summaryOn="@string/restore_on_boot_summary_on"
@@ -37,72 +37,72 @@
 
         <SwitchPreferenceCompat
             android:defaultValue="false"
-            android:icon="@drawable/ic_tunnl_server"
+            android:icon="@drawable/ic_vpn0wn_server"
             android:key="multiple_tunnels"
-            android:layout="@layout/tunnl_preference_item"
+            android:layout="@layout/vpn0wn_preference_item"
             android:singleLineTitle="false"
             android:summaryOff="@string/multiple_tunnels_summary_off"
             android:summaryOn="@string/multiple_tunnels_summary_on"
             android:title="@string/multiple_tunnels_title" />
 
         <com.vpn0wn.android.preference.ToolsInstallerPreference
-            android:icon="@drawable/ic_tunnl_key"
+            android:icon="@drawable/ic_vpn0wn_key"
             android:key="tools_installer"
             android:singleLineTitle="false"
-            android:layout="@layout/tunnl_preference_item" />
+            android:layout="@layout/vpn0wn_preference_item" />
     </PreferenceCategory>
 
     <PreferenceCategory
         android:key="settings_control"
-        android:layout="@layout/tunnl_preference_category"
-        android:title="@string/tunnl_settings_section_control">
+        android:layout="@layout/vpn0wn_preference_category"
+        android:title="@string/vpn0wn_settings_section_control">
 
         <SwitchPreferenceCompat
             android:defaultValue="false"
-            android:icon="@drawable/ic_tunnl_share"
+            android:icon="@drawable/ic_vpn0wn_share"
             android:key="allow_remote_control_intents"
-            android:layout="@layout/tunnl_preference_item"
+            android:layout="@layout/vpn0wn_preference_item"
             android:singleLineTitle="false"
             android:summaryOff="@string/allow_remote_control_intents_summary_off"
             android:summaryOn="@string/allow_remote_control_intents_summary_on"
             android:title="@string/allow_remote_control_intents_title" />
 
         <com.vpn0wn.android.preference.QuickTilePreference
-            android:icon="@drawable/ic_tunnl_settings"
+            android:icon="@drawable/ic_vpn0wn_settings"
             android:key="quick_tile"
             android:singleLineTitle="false"
-            android:layout="@layout/tunnl_preference_item" />
+            android:layout="@layout/vpn0wn_preference_item" />
     </PreferenceCategory>
 
     <PreferenceCategory
         android:key="settings_data"
-        android:layout="@layout/tunnl_preference_category"
-        android:title="@string/tunnl_settings_section_data">
+        android:layout="@layout/vpn0wn_preference_category"
+        android:title="@string/vpn0wn_settings_section_data">
 
         <com.vpn0wn.android.preference.ZipExporterPreference
-            android:icon="@drawable/ic_tunnl_file"
+            android:icon="@drawable/ic_vpn0wn_file"
             android:key="zip_exporter"
             android:singleLineTitle="false"
-            android:layout="@layout/tunnl_preference_item" />
+            android:layout="@layout/vpn0wn_preference_item" />
 
         <com.vpn0wn.android.preference.AppDataExporterPreference
-            android:icon="@drawable/ic_tunnl_file"
+            android:icon="@drawable/ic_vpn0wn_file"
             android:key="export_app_data"
             android:singleLineTitle="false"
-            android:layout="@layout/tunnl_preference_item" />
+            android:layout="@layout/vpn0wn_preference_item" />
 
         <Preference
-            android:icon="@drawable/ic_tunnl_file"
+            android:icon="@drawable/ic_vpn0wn_file"
             android:key="import_app_data"
-            android:layout="@layout/tunnl_preference_item"
+            android:layout="@layout/vpn0wn_preference_item"
             android:singleLineTitle="false"
             android:summary="@string/app_data_transfer_import_summary"
             android:title="@string/app_data_transfer_import_title" />
 
         <Preference
-            android:icon="@drawable/ic_tunnl_logs"
+            android:icon="@drawable/ic_vpn0wn_logs"
             android:key="log_viewer"
-            android:layout="@layout/tunnl_preference_item"
+            android:layout="@layout/vpn0wn_preference_item"
             android:singleLineTitle="false"
             android:summary="@string/log_viewer_pref_summary"
             android:title="@string/log_viewer_pref_title" />
@@ -110,14 +110,14 @@
 
     <PreferenceCategory
         android:key="settings_appearance"
-        android:layout="@layout/tunnl_preference_category"
-        android:title="@string/tunnl_settings_section_appearance">
+        android:layout="@layout/vpn0wn_preference_category"
+        android:title="@string/vpn0wn_settings_section_appearance">
 
         <SwitchPreferenceCompat
             android:defaultValue="false"
-            android:icon="@drawable/ic_tunnl_settings"
+            android:icon="@drawable/ic_vpn0wn_settings"
             android:key="dark_theme"
-            android:layout="@layout/tunnl_preference_item"
+            android:layout="@layout/vpn0wn_preference_item"
             android:singleLineTitle="false"
             android:summaryOff="@string/dark_theme_summary_off"
             android:summaryOn="@string/dark_theme_summary_on"
@@ -126,19 +126,19 @@
 
     <PreferenceCategory
         android:key="settings_about"
-        android:layout="@layout/tunnl_preference_category"
-        android:title="@string/tunnl_settings_section_about">
+        android:layout="@layout/vpn0wn_preference_category"
+        android:title="@string/vpn0wn_settings_section_about">
 
         <com.vpn0wn.android.preference.VersionPreference
             android:icon="@mipmap/ic_launcher"
             android:key="version"
             android:singleLineTitle="false"
-            android:layout="@layout/tunnl_preference_item" />
+            android:layout="@layout/vpn0wn_preference_item" />
 
         <Preference
-            android:icon="@drawable/ic_tunnl_file"
+            android:icon="@drawable/ic_vpn0wn_file"
             android:key="licenses"
-            android:layout="@layout/tunnl_preference_item"
+            android:layout="@layout/vpn0wn_preference_item"
             android:persistent="false"
             android:singleLineTitle="false"
             android:summary="@string/licenses_summary"

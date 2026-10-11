@@ -230,29 +230,29 @@
     <string name="biometric_auth_error">驗證失敗</string>
     <string name="biometric_auth_error_reason">驗證失敗: %s</string>
 
-    <string name="tunnl_settings_title">設定</string>
-    <string name="tunnl_settings_subtitle">全域 · 應用程式控制</string>
-    <string name="tunnl_settings_section_connection">§01 連線 · 預設值</string>
-    <string name="tunnl_settings_section_control">§02 控制 · 自動化</string>
-    <string name="tunnl_settings_section_data">§03 資料 · 備份</string>
-    <string name="tunnl_settings_section_appearance">§04 外觀 · 應用程式</string>
-    <string name="tunnl_settings_section_about">§05 關於 · 專案</string>
+    <string name="vpn0wn_settings_title">設定</string>
+    <string name="vpn0wn_settings_subtitle">全域 · 應用程式控制</string>
+    <string name="vpn0wn_settings_section_connection">§01 連線 · 預設值</string>
+    <string name="vpn0wn_settings_section_control">§02 控制 · 自動化</string>
+    <string name="vpn0wn_settings_section_data">§03 資料 · 備份</string>
+    <string name="vpn0wn_settings_section_appearance">§04 外觀 · 應用程式</string>
+    <string name="vpn0wn_settings_section_about">§05 關於 · 專案</string>
 
-    <string name="tunnl_add_sheet_title">新增隧道 · 選擇來源</string>
-    <string name="tunnl_add_sheet_qr_subtitle">相機</string>
-    <string name="tunnl_add_sheet_file_subtitle">從檔案</string>
-    <string name="tunnl_add_sheet_manual_subtitle">產生金鑰組 · 手動輸入</string>
+    <string name="vpn0wn_add_sheet_title">新增隧道 · 選擇來源</string>
+    <string name="vpn0wn_add_sheet_qr_subtitle">相機</string>
+    <string name="vpn0wn_add_sheet_file_subtitle">從檔案</string>
+    <string name="vpn0wn_add_sheet_manual_subtitle">產生金鑰組 · 手動輸入</string>
 
-    <string name="tunnl_selection_delete">刪除所選隧道</string>
-    <string name="tunnl_selection_exit">離開選取</string>
-    <string name="tunnl_selection_mode">選取模式</string>
-    <string name="tunnl_selection_status_empty">已選取 0 個</string>
-    <string name="tunnl_selection_status_count">已選取 %1$d/%2$d 個</string>
-    <plurals name="tunnl_selection_title">
+    <string name="vpn0wn_selection_delete">刪除所選隧道</string>
+    <string name="vpn0wn_selection_exit">離開選取</string>
+    <string name="vpn0wn_selection_mode">選取模式</string>
+    <string name="vpn0wn_selection_status_empty">已選取 0 個</string>
+    <string name="vpn0wn_selection_status_count">已選取 %1$d/%2$d 個</string>
+    <plurals name="vpn0wn_selection_title">
         <item quantity="one">已選取 %d 個</item>
         <item quantity="other">已選取 %d 個</item>
     </plurals>
-    <plurals name="tunnl_delete_sheet_title">
+    <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">刪除 %d 個隧道？</item>
         <item quantity="other">刪除 %d 個隧道？</item>
     </plurals>

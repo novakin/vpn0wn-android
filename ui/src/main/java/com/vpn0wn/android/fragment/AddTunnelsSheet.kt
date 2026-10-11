@@ -47,9 +47,9 @@ class AddTunnelsSheet : BottomSheetDialogFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         val options = listOf(
-            Triple(R.id.create_from_qrcode, R.string.create_from_qr_code, R.string.tunnl_add_sheet_qr_subtitle),
-            Triple(R.id.create_from_file, R.string.create_from_file, R.string.tunnl_add_sheet_file_subtitle),
-            Triple(R.id.create_empty, R.string.create_empty, R.string.tunnl_add_sheet_manual_subtitle)
+            Triple(R.id.create_from_qrcode, R.string.create_from_qr_code, R.string.vpn0wn_add_sheet_qr_subtitle),
+            Triple(R.id.create_from_file, R.string.create_from_file, R.string.vpn0wn_add_sheet_file_subtitle),
+            Triple(R.id.create_empty, R.string.create_empty, R.string.vpn0wn_add_sheet_manual_subtitle)
         )
         for ((id, title, subtitle) in options) {
             val option = view.findViewById<View>(id)
@@ -74,7 +74,7 @@ class AddTunnelsSheet : BottomSheetDialogFragment() {
             onRequestScanQRCode()
         }
         val gradientDrawable = GradientDrawable().apply {
-            setColor(ContextCompat.getColor(requireContext(), R.color.tunnl_paper))
+            setColor(ContextCompat.getColor(requireContext(), R.color.vpn0wn_paper))
             val radius = resources.getDimension(R.dimen.bottom_sheet_corner_radius)
             cornerRadii = floatArrayOf(radius, radius, radius, radius, 0f, 0f, 0f, 0f)
         }

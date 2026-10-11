@@ -100,29 +100,29 @@
     <string name="type_name_kernel_module">Kernel modul</string>
     <string name="unknown_error">Ismeretlen hiba</string>
 
-    <string name="tunnl_settings_title">beállítások</string>
-    <string name="tunnl_settings_subtitle">GLOBÁLIS · APPVEZÉRLÉS</string>
-    <string name="tunnl_settings_section_connection">§01 KAPCSOLAT · ALAPÉRTELMEZÉSEK</string>
-    <string name="tunnl_settings_section_control">§02 VEZÉRLÉS · AUTOMATIZÁLÁS</string>
-    <string name="tunnl_settings_section_data">§03 ADATOK · BIZTONSÁGI MENTÉS</string>
-    <string name="tunnl_settings_section_appearance">§04 MEGJELENÉS · APP</string>
-    <string name="tunnl_settings_section_about">§05 NÉVJEGY · PROJEKT</string>
+    <string name="vpn0wn_settings_title">beállítások</string>
+    <string name="vpn0wn_settings_subtitle">GLOBÁLIS · APPVEZÉRLÉS</string>
+    <string name="vpn0wn_settings_section_connection">§01 KAPCSOLAT · ALAPÉRTELMEZÉSEK</string>
+    <string name="vpn0wn_settings_section_control">§02 VEZÉRLÉS · AUTOMATIZÁLÁS</string>
+    <string name="vpn0wn_settings_section_data">§03 ADATOK · BIZTONSÁGI MENTÉS</string>
+    <string name="vpn0wn_settings_section_appearance">§04 MEGJELENÉS · APP</string>
+    <string name="vpn0wn_settings_section_about">§05 NÉVJEGY · PROJEKT</string>
 
-    <string name="tunnl_add_sheet_title">ALAGÚT HOZZÁADÁSA · FORRÁS VÁLASZTÁSA</string>
-    <string name="tunnl_add_sheet_qr_subtitle">Kamera</string>
-    <string name="tunnl_add_sheet_file_subtitle">Fájlokból</string>
-    <string name="tunnl_add_sheet_manual_subtitle">Kulcspár létrehozása · kézi bevitel</string>
+    <string name="vpn0wn_add_sheet_title">ALAGÚT HOZZÁADÁSA · FORRÁS VÁLASZTÁSA</string>
+    <string name="vpn0wn_add_sheet_qr_subtitle">Kamera</string>
+    <string name="vpn0wn_add_sheet_file_subtitle">Fájlokból</string>
+    <string name="vpn0wn_add_sheet_manual_subtitle">Kulcspár létrehozása · kézi bevitel</string>
 
-    <string name="tunnl_selection_delete">Kijelölt alagutak törlése</string>
-    <string name="tunnl_selection_exit">Kilépés a kijelölésből</string>
-    <string name="tunnl_selection_mode">KIJELÖLÉSI MÓD</string>
-    <string name="tunnl_selection_status_empty">0 KIJELÖLVE</string>
-    <string name="tunnl_selection_status_count">%1$d/%2$d KIJELÖLVE</string>
-    <plurals name="tunnl_selection_title">
+    <string name="vpn0wn_selection_delete">Kijelölt alagutak törlése</string>
+    <string name="vpn0wn_selection_exit">Kilépés a kijelölésből</string>
+    <string name="vpn0wn_selection_mode">KIJELÖLÉSI MÓD</string>
+    <string name="vpn0wn_selection_status_empty">0 KIJELÖLVE</string>
+    <string name="vpn0wn_selection_status_count">%1$d/%2$d KIJELÖLVE</string>
+    <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d KIJELÖLVE</item>
         <item quantity="other">%d KIJELÖLVE</item>
     </plurals>
-    <plurals name="tunnl_delete_sheet_title">
+    <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">%d alagút törlése?</item>
         <item quantity="other">%d alagút törlése?</item>
     </plurals>

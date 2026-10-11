@@ -243,29 +243,29 @@
     <string name="biometric_auth_error">Autenticazione non riuscita</string>
     <string name="biometric_auth_error_reason">Autenticazione non riuscita: %s</string>
 
-    <string name="tunnl_settings_title">impostazioni</string>
-    <string name="tunnl_settings_subtitle">GLOBALE · CONTROLLO APP</string>
-    <string name="tunnl_settings_section_connection">§01 CONNESSIONE · PREDEFINITI</string>
-    <string name="tunnl_settings_section_control">§02 CONTROLLO · AUTOMAZIONE</string>
-    <string name="tunnl_settings_section_data">§03 DATI · BACKUP</string>
-    <string name="tunnl_settings_section_appearance">§04 ASPETTO · APP</string>
-    <string name="tunnl_settings_section_about">§05 INFO · PROGETTO</string>
+    <string name="vpn0wn_settings_title">impostazioni</string>
+    <string name="vpn0wn_settings_subtitle">GLOBALE · CONTROLLO APP</string>
+    <string name="vpn0wn_settings_section_connection">§01 CONNESSIONE · PREDEFINITI</string>
+    <string name="vpn0wn_settings_section_control">§02 CONTROLLO · AUTOMAZIONE</string>
+    <string name="vpn0wn_settings_section_data">§03 DATI · BACKUP</string>
+    <string name="vpn0wn_settings_section_appearance">§04 ASPETTO · APP</string>
+    <string name="vpn0wn_settings_section_about">§05 INFO · PROGETTO</string>
 
-    <string name="tunnl_add_sheet_title">AGGIUNGI TUNNEL · SCEGLI ORIGINE</string>
-    <string name="tunnl_add_sheet_qr_subtitle">Fotocamera</string>
-    <string name="tunnl_add_sheet_file_subtitle">Da file</string>
-    <string name="tunnl_add_sheet_manual_subtitle">Genera coppia di chiavi · inserisci manualmente</string>
+    <string name="vpn0wn_add_sheet_title">AGGIUNGI TUNNEL · SCEGLI ORIGINE</string>
+    <string name="vpn0wn_add_sheet_qr_subtitle">Fotocamera</string>
+    <string name="vpn0wn_add_sheet_file_subtitle">Da file</string>
+    <string name="vpn0wn_add_sheet_manual_subtitle">Genera coppia di chiavi · inserisci manualmente</string>
 
-    <string name="tunnl_selection_delete">Elimina tunnel selezionati</string>
-    <string name="tunnl_selection_exit">Esci dalla selezione</string>
-    <string name="tunnl_selection_mode">MODALITÀ SELEZIONE</string>
-    <string name="tunnl_selection_status_empty">0 SELEZIONATI</string>
-    <string name="tunnl_selection_status_count">%1$d DI %2$d SELEZIONATI</string>
-    <plurals name="tunnl_selection_title">
+    <string name="vpn0wn_selection_delete">Elimina tunnel selezionati</string>
+    <string name="vpn0wn_selection_exit">Esci dalla selezione</string>
+    <string name="vpn0wn_selection_mode">MODALITÀ SELEZIONE</string>
+    <string name="vpn0wn_selection_status_empty">0 SELEZIONATI</string>
+    <string name="vpn0wn_selection_status_count">%1$d DI %2$d SELEZIONATI</string>
+    <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d SELEZIONATI</item>
         <item quantity="other">%d SELEZIONATI</item>
     </plurals>
-    <plurals name="tunnl_delete_sheet_title">
+    <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">eliminare %d tunnel?</item>
         <item quantity="other">eliminare %d tunnel?</item>
     </plurals>
