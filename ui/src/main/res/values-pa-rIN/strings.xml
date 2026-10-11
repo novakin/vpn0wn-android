@@ -243,29 +243,29 @@
     <string name="biometric_auth_error">ਪਰਮਾਣਿਤ ਕਰਨ ਲਈ ਅਸਫ਼ਲ</string>
     <string name="biometric_auth_error_reason">ਪਰਮਾਣਿਤ ਕਰਨ ਲਈ ਅਸਫ਼ਲ: %s</string>
 
-    <string name="tunnl_settings_title">ਸੈਟਿੰਗਾਂ</string>
-    <string name="tunnl_settings_subtitle">ਗਲੋਬਲ · ਐਪ ਕੰਟਰੋਲ</string>
-    <string name="tunnl_settings_section_connection">§01 ਕਨੈਕਸ਼ਨ · ਡਿਫਾਲਟ</string>
-    <string name="tunnl_settings_section_control">§02 ਕੰਟਰੋਲ · ਆਟੋਮੇਸ਼ਨ</string>
-    <string name="tunnl_settings_section_data">§03 ਡਾਟਾ · ਬੈਕਅੱਪ</string>
-    <string name="tunnl_settings_section_appearance">§04 ਦਿੱਖ · ਐਪ</string>
-    <string name="tunnl_settings_section_about">§05 ਬਾਰੇ · ਪ੍ਰੋਜੈਕਟ</string>
+    <string name="vpn0wn_settings_title">ਸੈਟਿੰਗਾਂ</string>
+    <string name="vpn0wn_settings_subtitle">ਗਲੋਬਲ · ਐਪ ਕੰਟਰੋਲ</string>
+    <string name="vpn0wn_settings_section_connection">§01 ਕਨੈਕਸ਼ਨ · ਡਿਫਾਲਟ</string>
+    <string name="vpn0wn_settings_section_control">§02 ਕੰਟਰੋਲ · ਆਟੋਮੇਸ਼ਨ</string>
+    <string name="vpn0wn_settings_section_data">§03 ਡਾਟਾ · ਬੈਕਅੱਪ</string>
+    <string name="vpn0wn_settings_section_appearance">§04 ਦਿੱਖ · ਐਪ</string>
+    <string name="vpn0wn_settings_section_about">§05 ਬਾਰੇ · ਪ੍ਰੋਜੈਕਟ</string>
 
-    <string name="tunnl_add_sheet_title">ਟਨਲ ਸ਼ਾਮਲ ਕਰੋ · ਸਰੋਤ ਚੁਣੋ</string>
-    <string name="tunnl_add_sheet_qr_subtitle">ਕੈਮਰਾ</string>
-    <string name="tunnl_add_sheet_file_subtitle">ਫਾਈਲਾਂ ਤੋਂ</string>
-    <string name="tunnl_add_sheet_manual_subtitle">ਕੁੰਜੀ ਜੋੜਾ ਬਣਾਓ · ਹੱਥੋਂ ਦਾਖਲ ਕਰੋ</string>
+    <string name="vpn0wn_add_sheet_title">ਟਨਲ ਸ਼ਾਮਲ ਕਰੋ · ਸਰੋਤ ਚੁਣੋ</string>
+    <string name="vpn0wn_add_sheet_qr_subtitle">ਕੈਮਰਾ</string>
+    <string name="vpn0wn_add_sheet_file_subtitle">ਫਾਈਲਾਂ ਤੋਂ</string>
+    <string name="vpn0wn_add_sheet_manual_subtitle">ਕੁੰਜੀ ਜੋੜਾ ਬਣਾਓ · ਹੱਥੋਂ ਦਾਖਲ ਕਰੋ</string>
 
-    <string name="tunnl_selection_delete">ਚੁਣੀਆਂ ਟਨਲਾਂ ਮਿਟਾਓ</string>
-    <string name="tunnl_selection_exit">ਚੋਣ ਤੋਂ ਬਾਹਰ ਨਿਕਲੋ</string>
-    <string name="tunnl_selection_mode">ਚੋਣ ਮੋਡ</string>
-    <string name="tunnl_selection_status_empty">0 ਚੁਣੇ</string>
-    <string name="tunnl_selection_status_count">%2$d ਵਿੱਚੋਂ %1$d ਚੁਣੇ</string>
-    <plurals name="tunnl_selection_title">
+    <string name="vpn0wn_selection_delete">ਚੁਣੀਆਂ ਟਨਲਾਂ ਮਿਟਾਓ</string>
+    <string name="vpn0wn_selection_exit">ਚੋਣ ਤੋਂ ਬਾਹਰ ਨਿਕਲੋ</string>
+    <string name="vpn0wn_selection_mode">ਚੋਣ ਮੋਡ</string>
+    <string name="vpn0wn_selection_status_empty">0 ਚੁਣੇ</string>
+    <string name="vpn0wn_selection_status_count">%2$d ਵਿੱਚੋਂ %1$d ਚੁਣੇ</string>
+    <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d ਚੁਣੇ</item>
         <item quantity="other">%d ਚੁਣੇ</item>
     </plurals>
-    <plurals name="tunnl_delete_sheet_title">
+    <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">%d ਟਨਲ ਮਿਟਾਉਣੀ ਹੈ?</item>
         <item quantity="other">%d ਟਨਲਾਂ ਮਿਟਾਉਣੀਆਂ ਹਨ?</item>
     </plurals>

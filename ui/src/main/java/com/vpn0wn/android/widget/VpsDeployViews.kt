@@ -91,12 +91,12 @@ class VpsTopologyView(context: Context) : View(context) {
         paint.pathEffect = DashPathEffect(dash, rightPhase)
         canvas.drawLine(xs[1] + dp(28), y, xs[2] - dp(24), y, paint)
         paint.pathEffect = null
-        node(canvas, xs[0], y, context.getString(R.string.tunnl_node_device), context.getString(R.string.tunnl_hint_device).lowercase(), server.status == VpsDeployServerStatus.ONLINE, R.color.vpn0wn_signal_deep, false)
-        node(canvas, xs[1], y, context.getString(R.string.tunnl_node_vps), server.name, server.status != VpsDeployServerStatus.OFFLINE, server.status.colorRes, true)
-        node(canvas, xs[2], y, context.getString(R.string.tunnl_node_wan), context.getString(R.string.tunnl_node_internet), server.status == VpsDeployServerStatus.ONLINE, R.color.vpn0wn_signal_deep, false)
+        node(canvas, xs[0], y, context.getString(R.string.vpn0wn_node_device), context.getString(R.string.vpn0wn_hint_device).lowercase(), server.status == VpsDeployServerStatus.ONLINE, R.color.vpn0wn_signal_deep, false)
+        node(canvas, xs[1], y, context.getString(R.string.vpn0wn_node_vps), server.name, server.status != VpsDeployServerStatus.OFFLINE, server.status.colorRes, true)
+        node(canvas, xs[2], y, context.getString(R.string.vpn0wn_node_wan), context.getString(R.string.vpn0wn_node_internet), server.status == VpsDeployServerStatus.ONLINE, R.color.vpn0wn_signal_deep, false)
         val top = h * 0.66f
         val cellW = w / 3f
-        listOf(context.getString(R.string.tunnl_label_server) to server.name, context.getString(R.string.tunnl_label_endpoint) to server.endpoint, context.getString(R.string.tunnl_metric_cidr) to server.cidr).forEachIndexed { index, pair ->
+        listOf(context.getString(R.string.vpn0wn_label_server) to server.name, context.getString(R.string.vpn0wn_label_endpoint) to server.endpoint, context.getString(R.string.vpn0wn_metric_cidr) to server.cidr).forEachIndexed { index, pair ->
             paint.style = Paint.Style.FILL
             paint.typeface = monoTypeface
             paint.textSize = dp(9).toFloat()

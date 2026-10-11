@@ -156,29 +156,29 @@
     <string name="biometric_auth_error">Overovanie zlyhalo</string>
     <string name="biometric_auth_error_reason">Overovanie zlyhalo: %s</string>
 
-    <string name="tunnl_settings_title">nastavenia</string>
-    <string name="tunnl_settings_subtitle">GLOBÁLNE · OVLÁDANIE APLIKÁCIE</string>
-    <string name="tunnl_settings_section_connection">§01 PRIPOJENIE · PREDVOLENÉ</string>
-    <string name="tunnl_settings_section_control">§02 OVLÁDANIE · AUTOMATIZÁCIA</string>
-    <string name="tunnl_settings_section_data">§03 DÁTA · ZÁLOHA</string>
-    <string name="tunnl_settings_section_appearance">§04 VZHĽAD · APLIKÁCIA</string>
-    <string name="tunnl_settings_section_about">§05 O APLIKÁCII · PROJEKT</string>
+    <string name="vpn0wn_settings_title">nastavenia</string>
+    <string name="vpn0wn_settings_subtitle">GLOBÁLNE · OVLÁDANIE APLIKÁCIE</string>
+    <string name="vpn0wn_settings_section_connection">§01 PRIPOJENIE · PREDVOLENÉ</string>
+    <string name="vpn0wn_settings_section_control">§02 OVLÁDANIE · AUTOMATIZÁCIA</string>
+    <string name="vpn0wn_settings_section_data">§03 DÁTA · ZÁLOHA</string>
+    <string name="vpn0wn_settings_section_appearance">§04 VZHĽAD · APLIKÁCIA</string>
+    <string name="vpn0wn_settings_section_about">§05 O APLIKÁCII · PROJEKT</string>
 
-    <string name="tunnl_add_sheet_title">PRIDAŤ TUNEL · VYBRAŤ ZDROJ</string>
-    <string name="tunnl_add_sheet_qr_subtitle">Kamera</string>
-    <string name="tunnl_add_sheet_file_subtitle">Zo súborov</string>
-    <string name="tunnl_add_sheet_manual_subtitle">Vygenerovať pár kľúčov · zadať ručne</string>
+    <string name="vpn0wn_add_sheet_title">PRIDAŤ TUNEL · VYBRAŤ ZDROJ</string>
+    <string name="vpn0wn_add_sheet_qr_subtitle">Kamera</string>
+    <string name="vpn0wn_add_sheet_file_subtitle">Zo súborov</string>
+    <string name="vpn0wn_add_sheet_manual_subtitle">Vygenerovať pár kľúčov · zadať ručne</string>
 
-    <string name="tunnl_selection_delete">Odstrániť vybrané tunely</string>
-    <string name="tunnl_selection_exit">Ukončiť výber</string>
-    <string name="tunnl_selection_mode">REŽIM VÝBERU</string>
-    <string name="tunnl_selection_status_empty">0 VYBRATÉ</string>
-    <string name="tunnl_selection_status_count">%1$d Z %2$d VYBRATÉ</string>
-    <plurals name="tunnl_selection_title">
+    <string name="vpn0wn_selection_delete">Odstrániť vybrané tunely</string>
+    <string name="vpn0wn_selection_exit">Ukončiť výber</string>
+    <string name="vpn0wn_selection_mode">REŽIM VÝBERU</string>
+    <string name="vpn0wn_selection_status_empty">0 VYBRATÉ</string>
+    <string name="vpn0wn_selection_status_count">%1$d Z %2$d VYBRATÉ</string>
+    <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d VYBRATÉ</item>
         <item quantity="other">%d VYBRATÉ</item>
     </plurals>
-    <plurals name="tunnl_delete_sheet_title">
+    <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">odstrániť %d tunel?</item>
         <item quantity="other">odstrániť %d tunelov?</item>
     </plurals>

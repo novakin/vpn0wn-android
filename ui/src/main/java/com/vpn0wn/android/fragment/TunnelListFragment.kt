@@ -417,7 +417,7 @@ class TunnelListFragment : BaseFragment() {
         val sheet = layoutInflater.inflate(R.layout.tunnel_delete_bottom_sheet, null)
         deleteSnapshot = snapshot
         sheet.findViewById<TextView>(R.id.delete_sheet_title).text = resources.getQuantityString(
-            R.plurals.tunnl_delete_sheet_title, deleteSnapshot.size, deleteSnapshot.size)
+            R.plurals.vpn0wn_delete_sheet_title, deleteSnapshot.size, deleteSnapshot.size)
         sheet.findViewById<TextView>(R.id.delete_sheet_names).text = deleteSnapshot.joinToString("\n") { it.name }
         sheet.findViewById<View>(R.id.delete_sheet_cancel).setOnClickListener { dialog.dismiss() }
         sheet.findViewById<View>(R.id.delete_sheet_confirm).setOnClickListener {
@@ -444,7 +444,7 @@ class TunnelListFragment : BaseFragment() {
         val active = deleteSnapshot.filter { it.state != Tunnel.State.DOWN }
         dialog.findViewById<TextView>(R.id.delete_sheet_warning)?.apply {
             visibility = if (active.isEmpty()) View.GONE else View.VISIBLE
-            text = getString(R.string.tunnl_delete_stop_warning) + "\n" + active.joinToString("\n") { it.name }
+            text = getString(R.string.vpn0wn_delete_stop_warning) + "\n" + active.joinToString("\n") { it.name }
         }
     }
 
@@ -465,10 +465,10 @@ class TunnelListFragment : BaseFragment() {
         currentBinding.selectionStatusContainer.visibility = if (selectionMode) View.VISIBLE else View.GONE
         currentBinding.createFab.visibility = if (selectionMode) View.GONE else View.VISIBLE
         if (selectionChanged) currentBinding.homeAppBar.setExpanded(true, false)
-        currentBinding.selectionTitle.text = resources.getQuantityString(R.plurals.tunnl_selection_title, selectedTunnels.size, selectedTunnels.size)
-        currentBinding.selectionStatus.text = if (deleting) getString(R.string.tunnl_delete_in_progress)
-            else if (selectedTunnels.isEmpty()) getString(R.string.tunnl_selection_status_empty)
-            else getString(R.string.tunnl_selection_status_count, selectedTunnels.size, observedTunnels?.size ?: 0)
+        currentBinding.selectionTitle.text = resources.getQuantityString(R.plurals.vpn0wn_selection_title, selectedTunnels.size, selectedTunnels.size)
+        currentBinding.selectionStatus.text = if (deleting) getString(R.string.vpn0wn_delete_in_progress)
+            else if (selectedTunnels.isEmpty()) getString(R.string.vpn0wn_selection_status_empty)
+            else getString(R.string.vpn0wn_selection_status_count, selectedTunnels.size, observedTunnels?.size ?: 0)
         currentBinding.selectionDelete.isEnabled = selectedTunnels.isNotEmpty() && !deleting
         currentBinding.selectionDelete.visibility = if (selectedTunnels.isEmpty()) View.INVISIBLE else View.VISIBLE
         currentBinding.selectionClose.isEnabled = !deleting
@@ -521,9 +521,9 @@ class TunnelListFragment : BaseFragment() {
                         exitSelectionMode()
                         showSnackbar(resources.getQuantityString(R.plurals.delete_success, removed, removed))
                     } else {
-                        val reason = if (failure is CancellationException) getString(R.string.tunnl_delete_cancelled)
+                        val reason = if (failure is CancellationException) getString(R.string.vpn0wn_delete_cancelled)
                             else failure?.let { ErrorMessages[it] }.orEmpty()
-                        showSnackbar(getString(R.string.tunnl_delete_progress, removed, snapshot.size, remaining, reason))
+                        showSnackbar(getString(R.string.vpn0wn_delete_progress, removed, snapshot.size, remaining, reason))
                     }
                 }
             }

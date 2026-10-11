@@ -135,29 +135,29 @@
     <string name="biometric_auth_error">Αποτυχία ελέγχου ταυτότητας</string>
     <string name="biometric_auth_error_reason">Αποτυχία ελέγχου ταυτότητας: %s</string>
 
-    <string name="tunnl_settings_title">ρυθμίσεις</string>
-    <string name="tunnl_settings_subtitle">ΚΑΘΟΛΙΚΑ · ΕΛΕΓΧΟΣ ΕΦΑΡΜΟΓΗΣ</string>
-    <string name="tunnl_settings_section_connection">§01 ΣΥΝΔΕΣΗ · ΠΡΟΕΠΙΛΟΓΕΣ</string>
-    <string name="tunnl_settings_section_control">§02 ΕΛΕΓΧΟΣ · ΑΥΤΟΜΑΤΙΣΜΟΣ</string>
-    <string name="tunnl_settings_section_data">§03 ΔΕΔΟΜΕΝΑ · ΑΝΤΙΓΡΑΦΑ</string>
-    <string name="tunnl_settings_section_appearance">§04 ΕΜΦΑΝΙΣΗ · ΕΦΑΡΜΟΓΗ</string>
-    <string name="tunnl_settings_section_about">§05 ΣΧΕΤΙΚΑ · ΕΡΓΟ</string>
+    <string name="vpn0wn_settings_title">ρυθμίσεις</string>
+    <string name="vpn0wn_settings_subtitle">ΚΑΘΟΛΙΚΑ · ΕΛΕΓΧΟΣ ΕΦΑΡΜΟΓΗΣ</string>
+    <string name="vpn0wn_settings_section_connection">§01 ΣΥΝΔΕΣΗ · ΠΡΟΕΠΙΛΟΓΕΣ</string>
+    <string name="vpn0wn_settings_section_control">§02 ΕΛΕΓΧΟΣ · ΑΥΤΟΜΑΤΙΣΜΟΣ</string>
+    <string name="vpn0wn_settings_section_data">§03 ΔΕΔΟΜΕΝΑ · ΑΝΤΙΓΡΑΦΑ</string>
+    <string name="vpn0wn_settings_section_appearance">§04 ΕΜΦΑΝΙΣΗ · ΕΦΑΡΜΟΓΗ</string>
+    <string name="vpn0wn_settings_section_about">§05 ΣΧΕΤΙΚΑ · ΕΡΓΟ</string>
 
-    <string name="tunnl_add_sheet_title">ΠΡΟΣΘΗΚΗ TUNNEL · ΕΠΙΛΟΓΗ ΠΗΓΗΣ</string>
-    <string name="tunnl_add_sheet_qr_subtitle">Κάμερα</string>
-    <string name="tunnl_add_sheet_file_subtitle">Από αρχεία</string>
-    <string name="tunnl_add_sheet_manual_subtitle">Δημιουργία ζεύγους κλειδιών · χειροκίνητη εισαγωγή</string>
+    <string name="vpn0wn_add_sheet_title">ΠΡΟΣΘΗΚΗ TUNNEL · ΕΠΙΛΟΓΗ ΠΗΓΗΣ</string>
+    <string name="vpn0wn_add_sheet_qr_subtitle">Κάμερα</string>
+    <string name="vpn0wn_add_sheet_file_subtitle">Από αρχεία</string>
+    <string name="vpn0wn_add_sheet_manual_subtitle">Δημιουργία ζεύγους κλειδιών · χειροκίνητη εισαγωγή</string>
 
-    <string name="tunnl_selection_delete">Διαγραφή επιλεγμένων tunnel</string>
-    <string name="tunnl_selection_exit">Έξοδος από επιλογή</string>
-    <string name="tunnl_selection_mode">ΛΕΙΤΟΥΡΓΙΑ ΕΠΙΛΟΓΗΣ</string>
-    <string name="tunnl_selection_status_empty">0 ΕΠΙΛΕΓΜΕΝΑ</string>
-    <string name="tunnl_selection_status_count">%1$d ΑΠΟ %2$d ΕΠΙΛΕΓΜΕΝΑ</string>
-    <plurals name="tunnl_selection_title">
+    <string name="vpn0wn_selection_delete">Διαγραφή επιλεγμένων tunnel</string>
+    <string name="vpn0wn_selection_exit">Έξοδος από επιλογή</string>
+    <string name="vpn0wn_selection_mode">ΛΕΙΤΟΥΡΓΙΑ ΕΠΙΛΟΓΗΣ</string>
+    <string name="vpn0wn_selection_status_empty">0 ΕΠΙΛΕΓΜΕΝΑ</string>
+    <string name="vpn0wn_selection_status_count">%1$d ΑΠΟ %2$d ΕΠΙΛΕΓΜΕΝΑ</string>
+    <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d ΕΠΙΛΕΓΜΕΝΑ</item>
         <item quantity="other">%d ΕΠΙΛΕΓΜΕΝΑ</item>
     </plurals>
-    <plurals name="tunnl_delete_sheet_title">
+    <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">διαγραφή %d tunnel;</item>
         <item quantity="other">διαγραφή %d tunnel;</item>
     </plurals>

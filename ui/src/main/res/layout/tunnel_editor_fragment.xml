@@ -77,7 +77,7 @@
                         android:layout_weight="1"
                         android:ellipsize="end"
                         android:maxLines="1"
-                        android:text="@{isNew ? @string/tunnl_editor_create : @string/tunnl_editor_edit}" />
+                        android:text="@{isNew ? @string/vpn0wn_editor_create : @string/vpn0wn_editor_edit}" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/editor_save_button"
@@ -105,7 +105,7 @@
                     android:layout_marginTop="4dp"
                     android:ellipsize="end"
                     android:maxLines="1"
-                    android:text="@{isNew ? @string/tunnl_editor_new_tunnel : name}"
+                    android:text="@{isNew ? @string/vpn0wn_editor_new_tunnel : name}"
                     tools:text="home-lab" />
             </LinearLayout>
 

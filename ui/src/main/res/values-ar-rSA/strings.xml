@@ -295,29 +295,29 @@
     <string name="biometric_auth_error">فشل في المصادقة</string>
     <string name="biometric_auth_error_reason">فشل في المصادقة: %s</string>
 
-    <string name="tunnl_settings_title">الإعدادات</string>
-    <string name="tunnl_settings_subtitle">عام · تحكم التطبيق</string>
-    <string name="tunnl_settings_section_connection">§01 الاتصال · الإعدادات الافتراضية</string>
-    <string name="tunnl_settings_section_control">§02 التحكم · الأتمتة</string>
-    <string name="tunnl_settings_section_data">§03 البيانات · النسخ الاحتياطي</string>
-    <string name="tunnl_settings_section_appearance">§04 المظهر · التطبيق</string>
-    <string name="tunnl_settings_section_about">§05 حول · المشروع</string>
+    <string name="vpn0wn_settings_title">الإعدادات</string>
+    <string name="vpn0wn_settings_subtitle">عام · تحكم التطبيق</string>
+    <string name="vpn0wn_settings_section_connection">§01 الاتصال · الإعدادات الافتراضية</string>
+    <string name="vpn0wn_settings_section_control">§02 التحكم · الأتمتة</string>
+    <string name="vpn0wn_settings_section_data">§03 البيانات · النسخ الاحتياطي</string>
+    <string name="vpn0wn_settings_section_appearance">§04 المظهر · التطبيق</string>
+    <string name="vpn0wn_settings_section_about">§05 حول · المشروع</string>
 
-    <string name="tunnl_add_sheet_title">إضافة نفق · اختر المصدر</string>
-    <string name="tunnl_add_sheet_qr_subtitle">الكاميرا</string>
-    <string name="tunnl_add_sheet_file_subtitle">من الملفات</string>
-    <string name="tunnl_add_sheet_manual_subtitle">إنشاء زوج مفاتيح · إدخال يدوي</string>
+    <string name="vpn0wn_add_sheet_title">إضافة نفق · اختر المصدر</string>
+    <string name="vpn0wn_add_sheet_qr_subtitle">الكاميرا</string>
+    <string name="vpn0wn_add_sheet_file_subtitle">من الملفات</string>
+    <string name="vpn0wn_add_sheet_manual_subtitle">إنشاء زوج مفاتيح · إدخال يدوي</string>
 
-    <string name="tunnl_selection_delete">حذف الأنفاق المحددة</string>
-    <string name="tunnl_selection_exit">الخروج من التحديد</string>
-    <string name="tunnl_selection_mode">وضع التحديد</string>
-    <string name="tunnl_selection_status_empty">0 محدد</string>
-    <string name="tunnl_selection_status_count">%1$d من %2$d محدد</string>
-    <plurals name="tunnl_selection_title">
+    <string name="vpn0wn_selection_delete">حذف الأنفاق المحددة</string>
+    <string name="vpn0wn_selection_exit">الخروج من التحديد</string>
+    <string name="vpn0wn_selection_mode">وضع التحديد</string>
+    <string name="vpn0wn_selection_status_empty">0 محدد</string>
+    <string name="vpn0wn_selection_status_count">%1$d من %2$d محدد</string>
+    <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d محدد</item>
         <item quantity="other">%d محدد</item>
     </plurals>
-    <plurals name="tunnl_delete_sheet_title">
+    <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">حذف نفق %d؟</item>
         <item quantity="other">حذف %d أنفاق؟</item>
     </plurals>

@@ -39,7 +39,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:layout_weight="1"
-                android:text="@string/tunnl_settings_section_about" />
+                android:text="@string/vpn0wn_settings_section_about" />
         </LinearLayout>
 
         <TextView

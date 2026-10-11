@@ -128,7 +128,7 @@
                                 android:layout_marginTop="8dp"
                                 android:ellipsize="end"
                                 android:singleLine="true"
-                                android:text="@string/tunnl_list_title"
+                                android:text="@string/vpn0wn_list_title"
                                 android:textColor="@color/vpn0wn_ink" />
                         </LinearLayout>
 
@@ -155,7 +155,7 @@
                                     android:layout_width="48dp"
                                     android:layout_height="48dp"
                                     android:background="?attr/selectableItemBackgroundBorderless"
-                                    android:contentDescription="@string/tunnl_selection_exit"
+                                    android:contentDescription="@string/vpn0wn_selection_exit"
                                     android:onClick="@{fragment::onExitSelection}"
                                     android:padding="16dp"
                                     app:srcCompat="@drawable/ic_vpn0wn_close"
@@ -166,14 +166,14 @@
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
                                     android:layout_weight="1"
-                                    android:text="@string/tunnl_selection_mode" />
+                                    android:text="@string/vpn0wn_selection_mode" />
 
                                 <androidx.appcompat.widget.AppCompatImageButton
                                     android:id="@+id/selection_delete"
                                     android:layout_width="48dp"
                                     android:layout_height="48dp"
                                     android:background="?attr/selectableItemBackgroundBorderless"
-                                    android:contentDescription="@string/tunnl_selection_delete"
+                                    android:contentDescription="@string/vpn0wn_selection_delete"
                                     android:onClick="@{fragment::onDeleteSelection}"
                                     android:padding="16dp"
                                     app:srcCompat="@drawable/ic_vpn0wn_trash"
@@ -257,7 +257,7 @@
                                         android:layout_width="match_parent"
                                         android:layout_height="wrap_content"
                                         android:gravity="end"
-                                        android:text="@string/tunnl_home_endpoint" />
+                                        android:text="@string/vpn0wn_home_endpoint" />
 
                                     <TextView
                                         android:id="@+id/home_endpoint_host"
@@ -388,7 +388,7 @@
                 android:layout_marginBottom="10dp"
                 android:foreground="@drawable/vpn0wn_home_corner_ticks"
                 android:nextFocusUp="@id/tunnel_list"
-                android:text="@string/tunnl_add_tunnel" />
+                android:text="@string/vpn0wn_add_tunnel" />
         </LinearLayout>
 
     </androidx.coordinatorlayout.widget.CoordinatorLayout>

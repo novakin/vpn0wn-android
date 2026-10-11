@@ -151,14 +151,14 @@ class VpsProvisioningFragment : BaseFragment() {
 
     private fun fleetScreen(): View {
         val container = vertical()
-        container.addView(topBar(title = str(R.string.tunnl_servers_title).lowercase(Locale.ROOT), sub = str(R.string.tunnl_servers_summary, servers.size, servers.sumOf { it.users.size }), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { goBack() }, right = listOf(iconButton(R.drawable.ic_vpn0wn_logs) { toast(str(R.string.tunnl_server_logs_pending)) }, iconButton(R.drawable.ic_vpn0wn_settings) { toast(str(R.string.tunnl_server_settings_pending)) }), big = true))
+        container.addView(topBar(title = str(R.string.vpn0wn_servers_title).lowercase(Locale.ROOT), sub = str(R.string.vpn0wn_servers_summary, servers.size, servers.sumOf { it.users.size }), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { goBack() }, right = listOf(iconButton(R.drawable.ic_vpn0wn_logs) { toast(str(R.string.vpn0wn_server_logs_pending)) }, iconButton(R.drawable.ic_vpn0wn_settings) { toast(str(R.string.vpn0wn_server_settings_pending)) }), big = true))
         container.addView(statusTiles())
         val (scrollView, scroll) = scrollContent()
-        scroll.addView(sectionHeader(1, str(R.string.tunnl_server_fleet), filter?.let { str(it.shortLabelRes) } ?: str(R.string.tunnl_self_hosted)))
+        scroll.addView(sectionHeader(1, str(R.string.vpn0wn_server_fleet), filter?.let { str(it.shortLabelRes) } ?: str(R.string.vpn0wn_self_hosted)))
         val displayed = if (filter == null) servers else servers.filter { it.status == filter }
         displayed.forEach { scroll.addView(serverCard(it)) }
         if (displayed.isEmpty()) scroll.addView(emptyFleetCard())
-        scroll.addView(dashedButton(str(R.string.tunnl_add_server)) {
+        scroll.addView(dashedButton(str(R.string.vpn0wn_add_server)) {
             provisionForm.clear()
             provisionStep = SSH_STEP
             applyRunning = false
@@ -177,8 +177,8 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun emptyFleetCard(): View = card().apply {
         setPadding(dp(14), dp(12), dp(14), dp(12))
-        addView(label(str(R.string.tunnl_no_servers)))
-        addView(mono(str(R.string.tunnl_no_servers_summary), 11, R.color.vpn0wn_ink_2).apply { setPadding(0, dp(6), 0, 0) })
+        addView(label(str(R.string.vpn0wn_no_servers)))
+        addView(mono(str(R.string.vpn0wn_no_servers_summary), 11, R.color.vpn0wn_ink_2).apply { setPadding(0, dp(6), 0, 0) })
     }.withMargins(bottom = 10)
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
@@ -188,7 +188,7 @@ class VpsProvisioningFragment : BaseFragment() {
             setBackgroundColor(color(R.color.vpn0wn_paper_2))
         }
         val tiles = mutableListOf<Pair<VpsDeployServerStatus?, String>>()
-        tiles.add(null to str(R.string.tunnl_filter_all))
+        tiles.add(null to str(R.string.vpn0wn_filter_all))
         VpsDeployServerStatus.values().filter { status -> servers.any { it.status == status } }.forEach { tiles.add(it to str(it.shortLabelRes)) }
         tiles.forEach { (status, label) ->
             val count = if (status == null) servers.size else servers.count { it.status == status }
@@ -230,8 +230,8 @@ class VpsProvisioningFragment : BaseFragment() {
             addView(label("${server.provider.uppercase(Locale.ROOT)} · ${server.region.uppercase(Locale.ROOT)}"))
         })
         body.addView(mono(server.name, 16, R.color.vpn0wn_ink, Typeface.BOLD).apply { setPadding(0, dp(8), 0, 0) })
-        body.addView(mono(str(R.string.tunnl_server_card_summary, "${server.endpoint}:${server.port}", server.users.size, server.engine), 10, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(4), 0, dp(10)) })
-        body.addView(metricRow(listOf(str(R.string.tunnl_metric_cidr) to server.cidr, str(R.string.tunnl_metric_uptime) to server.uptime, str(R.string.tunnl_metric_sync) to server.lastSync)))
+        body.addView(mono(str(R.string.vpn0wn_server_card_summary, "${server.endpoint}:${server.port}", server.users.size, server.engine), 10, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(4), 0, dp(10)) })
+        body.addView(metricRow(listOf(str(R.string.vpn0wn_metric_cidr) to server.cidr, str(R.string.vpn0wn_metric_uptime) to server.uptime, str(R.string.vpn0wn_metric_sync) to server.lastSync)))
         body.addView(horizontalWrap(server.health.map { healthBadge(it) }).apply { setPadding(0, dp(10), 0, 0) })
         railRow.addView(body, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
         card.addView(railRow)
@@ -242,56 +242,56 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun detailScreen(server: VpsDeployServer): View {
         val container = vertical()
-        container.addView(topBar(title = server.name, sub = str(R.string.tunnl_server_subtitle, server.region.uppercase(Locale.ROOT)), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { screen = Screen.Fleet; render() }, right = listOf(iconButton(R.drawable.ic_vpn0wn_refresh) { toast(str(R.string.tunnl_server_synced)) }, iconButton(R.drawable.ic_vpn0wn_more) { toast(str(R.string.tunnl_more_pending)) })))
+        container.addView(topBar(title = server.name, sub = str(R.string.vpn0wn_server_subtitle, server.region.uppercase(Locale.ROOT)), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { screen = Screen.Fleet; render() }, right = listOf(iconButton(R.drawable.ic_vpn0wn_refresh) { toast(str(R.string.vpn0wn_server_synced)) }, iconButton(R.drawable.ic_vpn0wn_more) { toast(str(R.string.vpn0wn_more_pending)) })))
         val (scrollView, scroll) = scrollContent()
         scroll.addView(VpsTopologyView(requireContext()).apply {
             bind(server)
             minimumHeight = dp(164)
             background = panelBg()
         }.withMargins(bottom = 14))
-        scroll.addView(sectionHeader(1, str(R.string.tunnl_section_health), str(server.status.labelRes)))
+        scroll.addView(sectionHeader(1, str(R.string.vpn0wn_section_health), str(server.status.labelRes)))
         scroll.addView(panel {
-            configLine(str(R.string.tunnl_label_endpoint), "${server.endpoint}:${server.port}", copy = true)
-            configLine(str(R.string.tunnl_label_distro), server.distro)
-            configLine(str(R.string.tunnl_label_engine), "${server.engine} · ${server.version}")
-            configLine(str(R.string.tunnl_label_uptime), server.uptime)
-            configLine(str(R.string.tunnl_label_last_sync), server.lastSync)
-            addView(label(str(R.string.tunnl_checks)).apply { setPadding(dp(14), dp(10), dp(14), dp(6)) })
+            configLine(str(R.string.vpn0wn_label_endpoint), "${server.endpoint}:${server.port}", copy = true)
+            configLine(str(R.string.vpn0wn_label_distro), server.distro)
+            configLine(str(R.string.vpn0wn_label_engine), "${server.engine} · ${server.version}")
+            configLine(str(R.string.vpn0wn_label_uptime), server.uptime)
+            configLine(str(R.string.vpn0wn_label_last_sync), server.lastSync)
+            addView(label(str(R.string.vpn0wn_checks)).apply { setPadding(dp(14), dp(10), dp(14), dp(6)) })
             addView(horizontalWrap(server.health.map { healthBadge(it) }).apply { setPadding(dp(14), 0, dp(14), dp(10)) })
         })
-        scroll.addView(sectionHeader(2, str(R.string.tunnl_section_vpn_users), str(R.string.tunnl_peers_count, server.users.size)))
+        scroll.addView(sectionHeader(2, str(R.string.vpn0wn_section_vpn_users), str(R.string.vpn0wn_peers_count, server.users.size)))
         scroll.addView(panel {
             if (server.users.isEmpty()) {
-                addView(mono(str(R.string.tunnl_no_peers_yet), 11, R.color.vpn0wn_ink_3).apply { setPadding(dp(14), dp(14), dp(14), dp(14)) })
+                addView(mono(str(R.string.vpn0wn_no_peers_yet), 11, R.color.vpn0wn_ink_3).apply { setPadding(dp(14), dp(14), dp(14), dp(14)) })
             } else {
                 server.users.forEachIndexed { index, user -> addView(userRow(server, user, index)) }
             }
-            addView(rowButton(str(R.string.tunnl_add_vpn_user)) {
+            addView(rowButton(str(R.string.vpn0wn_add_vpn_user)) {
                 addUser()
             })
         })
-        scroll.addView(sectionHeader(3, str(R.string.tunnl_section_network), "WG0"))
+        scroll.addView(sectionHeader(3, str(R.string.vpn0wn_section_network), "WG0"))
         scroll.addView(panel {
-            configLine(str(R.string.tunnl_metric_cidr), server.cidr)
-            configLine(str(R.string.tunnl_label_dns), server.dns)
-            configLine(str(R.string.tunnl_label_listen_port), "UDP ${server.port}")
-            configLine(str(R.string.tunnl_label_engine), server.engine)
+            configLine(str(R.string.vpn0wn_metric_cidr), server.cidr)
+            configLine(str(R.string.vpn0wn_label_dns), server.dns)
+            configLine(str(R.string.vpn0wn_label_listen_port), "UDP ${server.port}")
+            configLine(str(R.string.vpn0wn_label_engine), server.engine)
         })
-        scroll.addView(sectionHeader(4, str(R.string.tunnl_section_actions), str(R.string.tunnl_hint_remote)))
+        scroll.addView(sectionHeader(4, str(R.string.vpn0wn_section_actions), str(R.string.vpn0wn_hint_remote)))
         scroll.addView(actionGrid(listOf(
-            VpsDeployAction(R.drawable.ic_vpn0wn_refresh, str(R.string.tunnl_action_repair), str(R.string.tunnl_action_repair_sub), R.color.vpn0wn_ink) { toast(str(R.string.tunnl_repair_queued)) },
-            VpsDeployAction(R.drawable.ic_vpn0wn_share, str(R.string.tunnl_action_backup), str(R.string.tunnl_action_backup_sub), R.color.vpn0wn_signal_deep) { toast(str(R.string.tunnl_backup_exported)) },
-            VpsDeployAction(R.drawable.ic_vpn0wn_logs, str(R.string.tunnl_action_terminal), str(R.string.tunnl_action_terminal_sub), R.color.vpn0wn_ink) { toast(str(R.string.tunnl_terminal_pending)) },
-            VpsDeployAction(R.drawable.ic_vpn0wn_trash, str(R.string.tunnl_action_uninstall), str(R.string.tunnl_action_uninstall_sub), R.color.vpn0wn_error) { toast(str(R.string.tunnl_uninstall_requires_confirmation)) },
+            VpsDeployAction(R.drawable.ic_vpn0wn_refresh, str(R.string.vpn0wn_action_repair), str(R.string.vpn0wn_action_repair_sub), R.color.vpn0wn_ink) { toast(str(R.string.vpn0wn_repair_queued)) },
+            VpsDeployAction(R.drawable.ic_vpn0wn_share, str(R.string.vpn0wn_action_backup), str(R.string.vpn0wn_action_backup_sub), R.color.vpn0wn_signal_deep) { toast(str(R.string.vpn0wn_backup_exported)) },
+            VpsDeployAction(R.drawable.ic_vpn0wn_logs, str(R.string.vpn0wn_action_terminal), str(R.string.vpn0wn_action_terminal_sub), R.color.vpn0wn_ink) { toast(str(R.string.vpn0wn_terminal_pending)) },
+            VpsDeployAction(R.drawable.ic_vpn0wn_trash, str(R.string.vpn0wn_action_uninstall), str(R.string.vpn0wn_action_uninstall_sub), R.color.vpn0wn_error) { toast(str(R.string.vpn0wn_uninstall_requires_confirmation)) },
         )))
         container.addView(scrollView, LinearLayout.LayoutParams(-1, 0, 1f))
         return container
     }
 
     private fun provisionScreen(): View {
-        val steps = listOf(str(R.string.tunnl_step_ssh), str(R.string.tunnl_step_detect), str(R.string.tunnl_step_plan), str(R.string.tunnl_step_apply), str(R.string.tunnl_step_import))
+        val steps = listOf(str(R.string.vpn0wn_step_ssh), str(R.string.vpn0wn_step_detect), str(R.string.vpn0wn_step_plan), str(R.string.vpn0wn_step_apply), str(R.string.vpn0wn_step_import))
         val container = vertical()
-        container.addView(topBar(title = str(R.string.tunnl_deploy_server_title), sub = str(R.string.tunnl_deploy_step_summary, provisionStep + 1, steps[provisionStep]), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = {
+        container.addView(topBar(title = str(R.string.vpn0wn_deploy_server_title), sub = str(R.string.vpn0wn_deploy_step_summary, provisionStep + 1, steps[provisionStep]), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = {
             if (provisionStep == 0) {
                 resetProvisionSession()
                 screen = Screen.Fleet
@@ -318,39 +318,39 @@ class VpsProvisioningFragment : BaseFragment() {
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
     private fun sshStep(parent: LinearLayout) {
-        parent.addView(sectionHeader(1, str(R.string.tunnl_section_ssh_access), str(R.string.tunnl_hint_no_cloud_relay)))
+        parent.addView(sectionHeader(1, str(R.string.vpn0wn_section_ssh_access), str(R.string.vpn0wn_hint_no_cloud_relay)))
         parent.addView(panel {
-            editLine(str(R.string.tunnl_label_host), str(R.string.tunnl_host_placeholder), provisionForm.host) {
+            editLine(str(R.string.vpn0wn_label_host), str(R.string.vpn0wn_host_placeholder), provisionForm.host) {
                 provisionForm = provisionForm.copy(host = it)
             }
             val split = horizontal()
-            split.addView(editLineView(str(R.string.tunnl_label_port), "22", provisionForm.port, InputType.TYPE_CLASS_NUMBER) {
+            split.addView(editLineView(str(R.string.vpn0wn_label_port), "22", provisionForm.port, InputType.TYPE_CLASS_NUMBER) {
                 provisionForm = provisionForm.copy(port = it)
             }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-            split.addView(editLineView(str(R.string.tunnl_label_user), "root", provisionForm.user) {
+            split.addView(editLineView(str(R.string.vpn0wn_label_user), "root", provisionForm.user) {
                 provisionForm = provisionForm.copy(user = it)
             }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             addView(split)
-            addView(segmented(listOf(AuthMode.KEY.name to str(R.string.tunnl_auth_ssh_key), AuthMode.PASSWORD.name to str(R.string.tunnl_auth_password)), authMode.name) {
+            addView(segmented(listOf(AuthMode.KEY.name to str(R.string.vpn0wn_auth_ssh_key), AuthMode.PASSWORD.name to str(R.string.vpn0wn_auth_password)), authMode.name) {
                 authMode = AuthMode.valueOf(it)
                 render()
             }.apply { setPadding(dp(14), dp(10), dp(14), dp(10)) })
             if (authMode == AuthMode.KEY) {
-                boxedEditLine(str(R.string.tunnl_label_private_key), str(R.string.tunnl_private_key_placeholder), provisionForm.privateKey, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS, minLines = 5, textSize = 10) {
+                boxedEditLine(str(R.string.vpn0wn_label_private_key), str(R.string.vpn0wn_private_key_placeholder), provisionForm.privateKey, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS, minLines = 5, textSize = 10) {
                     provisionForm = provisionForm.copy(privateKey = it)
                 }
-                addView(mono(str(R.string.tunnl_private_key_keystore_note), 10, R.color.vpn0wn_ink_3).apply { setPadding(dp(14), 0, dp(14), dp(8)) })
-                addView(smallOutlineButton(str(R.string.tunnl_pick_key_file)) {
-                    toast(str(R.string.tunnl_key_file_picker_pending))
+                addView(mono(str(R.string.vpn0wn_private_key_keystore_note), 10, R.color.vpn0wn_ink_3).apply { setPadding(dp(14), 0, dp(14), dp(8)) })
+                addView(smallOutlineButton(str(R.string.vpn0wn_pick_key_file)) {
+                    toast(str(R.string.vpn0wn_key_file_picker_pending))
                 }.withMargins(left = 14, right = 14, bottom = 12))
             } else {
-                boxedEditLine(str(R.string.tunnl_auth_password), str(R.string.tunnl_password_placeholder), String(provisionForm.password), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD, textSize = 14) {
+                boxedEditLine(str(R.string.vpn0wn_auth_password), str(R.string.vpn0wn_password_placeholder), String(provisionForm.password), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD, textSize = 14) {
                     provisionForm.clear()
                     provisionForm = provisionForm.copy(password = it.toCharArray())
                 }
-                addView(mono(str(R.string.tunnl_password_ephemeral_note), 10, R.color.vpn0wn_warn).apply { setPadding(dp(14), 0, dp(14), dp(12)) })
+                addView(mono(str(R.string.vpn0wn_password_ephemeral_note), 10, R.color.vpn0wn_warn).apply { setPadding(dp(14), 0, dp(14), dp(12)) })
             }
-            addView(toggleLine(str(R.string.tunnl_trust_server_key), str(R.string.tunnl_trust_server_key_desc), trustHost) {
+            addView(toggleLine(str(R.string.vpn0wn_trust_server_key), str(R.string.vpn0wn_trust_server_key_desc), trustHost) {
                 trustHost = !trustHost
                 render()
             })
@@ -360,50 +360,50 @@ class VpsProvisioningFragment : BaseFragment() {
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
     private fun detectStep(parent: LinearLayout) {
-        val pending = str(R.string.tunnl_pending_live_data)
-        parent.addView(sectionHeader(2, str(R.string.tunnl_step_detect).lowercase(Locale.ROOT), str(R.string.tunnl_hint_dry_run)))
+        val pending = str(R.string.vpn0wn_pending_live_data)
+        parent.addView(sectionHeader(2, str(R.string.vpn0wn_step_detect).lowercase(Locale.ROOT), str(R.string.vpn0wn_hint_dry_run)))
         parent.addView(panel {
-            configLine(str(R.string.tunnl_label_distro), pending)
-            configLine(str(R.string.tunnl_label_kernel), pending)
-            configLine(str(R.string.tunnl_label_public_ip), pending)
-            configLine(str(R.string.tunnl_label_firewall), pending)
-            configLine(str(R.string.tunnl_label_wg_status), pending)
-            configLine(str(R.string.tunnl_label_ip_forwarding), pending)
+            configLine(str(R.string.vpn0wn_label_distro), pending)
+            configLine(str(R.string.vpn0wn_label_kernel), pending)
+            configLine(str(R.string.vpn0wn_label_public_ip), pending)
+            configLine(str(R.string.vpn0wn_label_firewall), pending)
+            configLine(str(R.string.vpn0wn_label_wg_status), pending)
+            configLine(str(R.string.vpn0wn_label_ip_forwarding), pending)
         })
         parent.addView(card().apply {
             setPadding(dp(14), dp(10), dp(14), dp(10))
-            addView(label(str(R.string.tunnl_detect_assessment)))
-            addView(mono(str(R.string.tunnl_live_detect_placeholder), 11, R.color.vpn0wn_ink_2).apply { setPadding(0, dp(6), 0, 0) })
+            addView(label(str(R.string.vpn0wn_detect_assessment)))
+            addView(mono(str(R.string.vpn0wn_live_detect_placeholder), 11, R.color.vpn0wn_ink_2).apply { setPadding(0, dp(6), 0, 0) })
         })
     }
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
     private fun planStep(parent: LinearLayout) {
-        parent.addView(sectionHeader(3, str(R.string.tunnl_section_deployment_plan), str(R.string.tunnl_hint_review_before_apply)))
+        parent.addView(sectionHeader(3, str(R.string.vpn0wn_section_deployment_plan), str(R.string.vpn0wn_hint_review_before_apply)))
         parent.addView(panel {
             addView(VpsTerminalStreamView(requireContext()).apply {
-                setLines(listOf(str(R.string.tunnl_live_plan_placeholder)), false)
+                setLines(listOf(str(R.string.vpn0wn_live_plan_placeholder)), false)
             })
-            addView(label(str(R.string.tunnl_files_written)).apply { setPadding(dp(14), dp(10), dp(14), dp(6)) })
-            addView(mono(str(R.string.tunnl_pending_live_data), 10, R.color.vpn0wn_ink_3).apply { setPadding(dp(14), 0, dp(14), dp(8)) })
+            addView(label(str(R.string.vpn0wn_files_written)).apply { setPadding(dp(14), dp(10), dp(14), dp(6)) })
+            addView(mono(str(R.string.vpn0wn_pending_live_data), 10, R.color.vpn0wn_ink_3).apply { setPadding(dp(14), 0, dp(14), dp(8)) })
         })
     }
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
     private fun applyStep(parent: LinearLayout) {
-        parent.addView(sectionHeader(4, str(R.string.tunnl_step_apply).lowercase(Locale.ROOT), if (applyDone) str(R.string.tunnl_apply_complete) else if (applyRunning) str(R.string.tunnl_apply_running) else str(R.string.tunnl_apply_ready)))
+        parent.addView(sectionHeader(4, str(R.string.vpn0wn_step_apply).lowercase(Locale.ROOT), if (applyDone) str(R.string.vpn0wn_apply_complete) else if (applyRunning) str(R.string.vpn0wn_apply_running) else str(R.string.vpn0wn_apply_ready)))
         parent.addView(panel {
             if (!applyRunning && !applyDone) {
-                addView(mono(str(R.string.tunnl_apply_review_note), 11, R.color.vpn0wn_ink_3).apply { setPadding(dp(14)) })
+                addView(mono(str(R.string.vpn0wn_apply_review_note), 11, R.color.vpn0wn_ink_3).apply { setPadding(dp(14)) })
             } else {
-                addView(VpsTerminalStreamView(requireContext()).apply { setLines(listOf(str(R.string.tunnl_live_apply_placeholder)), applyRunning) })
+                addView(VpsTerminalStreamView(requireContext()).apply { setLines(listOf(str(R.string.vpn0wn_live_apply_placeholder)), applyRunning) })
             }
-            if (applyDone) addView(mono(str(R.string.tunnl_live_provisioning_required), 11, R.color.vpn0wn_warn).apply { setPadding(dp(14), dp(12), dp(14), dp(12)) })
+            if (applyDone) addView(mono(str(R.string.vpn0wn_live_provisioning_required), 11, R.color.vpn0wn_warn).apply { setPadding(dp(14), dp(12), dp(14), dp(12)) })
         })
         if (!applyRunning && !applyDone) {
-            parent.addView(dashedButton(str(R.string.tunnl_apply_plan_button), R.color.vpn0wn_warn, icon = null) {
+            parent.addView(dashedButton(str(R.string.vpn0wn_apply_plan_button), R.color.vpn0wn_warn, icon = null) {
                 startApplyPreview()
             })
         }
@@ -412,14 +412,14 @@ class VpsProvisioningFragment : BaseFragment() {
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
     private fun importStep(parent: LinearLayout) {
-        val pending = str(R.string.tunnl_pending_live_data)
-        parent.addView(sectionHeader(5, str(R.string.tunnl_section_import_device), str(R.string.tunnl_hint_first_peer)))
+        val pending = str(R.string.vpn0wn_pending_live_data)
+        parent.addView(sectionHeader(5, str(R.string.vpn0wn_section_import_device), str(R.string.vpn0wn_hint_first_peer)))
         parent.addView(panel {
-            configLine(str(R.string.tunnl_label_device_name), pending)
-            configLine(str(R.string.tunnl_label_assigned_ip), pending)
-            configLine(str(R.string.tunnl_label_dns), pending)
-            configLine(str(R.string.tunnl_label_allowed_ips), pending)
-            configLine(str(R.string.tunnl_label_keepalive), pending)
+            configLine(str(R.string.vpn0wn_label_device_name), pending)
+            configLine(str(R.string.vpn0wn_label_assigned_ip), pending)
+            configLine(str(R.string.vpn0wn_label_dns), pending)
+            configLine(str(R.string.vpn0wn_label_allowed_ips), pending)
+            configLine(str(R.string.vpn0wn_label_keepalive), pending)
         })
     }
 
@@ -427,32 +427,32 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun userScreen(server: VpsDeployServer, user: VpsDeployUser): View {
         val container = vertical()
-        container.addView(topBar(title = user.name, sub = str(R.string.tunnl_user_subtitle, server.name.uppercase(Locale.ROOT)), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { screen = Screen.Detail(server.id); render() }, right = listOf(iconButton(R.drawable.ic_vpn0wn_share) { toast(str(R.string.tunnl_profile_exported)) })))
+        container.addView(topBar(title = user.name, sub = str(R.string.vpn0wn_user_subtitle, server.name.uppercase(Locale.ROOT)), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { screen = Screen.Detail(server.id); render() }, right = listOf(iconButton(R.drawable.ic_vpn0wn_share) { toast(str(R.string.vpn0wn_profile_exported)) })))
         val (scrollView, scroll) = scrollContent()
         scroll.addView(card(user.status.colorRes).apply {
             setPadding(dp(14), dp(14), dp(14), dp(10))
             addView(label(str(user.status.labelRes), user.status.colorRes))
             addView(mono(user.ip, 22, R.color.vpn0wn_ink, Typeface.BOLD).apply { setPadding(0, dp(8), 0, 0) })
             addView(mono("${user.device} · created ${user.created}", 11, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(4), 0, dp(10)) })
-            addView(metricRow(listOf(str(R.string.tunnl_label_rx) to user.rx, str(R.string.tunnl_label_tx) to user.tx, str(R.string.tunnl_handshake) to user.handshake)))
+            addView(metricRow(listOf(str(R.string.vpn0wn_label_rx) to user.rx, str(R.string.vpn0wn_label_tx) to user.tx, str(R.string.vpn0wn_handshake) to user.handshake)))
         }.withMargins(bottom = 14))
-        scroll.addView(sectionHeader(1, str(R.string.tunnl_section_profile), str(R.string.tunnl_hint_wireguard)))
+        scroll.addView(sectionHeader(1, str(R.string.vpn0wn_section_profile), str(R.string.vpn0wn_hint_wireguard)))
         scroll.addView(panel {
-            configLine(str(R.string.tunnl_label_server), server.name)
-            configLine(str(R.string.tunnl_label_public_key), BindingAdapters.shortKey(user.key), copy = true)
-            configLine(str(R.string.tunnl_label_endpoint), "${server.endpoint}:${server.port}")
-            configLine(str(R.string.tunnl_label_dns), server.dns)
-            configLine(str(R.string.tunnl_label_allowed), user.allowedIps)
+            configLine(str(R.string.vpn0wn_label_server), server.name)
+            configLine(str(R.string.vpn0wn_label_public_key), BindingAdapters.shortKey(user.key), copy = true)
+            configLine(str(R.string.vpn0wn_label_endpoint), "${server.endpoint}:${server.port}")
+            configLine(str(R.string.vpn0wn_label_dns), server.dns)
+            configLine(str(R.string.vpn0wn_label_allowed), user.allowedIps)
         })
-        scroll.addView(sectionHeader(2, str(R.string.tunnl_section_actions), str(R.string.tunnl_hint_device)))
+        scroll.addView(sectionHeader(2, str(R.string.vpn0wn_section_actions), str(R.string.vpn0wn_hint_device)))
         scroll.addView(actionGrid(listOf(
-            VpsDeployAction(R.drawable.ic_vpn0wn_qr, str(R.string.tunnl_action_show_qr), str(R.string.tunnl_action_show_qr_sub), R.color.vpn0wn_signal_deep, user.status == VpsDeployUserStatus.REVOKED) { qrUser = user; render() },
-            VpsDeployAction(R.drawable.ic_vpn0wn_share, str(R.string.tunnl_action_export), str(R.string.tunnl_action_export_sub), R.color.vpn0wn_ink) { toast(str(R.string.tunnl_profile_exported)) },
-            VpsDeployAction(R.drawable.ic_vpn0wn_refresh, str(R.string.tunnl_action_rotate_key), str(R.string.tunnl_action_rotate_key_sub), R.color.vpn0wn_ink, user.status == VpsDeployUserStatus.REVOKED) {
-                toast(str(R.string.tunnl_live_add_peer_required))
+            VpsDeployAction(R.drawable.ic_vpn0wn_qr, str(R.string.vpn0wn_action_show_qr), str(R.string.vpn0wn_action_show_qr_sub), R.color.vpn0wn_signal_deep, user.status == VpsDeployUserStatus.REVOKED) { qrUser = user; render() },
+            VpsDeployAction(R.drawable.ic_vpn0wn_share, str(R.string.vpn0wn_action_export), str(R.string.vpn0wn_action_export_sub), R.color.vpn0wn_ink) { toast(str(R.string.vpn0wn_profile_exported)) },
+            VpsDeployAction(R.drawable.ic_vpn0wn_refresh, str(R.string.vpn0wn_action_rotate_key), str(R.string.vpn0wn_action_rotate_key_sub), R.color.vpn0wn_ink, user.status == VpsDeployUserStatus.REVOKED) {
+                toast(str(R.string.vpn0wn_live_add_peer_required))
             },
-            VpsDeployAction(R.drawable.ic_vpn0wn_trash, str(R.string.tunnl_action_revoke), str(R.string.tunnl_action_revoke_sub), R.color.vpn0wn_error, user.status == VpsDeployUserStatus.REVOKED) {
-                toast(str(R.string.tunnl_live_add_peer_required))
+            VpsDeployAction(R.drawable.ic_vpn0wn_trash, str(R.string.vpn0wn_action_revoke), str(R.string.vpn0wn_action_revoke_sub), R.color.vpn0wn_error, user.status == VpsDeployUserStatus.REVOKED) {
+                toast(str(R.string.vpn0wn_live_add_peer_required))
             },
         )))
         container.addView(scrollView, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -479,7 +479,7 @@ class VpsProvisioningFragment : BaseFragment() {
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
     private fun bottomAction(): View {
-        val label = if (provisionStep == PLAN_STEP) str(R.string.tunnl_confirm_apply) else if (provisionStep == IMPORT_STEP) str(R.string.tunnl_finish_close) else str(R.string.tunnl_continue)
+        val label = if (provisionStep == PLAN_STEP) str(R.string.vpn0wn_confirm_apply) else if (provisionStep == IMPORT_STEP) str(R.string.vpn0wn_finish_close) else str(R.string.vpn0wn_continue)
         val canAdvance = provisionStep != APPLY_STEP || applyDone
         return TextView(requireContext()).apply {
             text = label
@@ -503,7 +503,7 @@ class VpsProvisioningFragment : BaseFragment() {
             setPadding(dp(13))
             setOnClickListener {
                 if (provisionStep < IMPORT_STEP) provisionStep++ else {
-                    toast(str(R.string.tunnl_live_provisioning_required))
+                    toast(str(R.string.vpn0wn_live_provisioning_required))
                     resetProvisionSession()
                     screen = Screen.Fleet
                 }
@@ -513,7 +513,7 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     private fun addUser() {
-        toast(str(R.string.tunnl_live_add_peer_required))
+        toast(str(R.string.vpn0wn_live_add_peer_required))
     }
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
@@ -529,11 +529,11 @@ class VpsProvisioningFragment : BaseFragment() {
         row.addView(View(requireContext()).apply { setBackgroundColor(color(user.status.colorRes)) }, LinearLayout.LayoutParams(dp(3), -1))
         val body = vertical().apply { setPadding(dp(12), dp(10), dp(12), dp(10)) }
         body.addView(horizontal().apply {
-            addView(label(str(R.string.tunnl_user_index, (index + 1).toString().padStart(2, '0'))), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+            addView(label(str(R.string.vpn0wn_user_index, (index + 1).toString().padStart(2, '0'))), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             addView(label(str(user.status.labelRes), user.status.colorRes))
         })
         body.addView(mono(user.name, 14, R.color.vpn0wn_ink).apply { setPadding(0, dp(5), 0, 0) })
-        body.addView(mono(str(R.string.tunnl_user_row_summary, user.ip, user.rx, user.tx, user.handshake), 10, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(3), 0, 0) })
+        body.addView(mono(str(R.string.vpn0wn_user_row_summary, user.ip, user.rx, user.tx, user.handshake), 10, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(3), 0, 0) })
         row.addView(body, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
         return row
     }
@@ -585,7 +585,7 @@ class VpsProvisioningFragment : BaseFragment() {
                 setOnClickListener { }
                 addView(horizontal(Gravity.CENTER_VERTICAL).apply {
                     addView(vertical().apply {
-                        addView(label(str(R.string.tunnl_scan_to_pair)))
+                        addView(label(str(R.string.vpn0wn_scan_to_pair)))
                         addView(mono(user.name, 13, R.color.vpn0wn_ink).apply { setPadding(0, dp(2), 0, 0) })
                     }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
                     addView(iconButton(R.drawable.ic_vpn0wn_close) {
@@ -595,7 +595,7 @@ class VpsProvisioningFragment : BaseFragment() {
                 })
                 addView(VpsQrCodeView(requireContext()).apply { bind("${server.endpoint}:${server.port}#${user.key}") }, LinearLayout.LayoutParams(dp(282), dp(282)).apply { topMargin = dp(14) })
                 addView(qrInfoGrid(server, user))
-                addView(mono(str(R.string.tunnl_qr_footer), 10, R.color.vpn0wn_ink_3).apply {
+                addView(mono(str(R.string.vpn0wn_qr_footer), 10, R.color.vpn0wn_ink_3).apply {
                     gravity = Gravity.CENTER
                     setPadding(0, dp(12), 0, 0)
                 })
@@ -610,10 +610,10 @@ class VpsProvisioningFragment : BaseFragment() {
         return vertical().apply {
             setPadding(0, dp(14), 0, 0)
             addView(horizontal().apply {
-                addView(qrInfoCell(str(R.string.tunnl_label_server), server.name), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { marginEnd = dp(10) })
-                addView(qrInfoCell(str(R.string.tunnl_label_ip), user.ip), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+                addView(qrInfoCell(str(R.string.vpn0wn_label_server), server.name), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { marginEnd = dp(10) })
+                addView(qrInfoCell(str(R.string.vpn0wn_label_ip), user.ip), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             })
-            addView(qrInfoCell(str(R.string.tunnl_label_endpoint), "${server.endpoint}:${server.port}").withMargins(top = 10))
+            addView(qrInfoCell(str(R.string.vpn0wn_label_endpoint), "${server.endpoint}:${server.port}").withMargins(top = 10))
         }
     }
 
@@ -1031,7 +1031,7 @@ class VpsProvisioningFragment : BaseFragment() {
 
     private fun copyToClipboard(label: String, value: String) {
         requireContext().getSystemService<ClipboardManager>()?.setPrimaryClip(ClipData.newPlainText(label, value))
-        toast(str(R.string.tunnl_field_copied, label))
+        toast(str(R.string.vpn0wn_field_copied, label))
     }
 
     private fun toast(message: String) {

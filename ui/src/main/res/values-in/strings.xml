@@ -230,29 +230,29 @@
     <string name="biometric_auth_error">Otentikasi gagal</string>
     <string name="biometric_auth_error_reason">Otentikasi gagal: %s</string>
 
-    <string name="tunnl_settings_title">setelan</string>
-    <string name="tunnl_settings_subtitle">GLOBAL · KONTROL APLIKASI</string>
-    <string name="tunnl_settings_section_connection">§01 KONEKSI · DEFAULT</string>
-    <string name="tunnl_settings_section_control">§02 KONTROL · OTOMATISASI</string>
-    <string name="tunnl_settings_section_data">§03 DATA · CADANGAN</string>
-    <string name="tunnl_settings_section_appearance">§04 TAMPILAN · APLIKASI</string>
-    <string name="tunnl_settings_section_about">§05 TENTANG · PROYEK</string>
+    <string name="vpn0wn_settings_title">setelan</string>
+    <string name="vpn0wn_settings_subtitle">GLOBAL · KONTROL APLIKASI</string>
+    <string name="vpn0wn_settings_section_connection">§01 KONEKSI · DEFAULT</string>
+    <string name="vpn0wn_settings_section_control">§02 KONTROL · OTOMATISASI</string>
+    <string name="vpn0wn_settings_section_data">§03 DATA · CADANGAN</string>
+    <string name="vpn0wn_settings_section_appearance">§04 TAMPILAN · APLIKASI</string>
+    <string name="vpn0wn_settings_section_about">§05 TENTANG · PROYEK</string>
 
-    <string name="tunnl_add_sheet_title">TAMBAH TUNNEL · PILIH SUMBER</string>
-    <string name="tunnl_add_sheet_qr_subtitle">Kamera</string>
-    <string name="tunnl_add_sheet_file_subtitle">Dari file</string>
-    <string name="tunnl_add_sheet_manual_subtitle">Buat pasangan kunci · masukkan manual</string>
+    <string name="vpn0wn_add_sheet_title">TAMBAH TUNNEL · PILIH SUMBER</string>
+    <string name="vpn0wn_add_sheet_qr_subtitle">Kamera</string>
+    <string name="vpn0wn_add_sheet_file_subtitle">Dari file</string>
+    <string name="vpn0wn_add_sheet_manual_subtitle">Buat pasangan kunci · masukkan manual</string>
 
-    <string name="tunnl_selection_delete">Hapus tunnel terpilih</string>
-    <string name="tunnl_selection_exit">Keluar dari pilihan</string>
-    <string name="tunnl_selection_mode">MODE PILIH</string>
-    <string name="tunnl_selection_status_empty">0 TERPILIH</string>
-    <string name="tunnl_selection_status_count">%1$d DARI %2$d TERPILIH</string>
-    <plurals name="tunnl_selection_title">
+    <string name="vpn0wn_selection_delete">Hapus tunnel terpilih</string>
+    <string name="vpn0wn_selection_exit">Keluar dari pilihan</string>
+    <string name="vpn0wn_selection_mode">MODE PILIH</string>
+    <string name="vpn0wn_selection_status_empty">0 TERPILIH</string>
+    <string name="vpn0wn_selection_status_count">%1$d DARI %2$d TERPILIH</string>
+    <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d TERPILIH</item>
         <item quantity="other">%d TERPILIH</item>
     </plurals>
-    <plurals name="tunnl_delete_sheet_title">
+    <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">hapus %d tunnel?</item>
         <item quantity="other">hapus %d tunnel?</item>
     </plurals>

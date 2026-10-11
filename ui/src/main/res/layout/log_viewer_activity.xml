@@ -42,7 +42,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-                android:text="@string/tunnl_log_stream_subtitle"
+                android:text="@string/vpn0wn_log_stream_subtitle"
                 android:textColor="@color/vpn0wn_ink_3" />
 
             <View
@@ -95,7 +95,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/jetbrains_mono_medium"
-                android:text="@string/tunnl_log_live"
+                android:text="@string/vpn0wn_log_live"
                 android:textColor="@color/vpn0wn_signal_deep"
                 android:textSize="10sp"
                 app:strokeColor="@color/vpn0wn_rule_strong"
