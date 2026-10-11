@@ -36,6 +36,8 @@ import androidx.databinding.ObservableList
 import androidx.databinding.ViewDataBinding
 import androidx.databinding.adapters.ListenerUtil
 import androidx.fragment.app.Fragment
+import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.core.view.doOnLayout
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.appbar.AppBarLayout
@@ -395,7 +397,13 @@ object BindingAdapters {
         oldAppBar?.removeOnOffsetChangedListener(previous)
         if (newAppBar != null) {
             newAppBar.addOnOffsetChangedListener(listener)
-            newAppBar.requestLayout()
+            newAppBar.doOnLayout { appBar ->
+                if (view.getTag(R.id.vpn0wn_home_empty_offset_listener) === listener) {
+                    val params = appBar.layoutParams as CoordinatorLayout.LayoutParams
+                    val behavior = params.behavior as AppBarLayout.Behavior
+                    listener?.onOffsetChanged(newAppBar, behavior.topAndBottomOffset)
+                }
+            }
         } else {
             view.setPaddingRelative(view.paddingStart, view.paddingTop, view.paddingEnd, padding)
         }

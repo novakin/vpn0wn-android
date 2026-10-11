@@ -516,7 +516,8 @@ class HomeSelectionTest {
         assertTrue(appBar.isLaidOut)
         assertFalse(appBar.isLayoutRequested)
         BindingAdapters.setHomeEmptyAppBar(content, null, appBar)
-        assertTrue("late binding schedules the missed header traversal", appBar.isLayoutRequested)
+        assertTrue("late binding initializes padding without a header gesture",
+            content.paddingBottom > content.paddingTop)
         layout(f.binding)
         layout(f.binding)
         assertEmptyStateCentered(f.binding, "late-binding-expanded")
