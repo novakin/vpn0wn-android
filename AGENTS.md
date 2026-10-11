@@ -8,7 +8,7 @@ Last updated: 2026-10-11 (Europe/Paris).
 
 ## Project Context
 
-vpn0wn ports the engineering-console UI in `.design/` onto WireGuard Android and adds the documented VPS provisioning flow. Discover the active branch from Git; do not assume a branch name or a clean worktree. Current source packages use `com.vpn0wn.*`; configured release/debug IDs are `com.vpn0wn.android` and `com.vpn0wn.android.debug`. Provisioning source-directory naming and delivery acceptance remain in the #71 scope. The [namespace contract](docs/backend-contracts.md#application-and-source-identity--71) owns current export names and retained protocol, persisted and compatibility identities; source changes do not establish renamed artifact/device or cross-app migration acceptance.
+vpn0wn ports the engineering-console UI in `.design/` onto WireGuard Android and adds the documented VPS provisioning flow. Discover the active branch from Git; do not assume a branch name or a clean worktree. Current source packages use `com.vpn0wn.*`; configured release/debug IDs are `com.vpn0wn.android` and `com.vpn0wn.android.debug`. Provisioning source paths, maintained guide titles and disposable validation harness naming identify vpn0wn; delivery acceptance stays in the #71 scope. The [namespace contract](docs/backend-contracts.md#application-and-source-identity--71) owns current export/operator names and retained protocol, persisted and compatibility identities; source changes do not establish renamed artifact/device, live-server or cross-app migration acceptance.
 
 - Design reference: `.design/` — **read-only, never modify**
 - Brand reference: `docs/assets/vpnown-brand/` — approved artwork; the [Android adoption contract](docs/ui-redesign-roadmap.md#android-brand-asset-adoption--2026-10-10) owns logo use. Outlined Sora logos do not replace Inter Tight/JetBrains Mono UI font roles.
@@ -139,7 +139,7 @@ ui/src/main/res/
 
 tunnel/src/         GoBackend.java — VPN backend (touch carefully)
 .design/            JSX prototype — reference only
-third_party/wireguard-install/tunnl/  app-facing non-interactive server scripts
+third_party/wireguard-install/vpn0wn/  app-facing non-interactive server scripts
 docs/               architecture, development, operations, backend contracts, plan, roadmap, changelog, QA
 ```
 

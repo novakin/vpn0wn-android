@@ -1,3 +1,4 @@
+// Modified for vpn0wn.
 @file:Suppress("UnstableApiUsage")
 
 import com.android.build.api.variant.HostTestBuilder
@@ -57,7 +58,7 @@ android {
     }
     sourceSets {
         getByName("main") {
-            assets.srcDir("../third_party/wireguard-install/tunnl")
+            assets.srcDir("../third_party/wireguard-install/vpn0wn")
         }
     }
     lint {

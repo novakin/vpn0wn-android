@@ -1,8 +1,8 @@
-# Tunnl WireGuard provisioning scripts
+# vpn0wn WireGuard provisioning scripts
 
-Last updated: 2026-10-09 (Europe/Paris).
+Last updated: 2026-10-11 (Europe/Paris).
 
-These Tunnl-owned Bash commands adapt the [pinned upstream reference](../UPSTREAM.md) into a non-interactive server surface. Android uses these scripts rather than the upstream interactive installer. Concrete Android SSH transport and live UI actions remain unfinished.
+These vpn0wn-owned Bash commands adapt the [pinned upstream reference](../UPSTREAM.md) into a non-interactive server surface. Android uses these scripts rather than the upstream interactive installer. Concrete Android SSH transport and live UI actions remain unfinished.
 
 This guide describes the C2–C4 source repairs and offline proof. Confirmation does not establish ownership; successful JSON does not establish traffic or handshake health. [Backend contracts](../../../docs/backend-contracts.md#provisioning-command-surface) owns strict Android schemas, safe error categories and health meaning; [the plan](../../../docs/improvement-plan.md#codebase-actions) tracks delivery and remaining work.
 

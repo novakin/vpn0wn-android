@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Destructive Tunnl VPS provisioning integration test.
+"""Destructive vpn0wn VPS provisioning integration test.
 
 This script intentionally uses key-only OpenSSH via subprocess. It never reads or
 prints a password. Required environment variables:
@@ -31,7 +31,7 @@ from typing import Any
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-SCRIPT_DIR = ROOT / "third_party" / "wireguard-install" / "tunnl"
+SCRIPT_DIR = ROOT / "third_party" / "wireguard-install" / "vpn0wn"
 
 
 class HarnessFailure(RuntimeError):
@@ -54,7 +54,7 @@ WG_PORT = env("TUNNL_VPS_WG_PORT", "51820")
 CIDR = env("TUNNL_VPS_CIDR", "10.88.0.0/24")
 DNS = env("TUNNL_VPS_DNS", "1.1.1.1, 1.0.0.1")
 PURGE = env("TUNNL_VPS_PURGE", "1") != "0"
-REMOTE_DIR = f"/root/tunnl-integration-{int(time.time())}"
+REMOTE_DIR = f"/root/vpn0wn-integration-{int(time.time())}"
 
 
 def require_destructive_guard() -> None:
@@ -239,13 +239,13 @@ def uninstall(label: str) -> None:
     log(f"{label}-uninstall")
 
 
-def cleanup(remove_tunnl_artifacts: bool = False) -> None:
+def cleanup(remove_managed_artifacts: bool = False) -> None:
     command = f"rm -rf -- {q(REMOTE_DIR)}"
-    if remove_tunnl_artifacts:
+    if remove_managed_artifacts:
         command += " /etc/wireguard/tunnl && if [ -d /etc/wireguard ]; then rmdir -- /etc/wireguard; fi"
     run_remote(command, timeout=60)
     run_remote(f"test ! -e {q(REMOTE_DIR)} && test ! -L {q(REMOTE_DIR)}", timeout=60)
-    if remove_tunnl_artifacts:
+    if remove_managed_artifacts:
         run_remote("test ! -e /etc/wireguard && test ! -L /etc/wireguard", timeout=60)
 
 
@@ -270,14 +270,14 @@ def main() -> int:
         uninstall("cycle-1")
         install_cycle("cycle-2", final=True)
         uninstall("cycle-2")
-        cleanup(remove_tunnl_artifacts=True)
+        cleanup(remove_managed_artifacts=True)
     except Exception:
         try:
             cleanup()
         except Exception as cleanup_error:
             print(f"cleanup-warning: {failure_message(cleanup_error)}", file=sys.stderr)
         raise
-    print("cleanup: uploaded scripts and Tunnl test artifacts removed", flush=True)
+    print("cleanup: uploaded scripts and vpn0wn test artifacts removed", flush=True)
     return 0
 
 

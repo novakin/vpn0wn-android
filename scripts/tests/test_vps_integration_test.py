@@ -159,7 +159,7 @@ class HarnessTest(unittest.TestCase):
                 self.assertEqual(not purge, host.tools)
                 self.assertEqual(6, host.calls["sync-status.sh"])
                 self.assertEqual(2, host.calls["uninstall.sh"])
-                self.assertIn("cleanup: uploaded scripts and Tunnl test artifacts removed", output)
+                self.assertIn("cleanup: uploaded scripts and vpn0wn test artifacts removed", output)
 
     def test_no_cleanup_before_root_ownership_or_upload_directory_creation(self):
         for fault in ("non-root", "preexisting-artifacts", "mkdir-failure"):
@@ -354,7 +354,7 @@ class HarnessTest(unittest.TestCase):
     def test_final_cleanup_failure_is_not_success(self):
         code, output = self.execute(OfflineHost(("cleanup-failure",)))
         self.assertEqual(1, code)
-        self.assertNotIn("cleanup: uploaded scripts and Tunnl test artifacts removed", output)
+        self.assertNotIn("cleanup: uploaded scripts and vpn0wn test artifacts removed", output)
 
     def test_key_only_ssh_and_scp_options_remain(self):
         for args in (HARNESS.ssh_base(), HARNESS.scp_base()):

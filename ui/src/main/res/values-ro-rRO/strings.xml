@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Modified for vpn0wn. -->
 <resources>
     <plurals name="delete_error">
         <item quantity="one">Nu se poate șterge %d tunel: %s</item>

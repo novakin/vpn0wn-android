@@ -56,6 +56,8 @@ class LicensesActivityTest {
         val texts = notices(activity)
         val payload = activity.assets.open("licenses/credits.txt").bufferedReader().use { it.readText() }
         assertEquals(payload, texts.joinToString("") { it.text.toString() })
+        val forkNotice = File("../NOTICE").readText()
+        assertEquals("vpn0wn fork notice\n=================\n$forkNotice\n", texts.first().text.toString())
         for (text in texts) {
             assertTrue(text.isTextSelectable)
             assertEquals(View.TEXT_DIRECTION_LTR, text.textDirection)
@@ -89,7 +91,7 @@ class LicensesActivityTest {
         val unsplitText = TextView(activity).apply { text = payload }
         assertEquals(ACCESSIBILITY_TEXT_LIMIT, unsplitText.createAccessibilityNodeInfo().text.length)
         val texts = notices(activity)
-        assertEquals(28, texts.size)
+        assertEquals(29, texts.size)
         val accessibleTexts = texts.map { text ->
             assertTrue(text.text.length < ACCESSIBILITY_TEXT_LIMIT)
             val accessibleText = text.createAccessibilityNodeInfo().text.toString()
