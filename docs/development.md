@@ -49,7 +49,14 @@ The [intervening 9.4–9.8 migration notes](https://docs.gradle.org/9.8.1/usergu
 
 Gradle 9.8.1 configuration reports AGP-owned `Configuration.setVisible` and Project-object dependency-notation deprecations, scheduled for removal in Gradle 11 and 10 respectively. Detekt's `ReportingExtension.file` deprecation, scheduled for Gradle 10, was already reported by the previous 9.3.1 wrapper. The newer Kotlin DSL compiler also reports the existing `assets.srcDir` API in [the UI build script](../ui/build.gradle.kts). These remain nonfatal configuration warnings; do not suppress them or weaken checks. `--warning-mode=all` and the ignored Gradle problems report identify the owners. Future plugin/API remediation is separate unless the required compatibility gate exposes a blocker.
 
-Regenerate tracked wrapper configuration, JAR and Unix launcher together through two official `wrapper` task passes, as [Gradle's wrapper guide](https://docs.gradle.org/9.8.1/userguide/gradle_wrapper.html#sec:upgrading_wrapper) requires for fully updated artifacts. Verify the distribution and JAR against [official release checksums](https://gradle.org/release-checksums/). Preserve the existing Unix-only launcher scope; generation of an optional batch launcher does not establish native Windows build support. Rollback restores all three tracked wrapper artifacts together. [#70](https://github.com/novakin/vpn0wn-android/issues/70) owns final-head repository/CI acceptance; wrapper generation and `--version` alone do not discharge it.
+Regenerate tracked wrapper configuration, JAR and Unix launcher together through two official `wrapper` task passes, as [Gradle's wrapper guide](https://docs.gradle.org/9.8.1/userguide/gradle_wrapper.html#sec:upgrading_wrapper) requires for fully updated artifacts. After both passes, reapply the Unix launcher's separate [fork modification notice](license-attribution.md#fork-source-notices), which generation replaces. In Linux/WSL:
+
+```bash
+sed -i '/^# SPDX-License-Identifier: Apache-2\.0$/a # Modified for vpn0wn.' gradlew
+grep -n '^# Modified for vpn0wn\.$' gradlew
+```
+
+Confirm exactly one notice in the leading header and preserve the generated copyright, complete Apache text and SPDX identifier. This comment does not modify the wrapper JAR. Verify the distribution and JAR against [official release checksums](https://gradle.org/release-checksums/). Preserve the existing Unix-only launcher scope; generation of an optional batch launcher does not establish native Windows build support. Rollback restores all three tracked wrapper artifacts together. [#70](https://github.com/novakin/vpn0wn-android/issues/70) owns final-head repository/CI acceptance; wrapper generation and `--version` alone do not discharge it.
 
 ## Brand artwork export
 

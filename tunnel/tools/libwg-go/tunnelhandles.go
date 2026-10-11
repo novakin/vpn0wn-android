@@ -1,4 +1,8 @@
-/* SPDX-License-Identifier: Apache-2.0 */
+/* SPDX-License-Identifier: Apache-2.0
+ *
+ * Copyright © 2017-2022 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
+ * Modified for vpn0wn.
+ */
 
 package main
 

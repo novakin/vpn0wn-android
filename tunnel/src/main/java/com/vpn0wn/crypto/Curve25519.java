@@ -2,6 +2,7 @@
  * Copyright © 2016 Southern Storm Software, Pty Ltd.
  * Copyright © 2017-2025 WireGuard LLC. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
+ * Modified for vpn0wn.
  */
 
 package com.vpn0wn.crypto;

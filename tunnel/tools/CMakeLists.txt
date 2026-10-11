@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
+# Modified for vpn0wn.
 #
 # Copyright © 2017-2025 WireGuard LLC. All Rights Reserved.
 

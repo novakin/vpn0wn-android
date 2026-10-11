@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?><!--
   ~ Copyright © 2017-2025 WireGuard LLC. All Rights Reserved.
   ~ SPDX-License-Identifier: Apache-2.0
+  ~ Modified for vpn0wn.
   -->
 <resources>
     <bool name="light_status_bar">false</bool>

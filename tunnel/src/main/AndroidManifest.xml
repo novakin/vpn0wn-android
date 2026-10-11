@@ -1,6 +1,7 @@
 <!--
   ~ Copyright © 2017-2025 WireGuard LLC. All Rights Reserved.
   ~ SPDX-License-Identifier: Apache-2.0
+  ~ Modified for vpn0wn.
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
