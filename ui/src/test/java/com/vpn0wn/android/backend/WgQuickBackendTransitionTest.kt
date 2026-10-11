@@ -29,7 +29,6 @@ import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -85,8 +84,7 @@ class WgQuickBackendTransitionTest {
     fun concurrentUpRetainsBothTunnelsWhenMultipleModeIsEnabled() = concurrentUp(true)
 
     @Test
-    fun managerDisconnectsKernelTunnelAfterBackendRecreation() = runTest {
-        val env = recreatedKernelEnvironment(true)
+    fun managerDisconnectsKernelTunnelAfterBackendRecreation() = recreatedKernelEnvironment(true) { env ->
         val tunnel = env.manager.getTunnels()["one"]!!
         assertEquals(Tunnel.State.UP, tunnel.state)
         assertEquals(Tunnel.State.DOWN, tunnel.setStateAsync(Tunnel.State.DOWN))
@@ -98,8 +96,7 @@ class WgQuickBackendTransitionTest {
     }
 
     @Test
-    fun managerRenamesActiveKernelTunnelAfterBackendRecreation() = runTest {
-        val env = recreatedKernelEnvironment(true)
+    fun managerRenamesActiveKernelTunnelAfterBackendRecreation() = recreatedKernelEnvironment(true) { env ->
         val tunnel = env.manager.getTunnels()["one"]!!
         assertEquals("renamed", tunnel.setNameAsync("renamed"))
         assertEquals(Tunnel.State.UP, tunnel.state)
@@ -110,8 +107,7 @@ class WgQuickBackendTransitionTest {
     }
 
     @Test
-    fun managerDeletesActiveKernelTunnelAfterBackendRecreation() = runTest {
-        val env = recreatedKernelEnvironment(true)
+    fun managerDeletesActiveKernelTunnelAfterBackendRecreation() = recreatedKernelEnvironment(true) { env ->
         val tunnel = env.manager.getTunnels()["one"]!!
         env.manager.delete(tunnel)
         assertEquals(Tunnel.State.DOWN, tunnel.state)
@@ -122,8 +118,7 @@ class WgQuickBackendTransitionTest {
     }
 
     @Test
-    fun unreadableActiveKernelProfileFailsBeforeShutdownAndCanRetry() = runTest {
-        val env = recreatedKernelEnvironment(true)
+    fun unreadableActiveKernelProfileFailsBeforeShutdownAndCanRetry() = recreatedKernelEnvironment(true) { env ->
         val tunnel = env.manager.getTunnels()["one"]!!
         env.store.failLoadNames += "one"
         try {
@@ -139,8 +134,7 @@ class WgQuickBackendTransitionTest {
     }
 
     @Test
-    fun failedRecreatedKernelShutdownPreservesProfileAndObservedUp() = runTest {
-        val env = recreatedKernelEnvironment(true)
+    fun failedRecreatedKernelShutdownPreservesProfileAndObservedUp() = recreatedKernelEnvironment(true) { env ->
         val tunnel = env.manager.getTunnels()["one"]!!
         shell.failDown["one"] = 1
         try {
@@ -155,8 +149,7 @@ class WgQuickBackendTransitionTest {
     }
 
     @Test
-    fun unreadableActiveKernelProfilePreventsDeleteBeforeAnyMutation() = runTest {
-        val env = recreatedKernelEnvironment(true)
+    fun unreadableActiveKernelProfilePreventsDeleteBeforeAnyMutation() = recreatedKernelEnvironment(true) { env ->
         val tunnel = env.manager.getTunnels()["one"]!!
         env.store.failLoadNames += "one"
         try {
@@ -172,8 +165,7 @@ class WgQuickBackendTransitionTest {
     }
 
     @Test
-    fun unreadableActiveKernelProfilePreservesNameBeforeAnyMutation() = runTest {
-        val env = recreatedKernelEnvironment(true)
+    fun unreadableActiveKernelProfilePreservesNameBeforeAnyMutation() = recreatedKernelEnvironment(true) { env ->
         val tunnel = env.manager.getTunnels()["one"]!!
         env.store.failLoadNames += "one"
         try {
@@ -189,8 +181,7 @@ class WgQuickBackendTransitionTest {
     }
 
     @Test
-    fun failedDeleteRestoresRecreatedKernelTunnel() = runTest {
-        val env = recreatedKernelEnvironment(true)
+    fun failedDeleteRestoresRecreatedKernelTunnel() = recreatedKernelEnvironment(true) { env ->
         val tunnel = env.manager.getTunnels()["one"]!!
         env.store.failDelete = true
         try {
@@ -205,8 +196,7 @@ class WgQuickBackendTransitionTest {
     }
 
     @Test
-    fun inactiveKernelDownAndDeleteDoNotLoadUnreadableProfile() = runTest {
-        val env = recreatedKernelEnvironment(false)
+    fun inactiveKernelDownAndDeleteDoNotLoadUnreadableProfile() = recreatedKernelEnvironment(false) { env ->
         val tunnel = env.manager.getTunnels()["one"]!!
         env.store.failLoadNames += "one"
         assertEquals(Tunnel.State.DOWN, tunnel.setStateAsync(Tunnel.State.DOWN))
@@ -217,15 +207,19 @@ class WgQuickBackendTransitionTest {
         assertTrue(shell.events.isEmpty())
     }
 
-    private suspend fun TestScope.recreatedKernelEnvironment(active: Boolean): TunnelTestEnvironment {
+    private fun recreatedKernelEnvironment(active: Boolean, block: suspend (TunnelTestEnvironment) -> Unit) = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val env = TunnelTestEnvironment(folder.root, backgroundScope)
-        env.store.configs["one"] = profile
-        if (active) backend.setState(NamedTunnel("one"), Tunnel.State.UP, profile)
-        backend = WgQuickBackend(context, shell, ToolsInstaller(context, shell))
-        env.replaceBackend(backend)
-        shell.events.clear()
-        return env
+        try {
+            env.store.configs["one"] = profile
+            if (active) backend.setState(NamedTunnel("one"), Tunnel.State.UP, profile)
+            backend = WgQuickBackend(context, shell, ToolsInstaller(context, shell))
+            env.replaceBackend(backend)
+            shell.events.clear()
+            block(env)
+        } finally {
+            env.close()
+        }
     }
 
     private fun concurrentUp(multiple: Boolean) {
@@ -264,84 +258,88 @@ class WgQuickBackendTransitionTest {
     fun liveMultipleSettingDoesNotBlockMainBehindTransition() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val env = TunnelTestEnvironment(folder.root, backgroundScope)
-        val app = env.application
-        val deadlockGuardSeconds = 5L
-        val initialSettingApplied = CountDownLatch(1)
-        val settingEntered = CountDownLatch(1)
-        val settingApplied = CountDownLatch(1)
-        val multipleTunnels = booleanPreferencesKey("multiple_tunnels")
-        val preferences = com.vpn0wn.android.Application.getPreferencesDataStore()
-        val observedPreferences = object : DataStore<Preferences> by preferences {
-            override val data = flow {
-                preferences.data.collect { value ->
-                    val multiple = value[multipleTunnels] == true
-                    if (multiple) settingEntered.countDown()
-                    emit(value)
-                    if (multiple) {
-                        settingApplied.countDown()
-                    } else {
-                        // first() aborts emit; only the live collector acknowledges its initial setting.
-                        initialSettingApplied.countDown()
+        try {
+            val app = env.application
+            val deadlockGuardSeconds = 5L
+            val initialSettingApplied = CountDownLatch(1)
+            val settingEntered = CountDownLatch(1)
+            val settingApplied = CountDownLatch(1)
+            val multipleTunnels = booleanPreferencesKey("multiple_tunnels")
+            val preferences = com.vpn0wn.android.Application.getPreferencesDataStore()
+            val observedPreferences = object : DataStore<Preferences> by preferences {
+                override val data = flow {
+                    preferences.data.collect { value ->
+                        val multiple = value[multipleTunnels] == true
+                        if (multiple) settingEntered.countDown()
+                        emit(value)
+                        if (multiple) {
+                            settingApplied.countDown()
+                        } else {
+                            // first() aborts emit; only the live collector acknowledges its initial setting.
+                            initialSettingApplied.countDown()
+                        }
                     }
                 }
             }
-        }
-        for ((name, value) in mapOf("rootShell" to shell, "toolsInstaller" to ToolsInstaller(app, shell), "preferencesDataStore" to observedPreferences))
-            com.vpn0wn.android.Application::class.java.getDeclaredField(name)
-                .apply { isAccessible = true }.set(app, value)
-        UserKnobs.setEnableKernelModule(true)
-        val kernel = suspendCoroutine<Backend> { continuation ->
-            val result = com.vpn0wn.android.Application::class.java
-                .getDeclaredMethod("determineBackend", Continuation::class.java)
-                .apply { isAccessible = true }.invoke(app, continuation)
-            if (result !== COROUTINE_SUSPENDED) continuation.resume(result as Backend)
-        } as WgQuickBackend
-        assertEquals(1, shell.startCalls)
-        assertTrue("Initial Application setting was not applied", withContext(Dispatchers.IO) {
-            initialSettingApplied.await(deadlockGuardSeconds, TimeUnit.SECONDS)
-        })
-        val held = CountDownLatch(1)
-        val release = CountDownLatch(1)
-        val executor = Executors.newSingleThreadExecutor()
-        val transition = executor.submit {
-            synchronized(kernel) {
-                held.countDown()
-                try {
-                    assertTrue("Kernel transition monitor timed out", release.await(deadlockGuardSeconds, TimeUnit.SECONDS))
-                } finally {
-                    release.countDown()
+            for ((name, value) in mapOf("rootShell" to shell, "toolsInstaller" to ToolsInstaller(app, shell), "preferencesDataStore" to observedPreferences))
+                com.vpn0wn.android.Application::class.java.getDeclaredField(name)
+                    .apply { isAccessible = true }.set(app, value)
+            UserKnobs.setEnableKernelModule(true)
+            val kernel = suspendCoroutine<Backend> { continuation ->
+                val result = com.vpn0wn.android.Application::class.java
+                    .getDeclaredMethod("determineBackend", Continuation::class.java)
+                    .apply { isAccessible = true }.invoke(app, continuation)
+                if (result !== COROUTINE_SUSPENDED) continuation.resume(result as Backend)
+            } as WgQuickBackend
+            assertEquals(1, shell.startCalls)
+            assertTrue("Initial Application setting was not applied", withContext(Dispatchers.IO) {
+                initialSettingApplied.await(deadlockGuardSeconds, TimeUnit.SECONDS)
+            })
+            val held = CountDownLatch(1)
+            val release = CountDownLatch(1)
+            val executor = Executors.newSingleThreadExecutor()
+            val transition = executor.submit {
+                synchronized(kernel) {
+                    held.countDown()
+                    try {
+                        assertTrue("Kernel transition monitor timed out", release.await(deadlockGuardSeconds, TimeUnit.SECONDS))
+                    } finally {
+                        release.countDown()
+                    }
                 }
             }
-        }
-        try {
-            assertTrue("Kernel transition monitor was not acquired", withContext(Dispatchers.IO) {
-                held.await(deadlockGuardSeconds, TimeUnit.SECONDS)
-            })
-            com.vpn0wn.android.Application.getPreferencesDataStore().edit {
-                it[multipleTunnels] = true
+            try {
+                assertTrue("Kernel transition monitor was not acquired", withContext(Dispatchers.IO) {
+                    held.await(deadlockGuardSeconds, TimeUnit.SECONDS)
+                })
+                com.vpn0wn.android.Application.getPreferencesDataStore().edit {
+                    it[multipleTunnels] = true
+                }
+                assertTrue("Application did not receive the live setting", withContext(Dispatchers.IO) {
+                    settingEntered.await(deadlockGuardSeconds, TimeUnit.SECONDS)
+                })
+                var mainProgress = false
+                backgroundScope.launch(Dispatchers.Main) { mainProgress = true }
+                runCurrent()
+                assertTrue("Main blocked behind kernel transition", mainProgress)
+                assertEquals("Kernel transition released before Main progress", 1L, release.count)
+                assertEquals("Setting applied before the kernel transition released", 1L, settingApplied.count)
+                release.countDown()
+                withContext(Dispatchers.IO) { transition.get(deadlockGuardSeconds, TimeUnit.SECONDS) }
+                assertTrue("Application did not finish applying the live setting", withContext(Dispatchers.IO) {
+                    settingApplied.await(deadlockGuardSeconds, TimeUnit.SECONDS)
+                })
+                val setting = WgQuickBackend::class.java.getDeclaredField("multipleTunnels").apply { isAccessible = true }
+                assertTrue(withContext(Dispatchers.IO) {
+                    synchronized(kernel) { setting.getBoolean(kernel) }
+                })
+            } finally {
+                release.countDown()
+                executor.shutdownNow()
+                assertTrue(executor.awaitTermination(deadlockGuardSeconds, TimeUnit.SECONDS))
             }
-            assertTrue("Application did not receive the live setting", withContext(Dispatchers.IO) {
-                settingEntered.await(deadlockGuardSeconds, TimeUnit.SECONDS)
-            })
-            var mainProgress = false
-            backgroundScope.launch(Dispatchers.Main) { mainProgress = true }
-            runCurrent()
-            assertTrue("Main blocked behind kernel transition", mainProgress)
-            assertEquals("Kernel transition released before Main progress", 1L, release.count)
-            assertEquals("Setting applied before the kernel transition released", 1L, settingApplied.count)
-            release.countDown()
-            withContext(Dispatchers.IO) { transition.get(deadlockGuardSeconds, TimeUnit.SECONDS) }
-            assertTrue("Application did not finish applying the live setting", withContext(Dispatchers.IO) {
-                settingApplied.await(deadlockGuardSeconds, TimeUnit.SECONDS)
-            })
-            val setting = WgQuickBackend::class.java.getDeclaredField("multipleTunnels").apply { isAccessible = true }
-            assertTrue(withContext(Dispatchers.IO) {
-                synchronized(kernel) { setting.getBoolean(kernel) }
-            })
         } finally {
-            release.countDown()
-            executor.shutdownNow()
-            assertTrue(executor.awaitTermination(deadlockGuardSeconds, TimeUnit.SECONDS))
+            env.close()
         }
     }
 
