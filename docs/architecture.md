@@ -24,7 +24,7 @@ Preserve the existing Android DataBinding/Fragment foundation and upstream WireG
 | [FileConfigStore](../ui/src/main/java/com/vpn0wn/android/configStore/FileConfigStore.kt) | Serialized local profile operations; private staged writes, file sync and native atomic rename preserve prior valid configs on failed updates. |
 | [TunnelImporter](../ui/src/main/java/com/vpn0wn/android/util/TunnelImporter.kt), [QR scanner](../ui/src/main/java/com/vpn0wn/android/util/QrCodeFromFileScanner.kt), [ZIP exporter](../ui/src/main/java/com/vpn0wn/android/preference/ZipExporterPreference.kt) | Import result delivery, image retry/resource ownership and export children/output cleanup; models/stores retain profile ownership. |
 | [Log viewer](../ui/src/main/java/com/vpn0wn/android/activity/LogViewerActivity.kt), [stream](../ui/src/main/java/com/vpn0wn/android/util/LogcatStream.kt), [buffer](../ui/src/main/java/com/vpn0wn/android/util/LogBuffer.kt) and [parser](../ui/src/main/java/com/vpn0wn/android/util/LogLineParser.kt) | Activity owns lifecycle/generation, adapter notifications and temporary shares; stream owns the process/reader and timed batches; Main owns bounded retention, continuations and filtered indices. |
-| [Tunnl scripts](../third_party/wireguard-install/tunnl/README.md) | Ubuntu/Debian operations, C2–C3 ownership/serialized recovery and C4 producer/consumer contracts; real-server proof remains separate. |
+| [vpn0wn scripts](../third_party/wireguard-install/vpn0wn/README.md) | Ubuntu/Debian operations, C2–C3 ownership/serialized recovery and C4 producer/consumer contracts; real-server proof remains separate. |
 
 ## Runtime flows
 
@@ -53,7 +53,7 @@ The [G2 performance investigation](reviews/2026-10-07-performance-source-investi
 
 ```mermaid
 flowchart LR
-    Client[Vpn0wnProvisioningClient] --> Bundle[Packaged Tunnl scripts]
+    Client[Vpn0wnProvisioningClient] --> Bundle[Packaged vpn0wn scripts]
     Client --> Boundary[RemoteShellClient]
     Boundary -. missing transport .-> SSH[Concrete SSH session]
     SSH -. future execution .-> Server[Server scripts]
@@ -209,7 +209,7 @@ Status: owning guides established. The [development ownership table](development
 
 Status: implemented with offline proof on 2026-10-06 (Europe/Paris); live validation remains separate. Shared Bash helpers own ownership/input validation, private staging/snapshots and peer removal. Native `flock` serializes writers per interface; install/uninstall take a host lock first for shared package/forwarding state. Atomic rename commits disk changes; explicit operation postconditions and recovery preserve prior disk/runtime where possible. Cleanup after commit cannot roll back from partly deleted evidence.
 
-Alternatives include unlocked in-place writes, process-substitution apply, nested removal subprocesses or a new transaction service. They either hide errors/races or add unnecessary infrastructure. Extending the shared script owner keeps one mutation/recovery path and reuses installed tools. It does not make apt/global forwarding transactional, serialize external tools/readers, validate all native stopped configs or prove live traffic. Verification uses synthetic command faults/concurrency in private user-namespace fixtures; [the script guide](../third_party/wireguard-install/tunnl/README.md#ownership-locking-and-recovery) owns detailed limits.
+Alternatives include unlocked in-place writes, process-substitution apply, nested removal subprocesses or a new transaction service. They either hide errors/races or add unnecessary infrastructure. Extending the shared script owner keeps one mutation/recovery path and reuses installed tools. It does not make apt/global forwarding transactional, serialize external tools/readers, validate all native stopped configs or prove live traffic. Verification uses synthetic command faults/concurrency in private user-namespace fixtures; [the script guide](../third_party/wireguard-install/vpn0wn/README.md#ownership-locking-and-recovery) owns detailed limits.
 
 ### Strict provisioning responses and explicit unknown health
 

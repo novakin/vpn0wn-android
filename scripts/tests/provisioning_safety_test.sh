@@ -3,7 +3,7 @@ set -euo pipefail
 
 TEST_SCRIPT=$(realpath "${BASH_SOURCE[0]}")
 REPO_DIR=$(cd "$(dirname "$TEST_SCRIPT")/../.." && pwd)
-SCRIPTS="${TUNNL_TEST_SCRIPTS:-$REPO_DIR/third_party/wireguard-install/tunnl}"
+SCRIPTS="${TUNNL_TEST_SCRIPTS:-$REPO_DIR/third_party/wireguard-install/vpn0wn}"
 
 # UID 0 is required by the real scripts, but tests must never gain host root.
 [[ "$EUID" -eq 0 && $(awk '$1 == 0 {print $2}' /proc/self/uid_map) != 0 ]] || {
