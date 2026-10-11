@@ -23,7 +23,7 @@
             android:background="@drawable/tunnl_add_sheet_handle" />
 
         <TextView
-            style="@style/TunnlLabelText"
+            style="@style/Vpn0wnLabelText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="@string/tunnl_delete_irreversible"
@@ -31,13 +31,13 @@
 
         <TextView
             android:id="@+id/delete_sheet_title"
-            style="@style/TunnlTopBarTitleText"
+            style="@style/Vpn0wnTopBarTitleText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp" />
 
         <TextView
-            style="@style/TunnlLabelText"
+            style="@style/Vpn0wnLabelText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="6dp"
@@ -45,7 +45,7 @@
 
         <TextView
             android:id="@+id/delete_sheet_warning"
-            style="@style/TunnlMonoSubText"
+            style="@style/Vpn0wnMonoSubText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
@@ -56,7 +56,7 @@
 
         <TextView
             android:id="@+id/delete_sheet_names"
-            style="@style/TunnlMonoValueText"
+            style="@style/Vpn0wnMonoValueText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
@@ -73,7 +73,7 @@
 
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/delete_sheet_cancel"
-                style="@style/TunnlLabelText"
+                style="@style/Vpn0wnLabelText"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
@@ -85,7 +85,7 @@
 
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/delete_sheet_confirm"
-                style="@style/TunnlLabelText"
+                style="@style/Vpn0wnLabelText"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="10dp"

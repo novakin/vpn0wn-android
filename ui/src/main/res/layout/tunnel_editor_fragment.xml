@@ -70,7 +70,7 @@
                         app:tint="@color/tunnl_ink_2" />
 
                     <TextView
-                        style="@style/TunnlLabelText"
+                        style="@style/Vpn0wnLabelText"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_marginStart="8dp"
@@ -99,7 +99,7 @@
 
                 <TextView
                     android:id="@+id/editor_title"
-                    style="@style/TunnlTopBarTitleText"
+                    style="@style/Vpn0wnTopBarTitleText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
@@ -137,14 +137,14 @@
                         android:orientation="horizontal">
 
                         <TextView
-                            style="@style/TunnlLabelText"
+                            style="@style/Vpn0wnLabelText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="§01"
                             android:textColor="@color/tunnl_rule_strong" />
 
                         <TextView
-                            style="@style/TunnlMonoValueText"
+                            style="@style/Vpn0wnMonoValueText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="10dp"
@@ -159,7 +159,7 @@
                             android:background="@color/tunnl_rule" />
 
                         <TextView
-                            style="@style/TunnlLabelText"
+                            style="@style/Vpn0wnLabelText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="10dp"
@@ -182,16 +182,16 @@
 
                             <!-- NAME -->
                             <LinearLayout
-                                style="@style/TunnlDetailRow"
+                                style="@style/Vpn0wnDetailRow"
                                 android:orientation="vertical">
 
                                 <TextView
-                                    style="@style/TunnlConfigRowLabel"
+                                    style="@style/Vpn0wnConfigRowLabel"
                                     android:text="NAME" />
 
                                 <EditText
                                     android:id="@+id/interface_name_text"
-                                    style="@style/TunnlEditorField"
+                                    style="@style/Vpn0wnEditorField"
                                     android:imeOptions="actionNext"
                                     android:inputType="textNoSuggestions|textVisiblePassword"
                                     android:nextFocusDown="@id/private_key_text"
@@ -207,11 +207,11 @@
 
                             <!-- PRIVATE KEY -->
                             <LinearLayout
-                                style="@style/TunnlDetailRow"
+                                style="@style/Vpn0wnDetailRow"
                                 android:orientation="vertical">
 
                                 <TextView
-                                    style="@style/TunnlConfigRowLabel"
+                                    style="@style/Vpn0wnConfigRowLabel"
                                     android:text="PRIVATE KEY" />
 
                                 <LinearLayout
@@ -223,7 +223,7 @@
 
                                     <EditText
                                         android:id="@+id/private_key_text"
-                                        style="@style/TunnlEditorField"
+                                        style="@style/Vpn0wnEditorField"
                                         android:layout_width="0dp"
                                         android:layout_height="wrap_content"
                                         android:layout_weight="1"
@@ -239,7 +239,7 @@
 
                                     <com.google.android.material.button.MaterialButton
                                         android:id="@+id/private_key_regen_button"
-                                        style="@style/TunnlPillButton"
+                                        style="@style/Vpn0wnPillButton"
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
                                         android:text="regen"
@@ -254,16 +254,16 @@
 
                             <!-- PUBLIC KEY (read-only) -->
                             <LinearLayout
-                                style="@style/TunnlDetailRow"
+                                style="@style/Vpn0wnDetailRow"
                                 android:orientation="vertical">
 
                                 <TextView
-                                    style="@style/TunnlConfigRowLabel"
+                                    style="@style/Vpn0wnConfigRowLabel"
                                     android:text="PUBLIC KEY" />
 
                                 <EditText
                                     android:id="@+id/public_key_text"
-                                    style="@style/TunnlEditorFieldReadOnly"
+                                    style="@style/Vpn0wnEditorFieldReadOnly"
                                     android:hint="@string/hint_generated"
                                     android:imeOptions="actionNext"
                                     android:nextFocusUp="@id/private_key_text"
@@ -281,16 +281,16 @@
 
                             <!-- ADDRESSES -->
                             <LinearLayout
-                                style="@style/TunnlDetailRow"
+                                style="@style/Vpn0wnDetailRow"
                                 android:orientation="vertical">
 
                                 <TextView
-                                    style="@style/TunnlConfigRowLabel"
+                                    style="@style/Vpn0wnConfigRowLabel"
                                     android:text="ADDRESSES" />
 
                                 <EditText
                                     android:id="@+id/addresses_label_text"
-                                    style="@style/TunnlEditorField"
+                                    style="@style/Vpn0wnEditorField"
                                     android:imeOptions="actionNext"
                                     android:inputType="textNoSuggestions|textVisiblePassword"
                                     android:nextFocusUp="@id/public_key_text"
@@ -306,16 +306,16 @@
 
                             <!-- DNS SERVERS -->
                             <LinearLayout
-                                style="@style/TunnlDetailRow"
+                                style="@style/Vpn0wnDetailRow"
                                 android:orientation="vertical">
 
                                 <TextView
-                                    style="@style/TunnlConfigRowLabel"
+                                    style="@style/Vpn0wnConfigRowLabel"
                                     android:text="DNS SERVERS" />
 
                                 <EditText
                                     android:id="@+id/dns_servers_text"
-                                    style="@style/TunnlEditorField"
+                                    style="@style/Vpn0wnEditorField"
                                     android:imeOptions="actionNext"
                                     android:inputType="textNoSuggestions|textVisiblePassword"
                                     android:nextFocusUp="@id/addresses_label_text"
@@ -337,18 +337,18 @@
                                 android:orientation="horizontal">
 
                                 <LinearLayout
-                                    style="@style/TunnlDetailRow"
+                                    style="@style/Vpn0wnDetailRow"
                                     android:layout_width="0dp"
                                     android:layout_weight="1"
                                     android:orientation="vertical">
 
                                     <TextView
-                                        style="@style/TunnlConfigRowLabel"
+                                        style="@style/Vpn0wnConfigRowLabel"
                                         android:text="LISTEN PORT" />
 
                                     <EditText
                                         android:id="@+id/listen_port_text"
-                                        style="@style/TunnlEditorField"
+                                        style="@style/Vpn0wnEditorField"
                                         android:hint="@string/hint_random"
                                         android:imeOptions="actionNext"
                                         android:inputType="number"
@@ -364,18 +364,18 @@
                                     android:background="@color/tunnl_rule" />
 
                                 <LinearLayout
-                                    style="@style/TunnlDetailRow"
+                                    style="@style/Vpn0wnDetailRow"
                                     android:layout_width="0dp"
                                     android:layout_weight="1"
                                     android:orientation="vertical">
 
                                     <TextView
-                                        style="@style/TunnlConfigRowLabel"
+                                        style="@style/Vpn0wnConfigRowLabel"
                                         android:text="MTU" />
 
                                     <EditText
                                         android:id="@+id/mtu_text"
-                                        style="@style/TunnlEditorField"
+                                        style="@style/Vpn0wnEditorField"
                                         android:hint="@string/hint_automatic"
                                         android:imeOptions="actionDone"
                                         android:inputType="number"
@@ -393,7 +393,7 @@
 
                             <!-- EXCLUDED APPS -->
                             <LinearLayout
-                                style="@style/TunnlDetailRow"
+                                style="@style/Vpn0wnDetailRow"
                                 android:gravity="center_vertical"
                                 android:orientation="horizontal">
 
@@ -404,11 +404,11 @@
                                     android:orientation="vertical">
 
                                     <TextView
-                                        style="@style/TunnlConfigRowLabel"
+                                        style="@style/Vpn0wnConfigRowLabel"
                                         android:text="EXCLUDED APPS" />
 
                                     <TextView
-                                        style="@style/TunnlMonoSubText"
+                                        style="@style/Vpn0wnMonoSubText"
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
                                         android:layout_marginTop="4dp"
@@ -418,7 +418,7 @@
 
                                 <com.google.android.material.button.MaterialButton
                                     android:id="@+id/set_excluded_applications"
-                                    style="@style/TunnlPillButton"
+                                    style="@style/Vpn0wnPillButton"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:nextFocusUp="@id/dns_servers_text"
@@ -441,14 +441,14 @@
                         android:orientation="horizontal">
 
                         <TextView
-                            style="@style/TunnlLabelText"
+                            style="@style/Vpn0wnLabelText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="§02"
                             android:textColor="@color/tunnl_rule_strong" />
 
                         <TextView
-                            style="@style/TunnlMonoValueText"
+                            style="@style/Vpn0wnMonoValueText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="10dp"
@@ -478,7 +478,7 @@
                     <!-- Dashed + ADD PEER button -->
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/add_peer_button"
-                        style="@style/TunnlDashedActionButton"
+                        style="@style/Vpn0wnDashedActionButton"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="10dp"

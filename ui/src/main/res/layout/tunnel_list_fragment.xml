@@ -77,7 +77,7 @@
 
                                 <TextView
                                     android:id="@+id/home_header_summary"
-                                    style="@style/TunnlHomeHeaderText"
+                                    style="@style/Vpn0wnHomeHeaderText"
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
                                     android:layout_weight="1"
@@ -122,7 +122,7 @@
                             </LinearLayout>
 
                             <TextView
-                                style="@style/TunnlHomeTopBarTitleText"
+                                style="@style/Vpn0wnHomeTopBarTitleText"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:layout_marginTop="8dp"
@@ -162,7 +162,7 @@
                                     app:tint="@color/tunnl_ink_2" />
 
                                 <TextView
-                                    style="@style/TunnlLabelText"
+                                    style="@style/Vpn0wnLabelText"
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
                                     android:layout_weight="1"
@@ -182,7 +182,7 @@
 
                             <TextView
                                 android:id="@+id/selection_title"
-                                style="@style/TunnlTopBarTitleText"
+                                style="@style/Vpn0wnTopBarTitleText"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:accessibilityLiveRegion="polite"
@@ -222,7 +222,7 @@
 
                                 <TextView
                                     android:id="@+id/home_connection_label"
-                                    style="@style/TunnlHomeConnectionText"
+                                    style="@style/Vpn0wnHomeConnectionText"
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
                                     android:layout_marginStart="12dp"
@@ -253,7 +253,7 @@
 
                                     <TextView
                                         android:id="@+id/home_endpoint_label"
-                                        style="@style/TunnlHomeSecondaryText"
+                                        style="@style/Vpn0wnHomeSecondaryText"
                                         android:layout_width="match_parent"
                                         android:layout_height="wrap_content"
                                         android:gravity="end"
@@ -261,7 +261,7 @@
 
                                     <TextView
                                         android:id="@+id/home_endpoint_host"
-                                        style="@style/TunnlHomeStatValueText"
+                                        style="@style/Vpn0wnHomeStatValueText"
                                         android:layout_width="match_parent"
                                         android:layout_height="wrap_content"
                                         android:ellipsize="end"
@@ -295,14 +295,14 @@
 
                             <TextView
                                 android:id="@+id/selection_status"
-                                style="@style/TunnlStatusStripText"
+                                style="@style/Vpn0wnStatusStripText"
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1" />
 
                             <com.google.android.material.button.MaterialButton
                                 android:id="@+id/selection_all"
-                                style="@style/TunnlPillButton"
+                                style="@style/Vpn0wnPillButton"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:minWidth="48dp"
@@ -367,7 +367,7 @@
 
                         <TextView
                             android:id="@+id/home_empty_placeholder"
-                            style="@style/TunnlEmptyStateText"
+                            style="@style/Vpn0wnEmptyStateText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_gravity="center"
@@ -380,7 +380,7 @@
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/create_fab"
-                style="@style/TunnlHomeAddButton"
+                style="@style/Vpn0wnHomeAddButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="12dp"

@@ -60,7 +60,7 @@
                     app:tint="@color/tunnl_ink_2" />
 
                 <TextView
-                    style="@style/TunnlLabelText"
+                    style="@style/Vpn0wnLabelText"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="8dp"
@@ -80,7 +80,7 @@
                 android:orientation="horizontal">
 
                 <TextView
-                    style="@style/TunnlTopBarTitleText"
+                    style="@style/Vpn0wnTopBarTitleText"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
@@ -143,7 +143,7 @@
                         android:orientation="horizontal">
 
                         <TextView
-                            style="@style/TunnlLabelText"
+                            style="@style/Vpn0wnLabelText"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_marginEnd="8dp"
@@ -151,7 +151,7 @@
                             android:text="FIG.01 - TUNNEL TOPOLOGY" />
 
                         <TextView
-                            style="@style/TunnlLabelText"
+                            style="@style/Vpn0wnLabelText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             app:detailTopologyStatusTunnel="@{tunnel}"
@@ -180,7 +180,7 @@
                         android:orientation="horizontal">
 
                         <TextView
-                            style="@style/TunnlMonoSubText"
+                            style="@style/Vpn0wnMonoSubText"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
@@ -190,7 +190,7 @@
                             tools:text="172.20.4.18/24 -> gw.example.ro:51820" />
 
                         <TextView
-                            style="@style/TunnlLabelText"
+                            style="@style/Vpn0wnLabelText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="10dp"
@@ -231,7 +231,7 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/TunnlLabelText"
+                            style="@style/Vpn0wnLabelText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             app:detailStatusTitleTunnel="@{tunnel}"
@@ -240,7 +240,7 @@
                             tools:text="TUNNEL UP" />
 
                         <TextView
-                            style="@style/TunnlMonoSubText"
+                            style="@style/Vpn0wnMonoSubText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
@@ -282,13 +282,13 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/TunnlLabelText"
+                            style="@style/Vpn0wnLabelText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="↓ DOWNLOAD" />
 
                         <TextView
-                            style="@style/TunnlMonoValueText"
+                            style="@style/Vpn0wnMonoValueText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="5dp"
@@ -297,7 +297,7 @@
                             tools:text="19.8 MB" />
 
                         <TextView
-                            style="@style/TunnlMonoSubText"
+                            style="@style/Vpn0wnMonoSubText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@{BindingAdapters.tunnelRxRate(tunnel, tunnel.statistics)}"
@@ -319,13 +319,13 @@
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/TunnlLabelText"
+                            style="@style/Vpn0wnLabelText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="↑ UPLOAD" />
 
                         <TextView
-                            style="@style/TunnlMonoValueText"
+                            style="@style/Vpn0wnMonoValueText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="5dp"
@@ -334,7 +334,7 @@
                             tools:text="973 KB" />
 
                         <TextView
-                            style="@style/TunnlMonoSubText"
+                            style="@style/Vpn0wnMonoSubText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="@{BindingAdapters.tunnelTxRate(tunnel, tunnel.statistics)}"
@@ -352,14 +352,14 @@
                 android:orientation="horizontal">
 
                 <TextView
-                    style="@style/TunnlLabelText"
+                    style="@style/Vpn0wnLabelText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="§01"
                     android:textColor="@color/tunnl_rule_strong" />
 
                 <TextView
-                    style="@style/TunnlMonoValueText"
+                    style="@style/Vpn0wnMonoValueText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="10dp"
@@ -374,7 +374,7 @@
                     android:background="@color/tunnl_rule" />
 
                 <TextView
-                    style="@style/TunnlLabelText"
+                    style="@style/Vpn0wnLabelText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="10dp"
@@ -394,32 +394,32 @@
                     android:orientation="vertical">
 
                     <LinearLayout
-                        style="@style/TunnlDetailRow"
+                        style="@style/Vpn0wnDetailRow"
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/TunnlConfigRowLabel"
+                            style="@style/Vpn0wnConfigRowLabel"
                             android:text="NAME" />
 
                         <TextView
                             android:id="@+id/interface_name_text"
-                            style="@style/TunnlConfigRowValue"
+                            style="@style/Vpn0wnConfigRowValue"
                             android:onClick="@{ClipboardUtils::copyTextView}"
                             android:text="@{tunnel.name}"
                             tools:text="office-ro" />
                     </LinearLayout>
 
                     <LinearLayout
-                        style="@style/TunnlDetailRow"
+                        style="@style/Vpn0wnDetailRow"
                         android:orientation="vertical">
 
                         <TextView
-                            style="@style/TunnlConfigRowLabel"
+                            style="@style/Vpn0wnConfigRowLabel"
                             android:text="PUBLIC KEY" />
 
                         <TextView
                             android:id="@+id/public_key_text"
-                            style="@style/TunnlConfigRowValue"
+                            style="@style/Vpn0wnConfigRowValue"
                             android:maxLines="1"
                             android:onClick="@{ClipboardUtils::copyTextView}"
                             android:text="@{BindingAdapters.shortKey(config.interface.keyPair.publicKey.toBase64)}"
@@ -427,51 +427,51 @@
                     </LinearLayout>
 
                     <LinearLayout
-                        style="@style/TunnlDetailRow"
+                        style="@style/Vpn0wnDetailRow"
                         android:orientation="vertical"
                         android:visibility="@{config.interface.addresses.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}">
 
                         <TextView
-                            style="@style/TunnlConfigRowLabel"
+                            style="@style/Vpn0wnConfigRowLabel"
                             android:text="ADDRESSES" />
 
                         <TextView
                             android:id="@+id/addresses_text"
-                            style="@style/TunnlConfigRowValue"
+                            style="@style/Vpn0wnConfigRowValue"
                             android:onClick="@{ClipboardUtils::copyTextView}"
                             android:text="@{config.interface.addresses}"
                             tools:text="172.20.4.18/24" />
                     </LinearLayout>
 
                     <LinearLayout
-                        style="@style/TunnlDetailRow"
+                        style="@style/Vpn0wnDetailRow"
                         android:orientation="vertical"
                         android:visibility="@{config.interface.dnsServers.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}">
 
                         <TextView
-                            style="@style/TunnlConfigRowLabel"
+                            style="@style/Vpn0wnConfigRowLabel"
                             android:text="DNS SERVERS" />
 
                         <TextView
                             android:id="@+id/dns_servers_text"
-                            style="@style/TunnlConfigRowValue"
+                            style="@style/Vpn0wnConfigRowValue"
                             android:onClick="@{ClipboardUtils::copyTextView}"
                             android:text="@{config.interface.dnsServers}"
                             tools:text="1.1.1.1" />
                     </LinearLayout>
 
                     <LinearLayout
-                        style="@style/TunnlDetailRow"
+                        style="@style/Vpn0wnDetailRow"
                         android:orientation="vertical"
                         android:visibility="@{config.interface.dnsSearchDomains.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}">
 
                         <TextView
-                            style="@style/TunnlConfigRowLabel"
+                            style="@style/Vpn0wnConfigRowLabel"
                             android:text="DNS SEARCH DOMAINS" />
 
                         <TextView
                             android:id="@+id/dns_search_domains_text"
-                            style="@style/TunnlConfigRowValue"
+                            style="@style/Vpn0wnConfigRowValue"
                             android:onClick="@{ClipboardUtils::copyTextView}"
                             android:text="@{config.interface.dnsSearchDomains}"
                             tools:text="corp.example" />
@@ -485,36 +485,36 @@
                         android:orientation="horizontal">
 
                         <LinearLayout
-                            style="@style/TunnlDetailRow"
+                            style="@style/Vpn0wnDetailRow"
                             android:layout_width="0dp"
                             android:layout_weight="1"
                             android:orientation="vertical">
 
                             <TextView
-                                style="@style/TunnlConfigRowLabel"
+                                style="@style/Vpn0wnConfigRowLabel"
                                 android:text="LISTEN PORT" />
 
                             <TextView
                                 android:id="@+id/listen_port_text"
-                                style="@style/TunnlConfigRowValue"
+                                style="@style/Vpn0wnConfigRowValue"
                                 android:onClick="@{ClipboardUtils::copyTextView}"
                                 android:text="@{config.interface.listenPort.isPresent() ? config.interface.listenPort.get().toString() : `—`}"
                                 tools:text="51820" />
                         </LinearLayout>
 
                         <LinearLayout
-                            style="@style/TunnlDetailRow"
+                            style="@style/Vpn0wnDetailRow"
                             android:layout_width="0dp"
                             android:layout_weight="1"
                             android:orientation="vertical">
 
                             <TextView
-                                style="@style/TunnlConfigRowLabel"
+                                style="@style/Vpn0wnConfigRowLabel"
                                 android:text="MTU" />
 
                             <TextView
                                 android:id="@+id/mtu_text"
-                                style="@style/TunnlConfigRowValue"
+                                style="@style/Vpn0wnConfigRowValue"
                                 android:onClick="@{ClipboardUtils::copyTextView}"
                                 android:text="@{config.interface.mtu.isPresent() ? config.interface.mtu.get().toString() : `—`}"
                                 tools:text="1420" />
@@ -522,19 +522,19 @@
                     </LinearLayout>
 
                     <LinearLayout
-                        style="@style/TunnlDetailRow"
+                        style="@style/Vpn0wnDetailRow"
                         android:orientation="vertical"
                         android:visibility="@{config.interface.includedApplications.isEmpty() &amp;&amp; config.interface.excludedApplications.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
                         tools:visibility="visible">
 
                         <TextView
-                            style="@style/TunnlConfigRowLabel"
+                            style="@style/Vpn0wnConfigRowLabel"
                             android:text="@{config.interface.excludedApplications.isEmpty() ? `INCLUDED APPS · ` + config.interface.includedApplications.size() : `EXCLUDED APPS · ` + config.interface.excludedApplications.size()}"
                             tools:text="EXCLUDED APPS · 2" />
 
                         <TextView
                             android:id="@+id/applications_text"
-                            style="@style/TunnlConfigRowValue"
+                            style="@style/Vpn0wnConfigRowValue"
                             android:onClick="@{ClipboardUtils::copyTextView}"
                             android:text="@{config.interface.includedApplications.isEmpty() ? @plurals/n_excluded_applications(config.interface.excludedApplications.size(), config.interface.excludedApplications.size()) : @plurals/n_included_applications(config.interface.includedApplications.size(), config.interface.includedApplications.size())}"
                             tools:text="2 excluded" />
@@ -550,14 +550,14 @@
                 android:orientation="horizontal">
 
                 <TextView
-                    style="@style/TunnlLabelText"
+                    style="@style/Vpn0wnLabelText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="§02"
                     android:textColor="@color/tunnl_rule_strong" />
 
                 <TextView
-                    style="@style/TunnlMonoValueText"
+                    style="@style/Vpn0wnMonoValueText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="10dp"
@@ -572,7 +572,7 @@
                     android:background="@color/tunnl_rule" />
 
                 <TextView
-                    style="@style/TunnlLabelText"
+                    style="@style/Vpn0wnLabelText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="10dp"

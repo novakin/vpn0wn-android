@@ -8,7 +8,7 @@ Last updated: 2026-10-11 (Europe/Paris).
 
 ## Project Context
 
-vpn0wn ports the engineering-console UI in `.design/` onto WireGuard Android and adds the documented VPS provisioning flow. Discover the active branch from Git; do not assume a branch name or a clean worktree. Current source packages use `com.vpn0wn.*`; configured release/debug IDs are `com.vpn0wn.android` and `com.vpn0wn.android.debug`. Legacy resource/style keys and product log tags still await the remaining #71 rename. The [namespace contract](docs/backend-contracts.md#application-and-source-identity--71) owns current export names and retained protocol, persisted and compatibility identities; source changes do not establish renamed artifact/device or cross-app migration acceptance.
+vpn0wn ports the engineering-console UI in `.design/` onto WireGuard Android and adds the documented VPS provisioning flow. Discover the active branch from Git; do not assume a branch name or a clean worktree. Current source packages use `com.vpn0wn.*`; configured release/debug IDs are `com.vpn0wn.android` and `com.vpn0wn.android.debug`. Other legacy resource keys/basenames and product log tags still await the remaining #71 rename. The [namespace contract](docs/backend-contracts.md#application-and-source-identity--71) owns current export names and retained protocol, persisted and compatibility identities; source changes do not establish renamed artifact/device or cross-app migration acceptance.
 
 - Design reference: `.design/` — **read-only, never modify**
 - Brand reference: `docs/assets/vpnown-brand/` — approved artwork; the [Android adoption contract](docs/ui-redesign-roadmap.md#android-brand-asset-adoption--2026-10-10) owns logo use. Outlined Sora logos do not replace Inter Tight/JetBrains Mono UI font roles.
@@ -133,7 +133,7 @@ ui/src/main/java/com/vpn0wn/android/
 ui/src/main/res/
   layout/           tunnel_list_item.xml, tunnel_detail_fragment.xml, tunnel_editor_fragment.xml
                     tunnel_editor_peer.xml, tunnel_detail_peer.xml, log_viewer_activity.xml
-  values/           colors.xml (Tunnl palette), styles.xml (Tunnl styles), strings.xml
+  values/           colors.xml (legacy palette keys), styles.xml (vpn0wn styles), strings.xml
   drawable/         tunnl_list_item_background, tunnl_active_rail, ic_action_*
   font/             inter_tight, jetbrains_mono_regular, jetbrains_mono_medium
 
@@ -157,18 +157,18 @@ docs/               architecture, development, operations, backend contracts, pl
 - Data, keys, values, monospace fields: `@font/jetbrains_mono_regular` or `jetbrains_mono_medium`
 
 **Styles** (`res/values/styles.xml`):
-- `TunnlLabelText` — 10sp mono caps, ink_3 (field labels, section prefixes)
-- `TunnlMonoValueText` — 15sp mono, ink (tunnel names, prominent values)
-- `TunnlMonoSubText` — 10sp mono, ink_3 (sub-labels, hints)
-- `TunnlDetailRow` — row container (match_parent, paper_2 bg, 14dp h-padding, 10dp v-padding)
-- `TunnlConfigRowLabel` — wraps TunnlLabelText for ConfigRow label
-- `TunnlConfigRowValue` — 13sp mono, single line, ellipsize end
-- `TunnlEditorField` — plain EditText (no background, jetbrains mono, 13sp, ink)
-- `TunnlEditorFieldReadOnly` — TunnlEditorField + ink_3 + not focusable
+- `Vpn0wnLabelText` — 10sp mono caps, ink_3 (field labels, section prefixes)
+- `Vpn0wnMonoValueText` — 15sp mono, ink (tunnel names, prominent values)
+- `Vpn0wnMonoSubText` — 10sp mono, ink_3 (sub-labels, hints)
+- `Vpn0wnDetailRow` — row container (match_parent, paper_2 bg, 14dp h-padding, 10dp v-padding)
+- `Vpn0wnConfigRowLabel` — wraps Vpn0wnLabelText for ConfigRow label
+- `Vpn0wnConfigRowValue` — 13sp mono, single line, ellipsize end
+- `Vpn0wnEditorField` — plain EditText (no background, jetbrains mono, 13sp, ink)
+- `Vpn0wnEditorFieldReadOnly` — Vpn0wnEditorField + ink_3 + not focusable
 
 **Cards:** 0dp elevation, 1dp `tunnl_rule` stroke, 8dp corners, `paper_2` background.
 
-**Section headers:** `§01`, `§02`… `TunnlLabelText` in `rule_strong` + mono title + horizontal 1dp rule divider.
+**Section headers:** `§01`, `§02`… `Vpn0wnLabelText` in `rule_strong` + mono title + horizontal 1dp rule divider.
 
 ## JSX Reference Quick Map
 

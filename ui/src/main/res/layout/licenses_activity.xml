@@ -34,7 +34,7 @@
                 app:tint="@color/tunnl_ink_2" />
 
             <TextView
-                style="@style/TunnlLabelText"
+                style="@style/Vpn0wnLabelText"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
@@ -43,7 +43,7 @@
         </LinearLayout>
 
         <TextView
-            style="@style/TunnlTopBarTitleText"
+            style="@style/Vpn0wnTopBarTitleText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"

@@ -61,6 +61,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **App-owned style/theme identifiers — #71 mechanical follow-up (2026-10-11, Europe/Paris)**
+  `ui/src/main/res/values/styles.xml` and both theme resource variants rename 22 `Tunnl*` style identifiers to `Vpn0wn*`, plus the base `WireGuardTheme` and five children to `Vpn0wnTheme*`. Twelve layout consumers and `BindingAdaptersTest` follow the same internal references. Style values, external Material parents, color/dimension/drawable/layout keys and basenames, font roles, manifests, persistence and WireGuard contracts remain unchanged. Exact inverse-byte and normalized style-graph checks plus existing focused resource/rendering controls own the source-preservation proof; this slice adds no new appearance, APK/device or cross-app migration claim. [The UI token guide](ui-redesign-roadmap.md#typography) and [identity contract](backend-contracts.md#application-and-source-identity--71) describe current names and remaining acceptance.
+
 - **Export filenames and subjects — #71 bounded source follow-up (2026-10-11, Europe/Paris)**
   `ZipExporterPreference.exportZip` requests `vpn0wn-export.zip`; `LogViewerActivity.ExportedLogContentProvider.query` publishes `vpn0wn-log.txt`. All 32 `log_export_subject` definitions use `vpn0wn` while preserving surrounding translations and resource keys. Existing profile/config bytes, MIME types, authentication/admin gates, overwrite, cancellation/cleanup and temporary URI publication/revocation behavior remain unchanged; legacy exported files are not migrated or cleaned up. The existing success/publication controls now assert metadata at Downloads insertion and provider query. [The identity contract](backend-contracts.md#application-and-source-identity--71) owns compatibility and remaining device/artifact boundaries; this source slice adds no APK, chooser/provider or migration proof.
 
