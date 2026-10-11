@@ -17,7 +17,7 @@ The run used Android 16/API 36 Google APIs x86_64 revision 7, user 0, `emulator-
 | Legacy exporter | `e4efaea0d424e279d04ceee5dee3e8e396115d33` | `com.wireguard.android.debug` / `10216` | `8c3c8f8f9daefe8121842e11175b5dba5bdbe9574ee3fddfbe1162c43d0064c2` |
 | New-ID importer | `20ed2f66f7ffa89fcf5071d27c51728d227d8a22` | `com.vpn0wn.android.debug` / `10217` | `e7ffab8f3c63483faf5daee49392a75d2c1896cda392f803352019ee2f425ca4` |
 
-Installed package pullback matched the pinned APK hashes. Both retained artifacts have the verified debug certificate SHA256 `23d36814e694f8c06b9df2149f7a211d7c0ef0c10c7ac0154610a16cc763c580`. The shared signer does not establish an upgrade from another installed signer or release identity.
+On-device SHA256 readbacks of the installed APKs matched the pinned hashes. Both retained artifacts have the verified debug certificate SHA256 `23d36814e694f8c06b9df2149f7a211d7c0ef0c10c7ac0154610a16cc763c580`. The shared signer does not establish an upgrade from another installed signer or release identity.
 
 The synthetic payload contained two peerless, endpoint-free profiles, four portable Boolean settings plus the last-used selection, and one saved non-secret VPS record. Both profiles stayed DOWN; recreation readback found no package VPN service. This run exercised data transfer without establishing VPN traffic, Android VPN permission, tile or boot setup, SSH connectivity or server health.
 
