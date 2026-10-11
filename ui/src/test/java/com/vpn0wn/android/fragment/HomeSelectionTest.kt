@@ -471,6 +471,77 @@ class HomeSelectionTest {
         }
     }
 
+    @Test @Config(sdk = [34]) @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun emptyHomeKeyboardFocusKeepsInstructionsReadableAndVisible() = runHomeTest {
+        for (case in homePreviewCases()) {
+            val direction = if (case.locale == "ar") "ldrtl" else "ldltr"
+            val orientation = if (case.width > case.height) "land" else "port"
+            val night = if (case.night) "night" else "notnight"
+            RuntimeEnvironment.setQualifiers("${case.locale}-$direction-w${case.width}dp-h${case.height}dp-$orientation-$night")
+            RuntimeEnvironment.setFontScale(case.scale)
+            val f = host()
+            try {
+                f.binding.homeAppBar.setExpanded(false, false)
+                layout(f.binding, case.width, case.height)
+                val scroll = f.binding.homeEmptyScroll
+                scroll.fullScroll(View.FOCUS_DOWN)
+                assertTrue(f.binding.createFab.requestFocusFromTouch())
+                shadowOf(Looper.getMainLooper()).idle()
+                val ink = scroll.context.getColor(R.color.vpn0wn_ink_2)
+                val signal = scroll.context.getColor(R.color.vpn0wn_signal)
+                val unfocusedInk = renderedColorCount(scroll, ink)
+                val unfocusedSignal = renderedColorCount(scroll, signal)
+                val descendants = listOf(f.binding.logoPlaceholder, f.binding.homeEmptyPlaceholder)
+                val unfocusedBounds = descendants.map { Rect(it.left, it.top, it.right, it.bottom) }
+                assertTrue("${case.name}: instruction text renders", unfocusedInk > 0)
+                save(f.binding.root, "empty-unfocused-${case.name}")
+
+                assertTrue(scroll.requestFocusFromTouch())
+                shadowOf(Looper.getMainLooper()).idle()
+                assertTrue(scroll.isFocused)
+                assertFalse(scroll.isInTouchMode)
+                assertTrue("Platform focus remains enabled", scroll.defaultFocusHighlightEnabled)
+                assertEquals("${case.name}: focused instructions keep their ink", unfocusedInk, renderedColorCount(scroll, ink))
+                assertTrue("${case.name}: keyboard focus is visible", renderedColorCount(scroll, signal) > unfocusedSignal)
+                assertEquals("${case.name}: focus does not move descendants", unfocusedBounds,
+                    descendants.map { Rect(it.left, it.top, it.right, it.bottom) })
+                assertNotNull("The empty container owns its focus background", scroll.background)
+                assertTrue(scroll.background.isStateful)
+                assertNull("No foreground overlays the instruction", scroll.foreground)
+                assertTrue(f.binding.homeEmptyPlaceholder.isEnabled)
+                assertEquals(ink, f.binding.homeEmptyPlaceholder.currentTextColor)
+                assertFullyVisible(f.binding.createFab, "${case.name}: Add after focus")
+                save(f.binding.root, "empty-focused-${case.name}")
+
+                assertTrue(f.binding.createFab.requestFocusFromTouch())
+                shadowOf(Looper.getMainLooper()).idle()
+                assertFalse(scroll.isFocused)
+                assertEquals(unfocusedInk, renderedColorCount(scroll, ink))
+                assertEquals(unfocusedSignal, renderedColorCount(scroll, signal))
+            } finally {
+                f.controller.pause().stop().destroy()
+                controllers.remove(f.controller)
+            }
+        }
+    }
+
+    @Test @Config(sdk = [24])
+    fun emptyHomeFocusAndAddStayAvailableOnMinimumApi() = runHomeTest {
+        val f = host()
+        val scroll = f.binding.homeEmptyScroll
+        val instructions = f.binding.homeEmptyPlaceholder.text.toString()
+        assertTrue(scroll.requestFocusFromTouch())
+        assertTrue(scroll.isFocused)
+        assertNotNull(scroll.background)
+        assertTrue(scroll.background.isStateful)
+        assertTrue(f.binding.homeEmptyPlaceholder.isEnabled)
+        assertEquals(instructions, f.binding.homeEmptyPlaceholder.text.toString())
+        assertTrue(f.binding.createFab.requestFocusFromTouch())
+        assertFalse(scroll.isFocused)
+        assertTrue(f.binding.createFab.performClick())
+        assertNotNull(f.fragment.childFragmentManager.findFragmentByTag("BOTTOM_SHEET"))
+    }
+
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun largeLandscapeHeaderDragRevealsTunnelAndRestoresSelectionActions() = runHomeTest {
         RuntimeEnvironment.setQualifiers("en-ldltr-w640dp-h320dp-land-night")
@@ -687,6 +758,18 @@ class HomeSelectionTest {
         val directory = File("../.artifacts/home-selection-previews").apply { mkdirs() }
         File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
+    }
+
+    private fun renderedColorCount(view: View, color: Int): Int {
+        val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        canvas.drawColor(view.context.getColor(R.color.vpn0wn_paper))
+        canvas.translate(-view.scrollX.toFloat(), -view.scrollY.toFloat())
+        view.draw(canvas)
+        val pixels = IntArray(view.width * view.height)
+        bitmap.getPixels(pixels, 0, view.width, 0, 0, view.width, view.height)
+        bitmap.recycle()
+        return pixels.count { it == color }
     }
 
     private data class Preview(val name: String, val width: Int, val height: Int, val scale: Float, val locale: String, val night: Boolean)
