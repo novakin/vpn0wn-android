@@ -72,6 +72,6 @@ class TunnelToggleActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val TAG = "WireGuard/TunnelToggleActivity"
+        private const val TAG = "vpn0wn/TunnelToggleActivity"
     }
 }

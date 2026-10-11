@@ -108,7 +108,7 @@ class ZipExporterPreferenceTest {
             assertTrue(preference.isEnabled)
             assertEquals(activity.getString(R.string.zip_export_summary), preference.summary)
             assertEquals(1, provider.cleanupAttempts)
-            val failure = ShadowLog.getLogsForTag("WireGuard/ZipExporterPreference").single().throwable
+            val failure = ShadowLog.getLogsForTag("vpn0wn/ZipExporterPreference").single().throwable
             assertTrue(failure is IOException)
             assertTrue(generateSequence(failure) { it.cause }.any { primary ->
                 primary.suppressed.any { it is IOException && it.message == "fixture delete failure" }
@@ -153,7 +153,7 @@ class ZipExporterPreferenceTest {
             assertTrue(export.children.none())
             assertTrue(preference.isEnabled)
             assertEquals(activity.getString(R.string.zip_export_summary), preference.summary)
-            assertTrue(ShadowLog.getLogsForTag("WireGuard/ZipExporterPreference").isEmpty())
+            assertTrue(ShadowLog.getLogsForTag("vpn0wn/ZipExporterPreference").isEmpty())
         } finally {
             release.countDown()
             controller.destroy()

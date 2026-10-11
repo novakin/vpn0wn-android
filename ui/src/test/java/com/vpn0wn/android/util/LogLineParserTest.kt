@@ -19,6 +19,11 @@ class LogLineParserTest {
         assertEquals("WireGuard/Test", row.tag)
         assertEquals("synthetic message", row.msg)
         assertEquals("2026-10-06 12:34:56.789", SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(row.time!!))
+        for (tag in listOf("vpn0wn/Test", "vpn0wn/GoBackend/wg0", "vpn0wn/GoBackend/Stacktrace")) {
+            val current = LogLineParser.parse("10-06 12:34:56.789  1234  5678 I $tag: synthetic message", "2026")!!
+            assertEquals(tag, current.tag)
+            assertEquals("synthetic message", current.msg)
+        }
     }
 
     @Test

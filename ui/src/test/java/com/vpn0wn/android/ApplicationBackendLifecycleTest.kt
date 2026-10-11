@@ -9,12 +9,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.shadows.ShadowLog
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = android.app.Application::class, sdk = [28])
@@ -34,8 +37,12 @@ class ApplicationBackendLifecycleTest {
         scope.cancel()
         Application::class.java.getDeclaredField("coroutineScope")
             .apply { isAccessible = true }.set(application, scope)
+        ShadowLog.clear()
         try {
             application.onCreate()
+            val startupLog = ShadowLog.getLogsForTag("vpn0wn/Application").single()
+            assertEquals(Application.USER_AGENT, startupLog.msg)
+            assertTrue(startupLog.msg.startsWith("vpn0wn/${BuildConfig.VERSION_NAME} (Android "))
             Application.getBackend()
             fail("Expected cancelled backend initialization")
         } catch (_: CancellationException) {

@@ -57,7 +57,7 @@ import androidx.collection.ArraySet;
 public final class GoBackend implements Backend {
     private static final int DNS_RESOLUTION_RETRIES = 10;
     private static final int NATIVE_HANDSHAKE_EVENT_FIRST = 1;
-    private static final String TAG = "WireGuard/GoBackend";
+    private static final String TAG = "vpn0wn/GoBackend";
     @Nullable private static AlwaysOnCallback alwaysOnCallback;
     private static final AtomicReference<CompletableFuture<VpnService>> vpnServiceRef =
             new AtomicReference<>(new CompletableFuture<>());

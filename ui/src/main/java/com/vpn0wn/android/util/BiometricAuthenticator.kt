@@ -18,7 +18,7 @@ import com.vpn0wn.android.R
 
 
 object BiometricAuthenticator {
-    private const val TAG = "WireGuard/BiometricAuthenticator"
+    private const val TAG = "vpn0wn/BiometricAuthenticator"
 
     // Not all devices support strong biometric auth so we're allowing both device credentials as
     // well as weak biometrics.

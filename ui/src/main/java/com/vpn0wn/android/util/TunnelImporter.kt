@@ -165,5 +165,5 @@ object TunnelImporter {
         messageCallback(message)
     }
 
-    private const val TAG = "WireGuard/TunnelImporter"
+    private const val TAG = "vpn0wn/TunnelImporter"
 }

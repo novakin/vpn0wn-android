@@ -481,6 +481,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
+- [x] **First-party log naming — #71 (2026-10-11, Europe/Paris):** JVM/native producers and the startup header identify vpn0wn; owner/tunnel suffixes, log messages and metadata stay intact. Legacy/upstream/platform rows remain parseable and visible through the existing viewer. This is a source naming slice with no layout, token, artwork or new Android output claim; [the identity contract](backend-contracts.md#application-and-source-identity--71) retains wider rename acceptance.
+
 - [x] **Current style/theme names — #71 mechanical follow-up, 2026-10-11:** 22 app-owned `Tunnl*` style identifiers now use `Vpn0wn*`; the former `WireGuardTheme` base and its five children use `Vpn0wnTheme*`. Layout consumers, explicit internal parents and the binding-test reference follow those names. Existing visual values, external Material parents, lower-case resource keys/basenames, UI font roles and day/night behavior are unchanged. [The identity contract](backend-contracts.md#application-and-source-identity--71) retains remaining naming and artifact/device acceptance boundaries; earlier evidence keeps its tested revision.
 
 - [x] Optional scripting-tools state guidance — #71 (2026-10-11): `ToolsInstallerPreference` distinguishes compatible reuse, Magisk staging/reboot, disabled conflict refusal and retryable observation failure; direct-system install states/resources are retired. Existing native row layout, styling and private kernel tools remain unchanged. [Operations](operations.md#optional-command-line-tools) owns handling and [QA](qa-test-plan.md#root-tools-coexistence-acceptance) owns pending output/root acceptance. The integrated owner admits only the selected release/debug IDs and retains exact-byte compatibility; this refresh records no new APK or rendered-device proof and does not complete the rename.
@@ -609,7 +611,7 @@ This is a historical implementation ledger, not newly executed build/device proo
 
 ### Fidelity Gaps — Remaining
 
-- [~] **Remaining first-party identity names — #71:** Other resource keys/basenames and product log tags retain legacy names. Current helpers, style/theme keys and export metadata/subjects identify vpn0wn; remaining resource/log naming stays bounded follow-up. Retained WireGuard protocol/legal and persisted provisioning compatibility names have distinct reasons in [the identity contract](backend-contracts.md#application-and-source-identity--71).
+- [~] **Remaining first-party identity names — #71:** Other resource keys/basenames and native/test helper names retain legacy names. Current helpers, style/theme keys, first-party log tags/startup header and export metadata/subjects identify vpn0wn; remaining resource naming stays bounded follow-up. Retained WireGuard protocol/legal and persisted provisioning compatibility names have distinct reasons in [the identity contract](backend-contracts.md#application-and-source-identity--71).
 
 - [~] **Full app-data transfer actions — 2026-10-09:** Settings reuses its existing Data action-row layout/tokens and native biometric, document-picker and Material confirmation patterns. [Scoped authorized AVD proof](reviews/2026-10-09-app-data-transfer-acceptance.md) covers the inspected themes, sizes, large text, real RTL and native Downloads/PIN paths. Broader physical biometric/provider failures, TalkBack, translation and old/new-installation acceptance remain [#71 gates](qa-test-plan.md#full-app-data-transfer-acceptance).
 

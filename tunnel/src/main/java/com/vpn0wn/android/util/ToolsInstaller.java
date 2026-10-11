@@ -39,7 +39,7 @@ public final class ToolsInstaller {
             new File("/system/bin"),
     };
     @Nullable private static final File INSTALL_DIR = getInstallDir();
-    private static final String TAG = "WireGuard/ToolsInstaller";
+    private static final String TAG = "vpn0wn/ToolsInstaller";
     private static final String MODULE_METADATA = "id=vpn0wn\nname=vpn0wn WireGuard Command Line Tools\nversion=1.0\nversionCode=1\nauthor=vpn0wn\ndescription=WireGuard tools from WireGuard LLC, packaged by vpn0wn\nminMagisk=1500\n";
 
     private final Context context;

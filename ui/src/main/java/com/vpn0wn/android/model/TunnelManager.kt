@@ -589,6 +589,6 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     }
 
     companion object {
-        private const val TAG = "WireGuard/TunnelManager"
+        private const val TAG = "vpn0wn/TunnelManager"
     }
 }

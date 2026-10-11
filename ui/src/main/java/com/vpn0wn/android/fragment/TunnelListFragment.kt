@@ -541,6 +541,6 @@ class TunnelListFragment : BaseFragment() {
     companion object {
         private const val SELECTION_MODE = "SELECTION_MODE"
         private const val SELECTED_NAMES = "SELECTED_NAMES"
-        private const val TAG = "WireGuard/TunnelListFragment"
+        private const val TAG = "vpn0wn/TunnelListFragment"
     }
 }
