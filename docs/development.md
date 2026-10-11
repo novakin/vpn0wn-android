@@ -240,6 +240,14 @@ Do not end required work while commands or reviewers are still running. State be
 
 ## Recorded verification
 
+### Standard kernel-peer packet acceptance — 2026-10-11
+
+The [rooted kernel-peer record](reviews/2026-10-11-kernel-peer-acceptance.md) pins the installed `7d0e8762` source/APK and independently reviewed fixture. Both explicit/omitted IPv4 loopback captures pass ordering/disabled controls and zero-drop checks, with fresh kernel handshakes/counter deltas and TUN-bound expected HTTP/200. Final cleanup and fresh original-app return readbacks preserve all 12 fields/network/original kernel and remove owned resources/authorization. This is scoped same-phone interoperability; external/IPv6/protection timing, wider lifecycle, DPI/performance and remaining #61 acceptance stay open.
+
+### Composed unsigned release artifacts — 2026-10-11
+
+Authorized `:ui:assembleRelease :ui:assembleGoogleplay` passed at clean `15eb25239d876579ab60609efcc35413dde589f3`. [The artifact record](reviews/2026-10-11-release-artifact-acceptance.md) owns actual hashes/metadata, source-exact NOTICE/credits/OFL/provisioning inclusion, resource-resolved fonts, 16 native libraries/current JNI callbacks and static licensing navigation after R8 shrinking. Both outputs are unsigned and byte-identical; no signing, installation, runtime, distribution or full #71 closure follows.
+
 ### Namespace source and rooted debug acceptance — 2026-10-11
 
 For namespace source represented by `7ead52cdc71c06bda92b83c6b60e43a021790dbc`, debug UI/tunnel XML reports total 483 tests across 53 suites with zero failures/errors/skips; Detekt has zero findings. Debug/host checks retain source-equivalent precommit scope; release startup, APK and runtime checks used literal `7ead52c`. The targeted release startup control passed one test. Configured `test-host.sh` passed six Go race groups and seven JNI controls after an initial unset-`JAVA_HOME` setup failure, retained as failed evidence. Authorized debug assembly passed all four ABIs; three merged manifests, 46 generated binding classes, exact five renamed JNI exports per ABI and fork POM metadata were inspected. No Maven publication occurred. [The scoped namespace record](reviews/2026-10-11-namespace-acceptance.md) pins the APK checksum and rooted Pixel 7 Pro/API 34 new-ID startup, synthetic native-provider import, authenticated same-phone peer HTTP, one manual rebind with two successful protection callbacks and sequential DOWN/reconnect. It keeps missing descriptor/generation snapshots, unproved destruction, synthetic-archive/cross-app limits separate, and records checked 12-field restoration with zero mismatches. Final-head independent review, CI and publication/integration remain PR acceptance, not inferred from this local run.
