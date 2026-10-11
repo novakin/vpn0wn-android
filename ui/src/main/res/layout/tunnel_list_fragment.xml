@@ -343,6 +343,7 @@
                     android:id="@+id/home_empty_scroll"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
+                    android:background="@drawable/vpn0wn_license_notice_background"
                     android:fillViewport="true"
                     android:visibility="@{tunnels.size() == 0 ? android.view.View.VISIBLE : android.view.View.GONE}"
                     app:layout_behavior="@string/appbar_scrolling_view_behavior"
