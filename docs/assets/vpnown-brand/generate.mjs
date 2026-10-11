@@ -162,7 +162,7 @@ function saveAndroidResources() {
   write('mipmap-anydpi-v26/ic_launcher_round.xml', adaptive);
   write('values/ic_launcher_background.xml', `<?xml version="1.0" encoding="utf-8"?>${upstreamXmlNotice}
 <resources>
-    <color name="ic_launcher_background">@color/tunnl_paper_2</color>
+    <color name="ic_launcher_background">@color/vpn0wn_paper_2</color>
 </resources>\n`);
 
   const appMark = mark(512 - 650 * 96 / 112 / 2, 187, 650);

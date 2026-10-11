@@ -2,7 +2,7 @@
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="@color/tunnl_signal_deep" />
+            <solid android:color="@color/vpn0wn_signal_deep" />
             <corners android:radius="5dp" />
         </shape>
     </item>
@@ -19,7 +19,7 @@
             <path
                 android:fillColor="@android:color/transparent"
                 android:pathData="M1.5,5L4.5,8L10.5,2"
-                android:strokeColor="@color/tunnl_paper"
+                android:strokeColor="@color/vpn0wn_paper"
                 android:strokeLineCap="round"
                 android:strokeLineJoin="round"
                 android:strokeWidth="1.8" />

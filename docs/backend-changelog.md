@@ -61,6 +61,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **Private visual resource identifiers — #71 mechanical follow-up (2026-10-11, Europe/Paris)**
+  Android resources rename 60 app-private color/dimension/drawable/cache-ID/preference-layout keys and 40 XML basenames to `vpn0wn_*`/`ic_vpn0wn_*`; their Kotlin/XML/test consumers follow them. `docs/assets/vpnown-brand/generate.mjs` and the tracked launcher-background XML now both refer to `vpn0wn_paper_2`. Exact expected-byte/inverse/XML/declaration/consumer checks preserve every other source payload, including geometry, selector order, colors, dimensions, fonts and localized text. Existing native-rendering/inflation controls and zero-issue Detekt cover the source slice; the PR owns actual executed inventory and raster limits. No native, persistence, config, provisioning or user workflow changes occur. Localized keys, unused legacy subtitle text, native/host-test helper names and the remaining #71 artifact/device/root-tools/distribution gates remain open; no APK/device/runtime gain is claimed.
+
 - **First-party log tags and startup header — #71 bounded source follow-up (2026-10-11, Europe/Paris)**
   `Application.onCreate`/`USER_AGENT`, JVM log owners and native `api-android.go` logger/stacktrace producers replace only the `WireGuard/` product prefix with `vpn0wn/`: 35 production literals across 30 files. Existing suffixes, metadata, privacy/failure handling and the viewer's unrestricted tag capture/parser remain unchanged. Startup and actual producer controls check the current prefix; the parser retains legacy rows and accepts current JVM/native tags. [The identity contract](backend-contracts.md#application-and-source-identity--71) owns compatibility and source/binary/runtime limits; this slice adds no new logging layer or device/runtime claim.
 

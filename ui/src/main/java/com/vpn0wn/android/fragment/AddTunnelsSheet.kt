@@ -74,7 +74,7 @@ class AddTunnelsSheet : BottomSheetDialogFragment() {
             onRequestScanQRCode()
         }
         val gradientDrawable = GradientDrawable().apply {
-            setColor(ContextCompat.getColor(requireContext(), R.color.tunnl_paper))
+            setColor(ContextCompat.getColor(requireContext(), R.color.vpn0wn_paper))
             val radius = resources.getDimension(R.dimen.bottom_sheet_corner_radius)
             cornerRadii = floatArrayOf(radius, radius, radius, radius, 0f, 0f, 0f, 0f)
         }

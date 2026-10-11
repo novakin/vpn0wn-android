@@ -5,9 +5,9 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android">
 
     <style name="Vpn0wnTheme.Toolbar" parent="Widget.Material3.Toolbar">
-        <item name="android:background">@color/tunnl_paper_2</item>
-        <item name="titleTextColor">@color/tunnl_ink</item>
-        <item name="subtitleTextColor">@color/tunnl_ink_3</item>
+        <item name="android:background">@color/vpn0wn_paper_2</item>
+        <item name="titleTextColor">@color/vpn0wn_ink</item>
+        <item name="subtitleTextColor">@color/vpn0wn_ink_3</item>
     </style>
 
     <style name="AppThemeBase" parent="Vpn0wnTheme">
@@ -16,10 +16,10 @@
         <item name="materialButtonStyle">@style/Vpn0wnTheme.MaterialButton</item>
         <item name="toolbarStyle">@style/Vpn0wnTheme.Toolbar</item>
         <item name="bottomSheetDialogTheme">@style/Vpn0wnTheme.BottomSheetDialog</item>
-        <item name="android:windowBackground">@color/tunnl_paper_2</item>
-        <item name="android:statusBarColor">@color/tunnl_paper_2</item>
-        <item name="android:navigationBarColor">@color/tunnl_paper</item>
-        <item name="colorControlHighlight">@color/tunnl_paper_3</item>
+        <item name="android:windowBackground">@color/vpn0wn_paper_2</item>
+        <item name="android:statusBarColor">@color/vpn0wn_paper_2</item>
+        <item name="android:navigationBarColor">@color/vpn0wn_paper</item>
+        <item name="colorControlHighlight">@color/vpn0wn_paper_3</item>
         <item name="fontFamily">@font/inter_tight</item>
         <item name="android:fontFamily">@font/inter_tight</item>
         <item name="android:windowLightStatusBar">@bool/light_status_bar</item>
@@ -29,32 +29,32 @@
     <style name="AppTheme" parent="AppThemeBase" />
 
     <style name="Vpn0wnTheme.MaterialCardView" parent="Widget.Material3.CardView.Elevated">
-        <item name="cardBackgroundColor">@color/tunnl_paper_2</item>
+        <item name="cardBackgroundColor">@color/vpn0wn_paper_2</item>
         <item name="cardElevation">0dp</item>
         <item name="cornerRadius">8dp</item>
-        <item name="strokeColor">@color/tunnl_rule</item>
+        <item name="strokeColor">@color/vpn0wn_rule</item>
         <item name="strokeWidth">1dp</item>
         <item name="contentPadding">12dp</item>
     </style>
 
     <style name="Vpn0wnTheme.TextInputLayout" parent="Widget.Material3.TextInputLayout.OutlinedBox">
-        <item name="boxBackgroundColor">@color/tunnl_paper</item>
-        <item name="boxStrokeColor">@color/tunnl_rule_strong</item>
+        <item name="boxBackgroundColor">@color/vpn0wn_paper</item>
+        <item name="boxStrokeColor">@color/vpn0wn_rule_strong</item>
         <item name="boxStrokeWidth">1dp</item>
         <item name="boxStrokeWidthFocused">1dp</item>
-        <item name="hintTextColor">@color/tunnl_ink_3</item>
-        <item name="helperTextTextColor">@color/tunnl_ink_3</item>
-        <item name="errorTextColor">@color/tunnl_error</item>
+        <item name="hintTextColor">@color/vpn0wn_ink_3</item>
+        <item name="helperTextTextColor">@color/vpn0wn_ink_3</item>
+        <item name="errorTextColor">@color/vpn0wn_error</item>
     </style>
 
     <style name="Vpn0wnTheme.MaterialButton" parent="Widget.Material3.Button">
-        <item name="backgroundTint">@color/tunnl_paper_2</item>
+        <item name="backgroundTint">@color/vpn0wn_paper_2</item>
         <item name="cornerRadius">6dp</item>
-        <item name="iconTint">@color/tunnl_signal</item>
-        <item name="rippleColor">@color/tunnl_paper_3</item>
-        <item name="strokeColor">@color/tunnl_rule</item>
+        <item name="iconTint">@color/vpn0wn_signal</item>
+        <item name="rippleColor">@color/vpn0wn_paper_3</item>
+        <item name="strokeColor">@color/vpn0wn_rule</item>
         <item name="strokeWidth">1dp</item>
-        <item name="android:textColor">@color/tunnl_ink</item>
+        <item name="android:textColor">@color/vpn0wn_ink</item>
     </style>
 
     <style name="Vpn0wnLabelText">
@@ -62,7 +62,7 @@
         <item name="android:fontFeatureSettings">ss01, zero, tnum</item>
         <item name="android:includeFontPadding">false</item>
         <item name="android:textAllCaps">true</item>
-        <item name="android:textColor">@color/tunnl_ink_3</item>
+        <item name="android:textColor">@color/vpn0wn_ink_3</item>
         <item name="android:textSize">10sp</item>
         <item name="android:letterSpacing">0.08</item>
     </style>
@@ -71,7 +71,7 @@
         <item name="android:fontFamily">@font/jetbrains_mono_medium</item>
         <item name="android:fontFeatureSettings">ss01, zero, tnum</item>
         <item name="android:includeFontPadding">false</item>
-        <item name="android:textColor">@color/tunnl_ink</item>
+        <item name="android:textColor">@color/vpn0wn_ink</item>
         <item name="android:textSize">15sp</item>
     </style>
 
@@ -79,7 +79,7 @@
         <item name="android:fontFamily">@font/jetbrains_mono_regular</item>
         <item name="android:fontFeatureSettings">ss01, zero, tnum</item>
         <item name="android:includeFontPadding">false</item>
-        <item name="android:textColor">@color/tunnl_ink_3</item>
+        <item name="android:textColor">@color/vpn0wn_ink_3</item>
         <item name="android:textSize">10sp</item>
     </style>
 
@@ -88,7 +88,7 @@
     </style>
 
     <style name="Vpn0wnHomeTopBarTitleText" parent="Vpn0wnTopBarTitleText">
-        <item name="android:textSize">@dimen/tunnl_home_title_size</item>
+        <item name="android:textSize">@dimen/vpn0wn_home_title_size</item>
     </style>
 
     <style name="Vpn0wnHomeHeaderText" parent="Vpn0wnMonoSubText">
@@ -100,7 +100,7 @@
     <style name="Vpn0wnHomeSecondaryText">
         <item name="android:fontFamily">@font/inter_tight</item>
         <item name="android:includeFontPadding">false</item>
-        <item name="android:textColor">@color/tunnl_ink_3</item>
+        <item name="android:textColor">@color/vpn0wn_ink_3</item>
         <item name="android:textSize">12sp</item>
     </style>
 
@@ -132,16 +132,16 @@
         <item name="android:paddingBottom">8dp</item>
         <item name="android:stateListAnimator">@null</item>
         <item name="android:textAllCaps">false</item>
-        <item name="android:textColor">@color/tunnl_signal</item>
+        <item name="android:textColor">@color/vpn0wn_signal</item>
         <item name="android:textSize">13sp</item>
-        <item name="backgroundTint">@color/tunnl_paper_2</item>
+        <item name="backgroundTint">@color/vpn0wn_paper_2</item>
         <item name="cornerRadius">8dp</item>
-        <item name="icon">@drawable/ic_tunnl_plus</item>
+        <item name="icon">@drawable/ic_vpn0wn_plus</item>
         <item name="iconGravity">textStart</item>
         <item name="iconPadding">8dp</item>
         <item name="iconSize">14dp</item>
-        <item name="iconTint">@color/tunnl_signal</item>
-        <item name="strokeColor">@color/tunnl_rule</item>
+        <item name="iconTint">@color/vpn0wn_signal</item>
+        <item name="strokeColor">@color/vpn0wn_rule</item>
         <item name="strokeWidth">1dp</item>
     </style>
 
@@ -150,21 +150,21 @@
     </style>
 
     <style name="Vpn0wnEmptyStateText" parent="Vpn0wnMonoValueText">
-        <item name="android:textColor">@color/tunnl_ink_2</item>
+        <item name="android:textColor">@color/vpn0wn_ink_2</item>
         <item name="android:textSize">20sp</item>
     </style>
 
     <style name="Vpn0wnDetailRow">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:background">@color/tunnl_paper_2</item>
+        <item name="android:background">@color/vpn0wn_paper_2</item>
         <item name="android:fontFamily">@font/jetbrains_mono_regular</item>
         <item name="android:fontFeatureSettings">ss01, zero, tnum</item>
         <item name="android:paddingStart">14dp</item>
         <item name="android:paddingTop">10dp</item>
         <item name="android:paddingEnd">14dp</item>
         <item name="android:paddingBottom">10dp</item>
-        <item name="android:textColor">@color/tunnl_ink</item>
+        <item name="android:textColor">@color/vpn0wn_ink</item>
         <item name="android:textSize">13sp</item>
     </style>
 
@@ -188,14 +188,14 @@
         <item name="android:background">@null</item>
         <item name="android:fontFamily">@font/jetbrains_mono_regular</item>
         <item name="android:fontFeatureSettings">ss01, zero, tnum</item>
-        <item name="android:textColor">@color/tunnl_ink</item>
+        <item name="android:textColor">@color/vpn0wn_ink</item>
         <item name="android:textSize">13sp</item>
         <item name="android:paddingTop">4dp</item>
         <item name="android:paddingBottom">2dp</item>
     </style>
 
     <style name="Vpn0wnEditorFieldReadOnly" parent="Vpn0wnEditorField">
-        <item name="android:textColor">@color/tunnl_ink_3</item>
+        <item name="android:textColor">@color/vpn0wn_ink_3</item>
         <item name="android:focusable">false</item>
         <item name="android:editable">false</item>
     </style>
@@ -204,16 +204,16 @@
         <item name="android:fontFamily">@font/jetbrains_mono_medium</item>
         <item name="android:fontFeatureSettings">ss01, zero, tnum</item>
         <item name="android:textAllCaps">false</item>
-        <item name="android:textColor">@color/tunnl_ink_2</item>
+        <item name="android:textColor">@color/vpn0wn_ink_2</item>
         <item name="android:textSize">10sp</item>
         <item name="backgroundTint">@android:color/transparent</item>
         <item name="cornerRadius">6dp</item>
-        <item name="strokeColor">@color/tunnl_rule_strong</item>
+        <item name="strokeColor">@color/vpn0wn_rule_strong</item>
         <item name="strokeWidth">1dp</item>
     </style>
 
     <style name="Vpn0wnDashedActionButton" parent="Vpn0wnPillButton">
-        <item name="android:textColor">@color/tunnl_ink_3</item>
+        <item name="android:textColor">@color/vpn0wn_ink_3</item>
         <item name="android:textSize">11sp</item>
         <item name="android:letterSpacing">0.06</item>
     </style>
@@ -221,19 +221,19 @@
     <style name="Vpn0wnCheckboxText">
         <item name="android:fontFamily">@font/jetbrains_mono_regular</item>
         <item name="android:fontFeatureSettings">ss01, zero, tnum</item>
-        <item name="android:textColor">@color/tunnl_ink_3</item>
+        <item name="android:textColor">@color/vpn0wn_ink_3</item>
         <item name="android:textSize">11sp</item>
     </style>
 
     <style name="Vpn0wnFilterChip" parent="Widget.Material3.Chip.Filter">
-        <item name="chipBackgroundColor">@color/tunnl_chip_bg</item>
-        <item name="chipStrokeColor">@color/tunnl_chip_stroke</item>
+        <item name="chipBackgroundColor">@color/vpn0wn_chip_bg</item>
+        <item name="chipStrokeColor">@color/vpn0wn_chip_stroke</item>
         <item name="chipStrokeWidth">1dp</item>
         <item name="android:fontFamily">@font/jetbrains_mono_medium</item>
         <item name="android:fontFeatureSettings">ss01, zero, tnum</item>
-        <item name="android:textColor">@color/tunnl_chip_text</item>
+        <item name="android:textColor">@color/vpn0wn_chip_text</item>
         <item name="checkedIconVisible">false</item>
-        <item name="rippleColor">@color/tunnl_paper_3</item>
+        <item name="rippleColor">@color/vpn0wn_paper_3</item>
     </style>
 
     <style name="Vpn0wnTheme.BottomSheetDialog" parent="ThemeOverlay.Material3.BottomSheetDialog">

@@ -157,13 +157,13 @@ class TunnelSignalView @JvmOverloads constructor(
     }
 
     private fun syncColors() {
-        signal     = ContextCompat.getColor(context, R.color.tunnl_diagram_node)
-        signalDeep = ContextCompat.getColor(context, R.color.tunnl_diagram_line)
-        warn       = ContextCompat.getColor(context, R.color.tunnl_warn)
-        error      = ContextCompat.getColor(context, R.color.tunnl_error)
-        idle       = ContextCompat.getColor(context, R.color.tunnl_ink_3)
-        ruleStrong = ContextCompat.getColor(context, R.color.tunnl_rule_strong)
-        paper3     = ContextCompat.getColor(context, R.color.tunnl_paper_3)
+        signal     = ContextCompat.getColor(context, R.color.vpn0wn_diagram_node)
+        signalDeep = ContextCompat.getColor(context, R.color.vpn0wn_diagram_line)
+        warn       = ContextCompat.getColor(context, R.color.vpn0wn_warn)
+        error      = ContextCompat.getColor(context, R.color.vpn0wn_error)
+        idle       = ContextCompat.getColor(context, R.color.vpn0wn_ink_3)
+        ruleStrong = ContextCompat.getColor(context, R.color.vpn0wn_rule_strong)
+        paper3     = ContextCompat.getColor(context, R.color.vpn0wn_paper_3)
         signalFill = Color.argb(NODE_GLOW_ALPHA, Color.red(signal), Color.green(signal), Color.blue(signal))
     }
 

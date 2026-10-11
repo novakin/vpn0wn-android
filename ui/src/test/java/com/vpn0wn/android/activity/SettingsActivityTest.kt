@@ -484,7 +484,7 @@ class SettingsActivityTest {
         environment()
         val activity = openSettings()
         settle(activity)
-        val row = activity.layoutInflater.inflate(R.layout.tunnl_preference_item, null)
+        val row = activity.layoutInflater.inflate(R.layout.vpn0wn_preference_item, null)
         val icon = row.findViewById<ImageView>(android.R.id.icon)
         assertNotNull(icon.imageTintList)
         fragment(activity).findPreference<Preference>("version")!!.onBindViewHolder(PreferenceViewHolder.createInstanceForTests(row))
