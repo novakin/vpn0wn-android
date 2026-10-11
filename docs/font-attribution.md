@@ -33,7 +33,7 @@ Both families use SIL Open Font License 1.1. Embedded short notices/URLs alone d
 
 These pinned license sources identify the notice copies, not the provenance of the existing font binaries. Preserve copyright and full license with redistributed fonts; follow reserved-name and modification terms when replacing them. Do not date or rewrite the externally owned license texts.
 
-No APK was assembled for this attribution change. Verify both license assets are present in the actual APK before distribution; source placement is not executed packaging evidence.
+The original full-license-copy addition had no APK assembly. The later [2026-10-11 composed unsigned release audit](reviews/2026-10-11-release-artifact-acceptance.md) verifies actual OFL assets and all three resource-resolved UI font binaries against source and the official identities above. That scoped retention proof supplies no signed distribution or reproduced source build.
 
 Settings includes these complete UI-font notices in its offline Licenses & credits text, alongside the Sora artwork notice described below. [Software attribution](license-attribution.md) owns that source slice and pending artifact/distribution gates; font bytes remain unchanged, and the verified binary identity above is separate from the remaining acquisition/source-build limits.
 
