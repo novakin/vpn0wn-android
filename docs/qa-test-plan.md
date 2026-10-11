@@ -487,7 +487,7 @@ $env:TUNNL_VPS_DESTRUCTIVE = '1'
 python scripts/vps_integration_test.py
 ```
 
-With default `TUNNL_VPS_PURGE=1`, successful completion requires `wireGuardInstalled=false`, `configExists=false`, absent `wg0`/Tunnl/upload paths and absence/not-installed status for the three purged packages. `TUNNL_VPS_PURGE=0` requires `packagesPurged=false` and retained `wg` availability while still checking config/interface/artifact removal. Final success prints `cleanup: uploaded scripts and Tunnl test artifacts removed` only after absence checks pass. Cleanup failure is reported separately and keeps the primary failure; inspect retained state before another authorized run.
+With default `TUNNL_VPS_PURGE=1`, successful completion requires `wireGuardInstalled=false`, `configExists=false`, absent `wg0`, `/etc/wireguard/tunnl` and operation-owned `/root/vpn0wn-integration-<timestamp>` paths, and absence/not-installed status for the three purged packages. `TUNNL_VPS_PURGE=0` requires `packagesPurged=false` and retained `wg` availability while still checking config/interface/artifact removal. Final success prints `cleanup: uploaded scripts and vpn0wn test artifacts removed` only after absence checks pass. Cleanup failure is reported separately and keeps the primary failure; inspect retained state before another authorized run. Existing `TUNNL_*` environment variables and persisted provisioning paths are unchanged.
 
 Security rules:
 
