@@ -10,6 +10,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.MotionEvent
 import android.widget.TextView
+import android.widget.LinearLayout
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.appcompat.app.AppCompatActivity
 import androidx.databinding.DataBindingUtil
@@ -501,6 +502,24 @@ class HomeSelectionTest {
                 controllers.remove(f.controller)
             }
         }
+    }
+
+    @Test @Config(sdk = [34]) @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun emptyHomeCentersWhenBindingArrivesAfterInitialLayout() = runHomeTest {
+        RuntimeEnvironment.setQualifiers("en-ldltr-w320dp-h640dp-port-notnight")
+        RuntimeEnvironment.setFontScale(1f)
+        val f = host()
+        val content = f.binding.logoPlaceholder.parent as LinearLayout
+        val appBar = f.binding.homeAppBar
+        BindingAdapters.setHomeEmptyAppBar(content, appBar, null)
+        layout(f.binding)
+        assertTrue(appBar.isLaidOut)
+        assertFalse(appBar.isLayoutRequested)
+        BindingAdapters.setHomeEmptyAppBar(content, null, appBar)
+        assertTrue("late binding schedules the missed header traversal", appBar.isLayoutRequested)
+        layout(f.binding)
+        layout(f.binding)
+        assertEmptyStateCentered(f.binding, "late-binding-expanded")
     }
 
     @Test @Config(sdk = [34]) @GraphicsMode(GraphicsMode.Mode.NATIVE)

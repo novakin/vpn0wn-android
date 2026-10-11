@@ -395,6 +395,7 @@ object BindingAdapters {
         oldAppBar?.removeOnOffsetChangedListener(previous)
         if (newAppBar != null) {
             newAppBar.addOnOffsetChangedListener(listener)
+            newAppBar.requestLayout()
         } else {
             view.setPaddingRelative(view.paddingStart, view.paddingTop, view.paddingEnd, padding)
         }
