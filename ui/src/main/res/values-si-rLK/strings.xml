@@ -202,29 +202,29 @@
     <string name="biometric_auth_error">සත්‍යාපනය අසාර්ථක වීම</string>
     <string name="biometric_auth_error_reason">සත්‍යාපන අසාර්ථකත්වය: %s</string>
 
-    <string name="tunnl_settings_title">සැකසුම්</string>
-    <string name="tunnl_settings_subtitle">සමස්ත · යෙදුම් පාලනය</string>
-    <string name="tunnl_settings_section_connection">§01 සම්බන්ධතාව · පෙරනිමි</string>
-    <string name="tunnl_settings_section_control">§02 පාලනය · ස්වයංක්‍රීය</string>
-    <string name="tunnl_settings_section_data">§03 දත්ත · උපස්ථ</string>
-    <string name="tunnl_settings_section_appearance">§04 පෙනුම · යෙදුම</string>
-    <string name="tunnl_settings_section_about">§05 පිළිබඳ · ව්‍යාපෘතිය</string>
+    <string name="vpn0wn_settings_title">සැකසුම්</string>
+    <string name="vpn0wn_settings_subtitle">සමස්ත · යෙදුම් පාලනය</string>
+    <string name="vpn0wn_settings_section_connection">§01 සම්බන්ධතාව · පෙරනිමි</string>
+    <string name="vpn0wn_settings_section_control">§02 පාලනය · ස්වයංක්‍රීය</string>
+    <string name="vpn0wn_settings_section_data">§03 දත්ත · උපස්ථ</string>
+    <string name="vpn0wn_settings_section_appearance">§04 පෙනුම · යෙදුම</string>
+    <string name="vpn0wn_settings_section_about">§05 පිළිබඳ · ව්‍යාපෘතිය</string>
 
-    <string name="tunnl_add_sheet_title">ටනලයක් එක් කරන්න · මූලාශ්‍රය තෝරන්න</string>
-    <string name="tunnl_add_sheet_qr_subtitle">කැමරාව</string>
-    <string name="tunnl_add_sheet_file_subtitle">ගොනු වලින්</string>
-    <string name="tunnl_add_sheet_manual_subtitle">යතුරු යුගලය ජනනය කරන්න · අතින් ඇතුළත් කරන්න</string>
+    <string name="vpn0wn_add_sheet_title">ටනලයක් එක් කරන්න · මූලාශ්‍රය තෝරන්න</string>
+    <string name="vpn0wn_add_sheet_qr_subtitle">කැමරාව</string>
+    <string name="vpn0wn_add_sheet_file_subtitle">ගොනු වලින්</string>
+    <string name="vpn0wn_add_sheet_manual_subtitle">යතුරු යුගලය ජනනය කරන්න · අතින් ඇතුළත් කරන්න</string>
 
-    <string name="tunnl_selection_delete">තෝරාගත් ටනල් මකන්න</string>
-    <string name="tunnl_selection_exit">තේරීමෙන් පිටවන්න</string>
-    <string name="tunnl_selection_mode">තේරීම් ප්‍රකාරය</string>
-    <string name="tunnl_selection_status_empty">0 තෝරා ඇත</string>
-    <string name="tunnl_selection_status_count">%2$dන් %1$dක් තෝරා ඇත</string>
-    <plurals name="tunnl_selection_title">
+    <string name="vpn0wn_selection_delete">තෝරාගත් ටනල් මකන්න</string>
+    <string name="vpn0wn_selection_exit">තේරීමෙන් පිටවන්න</string>
+    <string name="vpn0wn_selection_mode">තේරීම් ප්‍රකාරය</string>
+    <string name="vpn0wn_selection_status_empty">0 තෝරා ඇත</string>
+    <string name="vpn0wn_selection_status_count">%2$dන් %1$dක් තෝරා ඇත</string>
+    <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d තෝරා ඇත</item>
         <item quantity="other">%d තෝරා ඇත</item>
     </plurals>
-    <plurals name="tunnl_delete_sheet_title">
+    <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">%d ටනලය මකන්නද?</item>
         <item quantity="other">%d ටනල් මකන්නද?</item>
     </plurals>

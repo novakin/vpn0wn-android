@@ -217,14 +217,14 @@ object BindingAdapters {
     @BindingAdapter("peerHandshakeObservation", "peerHandshakeAvailable")
     fun setPeerHandshakeObservation(view: TextView, observation: HandshakeObservation?, available: Boolean) {
         val text = when {
-            !available -> R.string.tunnl_handshake_unavailable
-            observation == null -> R.string.tunnl_handshake_unobserved
+            !available -> R.string.vpn0wn_handshake_unavailable
+            observation == null -> R.string.vpn0wn_handshake_unobserved
             else -> when (observation.event()) {
-                HandshakeObservation.Event.ATTEMPT -> if (observation.retry()) R.string.tunnl_handshake_retry_attempted else R.string.tunnl_handshake_attempted
-                HandshakeObservation.Event.SENT -> R.string.tunnl_handshake_sent
-                HandshakeObservation.Event.SEND_FAILED -> R.string.tunnl_handshake_send_failed
-                HandshakeObservation.Event.AUTHENTICATED -> R.string.tunnl_handshake_authenticated
-                HandshakeObservation.Event.EXHAUSTED -> R.string.tunnl_handshake_exhausted
+                HandshakeObservation.Event.ATTEMPT -> if (observation.retry()) R.string.vpn0wn_handshake_retry_attempted else R.string.vpn0wn_handshake_attempted
+                HandshakeObservation.Event.SENT -> R.string.vpn0wn_handshake_sent
+                HandshakeObservation.Event.SEND_FAILED -> R.string.vpn0wn_handshake_send_failed
+                HandshakeObservation.Event.AUTHENTICATED -> R.string.vpn0wn_handshake_authenticated
+                HandshakeObservation.Event.EXHAUSTED -> R.string.vpn0wn_handshake_exhausted
             }
         }
         view.setText(text)
@@ -354,8 +354,8 @@ object BindingAdapters {
 
     @JvmStatic
     fun homeHeaderSummary(context: Context, tunnels: Iterable<ObservableTunnel>?): String {
-        return context.getString(R.string.tunnl_home_header_summary,
-            context.getString(R.string.tunnl_home_wordmark), tunnels?.count() ?: 0)
+        return context.getString(R.string.vpn0wn_home_header_summary,
+            context.getString(R.string.vpn0wn_home_wordmark), tunnels?.count() ?: 0)
     }
 
     @JvmStatic
@@ -379,7 +379,7 @@ object BindingAdapters {
     @BindingAdapter("homeHeaderTunnels")
     fun setHomeHeaderTunnels(view: TextView, tunnels: Iterable<ObservableTunnel>?) {
         val summary = homeHeaderSummary(view.context, tunnels)
-        val wordmark = view.context.getString(R.string.tunnl_home_wordmark)
+        val wordmark = view.context.getString(R.string.vpn0wn_home_wordmark)
         val artwork = requireNotNull(ContextCompat.getDrawable(view.context, R.drawable.vpnown_wordmark))
         val height = view.resources.getDimensionPixelSize(R.dimen.vpnown_home_wordmark_height)
         val width = (height * artwork.intrinsicWidth.toFloat() / artwork.intrinsicHeight).roundToInt()
@@ -462,7 +462,7 @@ object BindingAdapters {
     fun setDetailTopBarSubtitleTunnel(view: TextView, tunnel: ObservableTunnel?) {
         view.text = tunnel?.name
             ?.uppercase(Locale.ROOT)
-            ?.let { view.context.getString(R.string.tunnl_detail_subtitle, it) }
+            ?.let { view.context.getString(R.string.vpn0wn_detail_subtitle, it) }
             ?: ""
     }
 
@@ -482,11 +482,11 @@ object BindingAdapters {
             TunnelSignalView.TunnelMode.UP ->
                 tunnelHandshake(statistics)
             TunnelSignalView.TunnelMode.CONNECTING ->
-                view.context.getString(R.string.tunnl_detail_status_waiting)
+                view.context.getString(R.string.vpn0wn_detail_status_waiting)
             TunnelSignalView.TunnelMode.ERROR ->
-                view.context.getString(R.string.tunnl_detail_status_unreachable)
+                view.context.getString(R.string.vpn0wn_detail_status_unreachable)
             TunnelSignalView.TunnelMode.DOWN ->
-                view.context.getString(R.string.tunnl_detail_status_tap_up)
+                view.context.getString(R.string.vpn0wn_detail_status_tap_up)
         }
     }
 
@@ -540,31 +540,31 @@ object BindingAdapters {
         context.getString(statusModeLabelRes(mode))
 
     private fun topologyModeLabelRes(mode: TunnelSignalView.TunnelMode): Int = when (mode) {
-        TunnelSignalView.TunnelMode.UP         -> R.string.tunnl_mode_up
-        TunnelSignalView.TunnelMode.CONNECTING -> R.string.tunnl_mode_connecting
-        TunnelSignalView.TunnelMode.ERROR      -> R.string.tunnl_mode_no_signal
-        TunnelSignalView.TunnelMode.DOWN       -> R.string.tunnl_mode_down
+        TunnelSignalView.TunnelMode.UP         -> R.string.vpn0wn_mode_up
+        TunnelSignalView.TunnelMode.CONNECTING -> R.string.vpn0wn_mode_connecting
+        TunnelSignalView.TunnelMode.ERROR      -> R.string.vpn0wn_mode_no_signal
+        TunnelSignalView.TunnelMode.DOWN       -> R.string.vpn0wn_mode_down
     }
 
     private fun detailModeLabelRes(mode: TunnelSignalView.TunnelMode): Int = when (mode) {
-        TunnelSignalView.TunnelMode.UP         -> R.string.tunnl_detail_status_up
-        TunnelSignalView.TunnelMode.CONNECTING -> R.string.tunnl_handshake
-        TunnelSignalView.TunnelMode.ERROR      -> R.string.tunnl_mode_no_signal
-        TunnelSignalView.TunnelMode.DOWN       -> R.string.tunnl_detail_status_down
+        TunnelSignalView.TunnelMode.UP         -> R.string.vpn0wn_detail_status_up
+        TunnelSignalView.TunnelMode.CONNECTING -> R.string.vpn0wn_handshake
+        TunnelSignalView.TunnelMode.ERROR      -> R.string.vpn0wn_mode_no_signal
+        TunnelSignalView.TunnelMode.DOWN       -> R.string.vpn0wn_detail_status_down
     }
 
     private fun statusModeLabelRes(mode: TunnelSignalView.TunnelMode): Int = when (mode) {
-        TunnelSignalView.TunnelMode.UP         -> R.string.tunnl_tunnel_status_active
-        TunnelSignalView.TunnelMode.CONNECTING -> R.string.tunnl_tunnel_status_connecting
-        TunnelSignalView.TunnelMode.ERROR      -> R.string.tunnl_tunnel_status_no_signal
-        TunnelSignalView.TunnelMode.DOWN       -> R.string.tunnl_tunnel_status_inactive
+        TunnelSignalView.TunnelMode.UP         -> R.string.vpn0wn_tunnel_status_active
+        TunnelSignalView.TunnelMode.CONNECTING -> R.string.vpn0wn_tunnel_status_connecting
+        TunnelSignalView.TunnelMode.ERROR      -> R.string.vpn0wn_tunnel_status_no_signal
+        TunnelSignalView.TunnelMode.DOWN       -> R.string.vpn0wn_tunnel_status_inactive
     }
 
     private fun connectionLabelRes(mode: TunnelSignalView.TunnelMode): Int = when (mode) {
-        TunnelSignalView.TunnelMode.UP         -> R.string.tunnl_home_connected
-        TunnelSignalView.TunnelMode.CONNECTING -> R.string.tunnl_mode_connecting
-        TunnelSignalView.TunnelMode.ERROR      -> R.string.tunnl_mode_no_signal
-        TunnelSignalView.TunnelMode.DOWN       -> R.string.tunnl_home_disconnected
+        TunnelSignalView.TunnelMode.UP         -> R.string.vpn0wn_home_connected
+        TunnelSignalView.TunnelMode.CONNECTING -> R.string.vpn0wn_mode_connecting
+        TunnelSignalView.TunnelMode.ERROR      -> R.string.vpn0wn_mode_no_signal
+        TunnelSignalView.TunnelMode.DOWN       -> R.string.vpn0wn_home_disconnected
     }
 
     @JvmStatic
@@ -627,7 +627,7 @@ object BindingAdapters {
     @BindingAdapter("homeHandshakeStatistics")
     fun setHomeHandshakeStatistics(view: TextView, statistics: Statistics?) {
         val age = tunnelHandshake(statistics)
-        view.text = if (age == "--") age else view.context.getString(R.string.tunnl_home_handshake_age, age)
+        view.text = if (age == "--") age else view.context.getString(R.string.vpn0wn_home_handshake_age, age)
     }
 
     @JvmStatic

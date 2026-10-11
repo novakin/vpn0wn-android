@@ -61,6 +61,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **Localized Android resource keys — #71 mechanical follow-up (2026-10-11, Europe/Paris)**
+  The existing locale/default string XML files rename 212 strings and two plurals from `tunnl_*` to `vpn0wn_*`; layout, Kotlin and direct test consumers follow the same identifiers. The 1,037 localized definitions preserve all text, placeholders, quantity sets, qualifiers, escaping and fallback absence. Only the unused default/French `tunnl_list_subtitle` declarations are removed. `BindingAdapters`, Add/Home/peer/editor controls and source-byte/native-preview comparisons cover the existing presentation boundary; visual resource names/values, persistence, provisioning and WireGuard contracts remain unchanged. [The identity contract](backend-contracts.md#application-and-source-identity--71) retains remaining naming and APK/device/migration limits.
+
 - **First-party log tags and startup header — #71 bounded source follow-up (2026-10-11, Europe/Paris)**
   `Application.onCreate`/`USER_AGENT`, JVM log owners and native `api-android.go` logger/stacktrace producers replace only the `WireGuard/` product prefix with `vpn0wn/`: 35 production literals across 30 files. Existing suffixes, metadata, privacy/failure handling and the viewer's unrestricted tag capture/parser remain unchanged. Startup and actual producer controls check the current prefix; the parser retains legacy rows and accepts current JVM/native tags. [The identity contract](backend-contracts.md#application-and-source-identity--71) owns compatibility and source/binary/runtime limits; this slice adds no new logging layer or device/runtime claim.
 

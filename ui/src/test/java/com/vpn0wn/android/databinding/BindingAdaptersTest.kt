@@ -130,7 +130,7 @@ class BindingAdaptersTest {
         """.trimIndent().byteInputStream())
         val view = TextView(context)
         BindingAdapters.setTunnelStatusTunnel(view, null, Tunnel.State.DOWN, null, config)
-        val status = context.getString(R.string.tunnl_tunnel_status_inactive)
+        val status = context.getString(R.string.vpn0wn_tunnel_status_inactive)
         val text = view.text as Spanned
         assertEquals("$status · ChaCha20 + PSK", text.toString())
         val color = text.getSpans(0, text.length, ForegroundColorSpan::class.java).single()

@@ -152,10 +152,10 @@ class LogViewerActivity : AppCompatActivity() {
 
     private fun updateLiveToggle() {
         if (autoScroll) {
-            binding.liveToggle.setText(R.string.tunnl_log_live)
+            binding.liveToggle.setText(R.string.vpn0wn_log_live)
             binding.liveToggle.setTextColor(colorSignalDeep)
         } else {
-            binding.liveToggle.setText(R.string.tunnl_log_paused)
+            binding.liveToggle.setText(R.string.vpn0wn_log_paused)
             binding.liveToggle.setTextColor(colorInk3)
         }
     }

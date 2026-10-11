@@ -8,7 +8,7 @@
     <PreferenceCategory
         android:key="settings_connection"
         android:layout="@layout/tunnl_preference_category"
-        android:title="@string/tunnl_settings_section_connection">
+        android:title="@string/vpn0wn_settings_section_connection">
 
         <Preference
             android:icon="@drawable/ic_tunnl_settings"
@@ -55,7 +55,7 @@
     <PreferenceCategory
         android:key="settings_control"
         android:layout="@layout/tunnl_preference_category"
-        android:title="@string/tunnl_settings_section_control">
+        android:title="@string/vpn0wn_settings_section_control">
 
         <SwitchPreferenceCompat
             android:defaultValue="false"
@@ -77,7 +77,7 @@
     <PreferenceCategory
         android:key="settings_data"
         android:layout="@layout/tunnl_preference_category"
-        android:title="@string/tunnl_settings_section_data">
+        android:title="@string/vpn0wn_settings_section_data">
 
         <com.vpn0wn.android.preference.ZipExporterPreference
             android:icon="@drawable/ic_tunnl_file"
@@ -111,7 +111,7 @@
     <PreferenceCategory
         android:key="settings_appearance"
         android:layout="@layout/tunnl_preference_category"
-        android:title="@string/tunnl_settings_section_appearance">
+        android:title="@string/vpn0wn_settings_section_appearance">
 
         <SwitchPreferenceCompat
             android:defaultValue="false"
@@ -127,7 +127,7 @@
     <PreferenceCategory
         android:key="settings_about"
         android:layout="@layout/tunnl_preference_category"
-        android:title="@string/tunnl_settings_section_about">
+        android:title="@string/vpn0wn_settings_section_about">
 
         <com.vpn0wn.android.preference.VersionPreference
             android:icon="@mipmap/ic_launcher"

@@ -230,29 +230,29 @@
     <string name="biometric_auth_error">認証に失敗</string>
     <string name="biometric_auth_error_reason">認証に失敗: %s</string>
 
-    <string name="tunnl_settings_title">設定</string>
-    <string name="tunnl_settings_subtitle">グローバル · アプリ制御</string>
-    <string name="tunnl_settings_section_connection">§01 接続 · 既定</string>
-    <string name="tunnl_settings_section_control">§02 制御 · 自動化</string>
-    <string name="tunnl_settings_section_data">§03 データ · バックアップ</string>
-    <string name="tunnl_settings_section_appearance">§04 表示 · アプリ</string>
-    <string name="tunnl_settings_section_about">§05 情報 · プロジェクト</string>
+    <string name="vpn0wn_settings_title">設定</string>
+    <string name="vpn0wn_settings_subtitle">グローバル · アプリ制御</string>
+    <string name="vpn0wn_settings_section_connection">§01 接続 · 既定</string>
+    <string name="vpn0wn_settings_section_control">§02 制御 · 自動化</string>
+    <string name="vpn0wn_settings_section_data">§03 データ · バックアップ</string>
+    <string name="vpn0wn_settings_section_appearance">§04 表示 · アプリ</string>
+    <string name="vpn0wn_settings_section_about">§05 情報 · プロジェクト</string>
 
-    <string name="tunnl_add_sheet_title">トンネル追加 · ソース選択</string>
-    <string name="tunnl_add_sheet_qr_subtitle">カメラ</string>
-    <string name="tunnl_add_sheet_file_subtitle">ファイルから</string>
-    <string name="tunnl_add_sheet_manual_subtitle">キーペア生成 · 手動入力</string>
+    <string name="vpn0wn_add_sheet_title">トンネル追加 · ソース選択</string>
+    <string name="vpn0wn_add_sheet_qr_subtitle">カメラ</string>
+    <string name="vpn0wn_add_sheet_file_subtitle">ファイルから</string>
+    <string name="vpn0wn_add_sheet_manual_subtitle">キーペア生成 · 手動入力</string>
 
-    <string name="tunnl_selection_delete">選択したトンネルを削除</string>
-    <string name="tunnl_selection_exit">選択を終了</string>
-    <string name="tunnl_selection_mode">選択モード</string>
-    <string name="tunnl_selection_status_empty">0 個選択</string>
-    <string name="tunnl_selection_status_count">%2$d 個中 %1$d 個選択</string>
-    <plurals name="tunnl_selection_title">
+    <string name="vpn0wn_selection_delete">選択したトンネルを削除</string>
+    <string name="vpn0wn_selection_exit">選択を終了</string>
+    <string name="vpn0wn_selection_mode">選択モード</string>
+    <string name="vpn0wn_selection_status_empty">0 個選択</string>
+    <string name="vpn0wn_selection_status_count">%2$d 個中 %1$d 個選択</string>
+    <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d 個選択</item>
         <item quantity="other">%d 個選択</item>
     </plurals>
-    <plurals name="tunnl_delete_sheet_title">
+    <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">%d 個のトンネルを削除しますか？</item>
         <item quantity="other">%d 個のトンネルを削除しますか？</item>
     </plurals>

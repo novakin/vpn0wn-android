@@ -209,7 +209,7 @@ class AddPeerPresentationTest {
             val title = header.getChildAt(0) as TextView
             val status = header.getChildAt(1) as TextView
             val expectedDirection = if (case.locale == "ar") View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
-            for ((snapshot, statusResource) in listOf(statistics to R.string.tunnl_mode_up, null to R.string.tunnl_mode_connecting)) {
+            for ((snapshot, statusResource) in listOf(statistics to R.string.vpn0wn_mode_up, null to R.string.vpn0wn_mode_connecting)) {
                 tunnel.onStatisticsChanged(snapshot)
                 binding.executePendingBindings()
                 measure(binding.root, case)
