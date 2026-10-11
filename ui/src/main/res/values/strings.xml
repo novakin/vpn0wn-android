@@ -82,7 +82,7 @@
     <string name="allow_remote_control_intents_summary_on">External apps may toggle tunnels (advanced)</string>
     <string name="allow_remote_control_intents_title">Allow remote control apps</string>
     <string name="allowed_ips">Allowed IPs</string>
-    <string name="app_name" translatable="false">WireGuard</string>
+    <string name="app_name" translatable="false">vpn0wn</string>
     <string name="bad_config_context">%1$s\'s %2$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%1$s in %2$s</string>
@@ -127,9 +127,6 @@
     <string name="tv_select_a_storage_drive">Select a storage drive</string>
     <string name="tv_no_file_picker">Please install a file management utility to browse files</string>
     <string name="tv_add_tunnel_get_started">Add a tunnel to get started</string>
-    <string name="donate_title">♥ Donate to the WireGuard Project</string>
-    <string name="donate_summary">Every contribution helps</string>
-    <string name="donate_google_play_disappointment">Thank you for supporting the WireGuard Project!\n\nUnfortunately, due to Google\'s policies, we\'re not allowed to link to the part of the project webpage where you can make a donation. Hopefully you can figure this out!\n\nThanks again for your contribution.</string>
     <string name="disable_config_export_title">Disable config exporting</string>
     <string name="disable_config_export_description">Disabling config exporting makes private keys less accessible</string>
     <string name="dns_servers">DNS servers</string>
@@ -162,12 +159,32 @@
     <string name="latest_handshake">Latest handshake</string>
     <string name="listen_port">Listen port</string>
     <string name="log_export_error">Unable to export log: %s</string>
-    <string name="log_export_subject">WireGuard Android Log File</string>
+    <string name="log_export_subject">vpn0wn Android Log File</string>
     <string name="log_export_success">Saved to “%s”</string>
     <string name="log_export_title">Export log file</string>
     <string name="log_saver_activity_label">Save log</string>
     <string name="log_viewer_pref_summary">Logs may assist with debugging</string>
     <string name="log_viewer_pref_title">View application log</string>
+    <string name="licenses_title">Licenses &amp; credits</string>
+    <string name="licenses_summary">Software and font notices, available offline</string>
+    <string name="licenses_loading">Loading licenses…</string>
+    <string name="licenses_load_error">Licenses could not be loaded. Reopen this screen to try again.</string>
+    <string name="system_vpn_settings_title">Android VPN settings</string>
+    <string name="system_vpn_settings_checking">Checking Android VPN policy…</string>
+    <string name="system_vpn_settings_setup_summary">%1$s\nAndroid controls Always-on VPN and Block connections without VPN. Tap to configure.</string>
+    <string name="system_vpn_settings_restricted_summary">%1$s\nVPN settings are restricted by your administrator.</string>
+    <string name="system_vpn_settings_kernel_unsupported">Android system VPN setup is unsupported with the kernel backend. Use userspace mode for this setup.</string>
+    <string name="system_vpn_settings_api_unavailable">For this app: status unavailable on Android 7–9.</string>
+    <string name="system_vpn_settings_service_unavailable">For this app: status unknown; VPN service unavailable.</string>
+    <string name="system_vpn_settings_read_unavailable">For this app: status unavailable; Android VPN policy could not be read.</string>
+    <string name="system_vpn_settings_read_denied">For this app: status unavailable; Android denied the policy read.</string>
+    <string name="system_vpn_settings_unknown">For this app: status unknown; Android reported inconsistent VPN settings.</string>
+    <string name="system_vpn_settings_both_enabled">For this app: Always-on enabled · Block connections enabled.</string>
+    <string name="system_vpn_settings_always_on_enabled">For this app: Always-on enabled · Block connections disabled.</string>
+    <string name="system_vpn_settings_both_disabled">For this app: Always-on disabled · Block connections disabled.</string>
+    <string name="system_vpn_settings_admin_restricted">VPN settings are restricted by your administrator.</string>
+    <string name="system_vpn_settings_activity_unavailable">Android VPN settings are unavailable on this device.</string>
+    <string name="system_vpn_settings_launch_denied">Android denied opening VPN settings. Check administrator restrictions.</string>
     <string name="log_viewer_title">Log</string>
     <string name="logcat_error">Unable to run logcat: </string>
     <string name="module_enabler_disabled_summary">The experimental kernel module can improve performance</string>
@@ -262,20 +279,10 @@
     <string name="type_name_go_userspace">Go userspace</string>
     <string name="type_name_kernel_module">Kernel module</string>
     <string name="unknown_error">Unknown error</string>
-    <string name="updater_avalable">An application update is available. Please update now.</string>
-    <string name="updater_action">Download &amp; Update</string>
-    <string name="updater_rechecking">Fetching update metadata…</string>
-    <string name="updater_download_progress">Downloading update: %1$s / %2$s (%3$.2f%%)</string>
-    <string name="updater_download_progress_nototal">Downloading update: %s</string>
-    <string name="updater_installing">Installing update…</string>
-    <string name="updater_failure">Update failure: %s. Will retry momentarily…</string>
-    <string name="updater_corrupt_title">Application Corrupt</string>
-    <string name="updater_corrupt_message">This application is corrupt. Please re-download the APK from the website linked below. After, uninstall this application, and reinstall it from the downloaded APK.</string>
-    <string name="updater_corrupt_navigate">Open Website</string>
     <string name="version_summary">%1$s backend %2$s</string>
     <string name="version_summary_checking">Checking %s backend version</string>
     <string name="version_summary_unknown">Unknown %s version</string>
-    <string name="version_title">WireGuard for Android v%s</string>
+    <string name="version_title">vpn0wn for Android v%s</string>
     <string name="vpn_not_authorized_error">VPN service not authorized by user</string>
     <string name="vpn_start_error">Unable to start Android VPN service</string>
     <string name="zip_export_error">Unable to export tunnels: %s</string>
@@ -291,12 +298,12 @@
     <string name="tunnl_in">↓ IN</string>
     <string name="tunnl_out">↑ OUT</string>
     <string name="tunnl_handshake">HANDSHAKE</string>
+    <string name="tunnl_last_handshake">LAST HANDSHAKE</string>
+    <string name="tunnl_home_handshake_age">%1$s ago</string>
     <string name="tunnl_mode_up">UP</string>
     <string name="tunnl_mode_connecting">CONNECTING</string>
     <string name="tunnl_mode_no_signal">NO SIGNAL</string>
     <string name="tunnl_mode_down">DOWN</string>
-    <string name="tunnl_home_mode_active">ACTIVE</string>
-    <string name="tunnl_home_mode_inactive">INACTIVE</string>
     <string name="tunnl_detail_status_up">TUNNEL UP</string>
     <string name="tunnl_detail_status_down">TUNNEL DOWN</string>
     <string name="tunnl_detail_status_waiting">waiting for handshake</string>
@@ -307,13 +314,13 @@
     <string name="tunnl_tunnel_status_connecting">◑ CONNECTING</string>
     <string name="tunnl_tunnel_status_no_signal">✕ NO SIGNAL</string>
     <string name="tunnl_tunnel_status_inactive">● INACTIVE</string>
-    <string name="tunnl_protected">PROTECTED</string>
-    <string name="tunnl_unprotected">UNPROTECTED</string>
+    <string name="tunnl_home_connected">VPN connected</string>
+    <string name="tunnl_home_disconnected">VPN disconnected</string>
+    <string name="tunnl_home_endpoint">Endpoint</string>
     <string name="tunnl_configured_tunnel">CONFIGURED TUNNEL</string>
     <string name="tunnl_list_title">tunnels</string>
     <string name="tunnl_list_subtitle">TUNNL · LOCAL CONFIGURATION</string>
-    <string name="tunnl_exit_ip_unknown">EXIT IP · -</string>
-    <string name="tunnl_add_tunnel">+ ADD TUNNEL</string>
+    <string name="tunnl_add_tunnel">ADD TUNNEL</string>
     <string name="tunnl_logs_title">logs</string>
     <string name="tunnl_log_stream_subtitle">STREAM · TUNL0</string>
     <string name="tunnl_log_live">◆ LIVE</string>
@@ -458,7 +465,8 @@
     <string name="tunnl_user_status_active">◆ ACTIVE</string>
     <string name="tunnl_user_status_idle">◑ IDLE</string>
     <string name="tunnl_user_status_revoked">✕ REVOKED</string>
-    <string name="tunnl_home_header_summary">Vpn0wn · %1$d CONFIGURED · %2$s</string>
+    <string name="tunnl_home_wordmark" translatable="false">vpnøwn</string>
+    <string name="tunnl_home_header_summary">%1$s · %2$d configured</string>
 
     <string name="tunnl_settings_title">settings</string>
     <string name="tunnl_settings_subtitle">GLOBAL · APP CONTROL</string>
@@ -495,4 +503,16 @@
     <string name="tunnl_delete_progress">Removed %1$d of %2$d selected tunnels. %3$d remain. %4$s</string>
     <string name="tunnl_delete_cancelled">Deletion cancelled.</string>
     <string name="tunnl_delete_in_progress">DELETING…</string>
+    <string name="tunnl_handshake_observation_label">LAST HANDSHAKE EVENT</string>
+    <string name="tunnl_observed_endpoint_label">OBSERVED ENDPOINT</string>
+    <string name="tunnl_observed_address_family_label">ADDRESS FAMILY</string>
+    <string name="tunnl_handshake_observation_scope">Recorded during this connection. Internet access is untested.</string>
+    <string name="tunnl_handshake_unavailable">Observations unavailable</string>
+    <string name="tunnl_handshake_unobserved">No handshake event observed</string>
+    <string name="tunnl_handshake_attempted">Initiation attempted</string>
+    <string name="tunnl_handshake_retry_attempted">Protocol retry attempted</string>
+    <string name="tunnl_handshake_sent">Initiation sent locally</string>
+    <string name="tunnl_handshake_send_failed">Initiation send failed</string>
+    <string name="tunnl_handshake_authenticated">Authentication observed</string>
+    <string name="tunnl_handshake_exhausted">Retries exhausted</string>
 </resources>

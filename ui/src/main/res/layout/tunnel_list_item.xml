@@ -8,13 +8,13 @@
 
     <data>
 
-        <import type="com.wireguard.android.model.ObservableTunnel" />
+        <import type="com.vpn0wn.android.model.ObservableTunnel" />
 
-        <import type="com.wireguard.android.databinding.BindingAdapters" />
+        <import type="com.vpn0wn.android.databinding.BindingAdapters" />
 
         <variable
             name="collection"
-            type="com.wireguard.android.databinding.ObservableKeyedArrayList&lt;String, ObservableTunnel&gt;" />
+            type="com.vpn0wn.android.databinding.ObservableKeyedArrayList&lt;String, ObservableTunnel&gt;" />
 
         <variable
             name="key"
@@ -22,17 +22,17 @@
 
         <variable
             name="item"
-            type="com.wireguard.android.model.ObservableTunnel" />
+            type="com.vpn0wn.android.model.ObservableTunnel" />
 
         <variable
             name="fragment"
-            type="com.wireguard.android.fragment.TunnelListFragment" />
+            type="com.vpn0wn.android.fragment.TunnelListFragment" />
 
         <variable name="selectionMode" type="boolean" />
         <variable name="selected" type="boolean" />
     </data>
 
-    <com.wireguard.android.widget.MultiselectableRelativeLayout
+    <com.vpn0wn.android.widget.MultiselectableRelativeLayout
         android:id="@+id/tunnel_list_item"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -54,7 +54,7 @@
             app:tunnelRailState="@{item.state}"
             app:tunnelRailStatistics="@{item.statistics}" />
 
-        <com.wireguard.android.widget.ToggleSwitch
+        <com.vpn0wn.android.widget.ToggleSwitch
             android:id="@+id/tunnel_switch"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -92,51 +92,27 @@
             android:paddingStart="14dp"
             android:paddingEnd="12dp">
 
-            <LinearLayout
-                android:layout_width="wrap_content"
+            <TextView
+                android:id="@+id/tunnel_peer_badge"
+                style="@style/TunnlHomeSecondaryText"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <TextView
-                    style="@style/TunnlLabelText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:ellipsize="end"
-                    android:singleLine="true"
-                    app:tunnelStatusTunnel="@{item}"
-                    app:tunnelStatusState="@{item.state}"
-                    app:tunnelStatusStatistics="@{item.statistics}" />
-
-                <TextView
-                    style="@style/TunnlLabelText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:text="·" />
-
-                <TextView
-                    android:id="@+id/tunnel_peer_badge"
-                    style="@style/TunnlLabelText"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:ellipsize="end"
-                    android:singleLine="true"
-                    android:text="@{BindingAdapters.tunnelPeerBadge(item.config)}"
-                    tools:text="PSK" />
-            </LinearLayout>
+                android:textSize="11sp"
+                app:tunnelStatusTunnel="@{item}"
+                app:tunnelStatusState="@{item.state}"
+                app:tunnelStatusStatistics="@{item.statistics}"
+                app:tunnelStatusConfig="@{item.config}"
+                tools:text="◆ ACTIVE · ChaCha20 + PSK" />
 
             <TextView
                 android:id="@+id/tunnel_name"
-                style="@style/TunnlMonoValueText"
+                style="@style/TunnlHomeTunnelNameText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="3dp"
                 android:ellipsize="end"
                 android:maxLines="1"
                 android:text="@{key}"
-                android:textSize="16sp"
                 tools:text="@sample/interface_names.json/names/names/name" />
 
             <TextView
@@ -151,7 +127,7 @@
                 tools:text="172.20.4.18/24 -> gw.example.ro:51820" />
         </LinearLayout>
 
-        <com.wireguard.android.widget.TunnelSignalView
+        <com.vpn0wn.android.widget.TunnelSignalView
             android:id="@+id/tunnel_signal"
             android:layout_width="match_parent"
             android:layout_height="24dp"
@@ -204,11 +180,10 @@
                         android:text="@string/tunnl_in" />
 
                     <TextView
-                        style="@style/TunnlMonoValueText"
+                        style="@style/TunnlHomeStatValueText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:textSize="13sp"
                         android:text="@{BindingAdapters.tunnelRx(item.statistics)}"
                         tools:text="19.8 MB" />
 
@@ -242,11 +217,10 @@
                         android:text="@string/tunnl_out" />
 
                     <TextView
-                        style="@style/TunnlMonoValueText"
+                        style="@style/TunnlHomeStatValueText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:textSize="13sp"
                         android:text="@{BindingAdapters.tunnelTx(item.statistics)}"
                         tools:text="973 KB" />
 
@@ -277,25 +251,18 @@
                         style="@style/TunnlLabelText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/tunnl_handshake" />
+                        android:text="@string/tunnl_last_handshake" />
 
                     <TextView
-                        style="@style/TunnlMonoValueText"
+                        style="@style/TunnlHomeStatValueText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
-                        android:textSize="13sp"
-                        android:text="@{BindingAdapters.tunnelHandshake(item.statistics)}"
+                        app:homeHandshakeStatistics="@{item.statistics}"
                         tools:text="2m 32s ago" />
 
-                    <TextView
-                        style="@style/TunnlMonoSubText"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@{BindingAdapters.tunnelCipher(item.config)}"
-                        tools:text="ChaCha20" />
                 </LinearLayout>
             </LinearLayout>
         </LinearLayout>
-    </com.wireguard.android.widget.MultiselectableRelativeLayout>
+    </com.vpn0wn.android.widget.MultiselectableRelativeLayout>
 </layout>

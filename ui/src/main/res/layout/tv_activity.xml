@@ -10,9 +10,9 @@
 
         <import type="android.view.View" />
 
-        <import type="com.wireguard.android.model.ObservableTunnel" />
+        <import type="com.vpn0wn.android.model.ObservableTunnel" />
 
-        <import type="com.wireguard.android.activity.TvMainActivity.KeyedFile" />
+        <import type="com.vpn0wn.android.activity.TvMainActivity.KeyedFile" />
 
         <variable
             name="isDeleting"
@@ -20,7 +20,7 @@
 
         <variable
             name="files"
-            type="com.wireguard.android.databinding.ObservableKeyedArrayList&lt;String, KeyedFile&gt;" />
+            type="com.vpn0wn.android.databinding.ObservableKeyedArrayList&lt;String, KeyedFile&gt;" />
 
         <variable
             name="filesRoot"
@@ -28,15 +28,15 @@
 
         <variable
             name="tunnels"
-            type="com.wireguard.android.databinding.ObservableKeyedArrayList&lt;String, ObservableTunnel&gt;" />
+            type="com.vpn0wn.android.databinding.ObservableKeyedArrayList&lt;String, ObservableTunnel&gt;" />
 
         <variable
             name="tunnelRowConfigurationHandler"
-            type="com.wireguard.android.databinding.ObservableKeyedRecyclerViewAdapter.RowConfigurationHandler" />
+            type="com.vpn0wn.android.databinding.ObservableKeyedRecyclerViewAdapter.RowConfigurationHandler" />
 
         <variable
             name="filesRowConfigurationHandler"
-            type="com.wireguard.android.databinding.ObservableKeyedRecyclerViewAdapter.RowConfigurationHandler" />
+            type="com.vpn0wn.android.databinding.ObservableKeyedRecyclerViewAdapter.RowConfigurationHandler" />
     </data>
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -60,7 +60,7 @@
                 android:layout_width="320dp"
                 android:layout_height="67dp"
                 android:contentDescription="@string/app_name"
-                android:scaleType="fitXY"
+                android:scaleType="fitCenter"
                 app:srcCompat="@drawable/tv_logo_banner" />
 
         </com.google.android.material.card.MaterialCardView>

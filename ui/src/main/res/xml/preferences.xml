@@ -10,7 +10,16 @@
         android:layout="@layout/tunnl_preference_category"
         android:title="@string/tunnl_settings_section_connection">
 
-        <com.wireguard.android.preference.KernelModuleEnablerPreference
+        <Preference
+            android:icon="@drawable/ic_tunnl_settings"
+            android:key="system_vpn_settings"
+            android:layout="@layout/tunnl_preference_item"
+            android:persistent="false"
+            android:singleLineTitle="false"
+            android:summary="@string/system_vpn_settings_checking"
+            android:title="@string/system_vpn_settings_title" />
+
+        <com.vpn0wn.android.preference.KernelModuleEnablerPreference
             android:icon="@drawable/ic_tunnl_server"
             android:key="kernel_module_enabler"
             android:singleLineTitle="false"
@@ -36,7 +45,7 @@
             android:summaryOn="@string/multiple_tunnels_summary_on"
             android:title="@string/multiple_tunnels_title" />
 
-        <com.wireguard.android.preference.ToolsInstallerPreference
+        <com.vpn0wn.android.preference.ToolsInstallerPreference
             android:icon="@drawable/ic_tunnl_key"
             android:key="tools_installer"
             android:singleLineTitle="false"
@@ -58,7 +67,7 @@
             android:summaryOn="@string/allow_remote_control_intents_summary_on"
             android:title="@string/allow_remote_control_intents_title" />
 
-        <com.wireguard.android.preference.QuickTilePreference
+        <com.vpn0wn.android.preference.QuickTilePreference
             android:icon="@drawable/ic_tunnl_settings"
             android:key="quick_tile"
             android:singleLineTitle="false"
@@ -70,13 +79,13 @@
         android:layout="@layout/tunnl_preference_category"
         android:title="@string/tunnl_settings_section_data">
 
-        <com.wireguard.android.preference.ZipExporterPreference
+        <com.vpn0wn.android.preference.ZipExporterPreference
             android:icon="@drawable/ic_tunnl_file"
             android:key="zip_exporter"
             android:singleLineTitle="false"
             android:layout="@layout/tunnl_preference_item" />
 
-        <com.wireguard.android.preference.AppDataExporterPreference
+        <com.vpn0wn.android.preference.AppDataExporterPreference
             android:icon="@drawable/ic_tunnl_file"
             android:key="export_app_data"
             android:singleLineTitle="false"
@@ -120,15 +129,19 @@
         android:layout="@layout/tunnl_preference_category"
         android:title="@string/tunnl_settings_section_about">
 
-        <com.wireguard.android.preference.VersionPreference
+        <com.vpn0wn.android.preference.VersionPreference
             android:icon="@mipmap/ic_launcher"
             android:key="version"
             android:singleLineTitle="false"
             android:layout="@layout/tunnl_preference_item" />
 
-        <com.wireguard.android.preference.DonatePreference
-            android:icon="@drawable/ic_tunnl_share"
+        <Preference
+            android:icon="@drawable/ic_tunnl_file"
+            android:key="licenses"
             android:layout="@layout/tunnl_preference_item"
-            android:singleLineTitle="false" />
+            android:persistent="false"
+            android:singleLineTitle="false"
+            android:summary="@string/licenses_summary"
+            android:title="@string/licenses_title" />
     </PreferenceCategory>
 </androidx.preference.PreferenceScreen>

@@ -3,20 +3,27 @@
   ~ SPDX-License-Identifier: Apache-2.0
   -->
 <layout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools">
 
     <data>
 
-        <import type="com.wireguard.android.databinding.BindingAdapters" />
+        <import type="com.vpn0wn.android.databinding.BindingAdapters" />
 
-        <import type="com.wireguard.android.util.ClipboardUtils" />
+        <import type="com.vpn0wn.android.util.ClipboardUtils" />
 
         <variable
             name="item"
-            type="com.wireguard.config.Peer" />
+            type="com.vpn0wn.config.Peer" />
         <variable
             name="statistics"
-            type="com.wireguard.android.backend.Statistics.PeerStats" />
+            type="com.vpn0wn.android.backend.Statistics.PeerStats" />
+        <variable
+            name="diagnostics"
+            type="com.vpn0wn.android.model.ObservableTunnel.PeerHandshakeDiagnostics" />
+        <variable
+            name="diagnosticsAvailable"
+            type="boolean" />
     </data>
 
     <com.google.android.material.card.MaterialCardView
@@ -212,6 +219,71 @@
                     android:text="@{BindingAdapters.peerHandshake(statistics)}"
                     tools:text="4 minutes ago"
                     tools:visibility="visible" />
+            </LinearLayout>
+            <LinearLayout
+                style="@style/TunnlDetailRow"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/TunnlConfigRowLabel"
+                    android:text="@string/tunnl_handshake_observation_label" />
+
+                <TextView
+                    android:id="@+id/handshake_observation_text"
+                    style="@style/TunnlMonoValueText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textSize="13sp"
+                    app:peerHandshakeObservation="@{diagnostics.lastObservation}"
+                    app:peerHandshakeAvailable="@{diagnosticsAvailable}"
+                    tools:text="Initiation sent locally" />
+            </LinearLayout>
+
+            <LinearLayout
+                style="@style/TunnlDetailRow"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/TunnlConfigRowLabel"
+                    android:text="@string/tunnl_observed_endpoint_label" />
+
+                <TextView
+                    android:id="@+id/observed_endpoint_text"
+                    style="@style/TunnlMonoValueText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textSize="13sp"
+                    android:textDirection="ltr"
+                    android:text="@{BindingAdapters.observedHandshakeEndpoint(diagnostics.lastObservation)}"
+                    tools:text="[2001:db8:1234:5678::abcd]:51820" />
+            </LinearLayout>
+
+            <LinearLayout
+                style="@style/TunnlDetailRow"
+                android:orientation="vertical">
+
+                <TextView
+                    style="@style/TunnlConfigRowLabel"
+                    android:text="@string/tunnl_observed_address_family_label" />
+
+                <TextView
+                    android:id="@+id/observed_address_family_text"
+                    style="@style/TunnlMonoValueText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textSize="13sp"
+                    android:text="@{BindingAdapters.observedHandshakeAddressFamily(diagnostics.lastObservation)}"
+                    tools:text="IPv6" />
+
+                <TextView
+                    style="@style/TunnlMonoSubText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/tunnl_handshake_observation_scope" />
             </LinearLayout>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>

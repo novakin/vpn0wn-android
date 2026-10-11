@@ -135,7 +135,7 @@
     <string name="key_length_explanation_hex">: Chaves hexadecimais do WireGuard têm que ter 64 caracteres (32 bytes)</string>
     <string name="listen_port">Porta de escuta</string>
     <string name="log_export_error">Não foi possível exportar o log: %s</string>
-    <string name="log_export_subject">Arquivo de log do WireGuard Android</string>
+    <string name="log_export_subject">Arquivo de log do vpn0wn Android</string>
     <string name="log_export_success">Guardado em “%s”</string>
     <string name="log_export_title">Exportar ficheiro de log</string>
     <string name="log_saver_activity_label">Guardar log</string>
@@ -218,7 +218,7 @@
     <string name="unknown_error">Erro desconhecido</string>
     <string name="version_summary_checking">A verificar versão de backend %s</string>
     <string name="version_summary_unknown">Versão %s desconhecida</string>
-    <string name="version_title">WireGuard para Android v%s</string>
+    <string name="version_title">vpn0wn para Android v%s</string>
     <string name="vpn_not_authorized_error">Serviço VPN não foi autorizado pelo utilizador</string>
     <string name="vpn_start_error">Não foi possível iniciar o serviço de VPN do Android</string>
     <string name="zip_export_error">Não foi possível exportar túneis: %s</string>

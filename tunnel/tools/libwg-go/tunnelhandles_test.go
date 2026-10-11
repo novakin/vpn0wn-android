@@ -3,11 +3,13 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -116,6 +118,75 @@ func TestHandleCloseDrainsAdmittedQueryBeforeDeviceRelease(t *testing.T) {
 	}
 	query.queries.Done()
 	awaitHandle(t, closed)
+}
+
+func TestHandleTeardownCancelsRebindBeforeBorrowDrain(t *testing.T) {
+	entered, releaseProtection := make(chan struct{}), make(chan struct{})
+	var protection atomic.Int32
+	var released sync.Once
+	bind := androidbind.New(func(conn.Bind, int) error {
+		if protection.Add(1) == 2 {
+			close(entered)
+			<-releaseProtection
+		}
+		return nil
+	}, func() bool { return true })
+	tunnel := tuntest.NewChannelTUN()
+	<-tunnel.TUN().Events()
+	wg := device.NewDevice(tunnel.TUN(), bind, device.NewLogger(device.LogLevelSilent, ""))
+	t.Cleanup(func() { bind.Shutdown(); wg.Close() })
+	t.Cleanup(func() { released.Do(func() { close(releaseProtection) }) })
+	if err := wg.Up(); err != nil {
+		t.Fatal(err)
+	}
+	h := &TunnelHandle{device: wg, bind: bind}
+	table := handleTable{items: make(map[int32]*TunnelHandle)}
+	id := table.add(h)
+	borrowed := table.acquire(id)
+	releaseBorrow := make(chan struct{})
+	var borrowReleased sync.Once
+	t.Cleanup(func() { borrowReleased.Do(func() { close(releaseBorrow) }) })
+	rebound := make(chan error, 1)
+	go func() {
+		defer borrowed.queries.Done()
+		rebound <- borrowed.device.Rebind()
+		<-releaseBorrow
+	}()
+	awaitHandle(t, entered)
+	closing := table.remove(id)
+	closed := make(chan struct{})
+	go func() { closing.closeNative(); close(closed) }()
+	deadline := time.Now().Add(5 * time.Second)
+	for !bind.IsStopped() {
+		if time.Now().After(deadline) {
+			t.Fatal("teardown did not stop rebind admission")
+		}
+		runtime.Gosched()
+	}
+	if table.acquire(id) != nil {
+		t.Fatal("removed handle admitted another rebind")
+	}
+	released.Do(func() { close(releaseProtection) })
+	select {
+	case err := <-rebound:
+		if !errors.Is(err, net.ErrClosed) {
+			t.Fatalf("cancelled native rebind: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("borrowed rebind did not settle")
+	}
+	select {
+	case <-wg.Wait():
+		t.Fatal("teardown released device before rebind borrow")
+	default:
+	}
+	borrowReleased.Do(func() { close(releaseBorrow) })
+	awaitHandle(t, closed)
+	select {
+	case <-wg.Wait():
+	default:
+		t.Fatal("teardown retained device after borrow drain")
+	}
 }
 
 func TestHandleConcurrentQueriesCloseAndReplacementIsolation(t *testing.T) {

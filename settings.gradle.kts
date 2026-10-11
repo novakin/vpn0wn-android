@@ -16,7 +16,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "wireguard-android"
+rootProject.name = "vpn0wn-android"
 
 include(":tunnel")
 include(":ui")

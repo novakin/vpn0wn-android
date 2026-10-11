@@ -1,6 +1,8 @@
 @file:Suppress("UnstableApiUsage")
 
-val pkg: String = providers.gradleProperty("wireguardPackageName").get()
+import com.android.build.api.variant.HostTestBuilder
+
+val pkg: String = providers.gradleProperty("vpn0wnPackageName").get()
 
 plugins {
     alias(libs.plugins.android.application)
@@ -19,8 +21,8 @@ android {
     defaultConfig {
         applicationId = pkg
         minSdk = 24
-        versionCode = providers.gradleProperty("wireguardVersionCode").get().toInt()
-        versionName = providers.gradleProperty("wireguardVersionName").get()
+        versionCode = providers.gradleProperty("vpn0wnVersionCode").get().toInt()
+        versionName = providers.gradleProperty("vpn0wnVersionName").get()
         buildConfigField("int", "MIN_SDK_VERSION", minSdk.toString())
     }
     compileOptions {
@@ -74,6 +76,12 @@ android {
     }
 }
 
+androidComponents {
+    beforeVariants(selector().withBuildType("release")) {
+        it.hostTests.getValue(HostTestBuilder.UNIT_TEST_TYPE).enable = true
+    }
+}
+
 dependencies {
     implementation(project(":tunnel"))
     implementation(libs.androidx.activity.ktx)
@@ -101,6 +109,10 @@ dependencies {
 tasks.withType<JavaCompile>().configureEach {
     options.compilerArgs.add("-Xlint:unchecked")
     options.isDeprecation = true
+}
+
+tasks.withType<Test>().configureEach {
+    maxHeapSize = "1g"
 }
 
 detekt {

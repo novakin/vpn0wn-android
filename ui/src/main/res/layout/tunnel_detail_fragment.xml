@@ -8,21 +8,21 @@
 
     <data>
 
-        <import type="com.wireguard.android.databinding.BindingAdapters" />
+        <import type="com.vpn0wn.android.databinding.BindingAdapters" />
 
-        <import type="com.wireguard.android.util.ClipboardUtils" />
+        <import type="com.vpn0wn.android.util.ClipboardUtils" />
 
         <variable
             name="fragment"
-            type="com.wireguard.android.fragment.TunnelDetailFragment" />
+            type="com.vpn0wn.android.fragment.TunnelDetailFragment" />
 
         <variable
             name="tunnel"
-            type="com.wireguard.android.model.ObservableTunnel" />
+            type="com.vpn0wn.android.model.ObservableTunnel" />
 
         <variable
             name="config"
-            type="com.wireguard.config.Config" />
+            type="com.vpn0wn.config.Config" />
     </data>
 
     <LinearLayout
@@ -146,6 +146,7 @@
                             style="@style/TunnlLabelText"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
                             android:layout_weight="1"
                             android:text="FIG.01 - TUNNEL TOPOLOGY" />
 
@@ -159,7 +160,7 @@
                             tools:text="UP" />
                     </LinearLayout>
 
-                    <com.wireguard.android.widget.TunnelThroughputView
+                    <com.vpn0wn.android.widget.TunnelThroughputView
                         android:id="@+id/throughput_view"
                         android:layout_width="match_parent"
                         android:layout_height="206dp"
@@ -249,7 +250,7 @@
                             tools:text="2m 32s ago" />
                     </LinearLayout>
 
-                    <com.wireguard.android.widget.ToggleSwitch
+                    <com.vpn0wn.android.widget.ToggleSwitch
                         android:id="@+id/tunnel_switch"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
@@ -585,8 +586,9 @@
                 android:layout_marginTop="8dp"
                 android:divider="@null"
                 android:orientation="vertical"
-                app:items="@{config.peers}"
-                app:layout="@{@layout/tunnel_detail_peer}"
+                app:detailPeers="@{config.peers}"
+                app:detailPeerDiagnostics="@{tunnel.handshakeDiagnostics}"
+                app:detailPeerState="@{tunnel.state}"
                 tools:ignore="UselessLeaf" />
         </LinearLayout>
         </ScrollView>

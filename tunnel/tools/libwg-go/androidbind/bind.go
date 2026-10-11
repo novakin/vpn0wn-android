@@ -25,6 +25,30 @@ type Bind struct {
 	protect   func(conn.Bind, int) error
 	active    func() bool
 	newBind   func() conn.Bind
+	observe   func([32]byte, int, bool, string)
+}
+
+const (
+	HandshakeAttempt = iota + 1
+	HandshakeSent
+	HandshakeSendFailed
+	HandshakeAuthenticated
+	HandshakeExhausted
+)
+
+func (b *Bind) SetHandshakeObserver(observe func([32]byte, int, bool, string)) {
+	b.mu.Lock()
+	b.observe = observe
+	b.mu.Unlock()
+}
+
+func (b *Bind) ObserveHandshake(peer [32]byte, event int, retry bool, endpoint string) {
+	b.mu.Lock()
+	observe, stopped := b.observe, b.stopped
+	b.mu.Unlock()
+	if observe != nil && !stopped {
+		observe(peer, event, retry, endpoint)
+	}
 }
 
 func New(protect func(conn.Bind, int) error, active func() bool) *Bind {
@@ -90,6 +114,12 @@ func (b *Bind) Shutdown() error {
 	b.stopped = true
 	b.mu.Unlock()
 	return b.Close()
+}
+
+func (b *Bind) IsStopped() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.stopped
 }
 
 func (b *Bind) SetMark(mark uint32) error {

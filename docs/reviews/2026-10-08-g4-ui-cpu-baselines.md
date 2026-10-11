@@ -1,16 +1,16 @@
 # G4 presentation CPU baselines
 
-Last updated: 2026-10-08 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 ## Scope and authorization
 
-Partial evidence for [G4/#52](https://github.com/novakin/wireguard-android/issues/52) and the baseline decision for [#47](https://github.com/novakin/wireguard-android/issues/47). The maintainer made Pixel 10a available and unlocked for the authorized device work. This session measures the unchanged baseline after the separate [#48 statistics repair](https://github.com/novakin/wireguard-android/pull/78); it implements no #47 optimization.
+Partial evidence for [G4/#52](https://github.com/novakin/vpn0wn-android/issues/52) and the baseline decision for [#47](https://github.com/novakin/vpn0wn-android/issues/47). The maintainer made Pixel 10a available and unlocked for the authorized device work. This session measures the unchanged baseline after the separate [#48 statistics repair](https://github.com/novakin/vpn0wn-android/pull/78); it implements no #47 optimization.
 
 The installation below changes the test build, not product source or the saved profile. No profile, ListenPort, endpoint, MTU, routes, DNS or keepalive is edited. No transfer load, server operation or new protocol experiment is part of these presentation windows. Private archives, device identifiers, profiles, raw system reports, screenshots and traces remain in ignored local evidence.
 
 ## Build and installation provenance
 
-Baseline source: `f4a4b147568e6aaa3c82a4307aa6690977e966bd`. Authorized [CI run 37745395747](https://github.com/novakin/wireguard-android/actions/runs/37745395747) passed 279 tests with zero failures/errors/skips, zero Detekt findings, native checks and debug APK assembly. This is a debug artifact, not a release.
+Baseline source: `f4a4b147568e6aaa3c82a4307aa6690977e966bd`. Authorized [CI run 37745395747](https://github.com/novakin/vpn0wn-android/actions/runs/37745395747) passed 279 tests with zero failures/errors/skips, zero Detekt findings, native checks and debug APK assembly. This is a debug artifact, not a release.
 
 | Artifact | SHA256 and verification |
 | --- | --- |

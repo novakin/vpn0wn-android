@@ -1,12 +1,12 @@
 # UDP warm-up compatibility review
 
-Last updated: 2026-10-07 (Europe/Paris).
+Last updated: 2026-10-11 (Europe/Paris).
 
 ## Scope and evidence
 
-[#37](https://github.com/novakin/wireguard-android/issues/37), G1 of the [active goal](../improvement-plan.md#active-enhancement-and-performance-goal). Compare merged master `3dc57410a457979bea2e16fc8c008abbcdfb1371` with the preserved original checkout at `65feb91d` plus its dirty GoBackend/BackendException/error-message changes. The [preservation review](2026-10-06-local-work-recovery.md) owns that snapshot and both APKs. This is a source compatibility decision, not a new native packet, performance or phone run.
+[#37](https://github.com/novakin/vpn0wn-android/issues/37), G1 of the [active goal](../improvement-plan.md#active-enhancement-and-performance-goal). Compare merged master `3dc57410a457979bea2e16fc8c008abbcdfb1371` with the preserved original checkout at `65feb91d` plus its dirty GoBackend/BackendException/error-message changes. The [preservation review](2026-10-06-local-work-recovery.md) owns that snapshot and both APKs. This is a source compatibility decision, not a new native packet, performance or phone run.
 
-Reviewed owners: [GoBackend](../../tunnel/src/main/java/com/wireguard/android/backend/GoBackend.java), [BackendException](../../tunnel/src/main/java/com/wireguard/android/backend/BackendException.java), [Config serialization](../../tunnel/src/main/java/com/wireguard/config/Config.java), [Interface serialization](../../tunnel/src/main/java/com/wireguard/config/Interface.java) and [GoBackendLifecycleTest](../../ui/src/test/java/com/wireguard/android/backend/GoBackendLifecycleTest.kt). The active contract is [WireGuard configuration and tunnel state](../backend-contracts.md#wireguard-configuration-and-tunnel-state).
+Reviewed owners: [GoBackend](https://github.com/novakin/vpn0wn-android/blob/3dc57410a457979bea2e16fc8c008abbcdfb1371/tunnel/src/main/java/com/wireguard/android/backend/GoBackend.java), [BackendException](https://github.com/novakin/vpn0wn-android/blob/3dc57410a457979bea2e16fc8c008abbcdfb1371/tunnel/src/main/java/com/wireguard/android/backend/BackendException.java), [Config serialization](https://github.com/novakin/vpn0wn-android/blob/3dc57410a457979bea2e16fc8c008abbcdfb1371/tunnel/src/main/java/com/wireguard/config/Config.java), [Interface serialization](https://github.com/novakin/vpn0wn-android/blob/3dc57410a457979bea2e16fc8c008abbcdfb1371/tunnel/src/main/java/com/wireguard/config/Interface.java) and [GoBackendLifecycleTest](https://github.com/novakin/vpn0wn-android/blob/3dc57410a457979bea2e16fc8c008abbcdfb1371/ui/src/test/java/com/wireguard/android/backend/GoBackendLifecycleTest.kt). The active contract is [WireGuard configuration and tunnel state](../backend-contracts.md#wireguard-configuration-and-tunnel-state).
 
 ## Findings and decision
 

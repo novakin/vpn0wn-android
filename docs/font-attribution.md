@@ -1,6 +1,6 @@
 # Font Attribution
 
-Last updated: 2026-10-06 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 The UI redesign bundles the following fonts under `ui/src/main/res/font`, matching the families referenced by the read-only prototype. Versions and notices below come from the embedded SFNT name tables, inspected on 2026-10-06; they do not establish the original binary download revision or a reproducible build.
 
@@ -17,3 +17,11 @@ Both families use SIL Open Font License 1.1. Embedded short notices/URLs alone d
 These pinned license sources identify the notice copies, not the provenance of the existing font binaries. Preserve copyright and full license with redistributed fonts; follow reserved-name and modification terms when replacing them. Do not date or rewrite the externally owned license texts.
 
 No APK was assembled for this attribution change. Verify both license assets are present in the actual APK before distribution; source placement is not executed packaging evidence.
+
+Settings includes these complete UI-font notices in its offline Licenses & credits text, alongside the Sora artwork notice described below. [Software attribution](license-attribution.md) owns that source slice and pending artifact/distribution gates; existing binaries and their provenance limits remain unchanged.
+
+## Outlined brand artwork
+
+The approved [vpnØwn reference](assets/vpnown-brand/README.md) derives its outlined wordmark from Sora Variable, Copyright 2019 The Sora Project Authors, under SIL Open Font License 1.1. Android uses those outlines as logo artwork; Sora is not installed as a UI font. Inter Tight and JetBrains Mono text roles remain unchanged.
+
+The [packaged Sora OFL copy](../ui/src/main/assets/licenses/sora-OFL.txt) preserves the [reference's original notice](assets/vpnown-brand/fonts/OFL.txt) exactly, including its existing whitespace. The complete wording also appears in offline Licenses & credits with the bundle's established whitespace normalization. The [Android adoption record](ui-redesign-roadmap.md#android-brand-asset-adoption--2026-10-10) owns output and artifact acceptance; the earlier font-asset claims retain their original scope.

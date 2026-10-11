@@ -120,9 +120,6 @@
     <string name="tv_select_a_storage_drive">Selectează o unitate de stocare</string>
     <string name="tv_no_file_picker">Instalează un serviciu de administrare a fișierelor pentru a căuta fișiere</string>
     <string name="tv_add_tunnel_get_started">Adaugă un tunel pentru a începe</string>
-    <string name="donate_title">♥ Donează pentru proiectul WireGuard</string>
-    <string name="donate_summary">Fiecare contribuţie ajută</string>
-    <string name="donate_google_play_disappointment">Vă mulțumim pentru sprijinul acordat Proiectului WireGuard!\n\nDin păcate, din cauza politicilor Google, nu avem voie să punem un link către pagina web a proiectului unde poți face o donație. Sperăm că vă puteți descurca!\n\nMulțumim din nou pentru contribuție.</string>
     <string name="disable_config_export_title">Dezactivează exportarea configurației</string>
     <string name="disable_config_export_description">Dezactivarea exportării configurației face mai puțin accesibile cheile private</string>
     <string name="dns_servers">Servere DNS</string>
@@ -155,7 +152,7 @@
     <string name="latest_handshake">Cea mai recentă negociere</string>
     <string name="listen_port">Port de ascultare</string>
     <string name="log_export_error">Jurnalul nu poate fi exportat: %s</string>
-    <string name="log_export_subject">Fișier de jurnal Android WireGuard</string>
+    <string name="log_export_subject">Fișier de jurnal Android vpn0wn</string>
     <string name="log_export_success">Salvat în „%s”</string>
     <string name="log_export_title">Exportare fișier de jurnal</string>
     <string name="log_saver_activity_label">Salvare jurnal</string>
@@ -242,7 +239,7 @@
     <string name="version_summary">Bibliotecă %1$s %2$s</string>
     <string name="version_summary_checking">Se verifică versiunea bibliotecii %s</string>
     <string name="version_summary_unknown">Versiune %s necunoscută</string>
-    <string name="version_title">WireGuard pentru Android v%s</string>
+    <string name="version_title">vpn0wn pentru Android v%s</string>
     <string name="vpn_not_authorized_error">Serviciul VPN nu este autorizat de utilizator</string>
     <string name="vpn_start_error">Serviciul VPN Android nu poate fi pornit</string>
     <string name="zip_export_error">Tunelurile nu pot fi exportate: %s</string>

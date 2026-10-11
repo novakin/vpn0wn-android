@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="tunnl_home_title_size">18sp</dimen>
+    <dimen name="vpnown_home_wordmark_height">20dp</dimen>
+</resources>

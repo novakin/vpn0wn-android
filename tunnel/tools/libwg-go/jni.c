@@ -13,9 +13,10 @@ struct go_string { const char *str; long n; };
 extern int wgTurnOn(struct go_string ifname, int tun_fd, struct go_string settings, struct wg_context *context, JNIEnv *env);
 extern void wgTurnOff(int handle, JNIEnv *env);
 extern char *wgGetConfig(int handle, JNIEnv *env);
+extern int wgRebind(int handle, JNIEnv *env);
 extern char *wgVersion();
 
-JNIEXPORT jint JNICALL Java_com_wireguard_android_backend_GoBackend_wgTurnOn(JNIEnv *env, jclass c, jstring ifname, jint tun_fd, jstring settings, jobject service, jobject activation_thread)
+JNIEXPORT jint JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgTurnOn(JNIEnv *env, jclass c, jstring ifname, jint tun_fd, jstring settings, jobject service, jobject activation_thread, jlong activation_id)
 {
 	struct wg_context *context = NULL;
 	const char *ifname_str = (*env)->GetStringUTFChars(env, ifname, 0);
@@ -28,7 +29,7 @@ JNIEXPORT jint JNICALL Java_com_wireguard_android_backend_GoBackend_wgTurnOn(JNI
 		goto failed;
 	}
 	size_t settings_len = (*env)->GetStringUTFLength(env, settings);
-	context = wgCreateContext(env, service, activation_thread);
+	context = wgCreateContext(env, service, activation_thread, activation_id);
 	if (!context) {
 		(*env)->ReleaseStringUTFChars(env, ifname, ifname_str);
 		(*env)->ReleaseStringUTFChars(env, settings, settings_str);
@@ -49,12 +50,17 @@ failed:
 	return -1;
 }
 
-JNIEXPORT void JNICALL Java_com_wireguard_android_backend_GoBackend_wgTurnOff(JNIEnv *env, jclass c, jint handle)
+JNIEXPORT void JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgTurnOff(JNIEnv *env, jclass c, jint handle)
 {
 	wgTurnOff(handle, env);
 }
 
-JNIEXPORT jstring JNICALL Java_com_wireguard_android_backend_GoBackend_wgGetConfig(JNIEnv *env, jclass c, jint handle)
+JNIEXPORT jint JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgRebind(JNIEnv *env, jclass c, jint handle)
+{
+	return wgRebind(handle, env);
+}
+
+JNIEXPORT jstring JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgGetConfig(JNIEnv *env, jclass c, jint handle)
 {
 	jstring ret;
 	char *config = wgGetConfig(handle, env);
@@ -65,7 +71,7 @@ JNIEXPORT jstring JNICALL Java_com_wireguard_android_backend_GoBackend_wgGetConf
 	return ret;
 }
 
-JNIEXPORT jstring JNICALL Java_com_wireguard_android_backend_GoBackend_wgVersion(JNIEnv *env, jclass c)
+JNIEXPORT jstring JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgVersion(JNIEnv *env, jclass c)
 {
 	jstring ret;
 	char *version = wgVersion();

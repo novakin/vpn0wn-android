@@ -1,12 +1,12 @@
 # G4 candidate APK and device checks
 
-Last updated: 2026-10-07 (Europe/Paris).
+Last updated: 2026-10-10 (Europe/Paris).
 
 ## Scope and build
 
-[G4/#52](https://github.com/novakin/wireguard-android/issues/52), continuing the maintainer's explicit build/device-test authorization. Executed source: merged master `4e2f473d78e2a19c7d2d6c0daecdab6cca25e85f`, including #55's repairs. Device: Pixel 10a, Android 16/API 36, userspace backend, USB charging and LTE. No speed/energy baseline, server operation, profile-port change or app source edit occurred.
+[G4/#52](https://github.com/novakin/vpn0wn-android/issues/52), continuing the maintainer's explicit build/device-test authorization. Executed source: merged master `4e2f473d78e2a19c7d2d6c0daecdab6cca25e85f`, including #55's repairs. Device: Pixel 10a, Android 16/API 36, userspace backend, USB charging and LTE. No speed/energy baseline, server operation, profile-port change or app source edit occurred.
 
-[CI run 37598996218](https://github.com/novakin/wireguard-android/actions/runs/37598996218) passed 245 unit tests with zero failures/errors/skips and zero Detekt findings, then assembled/uploaded the explicitly requested debug APK. Downloaded artifact `11471513353` expires `2026-10-14T09:15:42Z`. Its revision file matches the executed source; original APK SHA256 is `59f94669ef77c15e9de5f36cad7de7675e88b8686436656927ba5a8e643d0d15`.
+[CI run 37598996218](https://github.com/novakin/vpn0wn-android/actions/runs/37598996218) passed 245 unit tests with zero failures/errors/skips and zero Detekt findings, then assembled/uploaded the explicitly requested debug APK. Downloaded artifact `11471513353` expires `2026-10-14T09:15:42Z`. Its revision file matches the executed source; original APK SHA256 is `59f94669ef77c15e9de5f36cad7de7675e88b8686436656927ba5a8e643d0d15`.
 
 The untouched CI artifact remains local. A separate test copy was signed with the existing WSL debug key after matching its certificate to the installed app. Signature verification and comparison of all 1,018 non-`META-INF` ZIP entries passed. `adb install -r` succeeded without uninstall/data clear; pulling the installed APK back confirmed test-copy SHA256 `27c7e4dabe4d0451e171728dfda87140847fa59b288d09678156162689495063`. This is a locally signed CI-derived debug build, not a release or the untouched runner-signed artifact.
 

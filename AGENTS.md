@@ -1,6 +1,6 @@
-# Tunnl — WireGuard Android
+# vpn0wn — WireGuard Android fork
 
-Last updated: 2026-10-10 (Europe/Paris).
+Last updated: 2026-10-11 (Europe/Paris).
 
 ## Source of Truth — Prompt Instructions
 
@@ -8,9 +8,10 @@ Last updated: 2026-10-10 (Europe/Paris).
 
 ## Project Context
 
-Tunnl ports the engineering-console UI in `.design/` onto WireGuard Android and adds the documented VPS provisioning flow. Discover the active branch from Git; do not assume a branch name or a clean worktree.
+vpn0wn ports the engineering-console UI in `.design/` onto WireGuard Android and adds the documented VPS provisioning flow. Discover the active branch from Git; do not assume a branch name or a clean worktree. Current source packages use `com.vpn0wn.*`; configured release/debug IDs are `com.vpn0wn.android` and `com.vpn0wn.android.debug`. Legacy resource/style keys and product log tags still await the remaining #71 rename. The [namespace contract](docs/backend-contracts.md#application-and-source-identity--71) owns current export names and retained protocol, persisted and compatibility identities; source changes do not establish renamed artifact/device or cross-app migration acceptance.
 
 - Design reference: `.design/` — **read-only, never modify**
+- Brand reference: `docs/assets/vpnown-brand/` — approved artwork; the [Android adoption contract](docs/ui-redesign-roadmap.md#android-brand-asset-adoption--2026-10-10) owns logo use. Outlined Sora logos do not replace Inter Tight/JetBrains Mono UI font roles.
 - UI progress: `docs/ui-redesign-roadmap.md` — **read before every UI task**
 - Backend/functional changes: `docs/backend-changelog.md` — **read before every non-UI task**
 - Architecture: existing DataBinding + Fragment pattern — keep it, don't refactor the foundation
@@ -120,14 +121,14 @@ Run noisy commands through `Invoke-CodexQuiet`; preserve the real exit code rath
 ## Architecture Map
 
 ```
-ui/src/main/java/com/wireguard/android/
+ui/src/main/java/com/vpn0wn/android/
   fragment/         TunnelListFragment, TunnelDetailFragment, TunnelEditorFragment, VpsProvisioningFragment
   widget/           TunnelSignalView (home mini-diagram), TunnelThroughputView (detail hero)
   databinding/      BindingAdapters.kt — all @BindingAdapter + @JvmStatic formatters
   model/            ObservableTunnel.kt — state, config, statistics (BaseObservable)
   activity/         MainActivity, SettingsActivity, LogViewerActivity
   preference/       KernelModuleEnablerPreference (settings screen)
-  provisioning/     models, RemoteShellClient, TunnlProvisioningClient, VpsServerStore, VpsDeployMapper
+  provisioning/     models, RemoteShellClient, Vpn0wnProvisioningClient, VpsServerStore, VpsDeployMapper
 
 ui/src/main/res/
   layout/           tunnel_list_item.xml, tunnel_detail_fragment.xml, tunnel_editor_fragment.xml
