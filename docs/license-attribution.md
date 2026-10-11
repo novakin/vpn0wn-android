@@ -46,6 +46,12 @@ The generated wrapper properties receive a separate factual leading `# Modified 
 
 The native overlay helper quotes pinned MIT WireGuard source and emits changed MIT copies. Preserve their original copyright and full permission notice with the applicable source distribution; the helper's Apache declaration does not relicense its quoted material or output. No generated MIT modification labels are added as an Apache requirement. Go/runtime BSD patch material, external gitlinks, provisioning MIT, fonts and component notices retain their existing terms. The wrapper's generated binary retains its official bytes and component terms.
 
+## Source reconstruction and relink preparation
+
+The [2026-10-11 source preparation record](reviews/2026-10-11-native-source-preparation.md) binds exact fork/tools/host-helper archives to the previously audited unsigned artifact. A fresh four-ABI build reproduces all eight packaged `wg`/`wg-quick` payloads byte-for-byte after local stripping. A disposable native-helper change relinks `wg`, preserves `wg-quick`, and restores all tools and IPC objects to their exact same-path baseline bytes. Independent ultra review recomputed the archive, binary and preservation checks. This is local reconstruction/relink proof, not recipient delivery, Android runtime acceptance or complete license-condition fulfilment.
+
+The same record distinguishes stronger official desugar raw-entry/source-pin linkage from still-unproved release preparation/transformation and APK method correspondence. DataStore's release-associated native source remains separate from an exact release-build/toolchain manifest. Existing notice-copy provenance is unchanged. Retain these limits when preparing the final source/relink delivery material; private host archives and a successful local build do not establish that recipients received usable corresponding source.
+
 ## Artifact and distribution gates
 
 The [2026-10-11 composed release audit](reviews/2026-10-11-release-artifact-acceptance.md) verifies actual unsigned release/googleplay contents at `15eb25239d876579ab60609efcc35413dde589f3`: source-exact offline NOTICE/29 credits/OFL/provisioning assets, resource-resolved UI fonts, all 16 native libraries, current identity/JNI callbacks and licensing navigation after shrinking. Both inspected APKs are byte-identical. This closes that bounded inclusion/retention proof; it supplies no signing, installation, runtime or complete distribution acceptance. Historical debug records below retain their original scope.
