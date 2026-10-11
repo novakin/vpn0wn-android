@@ -126,7 +126,7 @@
     <string name="latest_handshake">Lần bắt tay cuối</string>
     <string name="listen_port">Cổng</string>
     <string name="log_export_error">Không thể xuất nhật ký: %s</string>
-    <string name="log_export_subject">File nhật ký WireGuard Android</string>
+    <string name="log_export_subject">File nhật ký vpn0wn Android</string>
     <string name="log_export_success">Đã lưu vào \"%s\"</string>
     <string name="log_export_title">Xuất file nhật ký</string>
     <string name="log_saver_activity_label">Lưu nhật ký</string>

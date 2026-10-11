@@ -152,7 +152,7 @@
     <string name="latest_handshake">Cea mai recentă negociere</string>
     <string name="listen_port">Port de ascultare</string>
     <string name="log_export_error">Jurnalul nu poate fi exportat: %s</string>
-    <string name="log_export_subject">Fișier de jurnal Android WireGuard</string>
+    <string name="log_export_subject">Fișier de jurnal Android vpn0wn</string>
     <string name="log_export_success">Salvat în „%s”</string>
     <string name="log_export_title">Exportare fișier de jurnal</string>
     <string name="log_saver_activity_label">Salvare jurnal</string>

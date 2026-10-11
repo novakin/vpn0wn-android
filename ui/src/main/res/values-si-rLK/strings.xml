@@ -105,7 +105,7 @@
     <string name="key_length_explanation_hex">: WireGuard hex යතුරු අක්ෂර 64 (බයිට් 32) විය යුතුය.</string>
     <string name="listen_port">සවන්දීමේ කෙවෙනිය</string>
     <string name="log_export_error">ලොගය අපනයනය කළ නොහැක: %s</string>
-    <string name="log_export_subject">WireGuard Android ලොග් ගොනුව</string>
+    <string name="log_export_subject">vpn0wn Android ලොග් ගොනුව</string>
     <string name="log_export_success">“%s” ට සුරැකිණි</string>
     <string name="log_export_title">ලොග් ගොනුව අපනයනය කරන්න</string>
     <string name="log_saver_activity_label">ලොගය සුරකින්න</string>

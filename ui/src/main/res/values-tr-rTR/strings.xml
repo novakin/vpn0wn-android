@@ -139,7 +139,7 @@
     <string name="latest_handshake">En son el sıkışma</string>
     <string name="listen_port">Dinlenen port</string>
     <string name="log_export_error">Günlük dışa aktarılamadı: %s</string>
-    <string name="log_export_subject">WireGuard Android Günlük Dosyası</string>
+    <string name="log_export_subject">vpn0wn Android Günlük Dosyası</string>
     <string name="log_export_success">“%s” dosyasına kaydedildi</string>
     <string name="log_export_title">Günlük dosyasını dışa aktar</string>
     <string name="log_saver_activity_label">Günlüğü kaydet</string>

@@ -191,7 +191,7 @@
     <string name="latest_handshake">أحدث مصافحة</string>
     <string name="listen_port">منفذ الاستماع</string>
     <string name="log_export_error">غير قادر على تصدير السجل: %s</string>
-    <string name="log_export_subject">ملف سجل اندرويد وايرجارد</string>
+    <string name="log_export_subject">ملف سجل اندرويد vpn0wn</string>
     <string name="log_export_success">تم الحفظ في \"%s\"</string>
     <string name="log_export_title">تصدير ملف السجل</string>
     <string name="log_saver_activity_label">حفظ السجل</string>

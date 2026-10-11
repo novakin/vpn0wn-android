@@ -70,6 +70,8 @@ class ZipExporterPreferenceTest {
             activity.lifecycleScope.coroutineContext[Job]!!.children.single { it !in priorJobs }.join()
             assertTrue(preference.isEnabled)
             assertEquals(activity.getString(R.string.zip_export_success, output.absolutePath), preference.summary)
+            assertEquals("vpn0wn-export.zip", provider.insertedValues?.getAsString(MediaStore.MediaColumns.DISPLAY_NAME))
+            assertEquals("application/zip", provider.insertedValues?.getAsString(MediaStore.MediaColumns.MIME_TYPE))
             ZipFile(output).use { zip ->
                 assertEquals(listOf("one.conf", "two.conf"), zip.entries().asSequence().map { it.name }.toList())
                 for (name in listOf("one.conf", "two.conf"))
@@ -162,9 +164,13 @@ class ZipExporterPreferenceTest {
     private class ExportProvider(private val file: File, private val writable: Boolean = false) : ContentProvider() {
         private val uri = Uri.parse("content://media/external/downloads/1")
         var cleanupAttempts = 0
+        var insertedValues: ContentValues? = null
         override fun onCreate() = true
         override fun getType(uri: Uri) = "application/zip"
-        override fun insert(uri: Uri, values: ContentValues?) = this.uri
+        override fun insert(uri: Uri, values: ContentValues?): Uri {
+            insertedValues = values?.let { ContentValues(it) }
+            return this.uri
+        }
         override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor =
             ParcelFileDescriptor.open(file, if (writable) ParcelFileDescriptor.MODE_WRITE_ONLY else ParcelFileDescriptor.MODE_READ_ONLY)
         override fun query(uri: Uri, projection: Array<out String>?, selection: String?, selectionArgs: Array<out String>?, sortOrder: String?): Cursor =

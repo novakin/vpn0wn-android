@@ -126,7 +126,7 @@
     <string name="latest_handshake">直近のハンドシェイク</string>
     <string name="listen_port">Listen ポート</string>
     <string name="log_export_error">ログをエクスポートできません: %s</string>
-    <string name="log_export_subject">WireGuard Android ログファイル</string>
+    <string name="log_export_subject">vpn0wn Android ログファイル</string>
     <string name="log_export_success">“%s” に保存しました</string>
     <string name="log_export_title">ログのエクスポート</string>
     <string name="log_saver_activity_label">ログの保存</string>

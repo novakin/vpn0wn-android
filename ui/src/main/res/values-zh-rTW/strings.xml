@@ -126,7 +126,7 @@
     <string name="latest_handshake">上次交握時間</string>
     <string name="listen_port">監聽連接埠</string>
     <string name="log_export_error">無法匯出日誌: %s</string>
-    <string name="log_export_subject">WireGuard Android 日誌檔</string>
+    <string name="log_export_subject">vpn0wn Android 日誌檔</string>
     <string name="log_export_success">儲存到「%s」</string>
     <string name="log_export_title">匯出日誌檔</string>
     <string name="log_saver_activity_label">儲存日誌</string>

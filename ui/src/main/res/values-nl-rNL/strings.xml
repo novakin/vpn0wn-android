@@ -139,7 +139,7 @@
     <string name="latest_handshake">Recentste uitwisseling</string>
     <string name="listen_port">Luister op poort</string>
     <string name="log_export_error">Kan logboek niet exporteren: %s</string>
-    <string name="log_export_subject">WireGuard Android logbestand</string>
+    <string name="log_export_subject">vpn0wn Android logbestand</string>
     <string name="log_export_success">Opgeslagen in \"%s\"</string>
     <string name="log_export_title">Exporteer logboek naar bestand</string>
     <string name="log_saver_activity_label">Logboek opslaan</string>

@@ -165,7 +165,7 @@
     <string name="latest_handshake">Poslední handshake</string>
     <string name="listen_port">Port pro naslouchání</string>
     <string name="log_export_error">Nelze exportovat protokol: %s</string>
-    <string name="log_export_subject">Soubor protokolu Android WireGuard</string>
+    <string name="log_export_subject">Soubor protokolu Android vpn0wn</string>
     <string name="log_export_success">Uloženo do „%s“</string>
     <string name="log_export_title">Exportovat soubor protokolu</string>
     <string name="log_saver_activity_label">Uložit protokol</string>

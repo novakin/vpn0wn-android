@@ -481,6 +481,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
+- [x] **Export identity names — #71 bounded source follow-up, 2026-10-11:** profile ZIP/log metadata use `vpn0wn-export.zip`/`vpn0wn-log.txt`, and all localized log-share subjects identify `vpn0wn`. [The identity contract](backend-contracts.md#application-and-source-identity--71) retains compatibility and actual chooser/storage-provider/artifact acceptance boundaries; layout, tokens and feedback presentation are unchanged.
+
 - [x] **Current helper names — #71 mechanical follow-up, 2026-10-11:** current Snackbar callers use `Vpn0wnSnackbar`/`Snackbar.vpn0wnStyle()` and provisioning owners use `Vpn0wnProvisioningClient`. Earlier Done entries retain their original Tunnl names and events. Artwork, layout, styling/resources, feedback behavior and prior output acceptance remain unchanged; [the backend record](backend-changelog.md#done) owns the operation-owned scratch-prefix rename and verification boundary.
 
 - [x] **Namespace-backed UI references — #71 partial source, 2026-10-11:** layout/DataBinding/imported widget types, preferences and generated UI references now use `com.vpn0wn.*`; configured release/debug IDs identify vpn0wn. Existing artwork, layout, UI font roles, tokens and actions keep their visual contract. [Scoped renamed debug proof](reviews/2026-10-11-namespace-acceptance.md) adds native Settings/provider import and synthetic Detail MTU `1280` output; it does not repeat the complete artwork/theme/font/RTL/accessibility matrix. [Namespace QA](qa-test-plan.md#source-and-application-namespace-checks--71) retains full renamed output/runtime gates and remaining lifecycle limits and checked restoration.
@@ -603,7 +605,7 @@ This is a historical implementation ledger, not newly executed build/device proo
 
 ### Fidelity Gaps — Remaining
 
-- [~] **Remaining first-party identity names — #71:** Resource/style keys, log tags and export filenames still retain Tunnl names. The helper follow-up names `Vpn0wnSnackbar`, `Snackbar.vpn0wnStyle()` and `Vpn0wnProvisioningClient`; it does not rename these remaining consumers. Rename them together in bounded follow-up; retained WireGuard protocol/legal and persisted provisioning compatibility names have distinct reasons in [the identity contract](backend-contracts.md#application-and-source-identity--71).
+- [~] **Remaining first-party identity names — #71:** Resource/style keys and product log tags retain legacy names. Current helpers and export metadata/subjects identify vpn0wn; resource/log naming remains bounded follow-up. Retained WireGuard protocol/legal and persisted provisioning compatibility names have distinct reasons in [the identity contract](backend-contracts.md#application-and-source-identity--71).
 
 - [~] **Full app-data transfer actions — 2026-10-09:** Settings reuses its existing Data action-row layout/tokens and native biometric, document-picker and Material confirmation patterns. [Scoped authorized AVD proof](reviews/2026-10-09-app-data-transfer-acceptance.md) covers the inspected themes, sizes, large text, real RTL and native Downloads/PIN paths. Broader physical biometric/provider failures, TalkBack, translation and old/new-installation acceptance remain [#71 gates](qa-test-plan.md#full-app-data-transfer-acceptance).
 

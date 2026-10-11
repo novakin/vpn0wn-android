@@ -165,7 +165,7 @@
     <string name="latest_handshake">Останнє рукостискання</string>
     <string name="listen_port">Порт</string>
     <string name="log_export_error">Не вдалося експортувати журнал: %s</string>
-    <string name="log_export_subject">Файл журналу WireGuard</string>
+    <string name="log_export_subject">Файл журналу vpn0wn</string>
     <string name="log_export_success">Збережено до “%s”</string>
     <string name="log_export_title">Експорт файлу журналу</string>
     <string name="log_saver_activity_label">Зберегти лог</string>

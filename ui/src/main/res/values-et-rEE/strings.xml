@@ -139,7 +139,7 @@
     <string name="latest_handshake">Viimane kätlus</string>
     <string name="listen_port">Kuulamisport</string>
     <string name="log_export_error">Logifaili eksportimine ebaõnnestus: %s</string>
-    <string name="log_export_subject">WireGuard Android logifail</string>
+    <string name="log_export_subject">vpn0wn Android logifail</string>
     <string name="log_export_success">Salvestatud faili \"%s\"</string>
     <string name="log_export_title">Ekspordi logifail</string>
     <string name="log_saver_activity_label">Salvesta logi</string>

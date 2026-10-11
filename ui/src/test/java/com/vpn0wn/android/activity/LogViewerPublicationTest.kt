@@ -6,6 +6,7 @@ package com.vpn0wn.android.activity
 
 import android.app.Application
 import android.net.Uri
+import android.provider.OpenableColumns
 import androidx.recyclerview.widget.RecyclerView
 import com.vpn0wn.android.util.LogBuffer
 import com.vpn0wn.android.util.LogLevelFilter
@@ -30,19 +31,27 @@ class LogViewerPublicationTest {
         val provider = LogViewerActivity.ExportedLogContentProvider()
         val firstBytes = CompletableDeferred<ByteArray>()
         val secondBytes = CompletableDeferred<ByteArray>()
+        val latestBytes = "synthetic first é".toByteArray(Charsets.UTF_8)
         val first = async { publishShare(activity, firstBytes.await()) }
         val second = async { publishShare(activity, secondBytes.await()) }
         try {
             secondBytes.complete("synthetic second".toByteArray())
             val earlierUri = second.await()
             assertEquals("text/plain", provider.getType(earlierUri))
-            firstBytes.complete("synthetic first".toByteArray())
+            firstBytes.complete(latestBytes)
             val latestUri = first.await()
             assertNull(provider.getType(earlierUri))
+            assertNull(provider.query(earlierUri, null, null, null, null))
             assertEquals("text/plain", provider.getType(latestUri))
+            requireNotNull(provider.query(latestUri, null, null, null, null)).use { cursor ->
+                assertTrue(cursor.moveToFirst())
+                assertEquals("vpn0wn-log.txt", cursor.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME)))
+                assertEquals(latestBytes.size.toLong(), cursor.getLong(cursor.getColumnIndexOrThrow(OpenableColumns.SIZE)))
+            }
             assertEquals(latestUri, ReflectionHelpers.getField<Uri>(activity, "lastUri"))
             ReflectionHelpers.callInstanceMethod<Unit>(activity, "revokeLastUri")
             assertNull(provider.getType(latestUri))
+            assertNull(provider.query(latestUri, null, null, null, null))
         } finally {
             ReflectionHelpers.callInstanceMethod<Unit>(activity, "revokeLastUri")
         }

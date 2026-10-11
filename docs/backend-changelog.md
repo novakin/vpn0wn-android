@@ -61,6 +61,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **Export filenames and subjects — #71 bounded source follow-up (2026-10-11, Europe/Paris)**
+  `ZipExporterPreference.exportZip` requests `vpn0wn-export.zip`; `LogViewerActivity.ExportedLogContentProvider.query` publishes `vpn0wn-log.txt`. All 32 `log_export_subject` definitions use `vpn0wn` while preserving surrounding translations and resource keys. Existing profile/config bytes, MIME types, authentication/admin gates, overwrite, cancellation/cleanup and temporary URI publication/revocation behavior remain unchanged; legacy exported files are not migrated or cleaned up. The existing success/publication controls now assert metadata at Downloads insertion and provider query. [The identity contract](backend-contracts.md#application-and-source-identity--71) owns compatibility and remaining device/artifact boundaries; this source slice adds no APK, chooser/provider or migration proof.
+
 - **App helper and provisioning scratch names — #71 bounded source follow-up (2026-10-11, Europe/Paris)**
   `Vpn0wnSnackbar.style` and `Snackbar.vpn0wnStyle()` replace the former Tunnl helper/extension names; `Vpn0wnSnackbarTest` retains the existing styling control. `Vpn0wnProvisioningClient` replaces the former client class/file, and `withClient` now requests `/tmp/vpn0wn-provisioning.XXXXXX` for its operation-owned scratch directory; callers and the injected logging fixture follow those names. Upload/quoting/result/cleanup behavior, resource/style keys, log tags, stored data, script assets, `TUNNL_*` environment values, ownership markers and shared locks are unchanged. Dated records below retain original names and event scope. This mechanical naming slice adds no API alias, SSH integration, APK/device or live-server claim; its PR owns actual focused verification and delivery.
 
