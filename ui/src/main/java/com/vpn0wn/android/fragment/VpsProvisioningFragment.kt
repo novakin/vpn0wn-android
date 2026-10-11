@@ -90,7 +90,7 @@ class VpsProvisioningFragment : BaseFragment() {
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         root = FrameLayout(requireContext()).apply {
-            setBackgroundColor(color(R.color.tunnl_paper))
+            setBackgroundColor(color(R.color.vpn0wn_paper))
         }
         backCallback = requireActivity().onBackPressedDispatcher.addCallback(this) { goBack() }
         render()
@@ -151,7 +151,7 @@ class VpsProvisioningFragment : BaseFragment() {
 
     private fun fleetScreen(): View {
         val container = vertical()
-        container.addView(topBar(title = str(R.string.tunnl_servers_title).lowercase(Locale.ROOT), sub = str(R.string.tunnl_servers_summary, servers.size, servers.sumOf { it.users.size }), leftIcon = R.drawable.ic_tunnl_chevron_left, onLeft = { goBack() }, right = listOf(iconButton(R.drawable.ic_tunnl_logs) { toast(str(R.string.tunnl_server_logs_pending)) }, iconButton(R.drawable.ic_tunnl_settings) { toast(str(R.string.tunnl_server_settings_pending)) }), big = true))
+        container.addView(topBar(title = str(R.string.tunnl_servers_title).lowercase(Locale.ROOT), sub = str(R.string.tunnl_servers_summary, servers.size, servers.sumOf { it.users.size }), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { goBack() }, right = listOf(iconButton(R.drawable.ic_vpn0wn_logs) { toast(str(R.string.tunnl_server_logs_pending)) }, iconButton(R.drawable.ic_vpn0wn_settings) { toast(str(R.string.tunnl_server_settings_pending)) }), big = true))
         container.addView(statusTiles())
         val (scrollView, scroll) = scrollContent()
         scroll.addView(sectionHeader(1, str(R.string.tunnl_server_fleet), filter?.let { str(it.shortLabelRes) } ?: str(R.string.tunnl_self_hosted)))
@@ -178,14 +178,14 @@ class VpsProvisioningFragment : BaseFragment() {
     private fun emptyFleetCard(): View = card().apply {
         setPadding(dp(14), dp(12), dp(14), dp(12))
         addView(label(str(R.string.tunnl_no_servers)))
-        addView(mono(str(R.string.tunnl_no_servers_summary), 11, R.color.tunnl_ink_2).apply { setPadding(0, dp(6), 0, 0) })
+        addView(mono(str(R.string.tunnl_no_servers_summary), 11, R.color.vpn0wn_ink_2).apply { setPadding(0, dp(6), 0, 0) })
     }.withMargins(bottom = 10)
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
     private fun statusTiles(): View {
         val row = horizontal().apply {
-            setBackgroundColor(color(R.color.tunnl_paper_2))
+            setBackgroundColor(color(R.color.vpn0wn_paper_2))
         }
         val tiles = mutableListOf<Pair<VpsDeployServerStatus?, String>>()
         tiles.add(null to str(R.string.tunnl_filter_all))
@@ -193,7 +193,7 @@ class VpsProvisioningFragment : BaseFragment() {
         tiles.forEach { (status, label) ->
             val count = if (status == null) servers.size else servers.count { it.status == status }
             row.addView(
-                statTile(label, count.toString(), status?.dot ?: "", status?.colorRes ?: R.color.tunnl_ink, filter == status) {
+                statTile(label, count.toString(), status?.dot ?: "", status?.colorRes ?: R.color.vpn0wn_ink, filter == status) {
                     filter = if (filter == status) null else status
                     render()
                 },
@@ -202,7 +202,7 @@ class VpsProvisioningFragment : BaseFragment() {
         }
         return vertical().apply {
             addView(row)
-            addView(View(requireContext()).apply { setBackgroundColor(color(R.color.tunnl_rule)) }, LinearLayout.LayoutParams(-1, dp(1)))
+            addView(View(requireContext()).apply { setBackgroundColor(color(R.color.vpn0wn_rule)) }, LinearLayout.LayoutParams(-1, dp(1)))
         }
     }
 
@@ -212,9 +212,9 @@ class VpsProvisioningFragment : BaseFragment() {
         val meta = server.status
         val failing = server.health.any { it.ok == false }
         val stroke = when {
-            failing -> R.color.tunnl_error
-            server.status == VpsDeployServerStatus.PROVISIONING -> R.color.tunnl_warn
-            else -> R.color.tunnl_rule
+            failing -> R.color.vpn0wn_error
+            server.status == VpsDeployServerStatus.PROVISIONING -> R.color.vpn0wn_warn
+            else -> R.color.vpn0wn_rule
         }
         val card = card(stroke).apply {
             setOnClickListener {
@@ -229,8 +229,8 @@ class VpsProvisioningFragment : BaseFragment() {
             addView(label(str(meta.labelRes), meta.colorRes), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             addView(label("${server.provider.uppercase(Locale.ROOT)} · ${server.region.uppercase(Locale.ROOT)}"))
         })
-        body.addView(mono(server.name, 16, R.color.tunnl_ink, Typeface.BOLD).apply { setPadding(0, dp(8), 0, 0) })
-        body.addView(mono(str(R.string.tunnl_server_card_summary, "${server.endpoint}:${server.port}", server.users.size, server.engine), 10, R.color.tunnl_ink_3).apply { setPadding(0, dp(4), 0, dp(10)) })
+        body.addView(mono(server.name, 16, R.color.vpn0wn_ink, Typeface.BOLD).apply { setPadding(0, dp(8), 0, 0) })
+        body.addView(mono(str(R.string.tunnl_server_card_summary, "${server.endpoint}:${server.port}", server.users.size, server.engine), 10, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(4), 0, dp(10)) })
         body.addView(metricRow(listOf(str(R.string.tunnl_metric_cidr) to server.cidr, str(R.string.tunnl_metric_uptime) to server.uptime, str(R.string.tunnl_metric_sync) to server.lastSync)))
         body.addView(horizontalWrap(server.health.map { healthBadge(it) }).apply { setPadding(0, dp(10), 0, 0) })
         railRow.addView(body, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
@@ -242,7 +242,7 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun detailScreen(server: VpsDeployServer): View {
         val container = vertical()
-        container.addView(topBar(title = server.name, sub = str(R.string.tunnl_server_subtitle, server.region.uppercase(Locale.ROOT)), leftIcon = R.drawable.ic_tunnl_chevron_left, onLeft = { screen = Screen.Fleet; render() }, right = listOf(iconButton(R.drawable.ic_tunnl_refresh) { toast(str(R.string.tunnl_server_synced)) }, iconButton(R.drawable.ic_tunnl_more) { toast(str(R.string.tunnl_more_pending)) })))
+        container.addView(topBar(title = server.name, sub = str(R.string.tunnl_server_subtitle, server.region.uppercase(Locale.ROOT)), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { screen = Screen.Fleet; render() }, right = listOf(iconButton(R.drawable.ic_vpn0wn_refresh) { toast(str(R.string.tunnl_server_synced)) }, iconButton(R.drawable.ic_vpn0wn_more) { toast(str(R.string.tunnl_more_pending)) })))
         val (scrollView, scroll) = scrollContent()
         scroll.addView(VpsTopologyView(requireContext()).apply {
             bind(server)
@@ -262,7 +262,7 @@ class VpsProvisioningFragment : BaseFragment() {
         scroll.addView(sectionHeader(2, str(R.string.tunnl_section_vpn_users), str(R.string.tunnl_peers_count, server.users.size)))
         scroll.addView(panel {
             if (server.users.isEmpty()) {
-                addView(mono(str(R.string.tunnl_no_peers_yet), 11, R.color.tunnl_ink_3).apply { setPadding(dp(14), dp(14), dp(14), dp(14)) })
+                addView(mono(str(R.string.tunnl_no_peers_yet), 11, R.color.vpn0wn_ink_3).apply { setPadding(dp(14), dp(14), dp(14), dp(14)) })
             } else {
                 server.users.forEachIndexed { index, user -> addView(userRow(server, user, index)) }
             }
@@ -279,10 +279,10 @@ class VpsProvisioningFragment : BaseFragment() {
         })
         scroll.addView(sectionHeader(4, str(R.string.tunnl_section_actions), str(R.string.tunnl_hint_remote)))
         scroll.addView(actionGrid(listOf(
-            VpsDeployAction(R.drawable.ic_tunnl_refresh, str(R.string.tunnl_action_repair), str(R.string.tunnl_action_repair_sub), R.color.tunnl_ink) { toast(str(R.string.tunnl_repair_queued)) },
-            VpsDeployAction(R.drawable.ic_tunnl_share, str(R.string.tunnl_action_backup), str(R.string.tunnl_action_backup_sub), R.color.tunnl_signal_deep) { toast(str(R.string.tunnl_backup_exported)) },
-            VpsDeployAction(R.drawable.ic_tunnl_logs, str(R.string.tunnl_action_terminal), str(R.string.tunnl_action_terminal_sub), R.color.tunnl_ink) { toast(str(R.string.tunnl_terminal_pending)) },
-            VpsDeployAction(R.drawable.ic_tunnl_trash, str(R.string.tunnl_action_uninstall), str(R.string.tunnl_action_uninstall_sub), R.color.tunnl_error) { toast(str(R.string.tunnl_uninstall_requires_confirmation)) },
+            VpsDeployAction(R.drawable.ic_vpn0wn_refresh, str(R.string.tunnl_action_repair), str(R.string.tunnl_action_repair_sub), R.color.vpn0wn_ink) { toast(str(R.string.tunnl_repair_queued)) },
+            VpsDeployAction(R.drawable.ic_vpn0wn_share, str(R.string.tunnl_action_backup), str(R.string.tunnl_action_backup_sub), R.color.vpn0wn_signal_deep) { toast(str(R.string.tunnl_backup_exported)) },
+            VpsDeployAction(R.drawable.ic_vpn0wn_logs, str(R.string.tunnl_action_terminal), str(R.string.tunnl_action_terminal_sub), R.color.vpn0wn_ink) { toast(str(R.string.tunnl_terminal_pending)) },
+            VpsDeployAction(R.drawable.ic_vpn0wn_trash, str(R.string.tunnl_action_uninstall), str(R.string.tunnl_action_uninstall_sub), R.color.vpn0wn_error) { toast(str(R.string.tunnl_uninstall_requires_confirmation)) },
         )))
         container.addView(scrollView, LinearLayout.LayoutParams(-1, 0, 1f))
         return container
@@ -291,7 +291,7 @@ class VpsProvisioningFragment : BaseFragment() {
     private fun provisionScreen(): View {
         val steps = listOf(str(R.string.tunnl_step_ssh), str(R.string.tunnl_step_detect), str(R.string.tunnl_step_plan), str(R.string.tunnl_step_apply), str(R.string.tunnl_step_import))
         val container = vertical()
-        container.addView(topBar(title = str(R.string.tunnl_deploy_server_title), sub = str(R.string.tunnl_deploy_step_summary, provisionStep + 1, steps[provisionStep]), leftIcon = R.drawable.ic_tunnl_chevron_left, onLeft = {
+        container.addView(topBar(title = str(R.string.tunnl_deploy_server_title), sub = str(R.string.tunnl_deploy_step_summary, provisionStep + 1, steps[provisionStep]), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = {
             if (provisionStep == 0) {
                 resetProvisionSession()
                 screen = Screen.Fleet
@@ -339,7 +339,7 @@ class VpsProvisioningFragment : BaseFragment() {
                 boxedEditLine(str(R.string.tunnl_label_private_key), str(R.string.tunnl_private_key_placeholder), provisionForm.privateKey, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS, minLines = 5, textSize = 10) {
                     provisionForm = provisionForm.copy(privateKey = it)
                 }
-                addView(mono(str(R.string.tunnl_private_key_keystore_note), 10, R.color.tunnl_ink_3).apply { setPadding(dp(14), 0, dp(14), dp(8)) })
+                addView(mono(str(R.string.tunnl_private_key_keystore_note), 10, R.color.vpn0wn_ink_3).apply { setPadding(dp(14), 0, dp(14), dp(8)) })
                 addView(smallOutlineButton(str(R.string.tunnl_pick_key_file)) {
                     toast(str(R.string.tunnl_key_file_picker_pending))
                 }.withMargins(left = 14, right = 14, bottom = 12))
@@ -348,7 +348,7 @@ class VpsProvisioningFragment : BaseFragment() {
                     provisionForm.clear()
                     provisionForm = provisionForm.copy(password = it.toCharArray())
                 }
-                addView(mono(str(R.string.tunnl_password_ephemeral_note), 10, R.color.tunnl_warn).apply { setPadding(dp(14), 0, dp(14), dp(12)) })
+                addView(mono(str(R.string.tunnl_password_ephemeral_note), 10, R.color.vpn0wn_warn).apply { setPadding(dp(14), 0, dp(14), dp(12)) })
             }
             addView(toggleLine(str(R.string.tunnl_trust_server_key), str(R.string.tunnl_trust_server_key_desc), trustHost) {
                 trustHost = !trustHost
@@ -373,7 +373,7 @@ class VpsProvisioningFragment : BaseFragment() {
         parent.addView(card().apply {
             setPadding(dp(14), dp(10), dp(14), dp(10))
             addView(label(str(R.string.tunnl_detect_assessment)))
-            addView(mono(str(R.string.tunnl_live_detect_placeholder), 11, R.color.tunnl_ink_2).apply { setPadding(0, dp(6), 0, 0) })
+            addView(mono(str(R.string.tunnl_live_detect_placeholder), 11, R.color.vpn0wn_ink_2).apply { setPadding(0, dp(6), 0, 0) })
         })
     }
 
@@ -386,7 +386,7 @@ class VpsProvisioningFragment : BaseFragment() {
                 setLines(listOf(str(R.string.tunnl_live_plan_placeholder)), false)
             })
             addView(label(str(R.string.tunnl_files_written)).apply { setPadding(dp(14), dp(10), dp(14), dp(6)) })
-            addView(mono(str(R.string.tunnl_pending_live_data), 10, R.color.tunnl_ink_3).apply { setPadding(dp(14), 0, dp(14), dp(8)) })
+            addView(mono(str(R.string.tunnl_pending_live_data), 10, R.color.vpn0wn_ink_3).apply { setPadding(dp(14), 0, dp(14), dp(8)) })
         })
     }
 
@@ -396,14 +396,14 @@ class VpsProvisioningFragment : BaseFragment() {
         parent.addView(sectionHeader(4, str(R.string.tunnl_step_apply).lowercase(Locale.ROOT), if (applyDone) str(R.string.tunnl_apply_complete) else if (applyRunning) str(R.string.tunnl_apply_running) else str(R.string.tunnl_apply_ready)))
         parent.addView(panel {
             if (!applyRunning && !applyDone) {
-                addView(mono(str(R.string.tunnl_apply_review_note), 11, R.color.tunnl_ink_3).apply { setPadding(dp(14)) })
+                addView(mono(str(R.string.tunnl_apply_review_note), 11, R.color.vpn0wn_ink_3).apply { setPadding(dp(14)) })
             } else {
                 addView(VpsTerminalStreamView(requireContext()).apply { setLines(listOf(str(R.string.tunnl_live_apply_placeholder)), applyRunning) })
             }
-            if (applyDone) addView(mono(str(R.string.tunnl_live_provisioning_required), 11, R.color.tunnl_warn).apply { setPadding(dp(14), dp(12), dp(14), dp(12)) })
+            if (applyDone) addView(mono(str(R.string.tunnl_live_provisioning_required), 11, R.color.vpn0wn_warn).apply { setPadding(dp(14), dp(12), dp(14), dp(12)) })
         })
         if (!applyRunning && !applyDone) {
-            parent.addView(dashedButton(str(R.string.tunnl_apply_plan_button), R.color.tunnl_warn, icon = null) {
+            parent.addView(dashedButton(str(R.string.tunnl_apply_plan_button), R.color.vpn0wn_warn, icon = null) {
                 startApplyPreview()
             })
         }
@@ -427,13 +427,13 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun userScreen(server: VpsDeployServer, user: VpsDeployUser): View {
         val container = vertical()
-        container.addView(topBar(title = user.name, sub = str(R.string.tunnl_user_subtitle, server.name.uppercase(Locale.ROOT)), leftIcon = R.drawable.ic_tunnl_chevron_left, onLeft = { screen = Screen.Detail(server.id); render() }, right = listOf(iconButton(R.drawable.ic_tunnl_share) { toast(str(R.string.tunnl_profile_exported)) })))
+        container.addView(topBar(title = user.name, sub = str(R.string.tunnl_user_subtitle, server.name.uppercase(Locale.ROOT)), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { screen = Screen.Detail(server.id); render() }, right = listOf(iconButton(R.drawable.ic_vpn0wn_share) { toast(str(R.string.tunnl_profile_exported)) })))
         val (scrollView, scroll) = scrollContent()
         scroll.addView(card(user.status.colorRes).apply {
             setPadding(dp(14), dp(14), dp(14), dp(10))
             addView(label(str(user.status.labelRes), user.status.colorRes))
-            addView(mono(user.ip, 22, R.color.tunnl_ink, Typeface.BOLD).apply { setPadding(0, dp(8), 0, 0) })
-            addView(mono("${user.device} · created ${user.created}", 11, R.color.tunnl_ink_3).apply { setPadding(0, dp(4), 0, dp(10)) })
+            addView(mono(user.ip, 22, R.color.vpn0wn_ink, Typeface.BOLD).apply { setPadding(0, dp(8), 0, 0) })
+            addView(mono("${user.device} · created ${user.created}", 11, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(4), 0, dp(10)) })
             addView(metricRow(listOf(str(R.string.tunnl_label_rx) to user.rx, str(R.string.tunnl_label_tx) to user.tx, str(R.string.tunnl_handshake) to user.handshake)))
         }.withMargins(bottom = 14))
         scroll.addView(sectionHeader(1, str(R.string.tunnl_section_profile), str(R.string.tunnl_hint_wireguard)))
@@ -446,12 +446,12 @@ class VpsProvisioningFragment : BaseFragment() {
         })
         scroll.addView(sectionHeader(2, str(R.string.tunnl_section_actions), str(R.string.tunnl_hint_device)))
         scroll.addView(actionGrid(listOf(
-            VpsDeployAction(R.drawable.ic_tunnl_qr, str(R.string.tunnl_action_show_qr), str(R.string.tunnl_action_show_qr_sub), R.color.tunnl_signal_deep, user.status == VpsDeployUserStatus.REVOKED) { qrUser = user; render() },
-            VpsDeployAction(R.drawable.ic_tunnl_share, str(R.string.tunnl_action_export), str(R.string.tunnl_action_export_sub), R.color.tunnl_ink) { toast(str(R.string.tunnl_profile_exported)) },
-            VpsDeployAction(R.drawable.ic_tunnl_refresh, str(R.string.tunnl_action_rotate_key), str(R.string.tunnl_action_rotate_key_sub), R.color.tunnl_ink, user.status == VpsDeployUserStatus.REVOKED) {
+            VpsDeployAction(R.drawable.ic_vpn0wn_qr, str(R.string.tunnl_action_show_qr), str(R.string.tunnl_action_show_qr_sub), R.color.vpn0wn_signal_deep, user.status == VpsDeployUserStatus.REVOKED) { qrUser = user; render() },
+            VpsDeployAction(R.drawable.ic_vpn0wn_share, str(R.string.tunnl_action_export), str(R.string.tunnl_action_export_sub), R.color.vpn0wn_ink) { toast(str(R.string.tunnl_profile_exported)) },
+            VpsDeployAction(R.drawable.ic_vpn0wn_refresh, str(R.string.tunnl_action_rotate_key), str(R.string.tunnl_action_rotate_key_sub), R.color.vpn0wn_ink, user.status == VpsDeployUserStatus.REVOKED) {
                 toast(str(R.string.tunnl_live_add_peer_required))
             },
-            VpsDeployAction(R.drawable.ic_tunnl_trash, str(R.string.tunnl_action_revoke), str(R.string.tunnl_action_revoke_sub), R.color.tunnl_error, user.status == VpsDeployUserStatus.REVOKED) {
+            VpsDeployAction(R.drawable.ic_vpn0wn_trash, str(R.string.tunnl_action_revoke), str(R.string.tunnl_action_revoke_sub), R.color.vpn0wn_error, user.status == VpsDeployUserStatus.REVOKED) {
                 toast(str(R.string.tunnl_live_add_peer_required))
             },
         )))
@@ -463,7 +463,7 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun topBar(title: String, sub: String, leftIcon: Int, onLeft: () -> Unit, right: List<View> = emptyList(), big: Boolean = false): View {
         val bar = vertical().apply {
-            setBackgroundColor(color(R.color.tunnl_paper_2))
+            setBackgroundColor(color(R.color.vpn0wn_paper_2))
             setPadding(dp(14), dp(12), dp(14), dp(12))
         }
         val row = horizontal(Gravity.CENTER_VERTICAL)
@@ -471,8 +471,8 @@ class VpsProvisioningFragment : BaseFragment() {
         row.addView(label(sub).apply { setPadding(dp(8), 0, 0, 0) }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
         right.forEach { row.addView(it) }
         bar.addView(row)
-        bar.addView(mono(title, if (big) 26 else 18, R.color.tunnl_ink, Typeface.BOLD).apply { setPadding(0, dp(8), 0, 0) })
-        bar.addView(View(requireContext()).apply { setBackgroundColor(color(R.color.tunnl_rule)) }, LinearLayout.LayoutParams(-1, dp(1)).apply { topMargin = dp(12) })
+        bar.addView(mono(title, if (big) 26 else 18, R.color.vpn0wn_ink, Typeface.BOLD).apply { setPadding(0, dp(8), 0, 0) })
+        bar.addView(View(requireContext()).apply { setBackgroundColor(color(R.color.vpn0wn_rule)) }, LinearLayout.LayoutParams(-1, dp(1)).apply { topMargin = dp(12) })
         return bar
     }
 
@@ -487,17 +487,17 @@ class VpsProvisioningFragment : BaseFragment() {
             textSize = 11f
             gravity = Gravity.CENTER
             isEnabled = canAdvance
-            setTextColor(color(if (canAdvance) R.color.tunnl_paper else R.color.tunnl_ink_3))
+            setTextColor(color(if (canAdvance) R.color.vpn0wn_paper else R.color.vpn0wn_ink_3))
             background = rounded(
                 when {
-                    !canAdvance -> R.color.tunnl_paper_2
-                    provisionStep == IMPORT_STEP -> R.color.tunnl_signal_deep
-                    else -> R.color.tunnl_ink
+                    !canAdvance -> R.color.vpn0wn_paper_2
+                    provisionStep == IMPORT_STEP -> R.color.vpn0wn_signal_deep
+                    else -> R.color.vpn0wn_ink
                 },
                 when {
-                    !canAdvance -> R.color.tunnl_rule_strong
-                    provisionStep == IMPORT_STEP -> R.color.tunnl_signal_deep
-                    else -> R.color.tunnl_ink
+                    !canAdvance -> R.color.vpn0wn_rule_strong
+                    provisionStep == IMPORT_STEP -> R.color.vpn0wn_signal_deep
+                    else -> R.color.vpn0wn_ink
                 },
             )
             setPadding(dp(13))
@@ -532,8 +532,8 @@ class VpsProvisioningFragment : BaseFragment() {
             addView(label(str(R.string.tunnl_user_index, (index + 1).toString().padStart(2, '0'))), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             addView(label(str(user.status.labelRes), user.status.colorRes))
         })
-        body.addView(mono(user.name, 14, R.color.tunnl_ink).apply { setPadding(0, dp(5), 0, 0) })
-        body.addView(mono(str(R.string.tunnl_user_row_summary, user.ip, user.rx, user.tx, user.handshake), 10, R.color.tunnl_ink_3).apply { setPadding(0, dp(3), 0, 0) })
+        body.addView(mono(user.name, 14, R.color.vpn0wn_ink).apply { setPadding(0, dp(5), 0, 0) })
+        body.addView(mono(str(R.string.tunnl_user_row_summary, user.ip, user.rx, user.tx, user.handshake), 10, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(3), 0, 0) })
         row.addView(body, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
         return row
     }
@@ -557,7 +557,7 @@ class VpsProvisioningFragment : BaseFragment() {
     private fun actionTile(spec: VpsDeployAction): View {
         return vertical().apply {
             alpha = if (spec.disabled) 0.45f else 1f
-            background = rounded(R.color.tunnl_paper_2, spec.colorRes)
+            background = rounded(R.color.vpn0wn_paper_2, spec.colorRes)
             setPadding(dp(12))
             if (!spec.disabled) setOnClickListener { spec.onClick() }
             addView(ImageView(requireContext()).apply {
@@ -566,7 +566,7 @@ class VpsProvisioningFragment : BaseFragment() {
             }, LinearLayout.LayoutParams(dp(20), dp(20)))
             addView(Space(requireContext()), LinearLayout.LayoutParams(1, 0, 1f))
             addView(mono(spec.label, 12, spec.colorRes, Typeface.BOLD))
-            addView(mono(spec.sub, 10, R.color.tunnl_ink_3).apply { setPadding(0, dp(3), 0, 0) })
+            addView(mono(spec.sub, 10, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(3), 0, 0) })
         }
     }
 
@@ -580,22 +580,22 @@ class VpsProvisioningFragment : BaseFragment() {
                 render()
             }
             val modal = vertical().apply {
-                background = rounded(R.color.tunnl_paper, R.color.tunnl_rule, dp(14))
+                background = rounded(R.color.vpn0wn_paper, R.color.vpn0wn_rule, dp(14))
                 setPadding(dp(20))
                 setOnClickListener { }
                 addView(horizontal(Gravity.CENTER_VERTICAL).apply {
                     addView(vertical().apply {
                         addView(label(str(R.string.tunnl_scan_to_pair)))
-                        addView(mono(user.name, 13, R.color.tunnl_ink).apply { setPadding(0, dp(2), 0, 0) })
+                        addView(mono(user.name, 13, R.color.vpn0wn_ink).apply { setPadding(0, dp(2), 0, 0) })
                     }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-                    addView(iconButton(R.drawable.ic_tunnl_close) {
+                    addView(iconButton(R.drawable.ic_vpn0wn_close) {
                         qrUser = null
                         render()
                     })
                 })
                 addView(VpsQrCodeView(requireContext()).apply { bind("${server.endpoint}:${server.port}#${user.key}") }, LinearLayout.LayoutParams(dp(282), dp(282)).apply { topMargin = dp(14) })
                 addView(qrInfoGrid(server, user))
-                addView(mono(str(R.string.tunnl_qr_footer), 10, R.color.tunnl_ink_3).apply {
+                addView(mono(str(R.string.tunnl_qr_footer), 10, R.color.vpn0wn_ink_3).apply {
                     gravity = Gravity.CENTER
                     setPadding(0, dp(12), 0, 0)
                 })
@@ -621,7 +621,7 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun qrInfoCell(title: String, value: String): View = vertical().apply {
         addView(label(title).apply { textSize = 9f })
-        addView(mono(value, 11, R.color.tunnl_ink).apply {
+        addView(mono(value, 11, R.color.vpn0wn_ink).apply {
             setPadding(0, dp(2), 0, 0)
             setSingleLine(false)
         })
@@ -635,14 +635,14 @@ class VpsProvisioningFragment : BaseFragment() {
                 addView(View(requireContext()).apply {
                     background = rounded(
                         when {
-                            index < current -> R.color.tunnl_signal_deep
-                            index == current -> R.color.tunnl_signal
-                            else -> R.color.tunnl_rule
+                            index < current -> R.color.vpn0wn_signal_deep
+                            index == current -> R.color.vpn0wn_signal
+                            else -> R.color.vpn0wn_rule
                         },
                         when {
-                            index < current -> R.color.tunnl_signal_deep
-                            index == current -> R.color.tunnl_signal
-                            else -> R.color.tunnl_rule
+                            index < current -> R.color.vpn0wn_signal_deep
+                            index == current -> R.color.vpn0wn_signal
+                            else -> R.color.vpn0wn_rule
                         },
                         dp(2),
                     )
@@ -655,16 +655,16 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun stepTracker(steps: List<String>): View = HorizontalScrollView(requireContext()).apply {
         isHorizontalScrollBarEnabled = false
-        setBackgroundColor(color(R.color.tunnl_paper_2))
+        setBackgroundColor(color(R.color.vpn0wn_paper_2))
         addView(horizontal(Gravity.CENTER_VERTICAL).apply {
             setPadding(dp(14), dp(10), dp(14), dp(10))
             steps.forEachIndexed { index, step ->
                 val done = index < provisionStep
                 val active = index == provisionStep
                 val stateColor = when {
-                    done -> R.color.tunnl_signal_deep
-                    active -> R.color.tunnl_warn
-                    else -> R.color.tunnl_ink_3
+                    done -> R.color.vpn0wn_signal_deep
+                    active -> R.color.vpn0wn_warn
+                    else -> R.color.vpn0wn_ink_3
                 }
                 addView(vertical(Gravity.CENTER).apply {
                     addView(TextView(requireContext()).apply {
@@ -673,7 +673,7 @@ class VpsProvisioningFragment : BaseFragment() {
                         typeface = monoTypeface()
                         textSize = 9f
                         setTextColor(color(stateColor))
-                        background = rounded(if (done) R.color.tunnl_paper_3 else R.color.tunnl_paper_2, stateColor, dp(6))
+                        background = rounded(if (done) R.color.vpn0wn_paper_3 else R.color.vpn0wn_paper_2, stateColor, dp(6))
                     }, LinearLayout.LayoutParams(dp(22), dp(22)))
                     addView(label(step).apply {
                         textSize = 8f
@@ -684,7 +684,7 @@ class VpsProvisioningFragment : BaseFragment() {
                 }, LinearLayout.LayoutParams(dp(48), WRAP_CONTENT))
                 if (index < steps.lastIndex) {
                     addView(View(requireContext()).apply {
-                        setBackgroundColor(color(if (done) R.color.tunnl_signal_deep else R.color.tunnl_rule))
+                        setBackgroundColor(color(if (done) R.color.vpn0wn_signal_deep else R.color.vpn0wn_rule))
                     }, LinearLayout.LayoutParams(dp(18), dp(1)))
                 }
             }
@@ -696,9 +696,9 @@ class VpsProvisioningFragment : BaseFragment() {
     private fun sectionHeader(index: Int, title: String, hint: String): View {
         return horizontal(Gravity.CENTER_VERTICAL).apply {
             setPadding(0, dp(14), 0, dp(8))
-            addView(label("§${index.toString().padStart(2, '0')}", R.color.tunnl_rule_strong))
-            addView(mono(title, 12, R.color.tunnl_ink, Typeface.BOLD).apply { setPadding(dp(8), 0, dp(8), 0) })
-            addView(View(requireContext()).apply { setBackgroundColor(color(R.color.tunnl_rule)) }, LinearLayout.LayoutParams(0, dp(1), 1f))
+            addView(label("§${index.toString().padStart(2, '0')}", R.color.vpn0wn_rule_strong))
+            addView(mono(title, 12, R.color.vpn0wn_ink, Typeface.BOLD).apply { setPadding(dp(8), 0, dp(8), 0) })
+            addView(View(requireContext()).apply { setBackgroundColor(color(R.color.vpn0wn_rule)) }, LinearLayout.LayoutParams(0, dp(1), 1f))
             addView(label(hint).apply { setPadding(dp(8), 0, 0, 0) })
         }
     }
@@ -713,17 +713,17 @@ class VpsProvisioningFragment : BaseFragment() {
         }
         row.addView(vertical().apply {
             addView(label(title))
-            addView(mono(value, 13, R.color.tunnl_ink).apply {
+            addView(mono(value, 13, R.color.vpn0wn_ink).apply {
                 setSingleLine(true)
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 setPadding(0, dp(2), 0, 0)
             })
         }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
         if (copy) {
-            row.addView(iconButton(R.drawable.ic_tunnl_copy) { copyToClipboard(title, value) })
+            row.addView(iconButton(R.drawable.ic_vpn0wn_copy) { copyToClipboard(title, value) })
         }
         addView(row)
-        addView(View(requireContext()).apply { setBackgroundColor(color(R.color.tunnl_rule)) }, LinearLayout.LayoutParams(-1, dp(1)))
+        addView(View(requireContext()).apply { setBackgroundColor(color(R.color.vpn0wn_rule)) }, LinearLayout.LayoutParams(-1, dp(1)))
     }
 
     private fun LinearLayout.editLine(
@@ -756,12 +756,12 @@ class VpsProvisioningFragment : BaseFragment() {
                 this.inputType = inputType
                 typeface = monoTypeface()
                 this.textSize = textSize.toFloat()
-                setTextColor(color(R.color.tunnl_ink))
-                setHintTextColor(color(R.color.tunnl_ink_3))
+                setTextColor(color(R.color.vpn0wn_ink))
+                setHintTextColor(color(R.color.vpn0wn_ink_3))
                 setSingleLine(minLines == 1)
                 this.minLines = minLines
                 gravity = if (minLines > 1) Gravity.TOP else Gravity.CENTER_VERTICAL
-                background = rounded(R.color.tunnl_paper_3, R.color.tunnl_rule_strong, dp(4))
+                background = rounded(R.color.vpn0wn_paper_3, R.color.vpn0wn_rule_strong, dp(4))
                 setPadding(dp(10), dp(8), dp(10), dp(8))
                 doAfterTextChanged { onChange(it?.toString().orEmpty()) }
             }, LinearLayout.LayoutParams(-1, WRAP_CONTENT))
@@ -785,10 +785,10 @@ class VpsProvisioningFragment : BaseFragment() {
             this.inputType = inputType
             typeface = monoTypeface()
             textSize = 13f
-            setTextColor(color(R.color.tunnl_ink))
-            setHintTextColor(color(R.color.tunnl_ink_3))
+            setTextColor(color(R.color.vpn0wn_ink))
+            setHintTextColor(color(R.color.vpn0wn_ink_3))
             setSingleLine((inputType and InputType.TYPE_TEXT_FLAG_MULTI_LINE) == 0)
-            backgroundTintList = android.content.res.ColorStateList.valueOf(color(R.color.tunnl_rule_strong))
+            backgroundTintList = android.content.res.ColorStateList.valueOf(color(R.color.vpn0wn_rule_strong))
             setPadding(0, dp(2), 0, dp(2))
             doAfterTextChanged { onChange(it?.toString().orEmpty()) }
         })
@@ -798,15 +798,15 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun segmented(options: List<Pair<String, String>>, selected: String, onSelect: (String) -> Unit): View {
         return horizontal().apply {
-            background = rounded(R.color.tunnl_paper_2, R.color.tunnl_rule_strong, dp(6))
+            background = rounded(R.color.vpn0wn_paper_2, R.color.vpn0wn_rule_strong, dp(6))
             options.forEach { (key, text) ->
                 addView(TextView(requireContext()).apply {
                     this.text = text
                     gravity = Gravity.CENTER
                     typeface = monoTypeface()
                     textSize = 10f
-                    setTextColor(color(if (key == selected) R.color.tunnl_paper else R.color.tunnl_ink_3))
-                    background = if (key == selected) rounded(R.color.tunnl_ink, R.color.tunnl_ink, dp(6)) else null
+                    setTextColor(color(if (key == selected) R.color.vpn0wn_paper else R.color.vpn0wn_ink_3))
+                    background = if (key == selected) rounded(R.color.vpn0wn_ink, R.color.vpn0wn_ink, dp(6)) else null
                     setPadding(dp(8))
                     setOnClickListener { onSelect(key) }
                 }, LinearLayout.LayoutParams(0, dp(38), 1f))
@@ -820,8 +820,8 @@ class VpsProvisioningFragment : BaseFragment() {
         return horizontal(Gravity.CENTER_VERTICAL).apply {
             setPadding(dp(14), dp(12), dp(14), dp(12))
             addView(vertical().apply {
-                addView(ui(title, 14, R.color.tunnl_ink, Typeface.BOLD))
-                addView(ui(desc, 11, R.color.tunnl_ink_3).apply { setPadding(0, dp(2), 0, 0) })
+                addView(ui(title, 14, R.color.vpn0wn_ink, Typeface.BOLD))
+                addView(ui(desc, 11, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(2), 0, 0) })
             }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             addView(VpsSwitchGlyphView(requireContext()).apply { checked = value }, LinearLayout.LayoutParams(dp(44), dp(24)))
             setOnClickListener { onClick() }
@@ -832,11 +832,11 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun statTile(title: String, value: String, dot: String, colorRes: Int, active: Boolean, onClick: () -> Unit): View {
         return vertical().apply {
-            setBackgroundColor(color(if (active) R.color.tunnl_paper_3 else R.color.tunnl_paper_2))
+            setBackgroundColor(color(if (active) R.color.vpn0wn_paper_3 else R.color.vpn0wn_paper_2))
             setPadding(dp(14), dp(10), dp(14), 0)
             setOnClickListener { onClick() }
-            addView(label("$dot $title".trim(), if (active) colorRes else R.color.tunnl_ink_3).apply { textSize = 9f })
-            addView(mono(value, 20, if (active) colorRes else R.color.tunnl_ink, Typeface.BOLD).apply { setPadding(0, dp(1), 0, 0) })
+            addView(label("$dot $title".trim(), if (active) colorRes else R.color.vpn0wn_ink_3).apply { textSize = 9f })
+            addView(mono(value, 20, if (active) colorRes else R.color.vpn0wn_ink, Typeface.BOLD).apply { setPadding(0, dp(1), 0, 0) })
             addView(Space(requireContext()), LinearLayout.LayoutParams(1, 0, 1f))
             addView(View(requireContext()).apply { setBackgroundColor(if (active) color(colorRes) else Color.TRANSPARENT) }, LinearLayout.LayoutParams(-1, dp(2)))
         }
@@ -846,12 +846,12 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun metricRow(metrics: List<Pair<String, String>>): View {
         return horizontal().apply {
-            background = rounded(R.color.tunnl_paper_3, R.color.tunnl_rule)
+            background = rounded(R.color.vpn0wn_paper_3, R.color.vpn0wn_rule)
             metrics.forEach { (title, value) ->
                 addView(vertical().apply {
                     setPadding(dp(8))
                     addView(label(title).apply { textSize = 8f })
-                    addView(mono(value, 10, R.color.tunnl_ink_2).apply {
+                    addView(mono(value, 10, R.color.vpn0wn_ink_2).apply {
                         setSingleLine(true)
                         ellipsize = android.text.TextUtils.TruncateAt.END
                         setPadding(0, dp(2), 0, 0)
@@ -875,9 +875,9 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun healthBadge(check: VpsDeployHealthCheck): View {
         val res = when (check.ok) {
-            true -> R.color.tunnl_signal_deep
-            false -> R.color.tunnl_error
-            null -> R.color.tunnl_warn
+            true -> R.color.vpn0wn_signal_deep
+            false -> R.color.vpn0wn_error
+            null -> R.color.vpn0wn_warn
         }
         val glyph = when (check.ok) {
             true -> "◆"
@@ -887,15 +887,15 @@ class VpsProvisioningFragment : BaseFragment() {
         return label("$glyph ${check.label}", res).apply {
             gravity = Gravity.CENTER
             setPadding(dp(8), 0, dp(8), 0)
-            background = rounded(R.color.tunnl_paper_3, res, dp(999))
+            background = rounded(R.color.vpn0wn_paper_3, res, dp(999))
         }
     }
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
-    private fun dashedButton(text: String, stroke: Int = R.color.tunnl_rule_strong, icon: Int? = R.drawable.ic_tunnl_plus, onClick: () -> Unit): View {
+    private fun dashedButton(text: String, stroke: Int = R.color.vpn0wn_rule_strong, icon: Int? = R.drawable.ic_vpn0wn_plus, onClick: () -> Unit): View {
         return horizontal(Gravity.CENTER).apply {
-            background = rounded(R.color.tunnl_paper, stroke, dash = true)
+            background = rounded(R.color.vpn0wn_paper, stroke, dash = true)
             setPadding(dp(13))
             setOnClickListener { onClick() }
             if (icon != null) {
@@ -920,8 +920,8 @@ class VpsProvisioningFragment : BaseFragment() {
             typeface = monoTypeface()
             textSize = 10f
             letterSpacing = 0.06f
-            setTextColor(color(R.color.tunnl_ink_2))
-            background = rounded(R.color.tunnl_paper_2, R.color.tunnl_rule_strong, dp(4))
+            setTextColor(color(R.color.vpn0wn_ink_2))
+            background = rounded(R.color.vpn0wn_paper_2, R.color.vpn0wn_rule_strong, dp(4))
             setPadding(dp(12), dp(7), dp(12), dp(7))
             setOnClickListener { onClick() }
         }
@@ -932,10 +932,10 @@ class VpsProvisioningFragment : BaseFragment() {
     private fun rowButton(text: String, onClick: () -> Unit): View = horizontal(Gravity.CENTER_VERTICAL).apply {
         setPadding(dp(14), dp(12), dp(14), dp(12))
         addView(ImageView(requireContext()).apply {
-            setImageDrawable(AppCompatResources.getDrawable(requireContext(), R.drawable.ic_tunnl_plus))
-            setColorFilter(color(R.color.tunnl_ink_3))
+            setImageDrawable(AppCompatResources.getDrawable(requireContext(), R.drawable.ic_vpn0wn_plus))
+            setColorFilter(color(R.color.vpn0wn_ink_3))
         }, LinearLayout.LayoutParams(dp(14), dp(14)).apply { marginEnd = dp(10) })
-        addView(mono(text.removePrefix("+ ").trim(), 11, R.color.tunnl_ink_3).apply { letterSpacing = 0.06f })
+        addView(mono(text.removePrefix("+ ").trim(), 11, R.color.vpn0wn_ink_3).apply { letterSpacing = 0.06f })
         setOnClickListener { onClick() }
     }
 
@@ -943,7 +943,7 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun iconButton(icon: Int, onClick: () -> Unit): View = ImageButton(requireContext()).apply {
         setImageDrawable(AppCompatResources.getDrawable(requireContext(), icon))
-        setColorFilter(color(R.color.tunnl_ink_2))
+        setColorFilter(color(R.color.vpn0wn_ink_2))
         background = null
         setPadding(dp(8))
         setOnClickListener { onClick() }
@@ -955,7 +955,7 @@ class VpsProvisioningFragment : BaseFragment() {
     private fun scrollContent(): Pair<ScrollView, LinearLayout> {
         val scroll = ScrollView(requireContext()).apply {
             isFillViewport = false
-            setBackgroundColor(color(R.color.tunnl_paper))
+            setBackgroundColor(color(R.color.vpn0wn_paper))
         }
         val content = vertical().apply { setPadding(dp(14), 0, dp(14), dp(24)) }
         scroll.addView(content)
@@ -972,13 +972,13 @@ class VpsProvisioningFragment : BaseFragment() {
         this.gravity = gravity
     }
 
-    private fun card(stroke: Int = R.color.tunnl_rule): LinearLayout = VpsCornerLayout(requireContext()).apply {
+    private fun card(stroke: Int = R.color.vpn0wn_rule): LinearLayout = VpsCornerLayout(requireContext()).apply {
         orientation = LinearLayout.VERTICAL
-        background = rounded(R.color.tunnl_paper_2, stroke)
+        background = rounded(R.color.vpn0wn_paper_2, stroke)
         clipToOutline = true
     }
 
-    private fun panelBg() = rounded(R.color.tunnl_paper_2, R.color.tunnl_rule)
+    private fun panelBg() = rounded(R.color.vpn0wn_paper_2, R.color.vpn0wn_rule)
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
@@ -990,7 +990,7 @@ class VpsProvisioningFragment : BaseFragment() {
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
-    private fun label(text: String, colorRes: Int = R.color.tunnl_ink_3): TextView = TextView(requireContext()).apply {
+    private fun label(text: String, colorRes: Int = R.color.vpn0wn_ink_3): TextView = TextView(requireContext()).apply {
         this.text = text.uppercase(Locale.ROOT)
         typeface = monoTypeface()
         textSize = 10f

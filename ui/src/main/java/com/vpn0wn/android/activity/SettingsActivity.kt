@@ -103,7 +103,7 @@ class SettingsActivity : AppCompatActivity() {
 
         override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
             val view = super.onCreateView(inflater, container, savedInstanceState)
-            view.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.tunnl_paper))
+            view.setBackgroundColor(ContextCompat.getColor(requireContext(), R.color.vpn0wn_paper))
             return view
         }
 

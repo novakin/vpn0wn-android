@@ -129,13 +129,13 @@ Placement review found Android's default keyboard-focus foreground highlight dim
 
 | Style | Size | Font | Color |
 |-------|------|------|-------|
-| `Vpn0wnLabelText` | 10sp | JetBrains Mono | `tunnl_ink_3` |
-| `Vpn0wnMonoValueText` | 15sp | JetBrains Mono | `tunnl_ink` |
-| `Vpn0wnMonoSubText` | 10sp | JetBrains Mono | `tunnl_ink_3` |
-| `Vpn0wnConfigRowLabel` | 10sp | JetBrains Mono | `tunnl_ink_3` |
-| `Vpn0wnConfigRowValue` | 13sp | JetBrains Mono | `tunnl_ink`, single-line, ellipsize end |
-| `Vpn0wnEditorField` | 13sp | JetBrains Mono | `tunnl_ink`, no background |
-| `Vpn0wnEditorFieldReadOnly` | 13sp | JetBrains Mono | `tunnl_ink_3`, not focusable |
+| `Vpn0wnLabelText` | 10sp | JetBrains Mono | `vpn0wn_ink_3` |
+| `Vpn0wnMonoValueText` | 15sp | JetBrains Mono | `vpn0wn_ink` |
+| `Vpn0wnMonoSubText` | 10sp | JetBrains Mono | `vpn0wn_ink_3` |
+| `Vpn0wnConfigRowLabel` | 10sp | JetBrains Mono | `vpn0wn_ink_3` |
+| `Vpn0wnConfigRowValue` | 13sp | JetBrains Mono | `vpn0wn_ink`, single-line, ellipsize end |
+| `Vpn0wnEditorField` | 13sp | JetBrains Mono | `vpn0wn_ink`, no background |
+| `Vpn0wnEditorFieldReadOnly` | 13sp | JetBrains Mono | `vpn0wn_ink_3`, not focusable |
 
 ---
 
@@ -195,21 +195,21 @@ Prototype colors use `oklch()`. Android uses tuned hex resources with a dark-fir
 
 | Resource | Prototype role | Android value |
 | --- | --- | --- |
-| `tunnl_paper` | Selected page | `#071220` |
-| `tunnl_paper_2` | Selected card/Add surface | `#0A1727` |
-| `tunnl_paper_3` | `--paper-3` dark | `#162436` |
-| `tunnl_ink` | Selected primary text | `#FAFAFA` |
-| `tunnl_ink_2` | `--ink-2` dark | `#C9D5E3` |
-| `tunnl_ink_3` | Selected secondary text | `#94AECB` |
-| `tunnl_rule` | Selected border | `#233B54` |
-| `tunnl_rule_strong` | `--rule-strong` dark | `#3E5B78` |
-| `tunnl_signal` | Selected action | `#2ABFF7` |
-| `tunnl_signal_deep` | Selected switch/UP | `#68C6FD` |
-| `tunnl_diagram_node` | Selected diagram nodes | `#20B2FD` |
-| `tunnl_diagram_line` | Selected diagram line/enclosure | `#63DAFC` |
-| `tunnl_connected` | Selected connected dot | `#05DE6A` |
-| `tunnl_warn` | `--warn` | `#F2C46D` |
-| `tunnl_error` | `--error` | `#FF8B6E` |
+| `vpn0wn_paper` | Selected page | `#071220` |
+| `vpn0wn_paper_2` | Selected card/Add surface | `#0A1727` |
+| `vpn0wn_paper_3` | `--paper-3` dark | `#162436` |
+| `vpn0wn_ink` | Selected primary text | `#FAFAFA` |
+| `vpn0wn_ink_2` | `--ink-2` dark | `#C9D5E3` |
+| `vpn0wn_ink_3` | Selected secondary text | `#94AECB` |
+| `vpn0wn_rule` | Selected border | `#233B54` |
+| `vpn0wn_rule_strong` | `--rule-strong` dark | `#3E5B78` |
+| `vpn0wn_signal` | Selected action | `#2ABFF7` |
+| `vpn0wn_signal_deep` | Selected switch/UP | `#68C6FD` |
+| `vpn0wn_diagram_node` | Selected diagram nodes | `#20B2FD` |
+| `vpn0wn_diagram_line` | Selected diagram line/enclosure | `#63DAFC` |
+| `vpn0wn_connected` | Selected connected dot | `#05DE6A` |
+| `vpn0wn_warn` | `--warn` | `#F2C46D` |
+| `vpn0wn_error` | `--error` | `#FF8B6E` |
 
 #### Installed palette verification — 2026-10-09
 
@@ -481,6 +481,9 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
+- [x] **Private visual resource identifiers — #71 mechanical follow-up (2026-10-11, Europe/Paris):** 60 color/dimension/drawable/cache-ID/preference-layout keys use `vpn0wn_*`/`ic_vpn0wn_*`; 40 XML basenames and all source/test consumers follow them. The artwork generator and tracked launcher-background alias change together. Resource values, geometry, fonts, qualifier behavior and current `vpnown_*` artwork names are unchanged. Local exact-byte/XML/consumer checks and existing native-rendering controls verify this source-only slice; prior APK/device acceptance retains its original revision. Localized keys, two unused legacy subtitle values, native/host-test helper names and broader #71 acceptance remain separate.
+
+
 - [x] **Current style/theme names — #71 mechanical follow-up, 2026-10-11:** 22 app-owned `Tunnl*` style identifiers now use `Vpn0wn*`; the former `WireGuardTheme` base and its five children use `Vpn0wnTheme*`. Layout consumers, explicit internal parents and the binding-test reference follow those names. Existing visual values, external Material parents, lower-case resource keys/basenames, UI font roles and day/night behavior are unchanged. [The identity contract](backend-contracts.md#application-and-source-identity--71) retains remaining naming and artifact/device acceptance boundaries; earlier evidence keeps its tested revision.
 
 - [x] **Export identity names — #71 bounded source follow-up, 2026-10-11:** profile ZIP/log metadata use `vpn0wn-export.zip`/`vpn0wn-log.txt`, and all localized log-share subjects identify `vpn0wn`. [The identity contract](backend-contracts.md#application-and-source-identity--71) retains compatibility and actual chooser/storage-provider/artifact acceptance boundaries; layout, tokens and feedback presentation are unchanged.
@@ -607,7 +610,7 @@ This is a historical implementation ledger, not newly executed build/device proo
 
 ### Fidelity Gaps — Remaining
 
-- [~] **Remaining first-party identity names — #71:** Other resource keys/basenames and product log tags retain legacy names. Current helpers, style/theme keys and export metadata/subjects identify vpn0wn; remaining resource/log naming stays bounded follow-up. Retained WireGuard protocol/legal and persisted provisioning compatibility names have distinct reasons in [the identity contract](backend-contracts.md#application-and-source-identity--71).
+- [~] **Remaining first-party identity names — #71:** Localized string/plural keys, product log tags and native/host-test helper names retain legacy names. Current helpers, style/theme and private visual-resource keys/basenames, plus export metadata/subjects identify vpn0wn. The two unused `tunnl_list_subtitle` values still contain `TUNNL`; key-only visual renaming does not change them. Remaining naming stays bounded follow-up. Retained WireGuard protocol/legal and persisted provisioning compatibility names have distinct reasons in [the identity contract](backend-contracts.md#application-and-source-identity--71).
 
 - [~] **Full app-data transfer actions — 2026-10-09:** Settings reuses its existing Data action-row layout/tokens and native biometric, document-picker and Material confirmation patterns. [Scoped authorized AVD proof](reviews/2026-10-09-app-data-transfer-acceptance.md) covers the inspected themes, sizes, large text, real RTL and native Downloads/PIN paths. Broader physical biometric/provider failures, TalkBack, translation and old/new-installation acceptance remain [#71 gates](qa-test-plan.md#full-app-data-transfer-acceptance).
 
@@ -640,10 +643,10 @@ This is a historical implementation ledger, not newly executed build/device proo
 **Detail:**
 - [ ] **Detail TopBar Share/More completion** — detail now uses a custom mono TopBar with back + edit actions. Remaining JSX parity: add Share + More icon buttons alongside Edit, then wire ShareSheet and MoreSheet behavior.
 - [ ] Add Share button to detail toolbar (Edit icon already exists — place Share + More alongside it in the redesigned TopBar above).
-- [ ] Add More button to detail toolbar: add `ic_tunnl_more` drawable (vertical `⋮`, 3 dots); wire to `MoreSheet`.
+- [ ] Add More button to detail toolbar with the existing `ic_vpn0wn_more` drawable (vertical `⋮`, three dots); wire to `MoreSheet`.
 - [ ] **Status card subtitle = session timer** — JSX shows `session MM:SS` counting up from when the tunnel went UP (`LiveTimer` component, 1s interval). Android `setDetailStatusSubtitleTunnel` shows `tunnelHandshake()` = handshake age. Different data. Implementation: track `tunnelUpSince: Long?` in `TunnelDetailFragment`; set to `SystemClock.elapsedRealtime()` when `tunnel.state` transitions to `UP`; launch a 1s coroutine in `onResume` that formats `(now - tunnelUpSince)` as `MM:SS` and sets `binding.tunnelStatusSubtitle.text = "session $formatted"`; cancel in `onPause`. When not UP, fall back to current `setDetailStatusSubtitleTunnel` binding.
-- [ ] **Copy icon button UX** — JSX `ConfigRow` with `copy` prop renders a dedicated 28×28 icon button (right-aligned) that flashes `tunnl_signal` background for 1100ms on press. Android uses `ClipboardUtils::copyTextView` on the value `TextView` itself (no visual indicator). Consider adding a small copy icon `ImageView` to `Vpn0wnDetailRow` style rows or at minimum a ripple + `Vpn0wnSnackbar` confirmation consistent with existing snackbar styling.
-- [ ] **PSK badge lock icon** — `tunnel_detail_peer.xml` shows plain `PSK` text. JSX shows `<IconLock size={10}/> PSK` pill badge. Add `ic_tunnl_lock` (or use existing Material lock drawable) as a leading `ImageView` inside the PSK badge container.
+- [ ] **Copy icon button UX** — JSX `ConfigRow` with `copy` prop renders a dedicated 28×28 icon button (right-aligned) that flashes `vpn0wn_signal` background for 1100ms on press. Android uses `ClipboardUtils::copyTextView` on the value `TextView` itself (no visual indicator). Consider adding a small copy icon `ImageView` to `Vpn0wnDetailRow` style rows or at minimum a ripple + `Vpn0wnSnackbar` confirmation consistent with existing snackbar styling.
+- [ ] **PSK badge lock icon** — `tunnel_detail_peer.xml` shows plain `PSK` text. JSX shows `<IconLock size={10}/> PSK` pill badge. Add `ic_vpn0wn_lock` (or use existing Material lock drawable) as a leading `ImageView` inside the PSK badge container.
 - [ ] `MoreSheet` bottom sheet (see §8).
 - [ ] `ShareSheet` bottom sheet (see §8).
 

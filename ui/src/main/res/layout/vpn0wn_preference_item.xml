@@ -2,7 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="@drawable/tunnl_preference_item_background"
+    android:background="@drawable/vpn0wn_preference_item_background"
     android:clipToPadding="false"
     android:minHeight="62dp"
     android:orientation="horizontal"
@@ -16,7 +16,7 @@
         android:layout_width="28dp"
         android:layout_height="match_parent"
         android:layout_marginEnd="12dp"
-        android:foregroundTint="@color/tunnl_ink_2">
+        android:foregroundTint="@color/vpn0wn_ink_2">
 
         <ImageView
             android:id="@android:id/icon"
@@ -24,7 +24,7 @@
             android:layout_height="20dp"
             android:layout_gravity="center"
             android:importantForAccessibility="no"
-            android:tint="@color/tunnl_ink_2" />
+            android:tint="@color/vpn0wn_ink_2" />
     </FrameLayout>
 
     <LinearLayout
@@ -40,7 +40,7 @@
             android:layout_height="wrap_content"
             android:fontFamily="@font/inter_tight"
             android:includeFontPadding="false"
-            android:textColor="@color/tunnl_ink"
+            android:textColor="@color/vpn0wn_ink"
             android:textSize="14sp"
             android:textStyle="normal" />
 
@@ -52,7 +52,7 @@
             android:fontFamily="@font/jetbrains_mono_regular"
             android:fontFeatureSettings="ss01, zero, tnum"
             android:includeFontPadding="false"
-            android:textColor="@color/tunnl_ink_3"
+            android:textColor="@color/vpn0wn_ink_3"
             android:textSize="11sp" />
     </LinearLayout>
 

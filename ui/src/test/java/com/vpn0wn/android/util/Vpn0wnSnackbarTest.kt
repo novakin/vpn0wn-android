@@ -33,13 +33,13 @@ class Vpn0wnSnackbarTest {
             val content = FrameLayout(activity)
             activity.setContentView(content)
             val snackbar = Snackbar.make(content, "Synthetic validation error", Snackbar.LENGTH_INDEFINITE)
-            snackbar.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(activity, R.color.tunnl_ink)))
+            snackbar.setBackgroundTintList(ColorStateList.valueOf(ContextCompat.getColor(activity, R.color.vpn0wn_ink)))
             snackbar.vpn0wnStyle()
             assertNull(ReflectionHelpers.getField<ColorStateList>(snackbar.view, "backgroundTint"))
             val background = snackbar.view.background as GradientDrawable
-            assertEquals(ContextCompat.getColor(activity, R.color.tunnl_paper_2), background.color!!.defaultColor)
+            assertEquals(ContextCompat.getColor(activity, R.color.vpn0wn_paper_2), background.color!!.defaultColor)
             val text = snackbar.view.findViewById<TextView>(com.google.android.material.R.id.snackbar_text)
-            assertEquals(ContextCompat.getColor(activity, R.color.tunnl_ink), text.currentTextColor)
+            assertEquals(ContextCompat.getColor(activity, R.color.vpn0wn_ink), text.currentTextColor)
         } finally {
             controller.pause().stop().destroy()
         }

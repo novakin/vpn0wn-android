@@ -29,7 +29,7 @@
         android:id="@+id/main_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="@color/tunnl_paper"
+        android:background="@color/vpn0wn_paper"
         android:clipChildren="false">
 
         <LinearLayout
@@ -47,7 +47,7 @@
                     android:id="@+id/home_app_bar"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="@color/tunnl_paper"
+                    android:background="@color/vpn0wn_paper"
                     android:stateListAnimator="@null"
                     app:elevation="0dp">
 
@@ -61,7 +61,7 @@
                             android:id="@+id/home_header_container"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:background="@color/tunnl_paper"
+                            android:background="@color/vpn0wn_paper"
                             android:orientation="vertical"
                             android:paddingStart="14dp"
                             android:paddingTop="10dp"
@@ -95,8 +95,8 @@
                                     android:contentDescription="@string/search"
                                     android:enabled="@{false}"
                                     android:padding="12dp"
-                                    app:srcCompat="@drawable/ic_tunnl_search"
-                                    app:tint="@color/tunnl_ink" />
+                                    app:srcCompat="@drawable/ic_vpn0wn_search"
+                                    app:tint="@color/vpn0wn_ink" />
 
                                 <androidx.appcompat.widget.AppCompatImageButton
                                     android:id="@+id/home_logs"
@@ -106,8 +106,8 @@
                                     android:contentDescription="@string/log_viewer_title"
                                     android:onClick="@{fragment::onOpenLogs}"
                                     android:padding="12dp"
-                                    app:srcCompat="@drawable/ic_tunnl_home_logs"
-                                    app:tint="@color/tunnl_ink" />
+                                    app:srcCompat="@drawable/ic_vpn0wn_home_logs"
+                                    app:tint="@color/vpn0wn_ink" />
 
                                 <androidx.appcompat.widget.AppCompatImageButton
                                     android:id="@+id/home_settings"
@@ -117,8 +117,8 @@
                                     android:contentDescription="@string/settings"
                                     android:onClick="@{fragment::onOpenSettings}"
                                     android:padding="12dp"
-                                    app:srcCompat="@drawable/ic_tunnl_settings"
-                                    app:tint="@color/tunnl_ink" />
+                                    app:srcCompat="@drawable/ic_vpn0wn_settings"
+                                    app:tint="@color/vpn0wn_ink" />
                             </LinearLayout>
 
                             <TextView
@@ -129,14 +129,14 @@
                                 android:ellipsize="end"
                                 android:singleLine="true"
                                 android:text="@string/tunnl_list_title"
-                                android:textColor="@color/tunnl_ink" />
+                                android:textColor="@color/vpn0wn_ink" />
                         </LinearLayout>
 
                         <LinearLayout
                             android:id="@+id/selection_header_container"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:background="@color/tunnl_paper_2"
+                            android:background="@color/vpn0wn_paper_2"
                             android:orientation="vertical"
                             android:paddingStart="14dp"
                             android:paddingTop="10dp"
@@ -158,8 +158,8 @@
                                     android:contentDescription="@string/tunnl_selection_exit"
                                     android:onClick="@{fragment::onExitSelection}"
                                     android:padding="16dp"
-                                    app:srcCompat="@drawable/ic_tunnl_close"
-                                    app:tint="@color/tunnl_ink_2" />
+                                    app:srcCompat="@drawable/ic_vpn0wn_close"
+                                    app:tint="@color/vpn0wn_ink_2" />
 
                                 <TextView
                                     style="@style/Vpn0wnLabelText"
@@ -176,8 +176,8 @@
                                     android:contentDescription="@string/tunnl_selection_delete"
                                     android:onClick="@{fragment::onDeleteSelection}"
                                     android:padding="16dp"
-                                    app:srcCompat="@drawable/ic_tunnl_trash"
-                                    app:tint="@color/tunnl_ink_2" />
+                                    app:srcCompat="@drawable/ic_vpn0wn_trash"
+                                    app:tint="@color/vpn0wn_ink_2" />
                             </LinearLayout>
 
                             <TextView
@@ -192,13 +192,13 @@
                         <View
                             android:layout_width="match_parent"
                             android:layout_height="1dp"
-                            android:background="@color/tunnl_rule" />
+                            android:background="@color/vpn0wn_rule" />
 
                         <LinearLayout
                             android:id="@+id/home_status_container"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:background="@color/tunnl_paper"
+                            android:background="@color/vpn0wn_paper"
                             android:gravity="center_vertical"
                             android:minHeight="48dp"
                             android:orientation="horizontal"
@@ -234,7 +234,7 @@
                             <View
                                 android:layout_width="1dp"
                                 android:layout_height="26dp"
-                                android:background="@color/tunnl_rule" />
+                                android:background="@color/vpn0wn_rule" />
 
                             <LinearLayout
                                 android:layout_width="0dp"
@@ -277,7 +277,7 @@
                                     android:layout_height="18dp"
                                     android:layout_marginStart="12dp"
                                     android:importantForAccessibility="no"
-                                    android:src="@drawable/ic_tunnl_external" />
+                                    android:src="@drawable/ic_vpn0wn_external" />
                             </LinearLayout>
                         </LinearLayout>
 
@@ -286,7 +286,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:minHeight="48dp"
-                            android:background="@color/tunnl_paper_2"
+                            android:background="@color/vpn0wn_paper_2"
                             android:gravity="center_vertical"
                             android:orientation="horizontal"
                             android:paddingStart="14dp"
@@ -314,7 +314,7 @@
                         <View
                             android:layout_width="match_parent"
                             android:layout_height="1dp"
-                            android:background="@color/tunnl_rule" />
+                            android:background="@color/vpn0wn_rule" />
 
                     </LinearLayout>
                 </com.google.android.material.appbar.AppBarLayout>
@@ -386,7 +386,7 @@
                 android:layout_marginStart="12dp"
                 android:layout_marginEnd="12dp"
                 android:layout_marginBottom="10dp"
-                android:foreground="@drawable/tunnl_home_corner_ticks"
+                android:foreground="@drawable/vpn0wn_home_corner_ticks"
                 android:nextFocusUp="@id/tunnel_list"
                 android:text="@string/tunnl_add_tunnel" />
         </LinearLayout>

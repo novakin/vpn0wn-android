@@ -7,14 +7,14 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/tunnl_paper"
+    android:background="@color/vpn0wn_paper"
     android:fitsSystemWindows="true"
     android:orientation="vertical">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/tunnl_paper_2"
+        android:background="@color/vpn0wn_paper_2"
         android:orientation="vertical"
         android:paddingStart="14dp"
         android:paddingTop="10dp"
@@ -34,8 +34,8 @@
                 android:background="@android:color/transparent"
                 android:contentDescription="@string/cancel"
                 android:padding="4dp"
-                app:srcCompat="@drawable/ic_tunnl_chevron_left"
-                app:tint="@color/tunnl_ink_2" />
+                app:srcCompat="@drawable/ic_vpn0wn_chevron_left"
+                app:tint="@color/vpn0wn_ink_2" />
 
             <TextView
                 style="@style/Vpn0wnLabelText"
@@ -43,7 +43,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:text="@string/tunnl_log_stream_subtitle"
-                android:textColor="@color/tunnl_ink_3" />
+                android:textColor="@color/vpn0wn_ink_3" />
 
             <View
                 android:layout_width="0dp"
@@ -57,8 +57,8 @@
                 android:background="@android:color/transparent"
                 android:contentDescription="@string/refresh"
                 android:padding="7dp"
-                app:srcCompat="@drawable/ic_tunnl_refresh"
-                app:tint="@color/tunnl_ink_2" />
+                app:srcCompat="@drawable/ic_vpn0wn_refresh"
+                app:tint="@color/vpn0wn_ink_2" />
 
             <androidx.appcompat.widget.AppCompatImageButton
                 android:id="@+id/share_button"
@@ -68,8 +68,8 @@
                 android:background="@android:color/transparent"
                 android:contentDescription="@string/log_export_title"
                 android:padding="7dp"
-                app:srcCompat="@drawable/ic_tunnl_share"
-                app:tint="@color/tunnl_ink_2" />
+                app:srcCompat="@drawable/ic_vpn0wn_share"
+                app:tint="@color/vpn0wn_ink_2" />
         </LinearLayout>
 
         <LinearLayout
@@ -86,7 +86,7 @@
                 android:fontFamily="@font/jetbrains_mono_medium"
                 android:includeFontPadding="false"
                 android:text="@string/log_viewer_title"
-                android:textColor="@color/tunnl_ink"
+                android:textColor="@color/vpn0wn_ink"
                 android:textSize="18sp" />
 
             <com.google.android.material.button.MaterialButton
@@ -96,9 +96,9 @@
                 android:layout_height="wrap_content"
                 android:fontFamily="@font/jetbrains_mono_medium"
                 android:text="@string/tunnl_log_live"
-                android:textColor="@color/tunnl_signal_deep"
+                android:textColor="@color/vpn0wn_signal_deep"
                 android:textSize="10sp"
-                app:strokeColor="@color/tunnl_rule_strong"
+                app:strokeColor="@color/vpn0wn_rule_strong"
                 app:strokeWidth="1dp" />
         </LinearLayout>
     </LinearLayout>
@@ -106,13 +106,13 @@
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="@color/tunnl_rule" />
+        android:background="@color/vpn0wn_rule" />
 
     <HorizontalScrollView
         android:id="@+id/filter_scroller"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/tunnl_paper_2"
+        android:background="@color/vpn0wn_paper_2"
         android:fillViewport="false"
         android:overScrollMode="never"
         android:scrollbars="none">
@@ -169,14 +169,14 @@
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="@color/tunnl_rule" />
+        android:background="@color/vpn0wn_rule" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recycler_view"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:background="@color/tunnl_paper"
+        android:background="@color/vpn0wn_paper"
         android:clipToPadding="false"
         android:paddingBottom="10dp"
         tools:itemCount="20"

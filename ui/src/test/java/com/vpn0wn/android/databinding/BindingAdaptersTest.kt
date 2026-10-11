@@ -85,7 +85,7 @@ class BindingAdaptersTest {
             for (scale in listOf(1f, 2f)) {
                 RuntimeEnvironment.setFontScale(scale)
                 val header = TextView(context, null, 0, R.style.Vpn0wnHomeHeaderText)
-                header.setTextColor(context.getColor(R.color.tunnl_ink_3))
+                header.setTextColor(context.getColor(R.color.vpn0wn_ink_3))
                 BindingAdapters.setHomeHeaderTunnels(header, emptyList())
                 val density = header.resources.displayMetrics.density
                 val width = (320 * density).toInt()
@@ -136,7 +136,7 @@ class BindingAdaptersTest {
         val color = text.getSpans(0, text.length, ForegroundColorSpan::class.java).single()
         assertEquals(0, text.getSpanStart(color))
         assertEquals(status.length, text.getSpanEnd(color))
-        assertEquals(context.getColor(R.color.tunnl_ink_3), color.foregroundColor)
+        assertEquals(context.getColor(R.color.vpn0wn_ink_3), color.foregroundColor)
     }
 
     @Test
@@ -265,7 +265,7 @@ class BindingAdaptersTest {
                 controller.get().setContentView(view)
                 BindingAdapters.setTopologyConfig(view, topologyConfig(case.mtu))
                 BindingAdapters.setThroughputModeTunnel(view, null, case.state, statistics(System.currentTimeMillis()))
-                view.setBackgroundColor(context.getColor(R.color.tunnl_paper_2))
+                view.setBackgroundColor(context.getColor(R.color.vpn0wn_paper_2))
                 val density = view.resources.displayMetrics.density
                 val width = ((case.width - DETAIL_HORIZONTAL_GUTTER_DP) * density).toInt()
                 val height = (DETAIL_TOPOLOGY_HEIGHT_DP * density).toInt()
