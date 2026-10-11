@@ -201,9 +201,7 @@
     <string name="tools_installer_failure">Komut satırı araçları yüklenemiyor (root erişiminiz olmayabilir)</string>
     <string name="tools_installer_initial">Scripting için isteğe bağlı araçları yükle</string>
     <string name="tools_installer_initial_magisk">Scripting için isteğe bağlı araçları Magisk modülü olarak yükle</string>
-    <string name="tools_installer_initial_system">Scripting için isteğe bağlı araçları sistem bölümüne yükle</string>
     <string name="tools_installer_success_magisk">wg ve wg-quick, Magisk modülü olarak yüklendi (Yeniden başlatma gerekir)</string>
-    <string name="tools_installer_success_system">wg ve wg-quick, sistem bölümüne yüklendi</string>
     <string name="tools_installer_title">Komut satırı araçlarını yükle</string>
     <string name="tools_installer_working">wg ve wg-quick yükleniyor</string>
     <string name="tools_unavailable_error">Gerekli araçlar mevcut değil</string>

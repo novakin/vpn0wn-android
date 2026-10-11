@@ -198,9 +198,7 @@
     <string name="tools_installer_failure">Käsurea tööriistade paigaldamine ebaõnnestus (juurkasutaja õigused puuduvad?)</string>
     <string name="tools_installer_initial">Paigalda täiendavad tööriistad skriptimiseks</string>
     <string name="tools_installer_initial_magisk">Paigalda täiendavad tööriistad skriptimiseks Magisk moodulina</string>
-    <string name="tools_installer_initial_system">Paigalda täiendavad tööriistad skriptimiseks süsteemipartitsioonile</string>
     <string name="tools_installer_success_magisk">wg ja wg-quick paigaldatud Magisk moodulina (vajalik taaskäivitus)</string>
-    <string name="tools_installer_success_system">wg ja wg-quick paigaldatud süsteemipartitsioonile</string>
     <string name="tools_installer_title">Paigalda käsurea tööriistad</string>
     <string name="tools_installer_working">Paigaldatakse wg ja wg-quick</string>
     <string name="tools_unavailable_error">Vajalikud tööriistad ei ole saadaval</string>

@@ -227,9 +227,7 @@
     <string name="tools_installer_failure">Orodij ukazne vrstice ni bilo mogoče namestiti (ni dostopa root?)</string>
     <string name="tools_installer_initial">Namestitev izbirnih orodij za skripte</string>
     <string name="tools_installer_initial_magisk">Namestitev izbirnih orodij za skripte kot modula Magisk</string>
-    <string name="tools_installer_initial_system">Namestitev izbirnih orodij za skripte na sistemsko particijo</string>
     <string name="tools_installer_success_magisk">wg in wg-quick kot modul Magisk nameščen (zahtevan ponovni zagon)</string>
-    <string name="tools_installer_success_system">wg in wg-quick nameščena na sistemsko particijo</string>
     <string name="tools_installer_title">Namesti orodja za ukazno vrstico</string>
     <string name="tools_installer_working">Nameščam wg in wg-quick</string>
     <string name="tools_unavailable_error">Zahtevana orodja niso na voljo</string>

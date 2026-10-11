@@ -188,9 +188,7 @@
     <string name="tools_installer_failure">无法安装命令行工具（尚未获取 root 权限？）</string>
     <string name="tools_installer_initial">安装命令行工具（可选）</string>
     <string name="tools_installer_initial_magisk">安装命令行工具为 Magisk 模块（可选）</string>
-    <string name="tools_installer_initial_system">安装命令行工具至系统分区（可选）</string>
     <string name="tools_installer_success_magisk">wg 与 wg-quick 已安装为 Magisk 模块（重启后生效）</string>
-    <string name="tools_installer_success_system">wg 与 wg-quick 已安装至系统分区</string>
     <string name="tools_installer_title">安装命令行工具</string>
     <string name="tools_installer_working">正在安装 wg 与 wg-quick…</string>
     <string name="tools_unavailable_error">所需工具不可用</string>

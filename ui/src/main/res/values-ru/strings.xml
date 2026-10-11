@@ -227,9 +227,7 @@
     <string name="tools_installer_failure">Не удалось установить инструменты командной строки (нет root?)</string>
     <string name="tools_installer_initial">Установить дополнительные инструменты для сценариев</string>
     <string name="tools_installer_initial_magisk">Установить дополнительные инструменты для сценариев в качестве модуля Magisk</string>
-    <string name="tools_installer_initial_system">Установить дополнительные инструменты для сценариев в системный раздел</string>
     <string name="tools_installer_success_magisk">wg и wg-quick установлены как модуль Magisk (требуется перезагрузка)</string>
-    <string name="tools_installer_success_system">wg и wg-quick установлены в системный раздел</string>
     <string name="tools_installer_title">Установить инструменты командной строки</string>
     <string name="tools_installer_working">Установка wg и wg-quick</string>
     <string name="tools_unavailable_error">Необходимые инструменты недоступны</string>
