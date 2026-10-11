@@ -241,29 +241,29 @@
     <string name="biometric_auth_error">Autentiseringsfeil</string>
     <string name="biometric_auth_error_reason">Autentiseringsfeil: %s</string>
 
-    <string name="tunnl_settings_title">innstillinger</string>
-    <string name="tunnl_settings_subtitle">GLOBALT · APPKONTROLL</string>
-    <string name="tunnl_settings_section_connection">§01 TILKOBLING · STANDARDER</string>
-    <string name="tunnl_settings_section_control">§02 KONTROLL · AUTOMATISERING</string>
-    <string name="tunnl_settings_section_data">§03 DATA · SIKKERHETSKOPI</string>
-    <string name="tunnl_settings_section_appearance">§04 UTSEENDE · APP</string>
-    <string name="tunnl_settings_section_about">§05 OM · PROSJEKT</string>
+    <string name="vpn0wn_settings_title">innstillinger</string>
+    <string name="vpn0wn_settings_subtitle">GLOBALT · APPKONTROLL</string>
+    <string name="vpn0wn_settings_section_connection">§01 TILKOBLING · STANDARDER</string>
+    <string name="vpn0wn_settings_section_control">§02 KONTROLL · AUTOMATISERING</string>
+    <string name="vpn0wn_settings_section_data">§03 DATA · SIKKERHETSKOPI</string>
+    <string name="vpn0wn_settings_section_appearance">§04 UTSEENDE · APP</string>
+    <string name="vpn0wn_settings_section_about">§05 OM · PROSJEKT</string>
 
-    <string name="tunnl_add_sheet_title">LEGG TIL TUNNEL · VELG KILDE</string>
-    <string name="tunnl_add_sheet_qr_subtitle">Kamera</string>
-    <string name="tunnl_add_sheet_file_subtitle">Fra filer</string>
-    <string name="tunnl_add_sheet_manual_subtitle">Generer nøkkelpar · skriv inn manuelt</string>
+    <string name="vpn0wn_add_sheet_title">LEGG TIL TUNNEL · VELG KILDE</string>
+    <string name="vpn0wn_add_sheet_qr_subtitle">Kamera</string>
+    <string name="vpn0wn_add_sheet_file_subtitle">Fra filer</string>
+    <string name="vpn0wn_add_sheet_manual_subtitle">Generer nøkkelpar · skriv inn manuelt</string>
 
-    <string name="tunnl_selection_delete">Slett valgte tunneler</string>
-    <string name="tunnl_selection_exit">Avslutt valg</string>
-    <string name="tunnl_selection_mode">VALGMODUS</string>
-    <string name="tunnl_selection_status_empty">0 VALGT</string>
-    <string name="tunnl_selection_status_count">%1$d AV %2$d VALGT</string>
-    <plurals name="tunnl_selection_title">
+    <string name="vpn0wn_selection_delete">Slett valgte tunneler</string>
+    <string name="vpn0wn_selection_exit">Avslutt valg</string>
+    <string name="vpn0wn_selection_mode">VALGMODUS</string>
+    <string name="vpn0wn_selection_status_empty">0 VALGT</string>
+    <string name="vpn0wn_selection_status_count">%1$d AV %2$d VALGT</string>
+    <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d VALGT</item>
         <item quantity="other">%d VALGT</item>
     </plurals>
-    <plurals name="tunnl_delete_sheet_title">
+    <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">slette %d tunnel?</item>
         <item quantity="other">slette %d tunneler?</item>
     </plurals>

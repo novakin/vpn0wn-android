@@ -241,29 +241,29 @@
     <string name="biometric_auth_error">Fel vid godkännande</string>
     <string name="biometric_auth_error_reason">Fel vid godkännande: %s</string>
 
-    <string name="tunnl_settings_title">inställningar</string>
-    <string name="tunnl_settings_subtitle">GLOBALT · APPSTYRNING</string>
-    <string name="tunnl_settings_section_connection">§01 ANSLUTNING · STANDARDER</string>
-    <string name="tunnl_settings_section_control">§02 STYRNING · AUTOMATISERING</string>
-    <string name="tunnl_settings_section_data">§03 DATA · SÄKERHETSKOPIA</string>
-    <string name="tunnl_settings_section_appearance">§04 UTSEENDE · APP</string>
-    <string name="tunnl_settings_section_about">§05 OM · PROJEKT</string>
+    <string name="vpn0wn_settings_title">inställningar</string>
+    <string name="vpn0wn_settings_subtitle">GLOBALT · APPSTYRNING</string>
+    <string name="vpn0wn_settings_section_connection">§01 ANSLUTNING · STANDARDER</string>
+    <string name="vpn0wn_settings_section_control">§02 STYRNING · AUTOMATISERING</string>
+    <string name="vpn0wn_settings_section_data">§03 DATA · SÄKERHETSKOPIA</string>
+    <string name="vpn0wn_settings_section_appearance">§04 UTSEENDE · APP</string>
+    <string name="vpn0wn_settings_section_about">§05 OM · PROJEKT</string>
 
-    <string name="tunnl_add_sheet_title">LÄGG TILL TUNNEL · VÄLJ KÄLLA</string>
-    <string name="tunnl_add_sheet_qr_subtitle">Kamera</string>
-    <string name="tunnl_add_sheet_file_subtitle">Från filer</string>
-    <string name="tunnl_add_sheet_manual_subtitle">Generera nyckelpar · ange manuellt</string>
+    <string name="vpn0wn_add_sheet_title">LÄGG TILL TUNNEL · VÄLJ KÄLLA</string>
+    <string name="vpn0wn_add_sheet_qr_subtitle">Kamera</string>
+    <string name="vpn0wn_add_sheet_file_subtitle">Från filer</string>
+    <string name="vpn0wn_add_sheet_manual_subtitle">Generera nyckelpar · ange manuellt</string>
 
-    <string name="tunnl_selection_delete">Ta bort valda tunnlar</string>
-    <string name="tunnl_selection_exit">Avsluta val</string>
-    <string name="tunnl_selection_mode">VAL-LÄGE</string>
-    <string name="tunnl_selection_status_empty">0 VALDA</string>
-    <string name="tunnl_selection_status_count">%1$d AV %2$d VALDA</string>
-    <plurals name="tunnl_selection_title">
+    <string name="vpn0wn_selection_delete">Ta bort valda tunnlar</string>
+    <string name="vpn0wn_selection_exit">Avsluta val</string>
+    <string name="vpn0wn_selection_mode">VAL-LÄGE</string>
+    <string name="vpn0wn_selection_status_empty">0 VALDA</string>
+    <string name="vpn0wn_selection_status_count">%1$d AV %2$d VALDA</string>
+    <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d VALDA</item>
         <item quantity="other">%d VALDA</item>
     </plurals>
-    <plurals name="tunnl_delete_sheet_title">
+    <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">ta bort %d tunnel?</item>
         <item quantity="other">ta bort %d tunnlar?</item>
     </plurals>

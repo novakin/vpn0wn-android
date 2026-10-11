@@ -9,10 +9,10 @@ import (
 	"golang.zx2c4.com/wireguard/conn"
 )
 
-func TestTunnlActualFamilySocketProtection(t *testing.T) {
+func TestVpn0wnActualFamilySocketProtection(t *testing.T) {
 	for _, family := range []string{"udp4", "udp6"} {
 		t.Run(family, func(t *testing.T) {
-			bind, err := conn.NewTunnlTestFamilyBind(family)
+			bind, err := conn.NewVpn0wnTestFamilyBind(family)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -46,7 +46,7 @@ func TestTunnlActualFamilySocketProtection(t *testing.T) {
 	}
 }
 
-func TestTunnlActualUnopenedSocketProtection(t *testing.T) {
+func TestVpn0wnActualUnopenedSocketProtection(t *testing.T) {
 	assertUnavailableProtection(t, &conn.StdNetBind{})
 }
 

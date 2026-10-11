@@ -267,29 +267,29 @@
     <string name="biometric_auth_error">Ошибка аутентификации</string>
     <string name="biometric_auth_error_reason">Ошибка аутентификации: %s</string>
 
-    <string name="tunnl_settings_title">настройки</string>
-    <string name="tunnl_settings_subtitle">ГЛОБАЛЬНО · УПРАВЛЕНИЕ ПРИЛОЖЕНИЕМ</string>
-    <string name="tunnl_settings_section_connection">§01 ПОДКЛЮЧЕНИЕ · ПО УМОЛЧАНИЮ</string>
-    <string name="tunnl_settings_section_control">§02 УПРАВЛЕНИЕ · АВТОМАТИЗАЦИЯ</string>
-    <string name="tunnl_settings_section_data">§03 ДАННЫЕ · РЕЗЕРВНАЯ КОПИЯ</string>
-    <string name="tunnl_settings_section_appearance">§04 ВНЕШНИЙ ВИД · ПРИЛОЖЕНИЕ</string>
-    <string name="tunnl_settings_section_about">§05 О ПРОГРАММЕ · ПРОЕКТ</string>
+    <string name="vpn0wn_settings_title">настройки</string>
+    <string name="vpn0wn_settings_subtitle">ГЛОБАЛЬНО · УПРАВЛЕНИЕ ПРИЛОЖЕНИЕМ</string>
+    <string name="vpn0wn_settings_section_connection">§01 ПОДКЛЮЧЕНИЕ · ПО УМОЛЧАНИЮ</string>
+    <string name="vpn0wn_settings_section_control">§02 УПРАВЛЕНИЕ · АВТОМАТИЗАЦИЯ</string>
+    <string name="vpn0wn_settings_section_data">§03 ДАННЫЕ · РЕЗЕРВНАЯ КОПИЯ</string>
+    <string name="vpn0wn_settings_section_appearance">§04 ВНЕШНИЙ ВИД · ПРИЛОЖЕНИЕ</string>
+    <string name="vpn0wn_settings_section_about">§05 О ПРОГРАММЕ · ПРОЕКТ</string>
 
-    <string name="tunnl_add_sheet_title">ДОБАВИТЬ ТУННЕЛЬ · ВЫБРАТЬ ИСТОЧНИК</string>
-    <string name="tunnl_add_sheet_qr_subtitle">Камера</string>
-    <string name="tunnl_add_sheet_file_subtitle">Из файлов</string>
-    <string name="tunnl_add_sheet_manual_subtitle">Создать пару ключей · ввести вручную</string>
+    <string name="vpn0wn_add_sheet_title">ДОБАВИТЬ ТУННЕЛЬ · ВЫБРАТЬ ИСТОЧНИК</string>
+    <string name="vpn0wn_add_sheet_qr_subtitle">Камера</string>
+    <string name="vpn0wn_add_sheet_file_subtitle">Из файлов</string>
+    <string name="vpn0wn_add_sheet_manual_subtitle">Создать пару ключей · ввести вручную</string>
 
-    <string name="tunnl_selection_delete">Удалить выбранные туннели</string>
-    <string name="tunnl_selection_exit">Выйти из выбора</string>
-    <string name="tunnl_selection_mode">РЕЖИМ ВЫБОРА</string>
-    <string name="tunnl_selection_status_empty">0 ВЫБРАНО</string>
-    <string name="tunnl_selection_status_count">%1$d ИЗ %2$d ВЫБРАНО</string>
-    <plurals name="tunnl_selection_title">
+    <string name="vpn0wn_selection_delete">Удалить выбранные туннели</string>
+    <string name="vpn0wn_selection_exit">Выйти из выбора</string>
+    <string name="vpn0wn_selection_mode">РЕЖИМ ВЫБОРА</string>
+    <string name="vpn0wn_selection_status_empty">0 ВЫБРАНО</string>
+    <string name="vpn0wn_selection_status_count">%1$d ИЗ %2$d ВЫБРАНО</string>
+    <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d ВЫБРАНО</item>
         <item quantity="other">%d ВЫБРАНО</item>
     </plurals>
-    <plurals name="tunnl_delete_sheet_title">
+    <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">удалить %d туннель?</item>
         <item quantity="other">удалить %d туннелей?</item>
     </plurals>

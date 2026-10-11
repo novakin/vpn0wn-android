@@ -215,29 +215,29 @@
     <string name="biometric_auth_error">प्रमाणीकरण विफलता</string>
     <string name="biometric_auth_error_reason">प्रमाणीकरण विफल: %s</string>
 
-    <string name="tunnl_settings_title">सेटिंग्स</string>
-    <string name="tunnl_settings_subtitle">वैश्विक · ऐप नियंत्रण</string>
-    <string name="tunnl_settings_section_connection">§01 कनेक्शन · डिफ़ॉल्ट</string>
-    <string name="tunnl_settings_section_control">§02 नियंत्रण · स्वचालन</string>
-    <string name="tunnl_settings_section_data">§03 डेटा · बैकअप</string>
-    <string name="tunnl_settings_section_appearance">§04 रूप · ऐप</string>
-    <string name="tunnl_settings_section_about">§05 परिचय · प्रोजेक्ट</string>
+    <string name="vpn0wn_settings_title">सेटिंग्स</string>
+    <string name="vpn0wn_settings_subtitle">वैश्विक · ऐप नियंत्रण</string>
+    <string name="vpn0wn_settings_section_connection">§01 कनेक्शन · डिफ़ॉल्ट</string>
+    <string name="vpn0wn_settings_section_control">§02 नियंत्रण · स्वचालन</string>
+    <string name="vpn0wn_settings_section_data">§03 डेटा · बैकअप</string>
+    <string name="vpn0wn_settings_section_appearance">§04 रूप · ऐप</string>
+    <string name="vpn0wn_settings_section_about">§05 परिचय · प्रोजेक्ट</string>
 
-    <string name="tunnl_add_sheet_title">टनल जोड़ें · स्रोत चुनें</string>
-    <string name="tunnl_add_sheet_qr_subtitle">कैमरा</string>
-    <string name="tunnl_add_sheet_file_subtitle">फ़ाइलों से</string>
-    <string name="tunnl_add_sheet_manual_subtitle">कुंजी जोड़ी बनाएँ · मैनुअल प्रविष्टि</string>
+    <string name="vpn0wn_add_sheet_title">टनल जोड़ें · स्रोत चुनें</string>
+    <string name="vpn0wn_add_sheet_qr_subtitle">कैमरा</string>
+    <string name="vpn0wn_add_sheet_file_subtitle">फ़ाइलों से</string>
+    <string name="vpn0wn_add_sheet_manual_subtitle">कुंजी जोड़ी बनाएँ · मैनुअल प्रविष्टि</string>
 
-    <string name="tunnl_selection_delete">चयनित टनल हटाएँ</string>
-    <string name="tunnl_selection_exit">चयन से बाहर निकलें</string>
-    <string name="tunnl_selection_mode">चयन मोड</string>
-    <string name="tunnl_selection_status_empty">0 चयनित</string>
-    <string name="tunnl_selection_status_count">%2$d में से %1$d चयनित</string>
-    <plurals name="tunnl_selection_title">
+    <string name="vpn0wn_selection_delete">चयनित टनल हटाएँ</string>
+    <string name="vpn0wn_selection_exit">चयन से बाहर निकलें</string>
+    <string name="vpn0wn_selection_mode">चयन मोड</string>
+    <string name="vpn0wn_selection_status_empty">0 चयनित</string>
+    <string name="vpn0wn_selection_status_count">%2$d में से %1$d चयनित</string>
+    <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d चयनित</item>
         <item quantity="other">%d चयनित</item>
     </plurals>
-    <plurals name="tunnl_delete_sheet_title">
+    <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">%d टनल हटाएँ?</item>
         <item quantity="other">%d टनल हटाएँ?</item>
     </plurals>

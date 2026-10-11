@@ -4,7 +4,7 @@
     android:id="@+id/licenses_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/tunnl_paper_2"
+    android:background="@color/vpn0wn_paper_2"
     android:orientation="vertical">
 
     <LinearLayout
@@ -30,8 +30,8 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/abc_action_bar_up_description"
                 android:padding="15dp"
-                app:srcCompat="@drawable/ic_tunnl_chevron_left"
-                app:tint="@color/tunnl_ink_2" />
+                app:srcCompat="@drawable/ic_vpn0wn_chevron_left"
+                app:tint="@color/vpn0wn_ink_2" />
 
             <TextView
                 style="@style/Vpn0wnLabelText"
@@ -39,7 +39,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
                 android:layout_weight="1"
-                android:text="@string/tunnl_settings_section_about" />
+                android:text="@string/vpn0wn_settings_section_about" />
         </LinearLayout>
 
         <TextView
@@ -48,20 +48,20 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:text="@string/licenses_title"
-            android:textColor="@color/tunnl_ink" />
+            android:textColor="@color/vpn0wn_ink" />
     </LinearLayout>
 
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="@color/tunnl_rule" />
+        android:background="@color/vpn0wn_rule" />
 
     <ScrollView
         android:id="@+id/licenses_scroll"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:background="@color/tunnl_paper"
+        android:background="@color/vpn0wn_paper"
         android:fillViewport="true">
 
         <LinearLayout

@@ -54,7 +54,7 @@ class TunnelEditorHeaderTest {
             binding.config = ConfigProxy(TunnelTestEnvironment.profile(51821))
             binding.name = "qa-editor"
             binding.executePendingBindings()
-            assertEquals(activity.getString(R.string.tunnl_editor_new_tunnel), binding.editorTitle.text.toString())
+            assertEquals(activity.getString(R.string.vpn0wn_editor_new_tunnel), binding.editorTitle.text.toString())
             assertTrue(binding.editorSaveButton.performClick())
             runCurrent()
             activity.lifecycleScope.coroutineContext[Job]!!.children.toList().joinAll()

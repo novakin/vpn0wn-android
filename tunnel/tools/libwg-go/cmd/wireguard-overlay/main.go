@@ -99,7 +99,7 @@ func generate(output string, host bool) error {
 			return err
 		}
 		replacements[hostPath] = aliasPath
-		for upstream, fixture := range map[string]string{"tunnl_descriptors_test.go": "boundif_test.go", "tunnl_protection_test.go": "protection_test.go"} {
+		for upstream, fixture := range map[string]string{"vpn0wn_descriptors_test.go": "boundif_test.go", "vpn0wn_protection_test.go": "protection_test.go"} {
 			fixturePath, err := filepath.Abs(filepath.Join("tests", fixture))
 			if err != nil {
 				return err
@@ -110,7 +110,7 @@ func generate(output string, host bool) error {
 		if err != nil {
 			return err
 		}
-		replacements[filepath.Join(module.Dir, "device", "tunnl_handshake_test.go")] = fixturePath
+		replacements[filepath.Join(module.Dir, "device", "vpn0wn_handshake_test.go")] = fixturePath
 	}
 	data, err := json.Marshal(struct{ Replace map[string]string }{replacements})
 	if err != nil {
@@ -142,13 +142,13 @@ func patch(name, source string) (string, error) {
 		}
 	case "send.go":
 		edits = [][2]string{
-			{"err = peer.SendBuffers([][]byte{packet})\n\tif err != nil {\n\t\tpeer.device.log.Errorf(\"%v - Failed to send handshake initiation: %v\", peer, err)\n\t}\n\tpeer.timersHandshakeInitiated()", "peer.observeHandshake(tunnlHandshakeAttempt, isRetry)\n\terr = peer.SendBuffers([][]byte{packet})\n\tif err != nil {\n\t\tpeer.device.log.Errorf(\"%v - Failed to send handshake initiation: %v\", peer, err)\n\t\tpeer.observeHandshake(tunnlHandshakeSendFailed, isRetry)\n\t} else {\n\t\tpeer.observeHandshake(tunnlHandshakeSent, isRetry)\n\t}\n\tpeer.timersHandshakeInitiated()"},
+			{"err = peer.SendBuffers([][]byte{packet})\n\tif err != nil {\n\t\tpeer.device.log.Errorf(\"%v - Failed to send handshake initiation: %v\", peer, err)\n\t}\n\tpeer.timersHandshakeInitiated()", "peer.observeHandshake(vpn0wnHandshakeAttempt, isRetry)\n\terr = peer.SendBuffers([][]byte{packet})\n\tif err != nil {\n\t\tpeer.device.log.Errorf(\"%v - Failed to send handshake initiation: %v\", peer, err)\n\t\tpeer.observeHandshake(vpn0wnHandshakeSendFailed, isRetry)\n\t} else {\n\t\tpeer.observeHandshake(vpn0wnHandshakeSent, isRetry)\n\t}\n\tpeer.timersHandshakeInitiated()"},
 		}
 	case "timers.go":
 		edits = [][2]string{
 			{"func (peer *Peer) timersActive() bool {", handshakeObserverSource + "\nfunc (peer *Peer) timersActive() bool {"},
-			{"if peer.timers.handshakeAttempts.Load() > MaxTimerHandshakes {", "if peer.timers.handshakeAttempts.Load() > MaxTimerHandshakes {\n\t\tpeer.observeHandshake(tunnlHandshakeExhausted, true)"},
-			{"peer.lastHandshakeNano.Store(time.Now().UnixNano())", "peer.lastHandshakeNano.Store(time.Now().UnixNano())\n\tpeer.observeHandshake(tunnlHandshakeAuthenticated, false)"},
+			{"if peer.timers.handshakeAttempts.Load() > MaxTimerHandshakes {", "if peer.timers.handshakeAttempts.Load() > MaxTimerHandshakes {\n\t\tpeer.observeHandshake(vpn0wnHandshakeExhausted, true)"},
+			{"peer.lastHandshakeNano.Store(time.Now().UnixNano())", "peer.lastHandshakeNano.Store(time.Now().UnixNano())\n\tpeer.observeHandshake(vpn0wnHandshakeAuthenticated, false)"},
 		}
 	default:
 		return "", fmt.Errorf("unsupported overlay file %s", name)
@@ -189,11 +189,11 @@ const retainedRebindSource = `func (device *Device) Rebind() error {
 `
 
 const handshakeObserverSource = `const (
-	tunnlHandshakeAttempt = iota + 1
-	tunnlHandshakeSent
-	tunnlHandshakeSendFailed
-	tunnlHandshakeAuthenticated
-	tunnlHandshakeExhausted
+	vpn0wnHandshakeAttempt = iota + 1
+	vpn0wnHandshakeSent
+	vpn0wnHandshakeSendFailed
+	vpn0wnHandshakeAuthenticated
+	vpn0wnHandshakeExhausted
 )
 
 func (peer *Peer) observeHandshake(event int, retry bool) {

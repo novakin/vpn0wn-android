@@ -241,29 +241,29 @@
     <string name="biometric_auth_error">Kimlik doğrulama hatası</string>
     <string name="biometric_auth_error_reason">Kimlik doğrulama hatası: %s</string>
 
-    <string name="tunnl_settings_title">ayarlar</string>
-    <string name="tunnl_settings_subtitle">GENEL · UYGULAMA KONTROLÜ</string>
-    <string name="tunnl_settings_section_connection">§01 BAĞLANTI · VARSAYILANLAR</string>
-    <string name="tunnl_settings_section_control">§02 KONTROL · OTOMASYON</string>
-    <string name="tunnl_settings_section_data">§03 VERİ · YEDEK</string>
-    <string name="tunnl_settings_section_appearance">§04 GÖRÜNÜM · UYGULAMA</string>
-    <string name="tunnl_settings_section_about">§05 HAKKINDA · PROJE</string>
+    <string name="vpn0wn_settings_title">ayarlar</string>
+    <string name="vpn0wn_settings_subtitle">GENEL · UYGULAMA KONTROLÜ</string>
+    <string name="vpn0wn_settings_section_connection">§01 BAĞLANTI · VARSAYILANLAR</string>
+    <string name="vpn0wn_settings_section_control">§02 KONTROL · OTOMASYON</string>
+    <string name="vpn0wn_settings_section_data">§03 VERİ · YEDEK</string>
+    <string name="vpn0wn_settings_section_appearance">§04 GÖRÜNÜM · UYGULAMA</string>
+    <string name="vpn0wn_settings_section_about">§05 HAKKINDA · PROJE</string>
 
-    <string name="tunnl_add_sheet_title">TÜNEL EKLE · KAYNAK SEÇ</string>
-    <string name="tunnl_add_sheet_qr_subtitle">Kamera</string>
-    <string name="tunnl_add_sheet_file_subtitle">Dosyalardan</string>
-    <string name="tunnl_add_sheet_manual_subtitle">Anahtar çifti oluştur · elle gir</string>
+    <string name="vpn0wn_add_sheet_title">TÜNEL EKLE · KAYNAK SEÇ</string>
+    <string name="vpn0wn_add_sheet_qr_subtitle">Kamera</string>
+    <string name="vpn0wn_add_sheet_file_subtitle">Dosyalardan</string>
+    <string name="vpn0wn_add_sheet_manual_subtitle">Anahtar çifti oluştur · elle gir</string>
 
-    <string name="tunnl_selection_delete">Seçili tünelleri sil</string>
-    <string name="tunnl_selection_exit">Seçimden çık</string>
-    <string name="tunnl_selection_mode">SEÇİM MODU</string>
-    <string name="tunnl_selection_status_empty">0 SEÇİLDİ</string>
-    <string name="tunnl_selection_status_count">%1$d/%2$d SEÇİLDİ</string>
-    <plurals name="tunnl_selection_title">
+    <string name="vpn0wn_selection_delete">Seçili tünelleri sil</string>
+    <string name="vpn0wn_selection_exit">Seçimden çık</string>
+    <string name="vpn0wn_selection_mode">SEÇİM MODU</string>
+    <string name="vpn0wn_selection_status_empty">0 SEÇİLDİ</string>
+    <string name="vpn0wn_selection_status_count">%1$d/%2$d SEÇİLDİ</string>
+    <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d SEÇİLDİ</item>
         <item quantity="other">%d SEÇİLDİ</item>
     </plurals>
-    <plurals name="tunnl_delete_sheet_title">
+    <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">%d tünel silinsin mi?</item>
         <item quantity="other">%d tünel silinsin mi?</item>
     </plurals>

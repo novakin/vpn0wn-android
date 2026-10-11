@@ -1,6 +1,6 @@
 # vpnØwn refined identity
 
-Last updated: 2026-10-10 (Europe/Paris).
+Last updated: 2026-10-11 (Europe/Paris).
 
 The supplied navy/cyan identity is preserved. This reviewed brand reference replaces approximate raster colors with exact SVG geometry and palette values, gives the wordmark deliberate optical spacing, and adds a dedicated 16px symbol.
 
@@ -65,7 +65,7 @@ The optional flag also writes the resources below into [`ui/src/main/res`](../..
 | `drawable/vpnown_wordmark.xml` | Transparent plain outlined wordmark, 730 × 206 viewport and 146 × 41.2dp intrinsic size; interface code controls displayed size. |
 | `drawable/ic_launcher_foreground.xml` | Bare gradient symbol on a 108 × 108dp adaptive layer. Main-master scale 0.5, translation (30, 26); visible bounds (35..73, 29..79). The furthest slash tip is 31.4dp from center, inside the central 66dp safe circle. |
 | `drawable/ic_launcher_monochrome.xml` | Separate solid white alpha mask with identical adaptive geometry. Both existing adaptive wrappers reference this mask. |
-| `values/ic_launcher_background.xml` | Existing background name now uses `tunnl_paper_2`, the approved app-icon navy `#0A1727`. |
+| `values/ic_launcher_background.xml` | Existing background name now uses `vpn0wn_paper_2`, the approved app-icon navy `#0A1727`. |
 | `mipmap-{mdpi,hdpi,xhdpi,xxhdpi,xxxhdpi}/ic_launcher*.png` | Native 48, 72, 96, 144 and 192px exports. The square variant retains the approved 200/1024 corner radius; the round variant uses the approved navy circle. Both retain the approved 650/1024 logical-height symbol. |
 | `drawable/ic_tile.xml` | Transparent solid white main master in a 24 × 24dp viewport; existing system tint and OFF-state treatment remain with the tile owner. |
 | `drawable/tv_logo_banner.xml` | Same transparent plain outlined wordmark and viewport as `vpnown_wordmark`; preserve its aspect ratio. |

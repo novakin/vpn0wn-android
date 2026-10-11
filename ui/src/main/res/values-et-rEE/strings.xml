@@ -238,29 +238,29 @@
     <string name="biometric_auth_error">Autentimine ebaõnnestus</string>
     <string name="biometric_auth_error_reason">Autentimine ebaõnnestus: %s</string>
 
-    <string name="tunnl_settings_title">seaded</string>
-    <string name="tunnl_settings_subtitle">GLOBAALNE · RAKENDUSE JUHTIMINE</string>
-    <string name="tunnl_settings_section_connection">§01 ÜHENDUS · VAIKESEADED</string>
-    <string name="tunnl_settings_section_control">§02 JUHTIMINE · AUTOMAATIKA</string>
-    <string name="tunnl_settings_section_data">§03 ANDMED · VARUNDUS</string>
-    <string name="tunnl_settings_section_appearance">§04 VÄLIMUS · RAKENDUS</string>
-    <string name="tunnl_settings_section_about">§05 TEAVE · PROJEKT</string>
+    <string name="vpn0wn_settings_title">seaded</string>
+    <string name="vpn0wn_settings_subtitle">GLOBAALNE · RAKENDUSE JUHTIMINE</string>
+    <string name="vpn0wn_settings_section_connection">§01 ÜHENDUS · VAIKESEADED</string>
+    <string name="vpn0wn_settings_section_control">§02 JUHTIMINE · AUTOMAATIKA</string>
+    <string name="vpn0wn_settings_section_data">§03 ANDMED · VARUNDUS</string>
+    <string name="vpn0wn_settings_section_appearance">§04 VÄLIMUS · RAKENDUS</string>
+    <string name="vpn0wn_settings_section_about">§05 TEAVE · PROJEKT</string>
 
-    <string name="tunnl_add_sheet_title">LISA TUNNEL · VALI ALLIKAS</string>
-    <string name="tunnl_add_sheet_qr_subtitle">Kaamera</string>
-    <string name="tunnl_add_sheet_file_subtitle">Failidest</string>
-    <string name="tunnl_add_sheet_manual_subtitle">Loo võtmepaar · sisesta käsitsi</string>
+    <string name="vpn0wn_add_sheet_title">LISA TUNNEL · VALI ALLIKAS</string>
+    <string name="vpn0wn_add_sheet_qr_subtitle">Kaamera</string>
+    <string name="vpn0wn_add_sheet_file_subtitle">Failidest</string>
+    <string name="vpn0wn_add_sheet_manual_subtitle">Loo võtmepaar · sisesta käsitsi</string>
 
-    <string name="tunnl_selection_delete">Kustuta valitud tunnelid</string>
-    <string name="tunnl_selection_exit">Välju valikust</string>
-    <string name="tunnl_selection_mode">VALIKUREŽIIM</string>
-    <string name="tunnl_selection_status_empty">0 VALITUD</string>
-    <string name="tunnl_selection_status_count">%1$d/%2$d VALITUD</string>
-    <plurals name="tunnl_selection_title">
+    <string name="vpn0wn_selection_delete">Kustuta valitud tunnelid</string>
+    <string name="vpn0wn_selection_exit">Välju valikust</string>
+    <string name="vpn0wn_selection_mode">VALIKUREŽIIM</string>
+    <string name="vpn0wn_selection_status_empty">0 VALITUD</string>
+    <string name="vpn0wn_selection_status_count">%1$d/%2$d VALITUD</string>
+    <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d VALITUD</item>
         <item quantity="other">%d VALITUD</item>
     </plurals>
-    <plurals name="tunnl_delete_sheet_title">
+    <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">kustutada %d tunnel?</item>
         <item quantity="other">kustutada %d tunnelit?</item>
     </plurals>

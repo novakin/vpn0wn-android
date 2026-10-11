@@ -241,29 +241,29 @@
     <string name="biometric_auth_error">Error d\'autenticació</string>
     <string name="biometric_auth_error_reason">Error d\'autenticació: %s</string>
 
-    <string name="tunnl_settings_title">configuració</string>
-    <string name="tunnl_settings_subtitle">GLOBAL · CONTROL APP</string>
-    <string name="tunnl_settings_section_connection">§01 CONNEXIÓ · PREDETERMINATS</string>
-    <string name="tunnl_settings_section_control">§02 CONTROL · AUTOMATITZACIÓ</string>
-    <string name="tunnl_settings_section_data">§03 DADES · CÒPIA SEGURETAT</string>
-    <string name="tunnl_settings_section_appearance">§04 APARENÇA · APP</string>
-    <string name="tunnl_settings_section_about">§05 QUANT A · PROJECTE</string>
+    <string name="vpn0wn_settings_title">configuració</string>
+    <string name="vpn0wn_settings_subtitle">GLOBAL · CONTROL APP</string>
+    <string name="vpn0wn_settings_section_connection">§01 CONNEXIÓ · PREDETERMINATS</string>
+    <string name="vpn0wn_settings_section_control">§02 CONTROL · AUTOMATITZACIÓ</string>
+    <string name="vpn0wn_settings_section_data">§03 DADES · CÒPIA SEGURETAT</string>
+    <string name="vpn0wn_settings_section_appearance">§04 APARENÇA · APP</string>
+    <string name="vpn0wn_settings_section_about">§05 QUANT A · PROJECTE</string>
 
-    <string name="tunnl_add_sheet_title">AFEGEIX TÚNEL · TRIA ORIGEN</string>
-    <string name="tunnl_add_sheet_qr_subtitle">Càmera</string>
-    <string name="tunnl_add_sheet_file_subtitle">Des de fitxers</string>
-    <string name="tunnl_add_sheet_manual_subtitle">Genera parell de claus · entrada manual</string>
+    <string name="vpn0wn_add_sheet_title">AFEGEIX TÚNEL · TRIA ORIGEN</string>
+    <string name="vpn0wn_add_sheet_qr_subtitle">Càmera</string>
+    <string name="vpn0wn_add_sheet_file_subtitle">Des de fitxers</string>
+    <string name="vpn0wn_add_sheet_manual_subtitle">Genera parell de claus · entrada manual</string>
 
-    <string name="tunnl_selection_delete">Suprimeix túnels seleccionats</string>
-    <string name="tunnl_selection_exit">Surt de la selecció</string>
-    <string name="tunnl_selection_mode">MODE SELECCIÓ</string>
-    <string name="tunnl_selection_status_empty">0 SELECCIONATS</string>
-    <string name="tunnl_selection_status_count">%1$d DE %2$d SELECCIONATS</string>
-    <plurals name="tunnl_selection_title">
+    <string name="vpn0wn_selection_delete">Suprimeix túnels seleccionats</string>
+    <string name="vpn0wn_selection_exit">Surt de la selecció</string>
+    <string name="vpn0wn_selection_mode">MODE SELECCIÓ</string>
+    <string name="vpn0wn_selection_status_empty">0 SELECCIONATS</string>
+    <string name="vpn0wn_selection_status_count">%1$d DE %2$d SELECCIONATS</string>
+    <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d SELECCIONATS</item>
         <item quantity="other">%d SELECCIONATS</item>
     </plurals>
-    <plurals name="tunnl_delete_sheet_title">
+    <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">suprimir %d túnel?</item>
         <item quantity="other">suprimir %d túnels?</item>
     </plurals>

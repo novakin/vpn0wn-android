@@ -64,11 +64,11 @@ class LogViewerActivity : AppCompatActivity() {
         yearFormatter.format(Date())
     }
 
-    private val colorInk2 by lazy { ResourcesCompat.getColor(resources, R.color.tunnl_ink_2, theme) }
-    private val colorInk3 by lazy { ResourcesCompat.getColor(resources, R.color.tunnl_ink_3, theme) }
-    private val colorWarn by lazy { ResourcesCompat.getColor(resources, R.color.tunnl_warn, theme) }
-    private val colorError by lazy { ResourcesCompat.getColor(resources, R.color.tunnl_error, theme) }
-    private val colorSignalDeep by lazy { ResourcesCompat.getColor(resources, R.color.tunnl_signal_deep, theme) }
+    private val colorInk2 by lazy { ResourcesCompat.getColor(resources, R.color.vpn0wn_ink_2, theme) }
+    private val colorInk3 by lazy { ResourcesCompat.getColor(resources, R.color.vpn0wn_ink_3, theme) }
+    private val colorWarn by lazy { ResourcesCompat.getColor(resources, R.color.vpn0wn_warn, theme) }
+    private val colorError by lazy { ResourcesCompat.getColor(resources, R.color.vpn0wn_error, theme) }
+    private val colorSignalDeep by lazy { ResourcesCompat.getColor(resources, R.color.vpn0wn_signal_deep, theme) }
 
     private val revokeLastActivityResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
         revokeLastUri()
@@ -152,10 +152,10 @@ class LogViewerActivity : AppCompatActivity() {
 
     private fun updateLiveToggle() {
         if (autoScroll) {
-            binding.liveToggle.setText(R.string.tunnl_log_live)
+            binding.liveToggle.setText(R.string.vpn0wn_log_live)
             binding.liveToggle.setTextColor(colorSignalDeep)
         } else {
-            binding.liveToggle.setText(R.string.tunnl_log_paused)
+            binding.liveToggle.setText(R.string.vpn0wn_log_paused)
             binding.liveToggle.setTextColor(colorInk3)
         }
     }

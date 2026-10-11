@@ -11,25 +11,25 @@ import (
 	"golang.zx2c4.com/wireguard/tun/tuntest"
 )
 
-type tunnlHandshakeObservation struct {
+type vpn0wnHandshakeObservation struct {
 	peer     [32]byte
 	event    int
 	retry    bool
 	endpoint string
 }
 
-type tunnlHandshakeBind struct {
+type vpn0wnHandshakeBind struct {
 	conn.Bind
 	mu           sync.Mutex
-	observations []tunnlHandshakeObservation
+	observations []vpn0wnHandshakeObservation
 	sendError    error
 	sendCalls    int
-	onObserve    func(tunnlHandshakeObservation)
+	onObserve    func(vpn0wnHandshakeObservation)
 }
 
-func (b *tunnlHandshakeBind) ObserveHandshake(peer [32]byte, event int, retry bool, endpoint string) {
+func (b *vpn0wnHandshakeBind) ObserveHandshake(peer [32]byte, event int, retry bool, endpoint string) {
 	b.mu.Lock()
-	observation := tunnlHandshakeObservation{peer, event, retry, endpoint}
+	observation := vpn0wnHandshakeObservation{peer, event, retry, endpoint}
 	b.observations = append(b.observations, observation)
 	b.mu.Unlock()
 	if b.onObserve != nil {
@@ -37,7 +37,7 @@ func (b *tunnlHandshakeBind) ObserveHandshake(peer [32]byte, event int, retry bo
 	}
 }
 
-func (b *tunnlHandshakeBind) Send(packets [][]byte, endpoint conn.Endpoint) error {
+func (b *vpn0wnHandshakeBind) Send(packets [][]byte, endpoint conn.Endpoint) error {
 	b.mu.Lock()
 	b.sendCalls++
 	b.mu.Unlock()
@@ -47,15 +47,15 @@ func (b *tunnlHandshakeBind) Send(packets [][]byte, endpoint conn.Endpoint) erro
 	return b.Bind.Send(packets, endpoint)
 }
 
-func (b *tunnlHandshakeBind) snapshot() []tunnlHandshakeObservation {
+func (b *vpn0wnHandshakeBind) snapshot() []vpn0wnHandshakeObservation {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	return append([]tunnlHandshakeObservation(nil), b.observations...)
+	return append([]vpn0wnHandshakeObservation(nil), b.observations...)
 }
 
-func tunnlHandshakePeer(t *testing.T, endpoint string, failSend bool) (*Peer, *tunnlHandshakeBind) {
+func vpn0wnHandshakePeer(t *testing.T, endpoint string, failSend bool) (*Peer, *vpn0wnHandshakeBind) {
 	t.Helper()
-	bind := &tunnlHandshakeBind{Bind: conn.NewStdNetBind()}
+	bind := &vpn0wnHandshakeBind{Bind: conn.NewStdNetBind()}
 	if failSend {
 		bind.sendError = errors.New("synthetic socket failure")
 	}
@@ -80,9 +80,9 @@ func tunnlHandshakePeer(t *testing.T, endpoint string, failSend bool) (*Peer, *t
 	return peer, bind
 }
 
-func TestTunnlHandshakeIdleAndLocalSendResult(t *testing.T) {
+func TestVpn0wnHandshakeIdleAndLocalSendResult(t *testing.T) {
 	for _, failSend := range []bool{false, true} {
-		peer, bind := tunnlHandshakePeer(t, "127.0.0.1:51820", failSend)
+		peer, bind := vpn0wnHandshakePeer(t, "127.0.0.1:51820", failSend)
 		if len(bind.snapshot()) != 0 {
 			t.Fatal("idle UP fabricated a handshake observation")
 		}
@@ -91,11 +91,11 @@ func TestTunnlHandshakeIdleAndLocalSendResult(t *testing.T) {
 			t.Fatal("send result changed")
 		}
 		observations := bind.snapshot()
-		result := tunnlHandshakeSent
+		result := vpn0wnHandshakeSent
 		if failSend {
-			result = tunnlHandshakeSendFailed
+			result = vpn0wnHandshakeSendFailed
 		}
-		if len(observations) != 2 || observations[0].event != tunnlHandshakeAttempt || observations[1].event != result {
+		if len(observations) != 2 || observations[0].event != vpn0wnHandshakeAttempt || observations[1].event != result {
 			t.Fatalf("attempt/result observations: %+v", observations)
 		}
 		for _, observation := range observations {
@@ -107,18 +107,18 @@ func TestTunnlHandshakeIdleAndLocalSendResult(t *testing.T) {
 	}
 }
 
-func TestTunnlHandshakeRetryBeforeActualExhaustion(t *testing.T) {
-	peer, bind := tunnlHandshakePeer(t, "[::1]:51820", true)
+func TestVpn0wnHandshakeRetryBeforeActualExhaustion(t *testing.T) {
+	peer, bind := vpn0wnHandshakePeer(t, "[::1]:51820", true)
 	peer.timers.handshakeAttempts.Store(MaxTimerHandshakes)
 	expiredRetransmitHandshake(peer)
 	observations := bind.snapshot()
-	if len(observations) != 2 || !observations[0].retry || observations[1].event != tunnlHandshakeSendFailed {
+	if len(observations) != 2 || !observations[0].retry || observations[1].event != vpn0wnHandshakeSendFailed {
 		t.Fatal("first tested retry fabricated exhaustion")
 	}
 	peer.timers.retransmitHandshake.Del()
 	expiredRetransmitHandshake(peer)
 	observations = bind.snapshot()
-	if len(observations) != 3 || observations[2].event != tunnlHandshakeExhausted || !observations[2].retry {
+	if len(observations) != 3 || observations[2].event != vpn0wnHandshakeExhausted || !observations[2].retry {
 		t.Fatal("actual exhausted branch did not emit distinct exhaustion")
 	}
 	if observations[2].endpoint != "[::1]:51820" {
@@ -126,8 +126,8 @@ func TestTunnlHandshakeRetryBeforeActualExhaustion(t *testing.T) {
 	}
 }
 
-func TestTunnlHandshakeEndpointFreeAndThrottledAttempt(t *testing.T) {
-	peer, bind := tunnlHandshakePeer(t, "", false)
+func TestVpn0wnHandshakeEndpointFreeAndThrottledAttempt(t *testing.T) {
+	peer, bind := vpn0wnHandshakePeer(t, "", false)
 	if len(bind.snapshot()) != 0 {
 		t.Fatal("endpoint-free peer fabricated a handshake")
 	}
@@ -144,14 +144,14 @@ func TestTunnlHandshakeEndpointFreeAndThrottledAttempt(t *testing.T) {
 		t.Fatal("endpoint-free actual send lost failure")
 	}
 	observations := bind.snapshot()
-	if len(observations) != 2 || observations[0].endpoint != "" || observations[1].event != tunnlHandshakeSendFailed {
+	if len(observations) != 2 || observations[0].endpoint != "" || observations[1].event != vpn0wnHandshakeSendFailed {
 		t.Fatal("endpoint-free failure fabricated endpoint")
 	}
 	peer.timers.retransmitHandshake.Del()
 }
 
-func TestTunnlHandshakeDistinctPeersRetainIdentity(t *testing.T) {
-	first, bind := tunnlHandshakePeer(t, "127.0.0.1:51820", true)
+func TestVpn0wnHandshakeDistinctPeersRetainIdentity(t *testing.T) {
+	first, bind := vpn0wnHandshakePeer(t, "127.0.0.1:51820", true)
 	second, err := first.device.NewPeer(NoisePublicKey{10})
 	if err != nil {
 		t.Fatal(err)
@@ -176,8 +176,8 @@ func TestTunnlHandshakeDistinctPeersRetainIdentity(t *testing.T) {
 	}
 }
 
-func TestTunnlHandshakeClosedDeviceCannotReportNoopAsSent(t *testing.T) {
-	peer, bind := tunnlHandshakePeer(t, "127.0.0.1:51820", false)
+func TestVpn0wnHandshakeClosedDeviceCannotReportNoopAsSent(t *testing.T) {
+	peer, bind := vpn0wnHandshakePeer(t, "127.0.0.1:51820", false)
 	peer.device.Close()
 	if err := peer.SendHandshakeInitiation(false); err != nil {
 		t.Fatalf("closed-device upstream no-op changed: %v", err)
@@ -192,12 +192,12 @@ func TestTunnlHandshakeClosedDeviceCannotReportNoopAsSent(t *testing.T) {
 	}
 }
 
-func TestTunnlHandshakeConcurrentCloseAfterAttemptCannotReportSent(t *testing.T) {
-	peer, bind := tunnlHandshakePeer(t, "127.0.0.1:51820", false)
+func TestVpn0wnHandshakeConcurrentCloseAfterAttemptCannotReportSent(t *testing.T) {
+	peer, bind := vpn0wnHandshakePeer(t, "127.0.0.1:51820", false)
 	attempted := make(chan struct{})
 	released := make(chan struct{})
-	bind.onObserve = func(observation tunnlHandshakeObservation) {
-		if observation.event == tunnlHandshakeAttempt {
+	bind.onObserve = func(observation vpn0wnHandshakeObservation) {
+		if observation.event == vpn0wnHandshakeAttempt {
 			close(attempted)
 			<-released
 		}
@@ -221,7 +221,7 @@ func TestTunnlHandshakeConcurrentCloseAfterAttemptCannotReportSent(t *testing.T)
 		t.Fatal("initiation did not settle after actual concurrent close")
 	}
 	observations := bind.snapshot()
-	if len(observations) != 1 || observations[0].event != tunnlHandshakeAttempt {
+	if len(observations) != 1 || observations[0].event != vpn0wnHandshakeAttempt {
 		t.Fatalf("concurrent close fabricated send result: %+v", observations)
 	}
 	bind.mu.Lock()

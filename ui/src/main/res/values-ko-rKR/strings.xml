@@ -228,29 +228,29 @@
     <string name="biometric_auth_error">인증 실패</string>
     <string name="biometric_auth_error_reason">인증 실패: %s</string>
 
-    <string name="tunnl_settings_title">설정</string>
-    <string name="tunnl_settings_subtitle">전체 · 앱 제어</string>
-    <string name="tunnl_settings_section_connection">§01 연결 · 기본값</string>
-    <string name="tunnl_settings_section_control">§02 제어 · 자동화</string>
-    <string name="tunnl_settings_section_data">§03 데이터 · 백업</string>
-    <string name="tunnl_settings_section_appearance">§04 모양 · 앱</string>
-    <string name="tunnl_settings_section_about">§05 정보 · 프로젝트</string>
+    <string name="vpn0wn_settings_title">설정</string>
+    <string name="vpn0wn_settings_subtitle">전체 · 앱 제어</string>
+    <string name="vpn0wn_settings_section_connection">§01 연결 · 기본값</string>
+    <string name="vpn0wn_settings_section_control">§02 제어 · 자동화</string>
+    <string name="vpn0wn_settings_section_data">§03 데이터 · 백업</string>
+    <string name="vpn0wn_settings_section_appearance">§04 모양 · 앱</string>
+    <string name="vpn0wn_settings_section_about">§05 정보 · 프로젝트</string>
 
-    <string name="tunnl_add_sheet_title">터널 추가 · 소스 선택</string>
-    <string name="tunnl_add_sheet_qr_subtitle">카메라</string>
-    <string name="tunnl_add_sheet_file_subtitle">파일에서</string>
-    <string name="tunnl_add_sheet_manual_subtitle">키 쌍 생성 · 직접 입력</string>
+    <string name="vpn0wn_add_sheet_title">터널 추가 · 소스 선택</string>
+    <string name="vpn0wn_add_sheet_qr_subtitle">카메라</string>
+    <string name="vpn0wn_add_sheet_file_subtitle">파일에서</string>
+    <string name="vpn0wn_add_sheet_manual_subtitle">키 쌍 생성 · 직접 입력</string>
 
-    <string name="tunnl_selection_delete">선택한 터널 삭제</string>
-    <string name="tunnl_selection_exit">선택 종료</string>
-    <string name="tunnl_selection_mode">선택 모드</string>
-    <string name="tunnl_selection_status_empty">0개 선택됨</string>
-    <string name="tunnl_selection_status_count">%2$d개 중 %1$d개 선택됨</string>
-    <plurals name="tunnl_selection_title">
+    <string name="vpn0wn_selection_delete">선택한 터널 삭제</string>
+    <string name="vpn0wn_selection_exit">선택 종료</string>
+    <string name="vpn0wn_selection_mode">선택 모드</string>
+    <string name="vpn0wn_selection_status_empty">0개 선택됨</string>
+    <string name="vpn0wn_selection_status_count">%2$d개 중 %1$d개 선택됨</string>
+    <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d개 선택됨</item>
         <item quantity="other">%d개 선택됨</item>
     </plurals>
-    <plurals name="tunnl_delete_sheet_title">
+    <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">%d개 터널을 삭제할까요?</item>
         <item quantity="other">%d개 터널을 삭제할까요?</item>
     </plurals>

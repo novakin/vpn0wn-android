@@ -105,7 +105,7 @@ class HomeSelectionTest {
         layout(f.binding)
         assertEquals(View.VISIBLE, f.binding.selectionHeaderContainer.visibility)
         assertFalse(f.binding.selectionDelete.isEnabled)
-        assertEquals(f.fragment.getString(R.string.tunnl_selection_status_empty), f.binding.selectionStatus.text.toString())
+        assertEquals(f.fragment.getString(R.string.vpn0wn_selection_status_empty), f.binding.selectionStatus.text.toString())
         f.binding.selectionAll.performClick()
         layout(f.binding)
         assertTrue(row(f.binding, 0).isActivated)
@@ -114,7 +114,7 @@ class HomeSelectionTest {
         runCurrent()
         layout(f.binding)
         assertTrue(row(f.binding, 0).isActivated)
-        assertEquals(f.fragment.getString(R.string.tunnl_selection_status_count, 1, 1), f.binding.selectionStatus.text.toString())
+        assertEquals(f.fragment.getString(R.string.vpn0wn_selection_status_count, 1, 1), f.binding.selectionStatus.text.toString())
         f.controller.get().onBackPressedDispatcher.onBackPressed()
         layout(f.binding)
         assertEquals(View.GONE, f.binding.selectionHeaderContainer.visibility)
@@ -376,7 +376,7 @@ class HomeSelectionTest {
                 assertFalse(f.binding.homeSearch.isEnabled)
                 assertTextFits(f.binding.homeHeaderContainer, case.name)
                 val summaryLayout = f.binding.homeHeaderSummary.layout
-                val wordmark = f.binding.root.context.getString(R.string.tunnl_home_wordmark)
+                val wordmark = f.binding.root.context.getString(R.string.vpn0wn_home_wordmark)
                 assertEquals("${case.name}: wordmark stays together", summaryLayout.getLineForOffset(0),
                     summaryLayout.getLineForOffset(wordmark.length - 1))
                 assertTextFits(f.binding.homeStatusContainer, case.name)
@@ -455,7 +455,7 @@ class HomeSelectionTest {
                 assertTrue(f.binding.homeHeaderSummary.contentDescription.startsWith("vpn0wn"))
                 assertFullyVisible(f.binding.homeHeaderSummary, "${case.name}: brand")
                 val header = f.binding.homeHeaderSummary
-                val countStart = f.fragment.getString(R.string.tunnl_home_wordmark).length + 1
+                val countStart = f.fragment.getString(R.string.vpn0wn_home_wordmark).length + 1
                 assertEquals("${case.name}: complete count stays together",
                     header.layout.getLineForOffset(countStart), header.layout.getLineForOffset(header.text.length - 1))
                 for (line in 0 until header.layout.lineCount) {
@@ -561,7 +561,7 @@ class HomeSelectionTest {
             val item = row(f.binding, 0)
             val badge = item.findViewById<TextView>(R.id.tunnel_peer_badge)
             val cipher = if (withPsk) "ChaCha20 + PSK" else "ChaCha20"
-            val expected = "${f.fragment.getString(R.string.tunnl_tunnel_status_inactive)} · $cipher"
+            val expected = "${f.fragment.getString(R.string.vpn0wn_tunnel_status_inactive)} · $cipher"
             assertEquals(expected, badge.text.toString())
             assertEquals("cipher retains mixed case", expected,
                 badge.transformationMethod?.getTransformation(badge.text, badge)?.toString() ?: badge.text.toString())
@@ -600,7 +600,7 @@ class HomeSelectionTest {
         assertFullyVisible(value, "$name: endpoint value")
         assertEquals(View.IMPORTANT_FOR_ACCESSIBILITY_NO, icon.importantForAccessibility)
         assertFalse(icon.isClickable)
-        assertEquals(binding.root.context.getString(R.string.tunnl_home_endpoint), label.text.toString())
+        assertEquals(binding.root.context.getString(R.string.vpn0wn_home_endpoint), label.text.toString())
         val iconBounds = Rect().also { icon.getGlobalVisibleRect(it) }
         for (text in listOf(label, value)) {
             val textBounds = Rect().also { text.getGlobalVisibleRect(it) }

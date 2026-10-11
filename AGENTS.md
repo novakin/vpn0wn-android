@@ -8,7 +8,7 @@ Last updated: 2026-10-11 (Europe/Paris).
 
 ## Project Context
 
-vpn0wn ports the engineering-console UI in `.design/` onto WireGuard Android and adds the documented VPS provisioning flow. Discover the active branch from Git; do not assume a branch name or a clean worktree. Current source packages use `com.vpn0wn.*`; configured release/debug IDs are `com.vpn0wn.android` and `com.vpn0wn.android.debug`. Other legacy resource keys/basenames and native/test helper names still await the remaining #71 rename. The [namespace contract](docs/backend-contracts.md#application-and-source-identity--71) owns current export names and retained protocol, persisted and compatibility identities; source changes do not establish renamed artifact/device or cross-app migration acceptance.
+vpn0wn ports the engineering-console UI in `.design/` onto WireGuard Android and adds the documented VPS provisioning flow. Discover the active branch from Git; do not assume a branch name or a clean worktree. Current source packages use `com.vpn0wn.*`; configured release/debug IDs are `com.vpn0wn.android` and `com.vpn0wn.android.debug`. Provisioning source-directory naming and delivery acceptance remain in the #71 scope. The [namespace contract](docs/backend-contracts.md#application-and-source-identity--71) owns current export names and retained protocol, persisted and compatibility identities; source changes do not establish renamed artifact/device or cross-app migration acceptance.
 
 - Design reference: `.design/` — **read-only, never modify**
 - Brand reference: `docs/assets/vpnown-brand/` — approved artwork; the [Android adoption contract](docs/ui-redesign-roadmap.md#android-brand-asset-adoption--2026-10-10) owns logo use. Outlined Sora logos do not replace Inter Tight/JetBrains Mono UI font roles.
@@ -133,8 +133,8 @@ ui/src/main/java/com/vpn0wn/android/
 ui/src/main/res/
   layout/           tunnel_list_item.xml, tunnel_detail_fragment.xml, tunnel_editor_fragment.xml
                     tunnel_editor_peer.xml, tunnel_detail_peer.xml, log_viewer_activity.xml
-  values/           colors.xml (legacy palette keys), styles.xml (vpn0wn styles), strings.xml
-  drawable/         tunnl_list_item_background, tunnl_active_rail, ic_action_*
+  values/           colors.xml (vpn0wn palette keys), styles.xml (vpn0wn styles), strings.xml
+  drawable/         vpn0wn_list_item_background, vpn0wn_active_rail, ic_action_*
   font/             inter_tight, jetbrains_mono_regular, jetbrains_mono_medium
 
 tunnel/src/         GoBackend.java — VPN backend (touch carefully)
@@ -146,11 +146,11 @@ docs/               architecture, development, operations, backend contracts, pl
 ## Design System Tokens
 
 **Colors** (`res/values/colors.xml`):
-- Backgrounds: `tunnl_paper` (darkest) → `tunnl_paper_2` → `tunnl_paper_3` (lightest surface)
-- Text: `tunnl_ink` → `tunnl_ink_2` → `tunnl_ink_3` (dimmed)
-- Accent: `tunnl_signal`, `tunnl_signal_deep`
-- Borders: `tunnl_rule` (hairline), `tunnl_rule_strong`
-- State: `tunnl_warn`, `tunnl_error`
+- Backgrounds: `vpn0wn_paper` (darkest) → `vpn0wn_paper_2` → `vpn0wn_paper_3` (lightest surface)
+- Text: `vpn0wn_ink` → `vpn0wn_ink_2` → `vpn0wn_ink_3` (dimmed)
+- Accent: `vpn0wn_signal`, `vpn0wn_signal_deep`
+- Borders: `vpn0wn_rule` (hairline), `vpn0wn_rule_strong`
+- State: `vpn0wn_warn`, `vpn0wn_error`
 
 **Fonts:**
 - UI labels, titles: `@font/inter_tight`
@@ -166,7 +166,7 @@ docs/               architecture, development, operations, backend contracts, pl
 - `Vpn0wnEditorField` — plain EditText (no background, jetbrains mono, 13sp, ink)
 - `Vpn0wnEditorFieldReadOnly` — Vpn0wnEditorField + ink_3 + not focusable
 
-**Cards:** 0dp elevation, 1dp `tunnl_rule` stroke, 8dp corners, `paper_2` background.
+**Cards:** 0dp elevation, 1dp `vpn0wn_rule` stroke, 8dp corners, `paper_2` background.
 
 **Section headers:** `§01`, `§02`… `Vpn0wnLabelText` in `rule_strong` + mono title + horizontal 1dp rule divider.
 

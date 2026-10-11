@@ -88,29 +88,29 @@
     <string name="biometric_auth_error">Varmennusvirhe</string>
     <string name="biometric_auth_error_reason">Varmennusvirhe: %s</string>
 
-    <string name="tunnl_settings_title">asetukset</string>
-    <string name="tunnl_settings_subtitle">YLEINEN · SOVELLUKSEN HALLINTA</string>
-    <string name="tunnl_settings_section_connection">§01 YHTEYS · OLETUKSET</string>
-    <string name="tunnl_settings_section_control">§02 HALLINTA · AUTOMAATIO</string>
-    <string name="tunnl_settings_section_data">§03 TIEDOT · VARMUUSKOPIO</string>
-    <string name="tunnl_settings_section_appearance">§04 ULKOASU · SOVELLUS</string>
-    <string name="tunnl_settings_section_about">§05 TIETOJA · PROJEKTI</string>
+    <string name="vpn0wn_settings_title">asetukset</string>
+    <string name="vpn0wn_settings_subtitle">YLEINEN · SOVELLUKSEN HALLINTA</string>
+    <string name="vpn0wn_settings_section_connection">§01 YHTEYS · OLETUKSET</string>
+    <string name="vpn0wn_settings_section_control">§02 HALLINTA · AUTOMAATIO</string>
+    <string name="vpn0wn_settings_section_data">§03 TIEDOT · VARMUUSKOPIO</string>
+    <string name="vpn0wn_settings_section_appearance">§04 ULKOASU · SOVELLUS</string>
+    <string name="vpn0wn_settings_section_about">§05 TIETOJA · PROJEKTI</string>
 
-    <string name="tunnl_add_sheet_title">LISÄÄ TUNNELI · VALITSE LÄHDE</string>
-    <string name="tunnl_add_sheet_qr_subtitle">Kamera</string>
-    <string name="tunnl_add_sheet_file_subtitle">Tiedostoista</string>
-    <string name="tunnl_add_sheet_manual_subtitle">Luo avainpari · syötä käsin</string>
+    <string name="vpn0wn_add_sheet_title">LISÄÄ TUNNELI · VALITSE LÄHDE</string>
+    <string name="vpn0wn_add_sheet_qr_subtitle">Kamera</string>
+    <string name="vpn0wn_add_sheet_file_subtitle">Tiedostoista</string>
+    <string name="vpn0wn_add_sheet_manual_subtitle">Luo avainpari · syötä käsin</string>
 
-    <string name="tunnl_selection_delete">Poista valitut tunnelit</string>
-    <string name="tunnl_selection_exit">Poistu valinnasta</string>
-    <string name="tunnl_selection_mode">VALINTATILA</string>
-    <string name="tunnl_selection_status_empty">0 VALITTU</string>
-    <string name="tunnl_selection_status_count">%1$d/%2$d VALITTU</string>
-    <plurals name="tunnl_selection_title">
+    <string name="vpn0wn_selection_delete">Poista valitut tunnelit</string>
+    <string name="vpn0wn_selection_exit">Poistu valinnasta</string>
+    <string name="vpn0wn_selection_mode">VALINTATILA</string>
+    <string name="vpn0wn_selection_status_empty">0 VALITTU</string>
+    <string name="vpn0wn_selection_status_count">%1$d/%2$d VALITTU</string>
+    <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d VALITTU</item>
         <item quantity="other">%d VALITTU</item>
     </plurals>
-    <plurals name="tunnl_delete_sheet_title">
+    <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">poistetaanko %d tunneli?</item>
         <item quantity="other">poistetaanko %d tunnelia?</item>
     </plurals>

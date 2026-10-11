@@ -39,7 +39,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@color/tunnl_paper_3"
+                android:background="@color/vpn0wn_paper_3"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
                 android:paddingStart="14dp"
@@ -60,7 +60,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="PSK"
-                    android:textColor="@color/tunnl_signal_deep"
+                    android:textColor="@color/vpn0wn_signal_deep"
                     android:visibility="@{item.preSharedKey.isPresent() ? android.view.View.VISIBLE : android.view.View.GONE}" />
             </LinearLayout>
 
@@ -136,7 +136,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:baselineAligned="false"
-                android:background="@color/tunnl_paper_2"
+                android:background="@color/vpn0wn_paper_2"
                 android:orientation="horizontal"
                 android:paddingStart="14dp"
                 android:paddingTop="10dp"
@@ -156,7 +156,7 @@
                         style="@style/Vpn0wnConfigRowLabel"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="@string/tunnl_peer_rx_label" />
+                        android:text="@string/vpn0wn_peer_rx_label" />
 
                     <TextView
                         android:id="@+id/rx_text"
@@ -165,7 +165,7 @@
                         android:layout_height="wrap_content"
                         android:minHeight="48dp"
                         android:gravity="center_vertical|start"
-                        android:contentDescription="@{@string/tunnl_peer_rx_label + `: ` + BindingAdapters.peerRx(statistics)}"
+                        android:contentDescription="@{@string/vpn0wn_peer_rx_label + `: ` + BindingAdapters.peerRx(statistics)}"
                         android:onClick="@{ClipboardUtils::copyTextView}"
                         android:text="@{BindingAdapters.peerRx(statistics)}"
                         android:textSize="13sp"
@@ -183,7 +183,7 @@
                         style="@style/Vpn0wnConfigRowLabel"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="@string/tunnl_peer_tx_label" />
+                        android:text="@string/vpn0wn_peer_tx_label" />
 
                     <TextView
                         android:id="@+id/tx_text"
@@ -192,7 +192,7 @@
                         android:layout_height="wrap_content"
                         android:minHeight="48dp"
                         android:gravity="center_vertical|start"
-                        android:contentDescription="@{@string/tunnl_peer_tx_label + `: ` + BindingAdapters.peerTx(statistics)}"
+                        android:contentDescription="@{@string/vpn0wn_peer_tx_label + `: ` + BindingAdapters.peerTx(statistics)}"
                         android:onClick="@{ClipboardUtils::copyTextView}"
                         android:text="@{BindingAdapters.peerTx(statistics)}"
                         android:textSize="13sp"
@@ -226,7 +226,7 @@
 
                 <TextView
                     style="@style/Vpn0wnConfigRowLabel"
-                    android:text="@string/tunnl_handshake_observation_label" />
+                    android:text="@string/vpn0wn_handshake_observation_label" />
 
                 <TextView
                     android:id="@+id/handshake_observation_text"
@@ -246,7 +246,7 @@
 
                 <TextView
                     style="@style/Vpn0wnConfigRowLabel"
-                    android:text="@string/tunnl_observed_endpoint_label" />
+                    android:text="@string/vpn0wn_observed_endpoint_label" />
 
                 <TextView
                     android:id="@+id/observed_endpoint_text"
@@ -266,7 +266,7 @@
 
                 <TextView
                     style="@style/Vpn0wnConfigRowLabel"
-                    android:text="@string/tunnl_observed_address_family_label" />
+                    android:text="@string/vpn0wn_observed_address_family_label" />
 
                 <TextView
                     android:id="@+id/observed_address_family_text"
@@ -283,7 +283,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
-                    android:text="@string/tunnl_handshake_observation_scope" />
+                    android:text="@string/vpn0wn_handshake_observation_scope" />
             </LinearLayout>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>

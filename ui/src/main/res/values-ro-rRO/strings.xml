@@ -251,29 +251,29 @@
     <string name="biometric_auth_error">Eroare la autentificare</string>
     <string name="biometric_auth_error_reason">Eroare la autentificare: %s</string>
 
-    <string name="tunnl_settings_title">setări</string>
-    <string name="tunnl_settings_subtitle">GLOBAL · CONTROL APLICAȚIE</string>
-    <string name="tunnl_settings_section_connection">§01 CONEXIUNE · IMPLICITE</string>
-    <string name="tunnl_settings_section_control">§02 CONTROL · AUTOMATIZARE</string>
-    <string name="tunnl_settings_section_data">§03 DATE · BACKUP</string>
-    <string name="tunnl_settings_section_appearance">§04 ASPECT · APLICAȚIE</string>
-    <string name="tunnl_settings_section_about">§05 DESPRE · PROIECT</string>
+    <string name="vpn0wn_settings_title">setări</string>
+    <string name="vpn0wn_settings_subtitle">GLOBAL · CONTROL APLICAȚIE</string>
+    <string name="vpn0wn_settings_section_connection">§01 CONEXIUNE · IMPLICITE</string>
+    <string name="vpn0wn_settings_section_control">§02 CONTROL · AUTOMATIZARE</string>
+    <string name="vpn0wn_settings_section_data">§03 DATE · BACKUP</string>
+    <string name="vpn0wn_settings_section_appearance">§04 ASPECT · APLICAȚIE</string>
+    <string name="vpn0wn_settings_section_about">§05 DESPRE · PROIECT</string>
 
-    <string name="tunnl_add_sheet_title">ADAUGĂ TUNEL · ALEGE SURSA</string>
-    <string name="tunnl_add_sheet_qr_subtitle">Cameră</string>
-    <string name="tunnl_add_sheet_file_subtitle">Din fișiere</string>
-    <string name="tunnl_add_sheet_manual_subtitle">Generează pereche de chei · introdu manual</string>
+    <string name="vpn0wn_add_sheet_title">ADAUGĂ TUNEL · ALEGE SURSA</string>
+    <string name="vpn0wn_add_sheet_qr_subtitle">Cameră</string>
+    <string name="vpn0wn_add_sheet_file_subtitle">Din fișiere</string>
+    <string name="vpn0wn_add_sheet_manual_subtitle">Generează pereche de chei · introdu manual</string>
 
-    <string name="tunnl_selection_delete">Șterge tunelurile selectate</string>
-    <string name="tunnl_selection_exit">Ieși din selecție</string>
-    <string name="tunnl_selection_mode">MOD SELECȚIE</string>
-    <string name="tunnl_selection_status_empty">0 SELECTATE</string>
-    <string name="tunnl_selection_status_count">%1$d DIN %2$d SELECTATE</string>
-    <plurals name="tunnl_selection_title">
+    <string name="vpn0wn_selection_delete">Șterge tunelurile selectate</string>
+    <string name="vpn0wn_selection_exit">Ieși din selecție</string>
+    <string name="vpn0wn_selection_mode">MOD SELECȚIE</string>
+    <string name="vpn0wn_selection_status_empty">0 SELECTATE</string>
+    <string name="vpn0wn_selection_status_count">%1$d DIN %2$d SELECTATE</string>
+    <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d SELECTATE</item>
         <item quantity="other">%d SELECTATE</item>
     </plurals>
-    <plurals name="tunnl_delete_sheet_title">
+    <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">șterge %d tunel?</item>
         <item quantity="other">șterge %d tuneluri?</item>
     </plurals>

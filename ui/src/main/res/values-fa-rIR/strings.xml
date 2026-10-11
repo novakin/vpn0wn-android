@@ -243,29 +243,29 @@
     <string name="biometric_auth_error">شکست در تایید هویت</string>
     <string name="biometric_auth_error_reason">شکست در تایید هویت: %s</string>
 
-    <string name="tunnl_settings_title">تنظیمات</string>
-    <string name="tunnl_settings_subtitle">سراسری · کنترل برنامه</string>
-    <string name="tunnl_settings_section_connection">§01 اتصال · پیش‌فرض‌ها</string>
-    <string name="tunnl_settings_section_control">§02 کنترل · خودکارسازی</string>
-    <string name="tunnl_settings_section_data">§03 داده‌ها · پشتیبان‌گیری</string>
-    <string name="tunnl_settings_section_appearance">§04 ظاهر · برنامه</string>
-    <string name="tunnl_settings_section_about">§05 درباره · پروژه</string>
+    <string name="vpn0wn_settings_title">تنظیمات</string>
+    <string name="vpn0wn_settings_subtitle">سراسری · کنترل برنامه</string>
+    <string name="vpn0wn_settings_section_connection">§01 اتصال · پیش‌فرض‌ها</string>
+    <string name="vpn0wn_settings_section_control">§02 کنترل · خودکارسازی</string>
+    <string name="vpn0wn_settings_section_data">§03 داده‌ها · پشتیبان‌گیری</string>
+    <string name="vpn0wn_settings_section_appearance">§04 ظاهر · برنامه</string>
+    <string name="vpn0wn_settings_section_about">§05 درباره · پروژه</string>
 
-    <string name="tunnl_add_sheet_title">افزودن تونل · انتخاب منبع</string>
-    <string name="tunnl_add_sheet_qr_subtitle">دوربین</string>
-    <string name="tunnl_add_sheet_file_subtitle">از فایل‌ها</string>
-    <string name="tunnl_add_sheet_manual_subtitle">ساخت جفت‌کلید · ورود دستی</string>
+    <string name="vpn0wn_add_sheet_title">افزودن تونل · انتخاب منبع</string>
+    <string name="vpn0wn_add_sheet_qr_subtitle">دوربین</string>
+    <string name="vpn0wn_add_sheet_file_subtitle">از فایل‌ها</string>
+    <string name="vpn0wn_add_sheet_manual_subtitle">ساخت جفت‌کلید · ورود دستی</string>
 
-    <string name="tunnl_selection_delete">حذف تونل‌های انتخاب‌شده</string>
-    <string name="tunnl_selection_exit">خروج از انتخاب</string>
-    <string name="tunnl_selection_mode">حالت انتخاب</string>
-    <string name="tunnl_selection_status_empty">0 انتخاب‌شده</string>
-    <string name="tunnl_selection_status_count">%1$d از %2$d انتخاب‌شده</string>
-    <plurals name="tunnl_selection_title">
+    <string name="vpn0wn_selection_delete">حذف تونل‌های انتخاب‌شده</string>
+    <string name="vpn0wn_selection_exit">خروج از انتخاب</string>
+    <string name="vpn0wn_selection_mode">حالت انتخاب</string>
+    <string name="vpn0wn_selection_status_empty">0 انتخاب‌شده</string>
+    <string name="vpn0wn_selection_status_count">%1$d از %2$d انتخاب‌شده</string>
+    <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d انتخاب‌شده</item>
         <item quantity="other">%d انتخاب‌شده</item>
     </plurals>
-    <plurals name="tunnl_delete_sheet_title">
+    <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">حذف %d تونل؟</item>
         <item quantity="other">حذف %d تونل؟</item>
     </plurals>
