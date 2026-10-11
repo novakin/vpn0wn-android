@@ -69,7 +69,7 @@ object BindingAdapters {
     @BindingAdapter("tunnelSelectionInset")
     fun setTunnelSelectionInset(view: View, selecting: Boolean) {
         val params = view.layoutParams as? ViewGroup.MarginLayoutParams ?: return
-        val inset = view.resources.getDimensionPixelSize(if (selecting) R.dimen.tunnl_selection_text_inset else R.dimen.tunnl_card_text_inset)
+        val inset = view.resources.getDimensionPixelSize(if (selecting) R.dimen.vpn0wn_selection_text_inset else R.dimen.vpn0wn_card_text_inset)
         if (params.marginStart == inset) return
         params.marginStart = inset
         view.layoutParams = params
@@ -398,10 +398,10 @@ object BindingAdapters {
         val mode = aggregateMode(tunnels)
         view.text = homeProtectionLabel(view.context, tunnels)
         view.setTextColor(ContextCompat.getColor(view.context, when (mode) {
-            TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_ink
-            TunnelSignalView.TunnelMode.CONNECTING -> R.color.tunnl_warn
-            TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_error
-            TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_ink_2
+            TunnelSignalView.TunnelMode.UP         -> R.color.vpn0wn_ink
+            TunnelSignalView.TunnelMode.CONNECTING -> R.color.vpn0wn_warn
+            TunnelSignalView.TunnelMode.ERROR      -> R.color.vpn0wn_error
+            TunnelSignalView.TunnelMode.DOWN       -> R.color.vpn0wn_ink_2
         }))
     }
 
@@ -410,20 +410,20 @@ object BindingAdapters {
     fun setHomeProtectionDotTunnels(view: View, tunnels: Iterable<ObservableTunnel>?) {
         val mode = aggregateMode(tunnels)
         val fill = ContextCompat.getColor(view.context, when (mode) {
-            TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_connected
-            TunnelSignalView.TunnelMode.CONNECTING -> R.color.tunnl_warn
-            TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_error
-            TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_paper_3
+            TunnelSignalView.TunnelMode.UP         -> R.color.vpn0wn_connected
+            TunnelSignalView.TunnelMode.CONNECTING -> R.color.vpn0wn_warn
+            TunnelSignalView.TunnelMode.ERROR      -> R.color.vpn0wn_error
+            TunnelSignalView.TunnelMode.DOWN       -> R.color.vpn0wn_paper_3
         })
         val stroke = ContextCompat.getColor(view.context, when (mode) {
-            TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_connected
-            TunnelSignalView.TunnelMode.CONNECTING -> R.color.tunnl_warn
-            TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_error
-            TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_rule_strong
+            TunnelSignalView.TunnelMode.UP         -> R.color.vpn0wn_connected
+            TunnelSignalView.TunnelMode.CONNECTING -> R.color.vpn0wn_warn
+            TunnelSignalView.TunnelMode.ERROR      -> R.color.vpn0wn_error
+            TunnelSignalView.TunnelMode.DOWN       -> R.color.vpn0wn_rule_strong
         })
-        val dot = view.getTag(R.id.tunnl_dot_drawable) as? GradientDrawable ?: GradientDrawable().apply {
+        val dot = view.getTag(R.id.vpn0wn_dot_drawable) as? GradientDrawable ?: GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            view.setTag(R.id.tunnl_dot_drawable, this)
+            view.setTag(R.id.vpn0wn_dot_drawable, this)
             view.background = this
         }
         dot.setColor(fill)
@@ -442,10 +442,10 @@ object BindingAdapters {
     @BindingAdapter(requireAll = false, value = ["detailStatusStrokeTunnel", "detailStatusStrokeState", "detailStatusStrokeStatistics"])
     fun setDetailStatusStrokeTunnel(view: MaterialCardView, tunnel: ObservableTunnel?, state: Tunnel.State?, statistics: Statistics?) {
         view.strokeColor = ContextCompat.getColor(view.context, when (tunnelMode(tunnel, state, statistics)) {
-            TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_signal_deep
-            TunnelSignalView.TunnelMode.CONNECTING -> R.color.tunnl_warn
-            TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_error
-            TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_rule
+            TunnelSignalView.TunnelMode.UP         -> R.color.vpn0wn_signal_deep
+            TunnelSignalView.TunnelMode.CONNECTING -> R.color.vpn0wn_warn
+            TunnelSignalView.TunnelMode.ERROR      -> R.color.vpn0wn_error
+            TunnelSignalView.TunnelMode.DOWN       -> R.color.vpn0wn_rule
         })
     }
 
@@ -495,9 +495,9 @@ object BindingAdapters {
     fun setDetailStatusDotTunnel(view: View, tunnel: ObservableTunnel?, state: Tunnel.State?, statistics: Statistics?) {
         val mode = tunnelMode(tunnel, state, statistics)
         val color = ContextCompat.getColor(view.context, modeColor(mode))
-        val dot = view.getTag(R.id.tunnl_dot_drawable) as? GradientDrawable ?: GradientDrawable().apply {
+        val dot = view.getTag(R.id.vpn0wn_dot_drawable) as? GradientDrawable ?: GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            view.setTag(R.id.tunnl_dot_drawable, this)
+            view.setTag(R.id.vpn0wn_dot_drawable, this)
             view.background = this
         }
         dot.setColor(color)
@@ -524,10 +524,10 @@ object BindingAdapters {
     }
 
     private fun modeColor(mode: TunnelSignalView.TunnelMode): Int = when (mode) {
-        TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_signal_deep
-        TunnelSignalView.TunnelMode.CONNECTING -> R.color.tunnl_warn
-        TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_error
-        TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_ink_3
+        TunnelSignalView.TunnelMode.UP         -> R.color.vpn0wn_signal_deep
+        TunnelSignalView.TunnelMode.CONNECTING -> R.color.vpn0wn_warn
+        TunnelSignalView.TunnelMode.ERROR      -> R.color.vpn0wn_error
+        TunnelSignalView.TunnelMode.DOWN       -> R.color.vpn0wn_ink_3
     }
 
     private fun topologyModeLabel(context: Context, mode: TunnelSignalView.TunnelMode): String =
@@ -715,10 +715,10 @@ object BindingAdapters {
         val mode = tunnelMode(tunnel, state, statistics)
         val status = statusModeLabel(view.context, mode)
         val statusColor = ContextCompat.getColor(view.context, when (mode) {
-            TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_signal_deep
-            TunnelSignalView.TunnelMode.CONNECTING -> R.color.tunnl_warn
-            TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_error
-            TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_ink_3
+            TunnelSignalView.TunnelMode.UP         -> R.color.vpn0wn_signal_deep
+            TunnelSignalView.TunnelMode.CONNECTING -> R.color.vpn0wn_warn
+            TunnelSignalView.TunnelMode.ERROR      -> R.color.vpn0wn_error
+            TunnelSignalView.TunnelMode.DOWN       -> R.color.vpn0wn_ink_3
         })
         view.text = SpannableString("$status · ${tunnelCipher(config)}").apply {
             setSpan(ForegroundColorSpan(statusColor), 0, status.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
@@ -735,14 +735,14 @@ object BindingAdapters {
         }
         view.visibility = View.VISIBLE
         val color = ContextCompat.getColor(view.context, when (mode) {
-            TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_signal
-            TunnelSignalView.TunnelMode.CONNECTING -> R.color.tunnl_warn
-            TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_error
-            TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_signal
+            TunnelSignalView.TunnelMode.UP         -> R.color.vpn0wn_signal
+            TunnelSignalView.TunnelMode.CONNECTING -> R.color.vpn0wn_warn
+            TunnelSignalView.TunnelMode.ERROR      -> R.color.vpn0wn_error
+            TunnelSignalView.TunnelMode.DOWN       -> R.color.vpn0wn_signal
         })
-        val drawable = view.getTag(R.id.tunnl_rail_drawable) as? android.graphics.drawable.Drawable
-            ?: ContextCompat.getDrawable(view.context, R.drawable.tunnl_active_rail)!!.mutate().also {
-                view.setTag(R.id.tunnl_rail_drawable, it)
+        val drawable = view.getTag(R.id.vpn0wn_rail_drawable) as? android.graphics.drawable.Drawable
+            ?: ContextCompat.getDrawable(view.context, R.drawable.vpn0wn_active_rail)!!.mutate().also {
+                view.setTag(R.id.vpn0wn_rail_drawable, it)
                 view.background = it
             }
         DrawableCompat.setTint(drawable, color)
@@ -755,16 +755,16 @@ object BindingAdapters {
         view.isEnabled = state != Tunnel.State.TOGGLE
         val mode = tunnelMode(tunnel, state, statistics)
         val track = when (mode) {
-            TunnelSignalView.TunnelMode.UP         -> R.color.tunnl_signal_deep
-            TunnelSignalView.TunnelMode.CONNECTING -> R.color.tunnl_warn
-            TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_error
-            TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_rule_strong
+            TunnelSignalView.TunnelMode.UP         -> R.color.vpn0wn_signal_deep
+            TunnelSignalView.TunnelMode.CONNECTING -> R.color.vpn0wn_warn
+            TunnelSignalView.TunnelMode.ERROR      -> R.color.vpn0wn_error
+            TunnelSignalView.TunnelMode.DOWN       -> R.color.vpn0wn_rule_strong
         }
         val thumb = when (mode) {
             TunnelSignalView.TunnelMode.UP,
             TunnelSignalView.TunnelMode.CONNECTING,
-            TunnelSignalView.TunnelMode.ERROR      -> R.color.tunnl_paper
-            TunnelSignalView.TunnelMode.DOWN       -> R.color.tunnl_ink_2
+            TunnelSignalView.TunnelMode.ERROR      -> R.color.vpn0wn_paper
+            TunnelSignalView.TunnelMode.DOWN       -> R.color.vpn0wn_ink_2
         }
         view.trackTintList = ColorStateList.valueOf(ContextCompat.getColor(view.context, track))
         view.thumbTintList = ColorStateList.valueOf(ContextCompat.getColor(view.context, thumb))

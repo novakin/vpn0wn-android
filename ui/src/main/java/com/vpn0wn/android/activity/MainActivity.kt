@@ -51,7 +51,7 @@ class MainActivity : BaseActivity(), FragmentManager.OnBackStackChangedListener 
 
     override fun onBackStackChanged() {
         val backStackEntries = supportFragmentManager.backStackEntryCount
-        val background = if (backStackEntries == 0) R.color.tunnl_paper else R.color.tunnl_paper_2
+        val background = if (backStackEntries == 0) R.color.vpn0wn_paper else R.color.vpn0wn_paper_2
         findViewById<View>(R.id.main_activity_container).setBackgroundResource(background)
         // Edge-to-edge ignores statusBarColor on Android 15+.
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {

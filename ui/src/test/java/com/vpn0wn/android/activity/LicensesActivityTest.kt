@@ -161,7 +161,7 @@ class LicensesActivityTest {
         settle(activity)
         val root = LinearLayout(activity).apply {
             isFocusableInTouchMode = true
-            setBackgroundColor(activity.getColor(R.color.tunnl_paper))
+            setBackgroundColor(activity.getColor(R.color.vpn0wn_paper))
         }
         val notice = activity.layoutInflater.inflate(R.layout.licenses_notice, root, false) as TextView
         notice.text = "Sora brand wordmark\nSIL OPEN FONT LICENSE Version 1.1"
@@ -173,8 +173,8 @@ class LicensesActivityTest {
             View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY))
         root.layout(0, 0, width, height)
         assertTrue(root.requestFocusFromTouch())
-        val ink = activity.getColor(R.color.tunnl_ink)
-        val signal = activity.getColor(R.color.tunnl_signal)
+        val ink = activity.getColor(R.color.vpn0wn_ink)
+        val signal = activity.getColor(R.color.vpn0wn_signal)
         val unfocusedInk = renderedColorCount(root, width, height, ink)
         assertTrue(unfocusedInk > 0)
         assertEquals(0, renderedColorCount(root, width, height, signal))

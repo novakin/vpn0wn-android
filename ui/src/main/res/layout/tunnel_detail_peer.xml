@@ -39,7 +39,7 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="@color/tunnl_paper_3"
+                android:background="@color/vpn0wn_paper_3"
                 android:gravity="center_vertical"
                 android:orientation="horizontal"
                 android:paddingStart="14dp"
@@ -60,7 +60,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="PSK"
-                    android:textColor="@color/tunnl_signal_deep"
+                    android:textColor="@color/vpn0wn_signal_deep"
                     android:visibility="@{item.preSharedKey.isPresent() ? android.view.View.VISIBLE : android.view.View.GONE}" />
             </LinearLayout>
 
@@ -136,7 +136,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:baselineAligned="false"
-                android:background="@color/tunnl_paper_2"
+                android:background="@color/vpn0wn_paper_2"
                 android:orientation="horizontal"
                 android:paddingStart="14dp"
                 android:paddingTop="10dp"

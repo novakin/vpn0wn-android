@@ -21,8 +21,8 @@ object Vpn0wnSnackbar {
         val density = context.resources.displayMetrics.density
         val background = GradientDrawable().apply {
             cornerRadius = 8f * density
-            setColor(ContextCompat.getColor(context, R.color.tunnl_paper_2))
-            setStroke((1f * density).toInt().coerceAtLeast(1), ContextCompat.getColor(context, R.color.tunnl_rule_strong))
+            setColor(ContextCompat.getColor(context, R.color.vpn0wn_paper_2))
+            setStroke((1f * density).toInt().coerceAtLeast(1), ContextCompat.getColor(context, R.color.vpn0wn_rule_strong))
         }
 
         snackbar.setBackgroundTintList(null)
@@ -42,7 +42,7 @@ object Vpn0wnSnackbar {
             typeface = mono
             textSize = 12f
             letterSpacing = 0.02f
-            setTextColor(ContextCompat.getColor(context, R.color.tunnl_ink))
+            setTextColor(ContextCompat.getColor(context, R.color.vpn0wn_ink))
             setCompoundDrawablesWithIntrinsicBounds(signalDot(context, density), null, null, null)
             compoundDrawablePadding = (8f * density).toInt()
         }
@@ -50,7 +50,7 @@ object Vpn0wnSnackbar {
             typeface = mono
             textSize = 11f
             letterSpacing = 0.06f
-            setTextColor(ContextCompat.getColor(context, R.color.tunnl_signal_deep))
+            setTextColor(ContextCompat.getColor(context, R.color.vpn0wn_signal_deep))
         }
         return snackbar
     }
@@ -60,7 +60,7 @@ object Vpn0wnSnackbar {
     private fun signalDot(context: android.content.Context, density: Float) =
         GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            setColor(ContextCompat.getColor(context, R.color.tunnl_signal))
+            setColor(ContextCompat.getColor(context, R.color.vpn0wn_signal))
             val size = (6f * density).toInt()
             setSize(size, size)
         }

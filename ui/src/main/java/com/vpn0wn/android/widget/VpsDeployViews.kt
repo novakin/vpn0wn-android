@@ -69,14 +69,14 @@ class VpsTopologyView(context: Context) : View(context) {
         val h = height.toFloat()
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = dp(1).toFloat()
-        paint.color = color(R.color.tunnl_rule)
+        paint.color = color(R.color.vpn0wn_rule)
         val gridStep = dp(12)
         for (x in 0..w.toInt() step gridStep) {
             for (y in 0..(h * 0.64f).toInt() step gridStep) canvas.drawPoint(x.toFloat(), y.toFloat(), paint)
         }
         val y = h * 0.32f
         val xs = listOf(w * 0.12f, w * 0.5f, w * 0.88f)
-        val lineColor = color(if (server.status == VpsDeployServerStatus.ATTENTION) R.color.tunnl_error else if (server.status == VpsDeployServerStatus.ONLINE) R.color.tunnl_signal_deep else R.color.tunnl_rule_strong)
+        val lineColor = color(if (server.status == VpsDeployServerStatus.ATTENTION) R.color.vpn0wn_error else if (server.status == VpsDeployServerStatus.ONLINE) R.color.vpn0wn_signal_deep else R.color.vpn0wn_rule_strong)
         paint.color = lineColor
         paint.strokeWidth = dp(1).toFloat()
         val dash = floatArrayOf(6f * density, 6f * density)
@@ -91,19 +91,19 @@ class VpsTopologyView(context: Context) : View(context) {
         paint.pathEffect = DashPathEffect(dash, rightPhase)
         canvas.drawLine(xs[1] + dp(28), y, xs[2] - dp(24), y, paint)
         paint.pathEffect = null
-        node(canvas, xs[0], y, context.getString(R.string.vpn0wn_node_device), context.getString(R.string.vpn0wn_hint_device).lowercase(), server.status == VpsDeployServerStatus.ONLINE, R.color.tunnl_signal_deep, false)
+        node(canvas, xs[0], y, context.getString(R.string.vpn0wn_node_device), context.getString(R.string.vpn0wn_hint_device).lowercase(), server.status == VpsDeployServerStatus.ONLINE, R.color.vpn0wn_signal_deep, false)
         node(canvas, xs[1], y, context.getString(R.string.vpn0wn_node_vps), server.name, server.status != VpsDeployServerStatus.OFFLINE, server.status.colorRes, true)
-        node(canvas, xs[2], y, context.getString(R.string.vpn0wn_node_wan), context.getString(R.string.vpn0wn_node_internet), server.status == VpsDeployServerStatus.ONLINE, R.color.tunnl_signal_deep, false)
+        node(canvas, xs[2], y, context.getString(R.string.vpn0wn_node_wan), context.getString(R.string.vpn0wn_node_internet), server.status == VpsDeployServerStatus.ONLINE, R.color.vpn0wn_signal_deep, false)
         val top = h * 0.66f
         val cellW = w / 3f
         listOf(context.getString(R.string.vpn0wn_label_server) to server.name, context.getString(R.string.vpn0wn_label_endpoint) to server.endpoint, context.getString(R.string.vpn0wn_metric_cidr) to server.cidr).forEachIndexed { index, pair ->
             paint.style = Paint.Style.FILL
             paint.typeface = monoTypeface
             paint.textSize = dp(9).toFloat()
-            paint.color = color(R.color.tunnl_ink_3)
+            paint.color = color(R.color.vpn0wn_ink_3)
             canvas.drawText(pair.first, cellW * index + dp(10), top + dp(18), paint)
             paint.textSize = dp(12).toFloat()
-            paint.color = color(R.color.tunnl_ink)
+            paint.color = color(R.color.vpn0wn_ink)
             canvas.drawText(pair.second, cellW * index + dp(10), top + dp(38), paint)
         }
     }
@@ -113,11 +113,11 @@ class VpsTopologyView(context: Context) : View(context) {
     private fun node(canvas: Canvas, x: Float, y: Float, label: String, sub: String, active: Boolean, colorRes: Int, big: Boolean) {
         val r = dp(if (big) 18 else 14).toFloat()
         paint.style = Paint.Style.FILL
-        paint.color = color(if (active) R.color.tunnl_paper_3 else R.color.tunnl_paper)
+        paint.color = color(if (active) R.color.vpn0wn_paper_3 else R.color.vpn0wn_paper)
         canvas.drawCircle(x, y, r, paint)
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = dp(1).toFloat()
-        paint.color = color(if (active) colorRes else R.color.tunnl_rule_strong)
+        paint.color = color(if (active) colorRes else R.color.vpn0wn_rule_strong)
         canvas.drawCircle(x, y, r, paint)
         if (active && big) {
             paint.color = color(colorRes)
@@ -131,7 +131,7 @@ class VpsTopologyView(context: Context) : View(context) {
         paint.textAlign = Paint.Align.CENTER
         paint.textSize = dp(7).toFloat()
         canvas.drawText(label, x, y - r - dp(7), paint)
-        paint.color = color(R.color.tunnl_ink_3)
+        paint.color = color(R.color.vpn0wn_ink_3)
         canvas.drawText(sub, x, y + r + dp(12), paint)
         paint.textAlign = Paint.Align.LEFT
     }
@@ -223,7 +223,7 @@ class VpsTerminalStreamView(context: Context) : TextView(context) {
         @Suppress("MagicNumber")
         val terminalTextSize = 10f
         textSize = terminalTextSize
-        setTextColor(ContextCompat.getColor(context, R.color.tunnl_ink_2))
+        setTextColor(ContextCompat.getColor(context, R.color.vpn0wn_ink_2))
         setBackgroundColor(TERMINAL_BACKGROUND_COLOR)
         @Suppress("MagicNumber") val padH = dp(12)
         @Suppress("MagicNumber") val padV = dp(10)
@@ -266,14 +266,14 @@ class VpsSwitchGlyphView(context: Context) : View(context) {
     override fun onDraw(canvas: Canvas) {
         val r = height / 2f
         paint.style = Paint.Style.FILL
-        paint.color = ContextCompat.getColor(context, if (checked) R.color.tunnl_signal else R.color.tunnl_paper_3)
+        paint.color = ContextCompat.getColor(context, if (checked) R.color.vpn0wn_signal else R.color.vpn0wn_paper_3)
         canvas.drawRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), r, r, paint)
         paint.style = Paint.Style.STROKE
         paint.strokeWidth = dp(1).toFloat()
-        paint.color = ContextCompat.getColor(context, if (checked) R.color.tunnl_signal_deep else R.color.tunnl_rule_strong)
+        paint.color = ContextCompat.getColor(context, if (checked) R.color.vpn0wn_signal_deep else R.color.vpn0wn_rule_strong)
         canvas.drawRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), r, r, paint)
         paint.style = Paint.Style.FILL
-        paint.color = ContextCompat.getColor(context, if (checked) R.color.tunnl_paper else R.color.tunnl_ink_2)
+        paint.color = ContextCompat.getColor(context, if (checked) R.color.vpn0wn_paper else R.color.vpn0wn_ink_2)
         val cx = if (checked) width - r else r
         canvas.drawCircle(cx, r, r - dp(3), paint)
     }
@@ -286,7 +286,7 @@ class VpsCornerLayout(context: Context) : LinearLayout(context) {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
         strokeWidth = dp(1).toFloat()
-        color = ContextCompat.getColor(context, R.color.tunnl_ink_3)
+        color = ContextCompat.getColor(context, R.color.vpn0wn_ink_3)
     }
 
     init {
