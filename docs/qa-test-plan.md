@@ -1,4 +1,4 @@
-# Tunnl QA Test Plan
+# vpn0wn QA Test Plan
 
 Last updated: 2026-10-11 (Europe/Paris).
 

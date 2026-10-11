@@ -57,7 +57,7 @@ android {
     }
     sourceSets {
         getByName("main") {
-            assets.srcDir("../third_party/wireguard-install/tunnl")
+            assets.srcDir("../third_party/wireguard-install/vpn0wn")
         }
     }
     lint {
