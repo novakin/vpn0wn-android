@@ -58,6 +58,12 @@ grep -n '^# Modified for vpn0wn\.$' gradlew
 
 Confirm exactly one notice in the leading header and preserve the generated copyright, complete Apache text and SPDX identifier. This comment does not modify the wrapper JAR. Verify the distribution and JAR against [official release checksums](https://gradle.org/release-checksums/). Preserve the existing Unix-only launcher scope; generation of an optional batch launcher does not establish native Windows build support. Rollback restores all three tracked wrapper artifacts together. [#70](https://github.com/novakin/vpn0wn-android/issues/70) owns final-head repository/CI acceptance; wrapper generation and `--version` alone do not discharge it.
 
+## Translation resource imports
+
+[Upstream Crowdin](https://crowdin.com/project/WireGuard) supplies WireGuard translations; it does not establish vpn0wn-specific synchronization. The unchanged [sync script](../sync-crowdin.sh) extracts directly into `ui/src/main/res` and removes resource directories whose `strings.xml` resource set is empty. Run an upstream archive import only in a scratch checkout or extraction location, never directly over the active fork resources.
+
+Intentionally merge selected resource changes through a scoped PR. Preserve fork-specific keys and values, placeholders, locale qualifiers, fallback behavior and intended removals. Retain or reapply the exact `<!-- Modified for vpn0wn. -->` comment immediately after the original XML declaration in changed inherited string files, including after manual translation edits. Keep the declaration first and do not translate the notice. Review the complete resource diff, check XML/resource and placeholder validity, and confirm the leading notice survives in every affected inherited file. [Source attribution](license-attribution.md#fork-source-notices) owns the notice scope; [QA guidance](qa-test-plan.md) owns affected presentation checks. Importing translations does not establish runtime or full localization acceptance.
+
 ## Brand artwork export
 
 The [approved artwork source](assets/vpnown-brand/README.md#android-export) owns deterministic Android export. Run its locked `npm ci`, then `node docs/assets/vpnown-brand/generate.mjs --android` from the repository root when changing approved geometry or outlines. The opt-in export updates existing launcher/tile/TV resources and Home artwork; default generation leaves Android resources untouched. Retain generated resources and Sora attribution together. Export does not build an APK or change installed identity.
