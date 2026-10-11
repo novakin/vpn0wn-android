@@ -61,6 +61,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **Known inherited source modification notices — #71 bounded slice (2026-10-11, Europe/Paris)**
+  Root `NOTICE` identifies the modified fork and contributions without changing component terms. Leading comments in 120 directly inherited changed/renamed Apache files and three traced split carriers state `Modified for vpn0wn.`; original copyright/SPDX/full license text remains. `tunnelhandles.go` and `uapiserver/server.go` restore the exact original Jason header from `api-android.go`; `LogLineParser.kt` keeps its original WireGuard LLC attribution. The [attribution guide](license-attribution.md#fork-source-notices) distinguishes this known-source slice from remaining provenance/object/copyleft/font gates; [wrapper guidance](development.md#gradle-981-compatibility-and-upgrade-notes) reapplies the separate launcher comment after official regeneration. Executable bodies, wrapper binaries, unchanged/deleted carriers, external gitlinks, MIT outputs/provisioning, fonts and offline license payload are unchanged. No APK/device/live or complete distribution acceptance is supplied.
+
 - **Native private identities — #71 mechanical follow-up (2026-10-11, Europe/Paris)**
   `cmd/wireguard-overlay/main.go` renames generated handshake constants and three virtual fixture names; `tests/boundif_test.go`, `tests/protection_test.go` and `tests/handshake_test.go` rename ten tests and private helpers. `test-host.sh` updates both matching selectors. Twenty-two identities and two selectors change across five files; event numbers, generated behavior, upstream pins, module cache, protocol/JNI/library identities and tracked test basenames are preserved. The identity contract and [source checks](qa-test-plan.md#source-and-application-namespace-checks--71) own compatibility and proof; this adds no APK/device or performance result.
 

@@ -96,6 +96,6 @@ Upstream WireGuard uses its [Crowdin translation project](https://crowdin.com/pr
 
 ## Licensing and attribution
 
-Keep the source [COPYING](COPYING), [font attribution](docs/font-attribution.md) and [vendored provisioning reference/license](third_party/wireguard-install/UPSTREAM.md) with their components. Preserve upstream attribution when building or distributing a fork.
+Keep the source [COPYING](COPYING), informational fork [NOTICE](NOTICE), [font attribution](docs/font-attribution.md) and [vendored provisioning reference/license](third_party/wireguard-install/UPSTREAM.md) with their components. Preserve upstream attribution when building or distributing a fork. [Source modification notices](docs/license-attribution.md#fork-source-notices) identify the verified inherited and extracted files; remaining provenance and actual distribution gates stay open.
 
 Settings → About → Licenses & credits supplies offline full notice/license text; the version row opens the same screen. [Software attribution](docs/license-attribution.md) records coverage, source-copy provenance and pending artifact/corresponding-source obligations. Upstream donations are removed; #71's coordinated identity/migration work remains incomplete.
