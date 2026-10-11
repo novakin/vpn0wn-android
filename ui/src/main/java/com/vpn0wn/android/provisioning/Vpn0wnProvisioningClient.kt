@@ -106,7 +106,7 @@ class Vpn0wnProvisioningClient(
     }
 
     companion object {
-        private const val TAG = "WireGuard/Provisioning"
+        private const val TAG = "vpn0wn/Provisioning"
     }
 }
 

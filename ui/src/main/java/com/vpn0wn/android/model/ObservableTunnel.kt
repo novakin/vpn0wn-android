@@ -257,6 +257,6 @@ class ObservableTunnel internal constructor(
 
 
     companion object {
-        private const val TAG = "WireGuard/ObservableTunnel"
+        private const val TAG = "vpn0wn/ObservableTunnel"
     }
 }

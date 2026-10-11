@@ -66,7 +66,7 @@ func init() {
 					n--
 				}
 				buf[n] = 0
-				C.__android_log_write(C.ANDROID_LOG_ERROR, cstring("WireGuard/GoBackend/Stacktrace"), (*C.char)(unsafe.Pointer(&buf[0])))
+				C.__android_log_write(C.ANDROID_LOG_ERROR, cstring("vpn0wn/GoBackend/Stacktrace"), (*C.char)(unsafe.Pointer(&buf[0])))
 			}
 		}
 	}()
@@ -76,7 +76,7 @@ func init() {
 func wgTurnOn(interfaceName string, tunFd int32, settings string, context *C.struct_wg_context, env *C.JNIEnv) int32 {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	tag := cstring("WireGuard/GoBackend/" + interfaceName)
+	tag := cstring("vpn0wn/GoBackend/" + interfaceName)
 	logger := &device.Logger{
 		Verbosef: AndroidLogger{level: C.ANDROID_LOG_DEBUG, tag: tag}.Printf,
 		Errorf:   AndroidLogger{level: C.ANDROID_LOG_ERROR, tag: tag}.Printf,

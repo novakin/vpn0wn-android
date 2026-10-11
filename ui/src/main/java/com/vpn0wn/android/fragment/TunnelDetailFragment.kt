@@ -34,7 +34,7 @@ import kotlinx.coroutines.launch
 class TunnelDetailFragment : BaseFragment(), MenuProvider {
 
     companion object {
-        private const val TAG = "WireGuard/TunnelDetailFragment"
+        private const val TAG = "vpn0wn/TunnelDetailFragment"
     }
     private var binding: TunnelDetailFragmentBinding? = null
     private var lastState: Tunnel.State? = null
