@@ -481,6 +481,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
+- [x] **Rooted renamed-debug credits proof — scoped runtime, 2026-10-11:** [The acceptance record](reviews/2026-10-11-rooted-credits-acceptance.md) verifies the current 29 complete serialized notices, first/final physical focus output and actual credits header Back with restoration. It reused `15eb2523` and bypassed normal Settings/version entry; the full matrix, spoken accessibility, clipboard and broader #34/#71 acceptance remain separate. No layout/style change or complete Home acceptance is supplied.
+
 - **Offline fork notice (2026-10-11):** Licenses & credits begins with an exact copy of root `NOTICE` in the existing selectable whole-notice renderer; prior notices, layout, fonts and palette remain unchanged. [Attribution](license-attribution.md) owns source/artifact limits.
 
 - [x] **Native private naming — #71 (2026-10-11, Europe/Paris):** Generated handshake identifiers, virtual test overlays, ten test names/helpers and both host selectors use vpn0wn. Wire/event behavior and all UI output remain unchanged; this source slice supplies no new installed or physical proof.

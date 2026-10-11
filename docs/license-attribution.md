@@ -12,6 +12,8 @@ Keyboard-focused notices retain their normal text contrast and display a cyan ou
 
 ## Notice sources and coverage
 
+[Rooted renamed-debug credits acceptance](reviews/2026-10-11-rooted-credits-acceptance.md) adds physical traversal of all 29 complete serialized notice nodes, readable first/final focused credits output and actual header Back, with checked preservation and owned cleanup. It reused the exact audited `15eb2523` debug artifact. Direct private-activity entry deliberately bypassed Settings/version navigation; spoken accessibility, clipboard, the full output matrix and distribution obligations remain separate gates. This scoped run does not close #71 or supersede earlier artifact/runtime records.
+
 | Component | Terms and offline notice source |
 | --- | --- |
 | Android application/JNI | Root Apache 2.0 `COPYING`; original WireGuard LLC copyright. |
