@@ -103,6 +103,6 @@ class FileConfigStore(private val context: Context) : ConfigStore {
     }
 
     companion object {
-        private const val TAG = "WireGuard/FileConfigStore"
+        private const val TAG = "vpn0wn/FileConfigStore"
     }
 }

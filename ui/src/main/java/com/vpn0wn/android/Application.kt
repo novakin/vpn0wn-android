@@ -148,8 +148,8 @@ class Application : android.app.Application() {
     }
 
     companion object {
-        val USER_AGENT = String.format(Locale.ENGLISH, "WireGuard/%s (Android %d; %s; %s; %s %s; %s; %s)", BuildConfig.VERSION_NAME, Build.VERSION.SDK_INT, if (Build.SUPPORTED_ABIS.isNotEmpty()) Build.SUPPORTED_ABIS[0] else "unknown ABI", Build.BOARD, Build.MANUFACTURER, Build.MODEL, Build.FINGERPRINT, BuildConfig.APPLICATION_ID)
-        private const val TAG = "WireGuard/Application"
+        val USER_AGENT = String.format(Locale.ENGLISH, "vpn0wn/%s (Android %d; %s; %s; %s %s; %s; %s)", BuildConfig.VERSION_NAME, Build.VERSION.SDK_INT, if (Build.SUPPORTED_ABIS.isNotEmpty()) Build.SUPPORTED_ABIS[0] else "unknown ABI", Build.BOARD, Build.MANUFACTURER, Build.MODEL, Build.FINGERPRINT, BuildConfig.APPLICATION_ID)
+        private const val TAG = "vpn0wn/Application"
         private lateinit var weakSelf: WeakReference<Application>
 
         fun get(): Application {

@@ -116,7 +116,7 @@ class VpsServerStore(private val dataStore: DataStore<Preferences>) {
         private const val DEFAULT_SSH_PORT = 22
         private const val MAX_PORT_NUMBER = 65_535
         private const val TRANSFER_FIELD_COUNT = 16
-        private const val TAG = "WireGuard/VpsServerStore"
+        private const val TAG = "vpn0wn/VpsServerStore"
         internal val SERVERS = stringPreferencesKey("vps_servers")
 
         internal fun encodeServers(servers: List<StoredVpsServer>): String {

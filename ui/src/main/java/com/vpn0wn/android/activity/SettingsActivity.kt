@@ -119,7 +119,7 @@ class SettingsActivity : AppCompatActivity() {
                         UserKnobs.quickTileAdded.collect { added -> quickTile.isVisible = added != true }
                     } catch (_: IOException) {
                         quickTile.isVisible = false
-                        Log.w("WireGuard/Settings", "Unable to load quick tile membership")
+                        Log.w("vpn0wn/Settings", "Unable to load quick tile membership")
                     }
                 }
             }
@@ -406,10 +406,10 @@ class SettingsActivity : AppCompatActivity() {
 
         private fun showTransferFailure(incompleteRecovery: Boolean = false) {
             val message = if (incompleteRecovery) {
-                Log.e("WireGuard/Settings", "App data import recovery incomplete")
+                Log.e("vpn0wn/Settings", "App data import recovery incomplete")
                 R.string.app_data_transfer_recovery_error
             } else {
-                Log.e("WireGuard/Settings", "App data import failed")
+                Log.e("vpn0wn/Settings", "App data import failed")
                 R.string.app_data_transfer_error
             }
             val ownerView = view ?: return

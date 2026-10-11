@@ -123,6 +123,6 @@ abstract class BaseFragment : Fragment(), OnSelectedTunnelChangedListener {
     }
 
     companion object {
-        private const val TAG = "WireGuard/BaseFragment"
+        private const val TAG = "vpn0wn/BaseFragment"
     }
 }

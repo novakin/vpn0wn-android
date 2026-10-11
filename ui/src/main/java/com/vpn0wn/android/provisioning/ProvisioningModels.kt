@@ -43,7 +43,7 @@ data class ProvisioningCommandOutput(
     }
 
     companion object {
-        private const val TAG = "WireGuard/Provisioning"
+        private const val TAG = "vpn0wn/Provisioning"
     }
 }
 
@@ -359,5 +359,5 @@ object ProvisioningJson {
         throw ProvisioningException(message, category = ProvisioningFailureCategory.INVALID_RESPONSE)
     }
 
-    private const val TAG = "WireGuard/Provisioning"
+    private const val TAG = "vpn0wn/Provisioning"
 }

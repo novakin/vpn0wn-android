@@ -453,6 +453,6 @@ class TvMainActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val TAG = "WireGuard/TvMainActivity"
+        private const val TAG = "vpn0wn/TvMainActivity"
     }
 }

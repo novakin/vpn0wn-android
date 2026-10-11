@@ -168,6 +168,6 @@ class AppDataExporterPreference(context: Context, attrs: AttributeSet?) : Prefer
     }
 
     companion object {
-        private const val TAG = "WireGuard/AppDataExporter"
+        private const val TAG = "vpn0wn/AppDataExporter"
     }
 }

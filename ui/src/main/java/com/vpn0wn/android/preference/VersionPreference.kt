@@ -43,7 +43,7 @@ class VersionPreference(context: Context, attrs: AttributeSet?) : Preference(con
     }
 
     companion object {
-        private const val TAG = "WireGuard/VersionPreference"
+        private const val TAG = "vpn0wn/VersionPreference"
         private fun getBackendPrettyName(context: Context, backend: Backend) = when (backend) {
             is WgQuickBackend -> context.getString(R.string.type_name_kernel_module)
             is GoBackend -> context.getString(R.string.type_name_go_userspace)

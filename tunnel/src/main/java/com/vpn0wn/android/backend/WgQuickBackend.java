@@ -41,7 +41,7 @@ import androidx.annotation.Nullable;
 
 @NonNullForAll
 public final class WgQuickBackend implements Backend {
-    private static final String TAG = "WireGuard/WgQuickBackend";
+    private static final String TAG = "vpn0wn/WgQuickBackend";
     private final File localTemporaryDir;
     private final RootShell rootShell;
     private final Map<Tunnel, Config> runningConfigs = new HashMap<>();

@@ -103,6 +103,6 @@ class ZipExporterPreference(context: Context, attrs: AttributeSet?) : Preference
     }
 
     companion object {
-        private const val TAG = "WireGuard/ZipExporterPreference"
+        private const val TAG = "vpn0wn/ZipExporterPreference"
     }
 }
