@@ -481,6 +481,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
+- **Offline fork notice (2026-10-11):** Licenses & credits begins with an exact copy of root `NOTICE` in the existing selectable whole-notice renderer; prior notices, layout, fonts and palette remain unchanged. [Attribution](license-attribution.md) owns source/artifact limits.
+
 - [x] **Native private naming — #71 (2026-10-11, Europe/Paris):** Generated handshake identifiers, virtual test overlays, ten test names/helpers and both host selectors use vpn0wn. Wire/event behavior and all UI output remain unchanged; this source slice supplies no new installed or physical proof.
 
 - [x] **Localized resource keys — #71 mechanical follow-up, 2026-10-11:** 212 strings and two plurals now use `vpn0wn_*`, including XML/Kotlin/test consumers across the existing 36 default/locale files. All localized payloads, placeholders, quantities, qualifiers and fallback absence are preserved; only the two unused default/French subtitle declarations are removed. Layout, artwork, visual tokens, UI fonts and supported copy/actions are unchanged. [The identity contract](backend-contracts.md#application-and-source-identity--71) keeps remaining naming and artifact/device acceptance separate.
