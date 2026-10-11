@@ -116,6 +116,8 @@ Use ignored `.artifacts/worktrees/` for linked worktrees by default. Relocation 
 
 The improvement plan owns priorities/action states; issues own concrete acceptance, approval and dependencies; PRs own current change-specific acceptance. Read current issue/PR discussion during tracked work, not chat memory alone. Check duplicates before creating/updating an issue for concrete unresolved work within the authorized GitHub workflow. Include observed/expected behavior, impact, bounded scope, approval source/dependencies and observable acceptance. Avoid speculative backlog and separate issues for small fixes already completed in the PR. Recording a proposal does not approve implementation or excuse an in-scope blocker.
 
+Every PR references its owning issue(s), including partial delivery, documentation and maintenance follow-ups. Reuse an existing owner for bounded work; create an issue only for distinct untracked scope. A named maintainer request or plan action adds context and does not replace the issue reference. Keep retrospective references dated and distinguish later follow-up ownership from original acceptance. Non-closing references preserve incomplete acceptance under the rules below.
+
 Issues and PR discussions are absent from an ordinary clone. If GitHub is unavailable, report current action status as unverified and retain an explicitly unpublished handoff; do not infer an empty backlog or create a competing tracker. Handoff should identify acceptance, dependency/approval state and the next permitted action using local instructions plus authorized live reads.
 
 Commit coherent, reviewable behavior with its relevant tests and owning docs. Stage explicit paths or intentional hunks; review the staged file list and diff. Existing changes in a touched file require additional care: a whole-file stage can include unrelated work. Use Conventional Commits subjects where appropriate. Do not amend, rebase, reset or force-push unless requested.
@@ -140,7 +142,7 @@ Stacked PRs targeting a repair branch do not receive automatic Development/closi
 
 ### Description and acceptance
 
-Every PR, including drafts and API-created PRs, needs a meaningful description using the [PR template](../.github/PULL_REQUEST_TEMPLATE.md). Fill it before opening; an empty checklist is insufficient. Explain the problem/result, link the issue/action, identify scope/compatibility, owning and related documentation checked, actual commands/results/environment/skips and remaining risks. Update title/body when scope changes.
+Every PR, including drafts and API-created PRs, needs a meaningful description using the [PR template](../.github/PULL_REQUEST_TEMPLATE.md). Fill it before opening; an empty checklist is insufficient. Explain the problem/result, link the owning issue(s) and relevant plan/action context, identify scope/compatibility, owning and related documentation checked, actual commands/results/environment/skips and remaining risks. Update title/body when scope changes.
 
 Review the filled description before publishing: does it describe final behavior, link the right issue, name correct base/head, assess documentation meaning, record executed checks and disclose operational/verification limits? Remove stale prompts, placeholders and inapplicable sections. Completeness and accuracy are acceptance criteria; a subjective perfect score cannot replace evidence.
 
