@@ -9,10 +9,10 @@ import (
 	"testing"
 )
 
-func TestTunnlAndroidDescriptorsMissingFamilyAndClose(t *testing.T) {
+func TestVpn0wnAndroidDescriptorsMissingFamilyAndClose(t *testing.T) {
 	for _, family := range []string{"udp4", "udp6"} {
 		t.Run(family, func(t *testing.T) {
-			bind, err := NewTunnlTestFamilyBind(family)
+			bind, err := NewVpn0wnTestFamilyBind(family)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -40,7 +40,7 @@ func TestTunnlAndroidDescriptorsMissingFamilyAndClose(t *testing.T) {
 	}
 }
 
-func NewTunnlTestFamilyBind(family string) (*StdNetBind, error) {
+func NewVpn0wnTestFamilyBind(family string) (*StdNetBind, error) {
 	socket, err := net.ListenUDP(family, nil)
 	if err != nil {
 		return nil, err
@@ -54,7 +54,7 @@ func NewTunnlTestFamilyBind(family string) (*StdNetBind, error) {
 	return bind, nil
 }
 
-func TestTunnlAndroidDescriptorsUnopened(t *testing.T) {
+func TestVpn0wnAndroidDescriptorsUnopened(t *testing.T) {
 	bind := &StdNetBind{}
 	for _, peek := range []func() (int, error){bind.PeekLookAtSocketFd4, bind.PeekLookAtSocketFd6} {
 		if fd, err := peek(); fd != -1 || !errors.Is(err, syscall.EINVAL) {

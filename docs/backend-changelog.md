@@ -61,6 +61,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **Native private identities — #71 mechanical follow-up (2026-10-11, Europe/Paris)**
+  `cmd/wireguard-overlay/main.go` renames generated handshake constants and three virtual fixture names; `tests/boundif_test.go`, `tests/protection_test.go` and `tests/handshake_test.go` rename ten tests and private helpers. `test-host.sh` updates both matching selectors. Twenty-two identities and two selectors change across five files; event numbers, generated behavior, upstream pins, module cache, protocol/JNI/library identities and fixture filenames are preserved. The identity contract and [source checks](qa-test-plan.md#source-and-application-namespace-checks--71) own compatibility and proof; this adds no APK/device or performance result.
+
 - **First-party log tags and startup header — #71 bounded source follow-up (2026-10-11, Europe/Paris)**
   `Application.onCreate`/`USER_AGENT`, JVM log owners and native `api-android.go` logger/stacktrace producers replace only the `WireGuard/` product prefix with `vpn0wn/`: 35 production literals across 30 files. Existing suffixes, metadata, privacy/failure handling and the viewer's unrestricted tag capture/parser remain unchanged. Startup and actual producer controls check the current prefix; the parser retains legacy rows and accepts current JVM/native tags. [The identity contract](backend-contracts.md#application-and-source-identity--71) owns compatibility and source/binary/runtime limits; this slice adds no new logging layer or device/runtime claim.
 
