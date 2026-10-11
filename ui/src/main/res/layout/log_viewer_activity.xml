@@ -38,7 +38,7 @@
                 app:tint="@color/tunnl_ink_2" />
 
             <TextView
-                style="@style/TunnlLabelText"
+                style="@style/Vpn0wnLabelText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
@@ -131,35 +131,35 @@
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/filter_all"
-                style="@style/TunnlFilterChip"
+                style="@style/Vpn0wnFilterChip"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="ALL" />
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/filter_debug"
-                style="@style/TunnlFilterChip"
+                style="@style/Vpn0wnFilterChip"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="DEBUG" />
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/filter_info"
-                style="@style/TunnlFilterChip"
+                style="@style/Vpn0wnFilterChip"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="INFO" />
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/filter_warn"
-                style="@style/TunnlFilterChip"
+                style="@style/Vpn0wnFilterChip"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="WARN" />
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/filter_error"
-                style="@style/TunnlFilterChip"
+                style="@style/Vpn0wnFilterChip"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="ERROR" />

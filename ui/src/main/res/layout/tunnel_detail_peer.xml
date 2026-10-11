@@ -49,14 +49,14 @@
 
                 <TextView
                     android:id="@+id/peer_title"
-                    style="@style/TunnlLabelText"
+                    style="@style/Vpn0wnLabelText"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
                     android:text="PEER #01" />
 
                 <TextView
-                    style="@style/TunnlLabelText"
+                    style="@style/Vpn0wnLabelText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="PSK"
@@ -65,67 +65,67 @@
             </LinearLayout>
 
             <LinearLayout
-                style="@style/TunnlDetailRow"
+                style="@style/Vpn0wnDetailRow"
                 android:orientation="vertical">
 
                 <TextView
-                    style="@style/TunnlConfigRowLabel"
+                    style="@style/Vpn0wnConfigRowLabel"
                     android:text="PUBLIC KEY" />
 
                 <TextView
                     android:id="@+id/public_key_text"
-                    style="@style/TunnlConfigRowValue"
+                    style="@style/Vpn0wnConfigRowValue"
                     android:onClick="@{ClipboardUtils::copyTextView}"
                     android:text="@{BindingAdapters.shortKey(item.publicKey.toBase64)}"
                     tools:text="kLn9iJ…Nx5UI=" />
             </LinearLayout>
 
             <LinearLayout
-                style="@style/TunnlDetailRow"
+                style="@style/Vpn0wnDetailRow"
                 android:orientation="vertical"
                 android:visibility="@{!item.endpoint.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}">
 
                 <TextView
-                    style="@style/TunnlConfigRowLabel"
+                    style="@style/Vpn0wnConfigRowLabel"
                     android:text="ENDPOINT" />
 
                 <TextView
                     android:id="@+id/endpoint_text"
-                    style="@style/TunnlConfigRowValue"
+                    style="@style/Vpn0wnConfigRowValue"
                     android:onClick="@{ClipboardUtils::copyTextView}"
                     android:text="@{item.endpoint}"
                     tools:text="192.168.0.1:51820" />
             </LinearLayout>
 
             <LinearLayout
-                style="@style/TunnlDetailRow"
+                style="@style/Vpn0wnDetailRow"
                 android:orientation="vertical"
                 android:visibility="@{item.allowedIps.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}">
 
                 <TextView
-                    style="@style/TunnlConfigRowLabel"
+                    style="@style/Vpn0wnConfigRowLabel"
                     android:text="ALLOWED IPS" />
 
                 <TextView
                     android:id="@+id/allowed_ips_text"
-                    style="@style/TunnlConfigRowValue"
+                    style="@style/Vpn0wnConfigRowValue"
                     android:onClick="@{ClipboardUtils::copyTextView}"
                     android:text="@{item.allowedIps}"
                     tools:text="0.0.0.0/0, ::/0" />
             </LinearLayout>
 
             <LinearLayout
-                style="@style/TunnlDetailRow"
+                style="@style/Vpn0wnDetailRow"
                 android:orientation="vertical"
                 android:visibility="@{!item.persistentKeepalive.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}">
 
                 <TextView
-                    style="@style/TunnlConfigRowLabel"
+                    style="@style/Vpn0wnConfigRowLabel"
                     android:text="KEEPALIVE" />
 
                 <TextView
                     android:id="@+id/persistent_keepalive_text"
-                    style="@style/TunnlConfigRowValue"
+                    style="@style/Vpn0wnConfigRowValue"
                     android:onClick="@{ClipboardUtils::copyTextView}"
                     android:text="@{@plurals/persistent_keepalive_seconds_unit(item.persistentKeepalive.orElse(0), item.persistentKeepalive.orElse(0))}"
                     tools:text="every 25 seconds" />
@@ -153,14 +153,14 @@
                     android:orientation="vertical">
 
                     <TextView
-                        style="@style/TunnlConfigRowLabel"
+                        style="@style/Vpn0wnConfigRowLabel"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/tunnl_peer_rx_label" />
 
                     <TextView
                         android:id="@+id/rx_text"
-                        style="@style/TunnlMonoValueText"
+                        style="@style/Vpn0wnMonoValueText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:minHeight="48dp"
@@ -180,14 +180,14 @@
                     android:orientation="vertical">
 
                     <TextView
-                        style="@style/TunnlConfigRowLabel"
+                        style="@style/Vpn0wnConfigRowLabel"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="@string/tunnl_peer_tx_label" />
 
                     <TextView
                         android:id="@+id/tx_text"
-                        style="@style/TunnlMonoValueText"
+                        style="@style/Vpn0wnMonoValueText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:minHeight="48dp"
@@ -201,36 +201,36 @@
             </LinearLayout>
 
             <LinearLayout
-                style="@style/TunnlDetailRow"
+                style="@style/Vpn0wnDetailRow"
                 android:id="@+id/latest_handshake_row"
                 android:orientation="vertical"
                 android:visibility="@{BindingAdapters.peerHandshakeVisible(statistics) ? android.view.View.VISIBLE : android.view.View.GONE}">
 
                 <TextView
                     android:id="@+id/latest_handshake_label"
-                    style="@style/TunnlConfigRowLabel"
+                    style="@style/Vpn0wnConfigRowLabel"
                     android:text="@string/latest_handshake"
                     tools:visibility="visible" />
 
                 <TextView
                     android:id="@+id/latest_handshake_text"
-                    style="@style/TunnlConfigRowValue"
+                    style="@style/Vpn0wnConfigRowValue"
                     android:onClick="@{ClipboardUtils::copyTextView}"
                     android:text="@{BindingAdapters.peerHandshake(statistics)}"
                     tools:text="4 minutes ago"
                     tools:visibility="visible" />
             </LinearLayout>
             <LinearLayout
-                style="@style/TunnlDetailRow"
+                style="@style/Vpn0wnDetailRow"
                 android:orientation="vertical">
 
                 <TextView
-                    style="@style/TunnlConfigRowLabel"
+                    style="@style/Vpn0wnConfigRowLabel"
                     android:text="@string/tunnl_handshake_observation_label" />
 
                 <TextView
                     android:id="@+id/handshake_observation_text"
-                    style="@style/TunnlMonoValueText"
+                    style="@style/Vpn0wnMonoValueText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
@@ -241,16 +241,16 @@
             </LinearLayout>
 
             <LinearLayout
-                style="@style/TunnlDetailRow"
+                style="@style/Vpn0wnDetailRow"
                 android:orientation="vertical">
 
                 <TextView
-                    style="@style/TunnlConfigRowLabel"
+                    style="@style/Vpn0wnConfigRowLabel"
                     android:text="@string/tunnl_observed_endpoint_label" />
 
                 <TextView
                     android:id="@+id/observed_endpoint_text"
-                    style="@style/TunnlMonoValueText"
+                    style="@style/Vpn0wnMonoValueText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
@@ -261,16 +261,16 @@
             </LinearLayout>
 
             <LinearLayout
-                style="@style/TunnlDetailRow"
+                style="@style/Vpn0wnDetailRow"
                 android:orientation="vertical">
 
                 <TextView
-                    style="@style/TunnlConfigRowLabel"
+                    style="@style/Vpn0wnConfigRowLabel"
                     android:text="@string/tunnl_observed_address_family_label" />
 
                 <TextView
                     android:id="@+id/observed_address_family_text"
-                    style="@style/TunnlMonoValueText"
+                    style="@style/Vpn0wnMonoValueText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="2dp"
@@ -279,7 +279,7 @@
                     tools:text="IPv6" />
 
                 <TextView
-                    style="@style/TunnlMonoSubText"
+                    style="@style/Vpn0wnMonoSubText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="8dp"
