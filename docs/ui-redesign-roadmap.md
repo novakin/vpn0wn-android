@@ -92,6 +92,12 @@ Focused resource/native-graphics controls and the Home theme/size/large-text/RTL
 
 Placement review found Android's default keyboard-focus foreground highlight dimming selectable license text. `licenses_notice.xml` now uses a local focused background with the existing cyan accent and 4dp text clearance, preserving focus and selection without changing global colors. Native controls cover visible keyboard focus and unchanged text rendering; real platform focused/unfocused output remains a separate acceptance check.
 
+### Empty Home visible centering — 2026-10-11
+
+The maintainer requested centering the standalone Ø when no tunnels are configured. The existing `fillViewport` container centered its artwork/guidance group inside Material's larger scrolling extent, which includes header-collapse space below the visible viewport. `BindingAdapters.setHomeEmptyAppBar` now adjusts only the empty group's bottom padding as the header moves, keeping the artwork and guidance centered together between the visible header/status strip and fixed Add action. The existing 112dp symbol, 16dp guidance gap, colors, decorative accessibility role, focus treatment and native short-screen/large-text scrolling remain intact. Populated-list and selection behavior are unchanged.
+
+`HomeSelectionTest.emptyHomeGroupCentersInTheVisibleViewport` checks actual visible bounds with expanded, intermediate and collapsed headers in normal and 2× RTL portrait; existing short-landscape and focus controls retain their own coverage. Source checks, independently reviewed final head and actual Android output are required before delivery. This bounded correction does not complete #80's broader physical/TalkBack acceptance.
+
 ## Design System
 
 ### Typography
@@ -480,6 +486,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 ## Progress
 
 ### Done
+
+- [x] **Empty Home visible-centering source repair — #80, 2026-10-11:** the empty artwork/guidance group compensates for the remaining native header-collapse space through `BindingAdapters.setHomeEmptyAppBar`, preserving the fixed Add action and native scrolling/focus. [The scoped contract](#empty-home-visible-centering--2026-10-11) distinguishes source controls from actual Android and broader acceptance.
 
 - [x] **Rooted renamed-debug credits proof — scoped runtime, 2026-10-11:** [The acceptance record](reviews/2026-10-11-rooted-credits-acceptance.md) verifies the current 29 complete serialized notices, first/final physical focus output and actual credits header Back with restoration. It reused `15eb2523` and bypassed normal Settings/version entry; the full matrix, spoken accessibility, clipboard and broader #34/#71 acceptance remain separate. No layout/style change or complete Home acceptance is supplied.
 

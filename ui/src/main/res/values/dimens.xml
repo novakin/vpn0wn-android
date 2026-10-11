@@ -15,4 +15,5 @@
     <dimen name="vpn0wn_selection_text_inset">50dp</dimen>
     <dimen name="vpn0wn_home_title_size">26sp</dimen>
     <dimen name="vpnown_home_wordmark_height">22dp</dimen>
+    <dimen name="vpn0wn_home_empty_padding">12dp</dimen>
 </resources>

@@ -472,6 +472,38 @@ class HomeSelectionTest {
     }
 
     @Test @Config(sdk = [34]) @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun emptyHomeGroupCentersInTheVisibleViewport() = runHomeTest {
+        for (case in homePreviewCases().filter { it.height > it.width }) {
+            val direction = if (case.locale == "ar") "ldrtl" else "ldltr"
+            val night = if (case.night) "night" else "notnight"
+            RuntimeEnvironment.setQualifiers("${case.locale}-$direction-w${case.width}dp-h${case.height}dp-port-$night")
+            RuntimeEnvironment.setFontScale(case.scale)
+            val f = host()
+            try {
+                f.binding.homeAppBar.setExpanded(true, false)
+                layout(f.binding, case.width, case.height)
+                layout(f.binding, case.width, case.height)
+                assertEmptyStateCentered(f.binding, "${case.name}-expanded")
+
+                dragHomeHeader(f.binding, f.binding.homeAppBar.height / 2f)
+                layout(f.binding, case.width, case.height)
+                layout(f.binding, case.width, case.height)
+                assertTrue("${case.name}: partial header offset", f.binding.homeAppBar.top < 0)
+                assertTrue("${case.name}: header remains partly visible", f.binding.homeAppBar.bottom > 0)
+                assertEmptyStateCentered(f.binding, "${case.name}-partial")
+
+                f.binding.homeAppBar.setExpanded(false, false)
+                layout(f.binding, case.width, case.height)
+                layout(f.binding, case.width, case.height)
+                assertEmptyStateCentered(f.binding, "${case.name}-collapsed")
+            } finally {
+                f.controller.pause().stop().destroy()
+                controllers.remove(f.controller)
+            }
+        }
+    }
+
+    @Test @Config(sdk = [34]) @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun emptyHomeKeyboardFocusKeepsInstructionsReadableAndVisible() = runHomeTest {
         for (case in homePreviewCases()) {
             val direction = if (case.locale == "ar") "ldrtl" else "ldltr"
@@ -708,11 +740,23 @@ class HomeSelectionTest {
         assertEquals("$name complete height", view.height, bounds.height())
     }
 
-    private fun dragHomeHeader(binding: TunnelListFragmentBinding) {
+    private fun assertEmptyStateCentered(binding: TunnelListFragmentBinding, name: String) {
+        val viewport = Rect().also { assertTrue(binding.homeEmptyScroll.getGlobalVisibleRect(it)) }
+        val artwork = Rect().also { assertTrue(binding.logoPlaceholder.getGlobalVisibleRect(it)) }
+        val guidance = Rect().also { assertTrue(binding.homeEmptyPlaceholder.getGlobalVisibleRect(it)) }
+        assertFullyVisible(binding.logoPlaceholder, "$name: empty artwork")
+        assertFullyVisible(binding.homeEmptyPlaceholder, "$name: empty guidance")
+        assertEquals("$name: horizontally centered artwork", viewport.centerX(), artwork.centerX())
+        assertEquals("$name: vertically centered empty group", viewport.exactCenterY(),
+            (artwork.top + guidance.bottom) / 2f, 1f)
+        assertFullyVisible(binding.createFab, "$name: fixed Add")
+        save(binding.root, "empty-centered-$name")
+    }
+
+    private fun dragHomeHeader(binding: TunnelListFragmentBinding, distance: Float = binding.homeAppBar.height * 2f) {
         val container = binding.homeScrollContainer
         val density = container.resources.displayMetrics.density
         val startY = minOf(binding.homeAppBar.bottom, container.height) - 8 * density
-        val distance = binding.homeAppBar.height * 2f
         val downTime = SystemClock.uptimeMillis()
         fun dispatch(action: Int, elapsed: Long, y: Float) {
             val event = MotionEvent.obtain(downTime, downTime + elapsed, action, container.width / 2f, y, 0)
