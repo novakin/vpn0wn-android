@@ -15,10 +15,12 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Rule
@@ -54,8 +56,10 @@ class GoBackendLifecycleTest {
     @Test
     fun managerDisconnectsUserspaceTunnelWithoutLoadingUnreadableProfile() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        var environment: TunnelTestEnvironment? = null
         try {
             val env = TunnelTestEnvironment(folder.root, backgroundScope)
+            environment = env
             val profile = TunnelTestEnvironment.profile()
             env.store.configs["one"] = profile
             env.replaceBackend(backend)
@@ -76,7 +80,10 @@ class GoBackendLifecycleTest {
             assertTrue(env.store.loadAttempts.isEmpty())
             assertSame(profile, env.store.configs["one"])
         } finally {
-            Dispatchers.resetMain()
+            withContext(NonCancellable) {
+                environment?.close()
+                Dispatchers.resetMain()
+            }
         }
     }
 

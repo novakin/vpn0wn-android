@@ -19,7 +19,10 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.withContext
 
 internal class TunnelTestEnvironment(directory: File, scope: CoroutineScope) {
     val backend = ControlledBackend()
@@ -49,6 +52,10 @@ internal class TunnelTestEnvironment(directory: File, scope: CoroutineScope) {
 
     fun replaceBackend(backend: Backend) {
         setField("futureBackend", CompletableDeferred(backend))
+    }
+
+    suspend fun close() = withContext(NonCancellable) {
+        applicationScope.coroutineContext[Job]!!.cancelAndJoin()
     }
 
     class ControlledBackend : Backend {
