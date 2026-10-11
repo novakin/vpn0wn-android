@@ -94,6 +94,8 @@ See Android's [desugaring guidance](https://developer.android.com/studio/write/j
 
 Upstream WireGuard uses its [Crowdin translation project](https://crowdin.com/project/WireGuard). That service and this repository's upstream sync script are not evidence that vpn0wn-specific strings are synchronized there. Contribute fork-specific resource changes through a scoped PR, updating [default strings](ui/src/main/res/values/strings.xml), appropriate locales and affected [QA guidance](docs/qa-test-plan.md).
 
+Import upstream archives into a scratch location, then intentionally merge selected resources into the fork. Preserve fork-specific resource keys and values, placeholders, intended removals and each changed inherited file's leading `<!-- Modified for vpn0wn. -->` comment immediately after its XML declaration. Follow the [translation import workflow](docs/development.md#translation-resource-imports); direct upstream archive extraction can overwrite fork changes and notices.
+
 ## Licensing and attribution
 
 Keep the source [COPYING](COPYING), informational fork [NOTICE](NOTICE), [font attribution](docs/font-attribution.md) and [vendored provisioning reference/license](third_party/wireguard-install/UPSTREAM.md) with their components. Preserve upstream attribution when building or distributing a fork. [Source modification notices](docs/license-attribution.md#fork-source-notices) identify the verified inherited and extracted files; remaining provenance and actual distribution gates stay open.
