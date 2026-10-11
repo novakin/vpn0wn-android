@@ -23,7 +23,7 @@ The following recipe expresses the executed existing CMake configuration. Set `n
 ```bash
 native_source=/path/to/verified/reconstructed-source
 native_sdk=/path/to/android-sdk
-native_stage=$(mktemp -d /tmp/vpn0wn-native.XXXXXX)
+native_stage=$(mktemp -d /tmp/vpn0wn-native.XXXXXX) || exit
 native_ndk="$native_sdk/ndk/28.2.13676358"
 native_cmake="$native_sdk/cmake/3.22.1/bin/cmake"
 native_ninja="$native_sdk/cmake/3.22.1/bin/ninja"
