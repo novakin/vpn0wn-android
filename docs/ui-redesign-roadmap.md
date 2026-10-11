@@ -1,4 +1,4 @@
-# Tunnl UI Redesign Roadmap
+# vpn0wn UI Redesign Roadmap
 
 Last updated: 2026-10-11 (Europe/Paris).
 
@@ -615,7 +615,7 @@ This is a historical implementation ledger, not newly executed build/device proo
 
 ### Fidelity Gaps — Remaining
 
-- [~] **Remaining first-party identity names — #71:** Provisioning source-directory and current operator labels retain legacy names. Current app/native helpers, tests/selectors, localized keys, style/theme and private visual-resource keys/basenames, first-party log tags/startup header and export metadata/subjects identify vpn0wn. Remaining naming stays bounded follow-up. Retained WireGuard protocol/legal and persisted provisioning compatibility names have distinct reasons in [the identity contract](backend-contracts.md#application-and-source-identity--71).
+- [~] **Remaining first-party identity names — #71:** The destructive VPS harness still uses legacy operation-owned scratch prefixes and operator labels. Current app/native helpers, tests/selectors, localized keys, style/theme and private visual-resource keys/basenames, first-party log tags/startup header and export metadata/subjects identify vpn0wn. Remaining naming stays bounded follow-up. Retained WireGuard protocol/legal and persisted provisioning compatibility names have distinct reasons in [the identity contract](backend-contracts.md#application-and-source-identity--71).
 
 - [~] **Full app-data transfer actions — 2026-10-09:** Settings reuses its existing Data action-row layout/tokens and native biometric, document-picker and Material confirmation patterns. [Scoped authorized AVD proof](reviews/2026-10-09-app-data-transfer-acceptance.md) covers the inspected themes, sizes, large text, real RTL and native Downloads/PIN paths. Broader physical biometric/provider failures, TalkBack, translation and old/new-installation acceptance remain [#71 gates](qa-test-plan.md#full-app-data-transfer-acceptance).
 

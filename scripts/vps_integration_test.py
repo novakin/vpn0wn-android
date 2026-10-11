@@ -31,7 +31,7 @@ from typing import Any
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-SCRIPT_DIR = ROOT / "third_party" / "wireguard-install" / "tunnl"
+SCRIPT_DIR = ROOT / "third_party" / "wireguard-install" / "vpn0wn"
 
 
 class HarnessFailure(RuntimeError):
