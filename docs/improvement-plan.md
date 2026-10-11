@@ -50,10 +50,10 @@ Reference paths below identify sibling-repository material reviewed locally. The
 | --- | --- | --- |
 | `server-security-audit/AGENTS.md` | Ownership, explicit failures/cancellation/privacy/compatibility, scoped verification, documentation meaning and decision/history rules, live issue handoff and revision-specific PR acceptance. | Replace Python/scanner/report examples with Android/VPN/provisioning invariants. Use Europe/Paris for new records. Do not import its read-only runtime policy or blanket dependency-approval gate. |
 | `server-security-audit/docs/development.md` | Test ownership, environment/results/skips, additive metadata/readback, complete versus partial issue closure, current PR acceptance and missing-access disclosure. | Separate JVM, device/native-backend and server proof. Reuse existing WireGuard label names; do not copy Server-Audit CI, lab setup, branch enforcement or runtime policies. |
-| `server-security-audit/.github/pull_request_template.md` | Filled draft/API PR descriptions, owning/related documentation review, honest self-review and independent findings, approval/dependency and delivery limits. | Adapt the existing Tunnl template; do not add duplicate templates, bots or mutable metadata in prose. |
+| `server-security-audit/.github/pull_request_template.md` | Filled draft/API PR descriptions, owning/related documentation review, honest self-review and independent findings, approval/dependency and delivery limits. | Adapt the existing vpn0wn template; do not add duplicate templates, bots or mutable metadata in prose. |
 | `server-security-audit/docs/architecture.md`, `docs/roadmap.md`, `docs/report-format.md` | Data flow, consequential decisions, scope/start/acceptance/evidence, and precise success semantics. | Keep existing Android domain states; do not copy audit status enums or collector architecture. |
 | `VPS_Migration/mkdocs-site/docs/blueprints/` | Change record, QA checklist, incident and rollback structure where provisioning/recovery needs them. | Omit VPS metadata, badges, Nginx sections, monitoring catalogs and MkDocs infrastructure. |
-| `VPS_Migration/verify-docs.ps1` and drift validator | Fence validation, accumulated failures and useful status/evidence consistency checks. | Port only checks justified by Tunnl's documentation contract. A standalone link checker was not found in the searched sources. |
+| `VPS_Migration/verify-docs.ps1` and drift validator | Fence validation, accumulated failures and useful status/evidence consistency checks. | Port only checks justified by vpn0wn's documentation contract. A standalone link checker was not found in the searched sources. |
 | `Vpn0wn/docs/DEVELOPMENT.md` and Markdown lint configuration | Document ownership, prototype/runtime distinction, hygiene and command-exit handling. | Adapt lint rules; do not copy permissive settings blindly or install tooling merely for this plan. |
 | `Vpn0wn` persistence, WireGuard import and preflight tests | Cancellation, failed replacement, concurrent updates, IPv6/endpoints, config injection and failure-reason scenarios. | Translate behaviors into existing Android tests. Do not import its single-peer restriction, WinUI/MVVM, SQLite/DPAPI or WireSock implementation. |
 | `loft/docs/TESTING.md` | Accessibility/visual/fallback checklists and honest device-only proof limits. | Use Android sizes, font scales, RTL and supported themes. |
@@ -103,13 +103,13 @@ The revised contract must:
 - Preserve dirty worktrees, explicit-build/live-system restrictions, bounded command output and `Invoke-CodexQuiet` evidence handling.
 - State changed behavior/files, verification and residual risk at completion. Distinguish local work, commits, merges and releases.
 
-Acceptance: AGENTS.md is the sole project instruction file and active references/checks use it; every named path/command is valid; UI tasks retain JSX/token checks; functional tasks have an explicit route; no copied Server-Audit rule contradicts Tunnl behavior or existing authorization.
+Acceptance: AGENTS.md is the sole project instruction file and active references/checks use it; every named path/command is valid; UI tasks retain JSX/token checks; functional tasks have an explicit route; no copied Server-Audit rule contradicts vpn0wn behavior or existing authorization.
 
 ## D1 — Documentation ownership
 
 | Document | Ownership and planned change |
 | --- | --- |
-| [README.md](../README.md) | Entry point, current Tunnl capabilities and documentation index. Preserve upstream attribution; distinguish official WireGuard distribution links from this fork's delivery state. |
+| [README.md](../README.md) | Entry point, current vpn0wn capabilities and documentation index. Preserve upstream attribution; distinguish official WireGuard distribution links from this fork's delivery state. |
 | [Architecture](architecture.md) | Module ownership, UI/model/backend and provisioning data flows, persistence/privilege boundaries and consequential decisions with alternatives and limits. |
 | [Development](development.md) | Setup, repository-native checks, test ownership, contribution/merge workflow and dated verification evidence. |
 | [Operations](operations.md) | Import/connect/export, permissions, backend selection, diagnostics and recovery. Label incomplete VPS workflows accurately. |

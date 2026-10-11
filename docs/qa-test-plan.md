@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-11 (Europe/Paris).
 
-This document tracks the automated and manual QA coverage required for the Tunnl Android redesign.
+This document tracks the automated and manual QA coverage required for the vpn0wn Android redesign.
 
 The layer lists below are target requirements, not a passing coverage report. [Source-inspected coverage](#source-inspected-coverage) inventories current source, including explicitly identified pending changes; [development evidence](development.md#recorded-verification) records actual executions and their scope. The original documentation audit at `11d4a9b1` ran no runtime suites. #13 adds focused detail-fragment lifecycle tests; broader rendered-row, instrumented navigation and screenshot suites remain absent.
 
@@ -419,7 +419,7 @@ This roadmap covers the whole app, not only the VPS fleet. Do not move items fro
 ### Phase 3 — Add Visual And Smoke Coverage
 
 - Select the screenshot framework and add deterministic fixtures with fixed data and fixed font scale.
-- Add mandatory dark-mode goldens for redesigned screens because Tunnl is dark-first.
+- Add mandatory dark-mode goldens for redesigned screens because vpn0wn is dark-first.
 - Add RTL goldens for custom rows, rails, headers, overlays, and bottom sheets.
 - Add Espresso smoke coverage for home, detail, editor, logs, settings, add-tunnel sheet, VPS wizard navigation, QR overlay open/close, and unreachable VPS provisioning.
 

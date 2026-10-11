@@ -78,7 +78,7 @@ Switching the kernel/backend preference drains earlier transitions and shuts dow
 
 ## Android system VPN Settings
 
-For the userspace backend, open the system VPN action in Settings → Connection. Android VPN Settings owns Always-on VPN and “Block connections without VPN”; select this app and configure the available system controls there. Tunnl only opens that screen and observes this app's flags. It cannot enable these policies through an app preference. Return to Tunnl Settings to refresh the summary; observation does not start a service or request VPN permission.
+For the userspace backend, open the system VPN action in Settings → Connection. Android VPN Settings owns Always-on VPN and “Block connections without VPN”; select this app and configure the available system controls there. vpn0wn only opens that screen and observes this app's flags. It cannot enable these policies through an app preference. Return to vpn0wn Settings to refresh the summary; observation does not start a service or request VPN permission.
 
 | Runtime or restriction | Action and observed status |
 | --- | --- |
