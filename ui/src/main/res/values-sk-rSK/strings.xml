@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Modified for vpn0wn. -->
 <resources>
     <string name="all_applications">Všetky aplikácie</string>
     <string name="exclude_from_tunnel">Vylúč</string>
