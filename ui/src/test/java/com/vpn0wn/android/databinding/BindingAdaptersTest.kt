@@ -84,7 +84,7 @@ class BindingAdaptersTest {
         try {
             for (scale in listOf(1f, 2f)) {
                 RuntimeEnvironment.setFontScale(scale)
-                val header = TextView(context, null, 0, R.style.TunnlHomeHeaderText)
+                val header = TextView(context, null, 0, R.style.Vpn0wnHomeHeaderText)
                 header.setTextColor(context.getColor(R.color.tunnl_ink_3))
                 BindingAdapters.setHomeHeaderTunnels(header, emptyList())
                 val density = header.resources.displayMetrics.density

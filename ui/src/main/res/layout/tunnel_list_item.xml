@@ -94,7 +94,7 @@
 
             <TextView
                 android:id="@+id/tunnel_peer_badge"
-                style="@style/TunnlHomeSecondaryText"
+                style="@style/Vpn0wnHomeSecondaryText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textSize="11sp"
@@ -106,7 +106,7 @@
 
             <TextView
                 android:id="@+id/tunnel_name"
-                style="@style/TunnlHomeTunnelNameText"
+                style="@style/Vpn0wnHomeTunnelNameText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="3dp"
@@ -116,7 +116,7 @@
                 tools:text="@sample/interface_names.json/names/names/name" />
 
             <TextView
-                style="@style/TunnlMonoSubText"
+                style="@style/Vpn0wnMonoSubText"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="3dp"
@@ -174,13 +174,13 @@
                     android:paddingBottom="8dp">
 
                     <TextView
-                        style="@style/TunnlLabelText"
+                        style="@style/Vpn0wnLabelText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/tunnl_in" />
 
                     <TextView
-                        style="@style/TunnlHomeStatValueText"
+                        style="@style/Vpn0wnHomeStatValueText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
@@ -188,7 +188,7 @@
                         tools:text="19.8 MB" />
 
                     <TextView
-                        style="@style/TunnlMonoSubText"
+                        style="@style/Vpn0wnMonoSubText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@{BindingAdapters.tunnelRxRate(item, item.statistics)}"
@@ -211,13 +211,13 @@
                     android:paddingBottom="8dp">
 
                     <TextView
-                        style="@style/TunnlLabelText"
+                        style="@style/Vpn0wnLabelText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/tunnl_out" />
 
                     <TextView
-                        style="@style/TunnlHomeStatValueText"
+                        style="@style/Vpn0wnHomeStatValueText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
@@ -225,7 +225,7 @@
                         tools:text="973 KB" />
 
                     <TextView
-                        style="@style/TunnlMonoSubText"
+                        style="@style/Vpn0wnMonoSubText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@{BindingAdapters.tunnelTxRate(item, item.statistics)}"
@@ -248,13 +248,13 @@
                     android:paddingBottom="8dp">
 
                     <TextView
-                        style="@style/TunnlLabelText"
+                        style="@style/Vpn0wnLabelText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/tunnl_last_handshake" />
 
                     <TextView
-                        style="@style/TunnlHomeStatValueText"
+                        style="@style/Vpn0wnHomeStatValueText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"

@@ -129,13 +129,13 @@ Placement review found Android's default keyboard-focus foreground highlight dim
 
 | Style | Size | Font | Color |
 |-------|------|------|-------|
-| `TunnlLabelText` | 10sp | JetBrains Mono | `tunnl_ink_3` |
-| `TunnlMonoValueText` | 15sp | JetBrains Mono | `tunnl_ink` |
-| `TunnlMonoSubText` | 10sp | JetBrains Mono | `tunnl_ink_3` |
-| `TunnlConfigRowLabel` | 10sp | JetBrains Mono | `tunnl_ink_3` |
-| `TunnlConfigRowValue` | 13sp | JetBrains Mono | `tunnl_ink`, single-line, ellipsize end |
-| `TunnlEditorField` | 13sp | JetBrains Mono | `tunnl_ink`, no background |
-| `TunnlEditorFieldReadOnly` | 13sp | JetBrains Mono | `tunnl_ink_3`, not focusable |
+| `Vpn0wnLabelText` | 10sp | JetBrains Mono | `tunnl_ink_3` |
+| `Vpn0wnMonoValueText` | 15sp | JetBrains Mono | `tunnl_ink` |
+| `Vpn0wnMonoSubText` | 10sp | JetBrains Mono | `tunnl_ink_3` |
+| `Vpn0wnConfigRowLabel` | 10sp | JetBrains Mono | `tunnl_ink_3` |
+| `Vpn0wnConfigRowValue` | 13sp | JetBrains Mono | `tunnl_ink`, single-line, ellipsize end |
+| `Vpn0wnEditorField` | 13sp | JetBrains Mono | `tunnl_ink`, no background |
+| `Vpn0wnEditorFieldReadOnly` | 13sp | JetBrains Mono | `tunnl_ink_3`, not focusable |
 
 ---
 
@@ -481,6 +481,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
+- [x] **Current style/theme names — #71 mechanical follow-up, 2026-10-11:** 22 app-owned `Tunnl*` style identifiers now use `Vpn0wn*`; the former `WireGuardTheme` base and its five children use `Vpn0wnTheme*`. Layout consumers, explicit internal parents and the binding-test reference follow those names. Existing visual values, external Material parents, lower-case resource keys/basenames, UI font roles and day/night behavior are unchanged. [The identity contract](backend-contracts.md#application-and-source-identity--71) retains remaining naming and artifact/device acceptance boundaries; earlier evidence keeps its tested revision.
+
 - [x] Optional scripting-tools state guidance — #71 (2026-10-11): `ToolsInstallerPreference` distinguishes compatible reuse, Magisk staging/reboot, disabled conflict refusal and retryable observation failure; direct-system install states/resources are retired. Existing native row layout, styling and private kernel tools remain unchanged. [Operations](operations.md#optional-command-line-tools) owns handling and [QA](qa-test-plan.md#root-tools-coexistence-acceptance) owns pending output/root acceptance. The integrated owner admits only the selected release/debug IDs and retains exact-byte compatibility; this refresh records no new APK or rendered-device proof and does not complete the rename.
 
 - [x] **Export identity names — #71 bounded source follow-up, 2026-10-11:** profile ZIP/log metadata use `vpn0wn-export.zip`/`vpn0wn-log.txt`, and all localized log-share subjects identify `vpn0wn`. [The identity contract](backend-contracts.md#application-and-source-identity--71) retains compatibility and actual chooser/storage-provider/artifact acceptance boundaries; layout, tokens and feedback presentation are unchanged.
@@ -607,7 +609,7 @@ This is a historical implementation ledger, not newly executed build/device proo
 
 ### Fidelity Gaps — Remaining
 
-- [~] **Remaining first-party identity names — #71:** Resource/style keys and product log tags retain legacy names. Current helpers and export metadata/subjects identify vpn0wn; resource/log naming remains bounded follow-up. Retained WireGuard protocol/legal and persisted provisioning compatibility names have distinct reasons in [the identity contract](backend-contracts.md#application-and-source-identity--71).
+- [~] **Remaining first-party identity names — #71:** Other resource keys/basenames and product log tags retain legacy names. Current helpers, style/theme keys and export metadata/subjects identify vpn0wn; remaining resource/log naming stays bounded follow-up. Retained WireGuard protocol/legal and persisted provisioning compatibility names have distinct reasons in [the identity contract](backend-contracts.md#application-and-source-identity--71).
 
 - [~] **Full app-data transfer actions — 2026-10-09:** Settings reuses its existing Data action-row layout/tokens and native biometric, document-picker and Material confirmation patterns. [Scoped authorized AVD proof](reviews/2026-10-09-app-data-transfer-acceptance.md) covers the inspected themes, sizes, large text, real RTL and native Downloads/PIN paths. Broader physical biometric/provider failures, TalkBack, translation and old/new-installation acceptance remain [#71 gates](qa-test-plan.md#full-app-data-transfer-acceptance).
 
@@ -642,7 +644,7 @@ This is a historical implementation ledger, not newly executed build/device proo
 - [ ] Add Share button to detail toolbar (Edit icon already exists — place Share + More alongside it in the redesigned TopBar above).
 - [ ] Add More button to detail toolbar: add `ic_tunnl_more` drawable (vertical `⋮`, 3 dots); wire to `MoreSheet`.
 - [ ] **Status card subtitle = session timer** — JSX shows `session MM:SS` counting up from when the tunnel went UP (`LiveTimer` component, 1s interval). Android `setDetailStatusSubtitleTunnel` shows `tunnelHandshake()` = handshake age. Different data. Implementation: track `tunnelUpSince: Long?` in `TunnelDetailFragment`; set to `SystemClock.elapsedRealtime()` when `tunnel.state` transitions to `UP`; launch a 1s coroutine in `onResume` that formats `(now - tunnelUpSince)` as `MM:SS` and sets `binding.tunnelStatusSubtitle.text = "session $formatted"`; cancel in `onPause`. When not UP, fall back to current `setDetailStatusSubtitleTunnel` binding.
-- [ ] **Copy icon button UX** — JSX `ConfigRow` with `copy` prop renders a dedicated 28×28 icon button (right-aligned) that flashes `tunnl_signal` background for 1100ms on press. Android uses `ClipboardUtils::copyTextView` on the value `TextView` itself (no visual indicator). Consider adding a small copy icon `ImageView` to `TunnlDetailRow` style rows or at minimum a ripple + `Vpn0wnSnackbar` confirmation consistent with existing snackbar styling.
+- [ ] **Copy icon button UX** — JSX `ConfigRow` with `copy` prop renders a dedicated 28×28 icon button (right-aligned) that flashes `tunnl_signal` background for 1100ms on press. Android uses `ClipboardUtils::copyTextView` on the value `TextView` itself (no visual indicator). Consider adding a small copy icon `ImageView` to `Vpn0wnDetailRow` style rows or at minimum a ripple + `Vpn0wnSnackbar` confirmation consistent with existing snackbar styling.
 - [ ] **PSK badge lock icon** — `tunnel_detail_peer.xml` shows plain `PSK` text. JSX shows `<IconLock size={10}/> PSK` pill badge. Add `ic_tunnl_lock` (or use existing Material lock drawable) as a leading `ImageView` inside the PSK badge container.
 - [ ] `MoreSheet` bottom sheet (see §8).
 - [ ] `ShareSheet` bottom sheet (see §8).
