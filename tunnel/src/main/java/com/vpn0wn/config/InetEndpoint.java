@@ -55,13 +55,18 @@ public final class InetEndpoint {
         }
         if (uri.getPort() < 0 || uri.getPort() > 65535)
             throw new ParseException(InetEndpoint.class, endpoint, "Missing/invalid port number");
+        final String uriHost = uri.getHost();
+        String numericHost = uriHost;
+        // URI retains IPv6 brackets; Android's numeric parser expects the bare address.
+        if (numericHost.startsWith("[") && numericHost.endsWith("]"))
+            numericHost = numericHost.substring(1, numericHost.length() - 1);
         try {
-            InetAddresses.parse(uri.getHost());
+            InetAddresses.parse(numericHost);
             // Parsing ths host as a numeric address worked, so we don't need to do DNS lookups.
-            return new InetEndpoint(uri.getHost(), true, uri.getPort());
+            return new InetEndpoint(numericHost, true, uri.getPort());
         } catch (final ParseException ignored) {
             // Failed to parse the host as a numeric address, so it must be a DNS hostname/FQDN.
-            return new InetEndpoint(uri.getHost(), false, uri.getPort());
+            return new InetEndpoint(uriHost, false, uri.getPort());
         }
     }
 

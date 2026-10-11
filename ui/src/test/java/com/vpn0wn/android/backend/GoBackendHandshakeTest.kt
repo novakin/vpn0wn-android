@@ -6,7 +6,9 @@ import android.os.Looper
 import android.os.ParcelFileDescriptor
 import androidx.test.core.app.ApplicationProvider
 import com.vpn0wn.config.Config
+import com.vpn0wn.config.InetEndpointTest
 import com.vpn0wn.crypto.Key
+import java.lang.reflect.InvocationTargetException
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -32,7 +34,7 @@ import org.robolectric.shadows.ShadowParcelFileDescriptor
 @RunWith(RobolectricTestRunner::class)
 @RobolectricConfig(application = Application::class, sdk = [36], shadows = [GoBackendHandshakeTest.NativeShadow::class,
     GoBackendHandshakeTest.BuilderShadow::class, GoBackendHandshakeTest.DescriptorShadow::class,
-    GoBackendLifecycleTest.LibraryShadow::class])
+    GoBackendLifecycleTest.LibraryShadow::class, InetEndpointTest.NumericAddressShadow::class])
 @LooperMode(LooperMode.Mode.PAUSED)
 class GoBackendHandshakeTest {
     @get:Rule val folder = TemporaryFolder()
@@ -103,6 +105,23 @@ class GoBackendHandshakeTest {
         NativeShadow.startup = { owner, id -> capture(owner, id, peer, 4); -1 }
         assertThrows(BackendException::class.java) { backend.setState(tunnel, Tunnel.State.UP, profile()) }
         shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(sessions.isEmpty())
+        assertTrue(observations.isEmpty())
+    }
+
+    @Test fun invalidNativeHostnameFailsStartupWithoutPublishingStagedState() {
+        NativeShadow.startup = { owner, id ->
+            capture(owner, id, peer, 4)
+            capture(owner, id, peer, 1, endpoint = "vpn.example.invalid:51820")
+            7
+        }
+        val failure = assertThrows(InvocationTargetException::class.java) {
+            backend.setState(tunnel, Tunnel.State.UP, profile())
+        }
+        assertTrue(failure.cause is IllegalArgumentException)
+        assertEquals("Invalid native numeric endpoint", failure.cause?.message)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(Tunnel.State.DOWN, backend.getState(tunnel))
         assertTrue(sessions.isEmpty())
         assertTrue(observations.isEmpty())
     }
