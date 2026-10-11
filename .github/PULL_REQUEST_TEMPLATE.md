@@ -1,17 +1,20 @@
-<!-- Template last updated: 2026-10-07 (Europe/Paris). -->
+<!-- Template last updated: 2026-10-11 (Europe/Paris). -->
 
 ## Problem and resulting behavior
 
-Explain the problem and what users/operators observe after this change. Link the issue or improvement-plan ID.
+Explain the problem and what users/operators observe after this change. Link the owning issue(s); add the improvement-plan ID when relevant.
 
 Fill this description before opening the PR, including a draft. Update the title and description when scope changes. Remove prompts and inapplicable sections from the final description; do not submit an empty template.
 
 ## Tracking
 
-- Linked issue or action:
+- Owning issue(s):
+- Plan/action context, when relevant:
 - Base and head branches:
 
 Use closing keywords only when merge fulfils the issue's complete acceptance boundary; use non-closing references for partial work. Set actual GitHub labels and assignee explicitly, preserving deliberate assignments and unrelated labels; metadata fields are authoritative. This template does not apply them automatically. Keep text free of connector/generated-by attribution.
+
+Reuse existing issue owners for bounded follow-ups, including documentation and maintenance. Create an issue only for distinct untracked work; a named action does not replace an issue reference.
 
 ## Scope and compatibility
 
