@@ -61,6 +61,8 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **Offline fork NOTICE and font byte identity — #71 (2026-10-11, Europe/Paris):** `licenses/credits.txt` prepends the exact informational root NOTICE; `LicensesActivityTest` covers source-copy and complete accessibility-node text through the existing renderer. All earlier credits, fonts and component terms retain their bytes. [Font attribution](font-attribution.md#verified-upstream-binary-identity--2026-10-11) records exact official binary matches; original acquisition/source-build and artifact/distribution gates remain distinct.
+
 - **Known inherited source modification notices — #71 bounded slice (2026-10-11, Europe/Paris)**
   Root `NOTICE` identifies the modified fork and contributions without changing component terms. Leading comments in 120 directly inherited changed/renamed Apache files and three traced split carriers state `Modified for vpn0wn.`; original copyright/SPDX/full license text remains. `tunnelhandles.go` and `uapiserver/server.go` restore the exact original Jason header from `api-android.go`; `LogLineParser.kt` keeps its original WireGuard LLC attribution. The [attribution guide](license-attribution.md#fork-source-notices) distinguishes this known-source slice from remaining provenance/object/copyleft/font gates; [wrapper guidance](development.md#gradle-981-compatibility-and-upgrade-notes) reapplies the separate launcher comment after official regeneration. Executable bodies, wrapper binaries, unchanged/deleted carriers, external gitlinks, MIT outputs/provisioning, fonts and offline license payload are unchanged. No APK/device/live or complete distribution acceptance is supplied.
 

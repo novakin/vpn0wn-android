@@ -1,3 +1,23 @@
+vpn0wn fork notice
+=================
+vpn0wn — WireGuard Android fork
+https://github.com/novakin/vpn0wn-android
+
+vpn0wn contains modifications maintained by novakin and project contributors.
+It is a modified fork of WireGuard Android.
+
+Original WireGuard LLC and Jason A. Donenfeld attribution is retained in the
+applicable source files and component notices. Their upstream work is not
+claimed as the fork maintainer's work.
+
+The Android application and JNI source retain their applicable Apache License
+2.0 terms in COPYING and source headers. WireGuard dependencies, native tools,
+fonts, provisioning code and other components retain their own license terms.
+Component notices and provenance are described in docs/license-attribution.md,
+docs/font-attribution.md and third_party/wireguard-install/UPSTREAM.md.
+
+This NOTICE is informational and does not change any component's license.
+
 WireGuard Android
 =================
 Copyright © 2017-2025 WireGuard LLC. All Rights Reserved.
