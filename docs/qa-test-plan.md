@@ -1,6 +1,6 @@
 # vpn0wn QA Test Plan
 
-Last updated: 2026-10-11 (Europe/Paris).
+Last updated: 2026-10-12 (Europe/Paris).
 
 This document tracks the automated and manual QA coverage required for the vpn0wn Android redesign.
 
@@ -536,6 +536,10 @@ These are required regression tests, but they must not be counted as active cove
 - Password/session secret is cleared by the real credential store after Keystore-backed storage exists.
 - Rotation preserves VPS wizard step and form state after saved-state support is implemented.
 - Generated peer config imports into the tunnel manager after add-peer import wiring exists.
+
+## Scoped physical empty-Home centering — #80
+
+The [2026-10-12 rooted phone record](reviews/2026-10-12-rooted-home-centering.md) adds actual empty-state output on Pixel 7 Pro/API 34 from the verified current-master debug APK. Fitting groups center within 0.5px across the recorded normal/2×, portrait/landscape, header and app-scoped RTL/night/day states; the Add target remains 48dp. Expanded 2× RTL landscape requires native header collapse to reveal complete guidance. Nine accepted frames retain their actual configuration; a mislabeled requested expansion and a too-early restart capture are explicitly scoped. Eleven original settings, the empty app-locale override and four legacy private-file hashes were verified after restoration, with the new APK retained alongside the legacy app. This establishes no populated selection/deletion, migration, spoken accessibility, provider, VPN/protocol or energy acceptance; #80/#52 and the applicable physical action gates remain open.
 
 ## Native warm-up source and physical acceptance
 
