@@ -1,6 +1,6 @@
 # Backend & Functional Changelog
 
-Last updated: 2026-10-11 (Europe/Paris).
+Last updated: 2026-10-12 (Europe/Paris).
 
 Tracks non-UI changes: backend logic, data layer, permissions, networking, build config, and any functional behavior changes. Separate from `ui-redesign-roadmap.md` which covers visual/layout work only.
 
@@ -60,6 +60,8 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 - [x] Add opt-in destructive end-to-end test path against a disposable Ubuntu/Debian VPS.
 
 ## Done
+
+- 2026-10-12 (Europe/Paris), #165: the maintained `wg-quick-literal-cleanup.patch` repairs Android `del_if` matching for valid names containing `.`/`+` and longer-name route-table collisions. `tunnel/tools/CMakeLists.txt` applies it to generated native source without changing the upstream pin; `scripts/tests/test_wg_quick_cleanup.py` exercises actual cleanup command selection with host stubs. [The contract](backend-contracts.md#literal-kernel-cleanup-identity--165) separates this repair from Android side-effect and #71 root-tools ownership acceptance.
 
 - **Lifecycle test dispatcher teardown source repair — [#154](https://github.com/novakin/vpn0wn-android/issues/154) (2026-10-11, Europe/Paris):** `TunnelTestEnvironment.close()` drains its owned application job and IO descendants in cancellation-safe cleanup. The userspace lifecycle test and kernel transition fixtures close after setup/body or worker failure, before resetting Main. Production shutdown, unrelated scopes and existing profile/transition assertions remain unchanged. PR #152's first merged-master CI and the initial repair's full-suite run reported this teardown boundary; those exceptions alone established no separate assertion outcomes. The completed source passes focused regressions and the full UI unit suite; final-head review, CI and delivery state belong in the repair PR. [Development guidance](development.md#verification-commands-and-ownership) owns the cleanup rule. No suite-wide fixture migration, APK/device or full #71 acceptance is supplied.
 

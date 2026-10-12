@@ -1,6 +1,6 @@
 # Backend and provisioning contracts
 
-Last updated: 2026-10-11 (Europe/Paris).
+Last updated: 2026-10-12 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -72,6 +72,12 @@ The prior Java socket owner's TrafficStats tag isolation is historical behavior 
 In retained baseline logs, `UDP preflight sent` means the protected Java socket accepted a local send. It does not acknowledge delivery or DPI resistance. Native warm-up adds no per-packet success log or server acknowledgment and leaves the WireGuard protocol unchanged. Socket continuity and authenticated loopback traffic do not establish hardware deep suspend, broader unchanged kernel-server compatibility or DPI benefit. The maintainer's 2026-10-08 report of sleep/wake recovery without manual action is not new measured packet/timing proof; the earlier 195-second forced Doze trial retains its own scope in [the experiment record](reviews/2026-10-07-protocol-preflight-experiment.md#forced-deep-doze-recovery--2026-10-07). The [G4 investigation](reviews/2026-10-07-g4-preflight-investigation.md) retains its separate incident/port-change scope. No DPI, speed or battery gain is established.
 
 `WgQuickBackend` serializes the entire transition on its existing instance: observed state, config snapshot, prior-tunnel shutdown, apply, rollback, map update and callback. Running-name reads and multiple-tunnel preference changes share that monitor. Application collects those mode changes on IO, so waiting behind a root transition leaves the main thread free. Disabled multiple mode admits one app-owned active tunnel; enabled mode retains supported simultaneous tunnels. Failed apply/shutdown attempts restoration where applicable; restoration failures attach to the primary exception and observed running names remain queryable. RootShell still serializes individual commands; the backend monitor additionally protects the whole transition. This does not coordinate another backend instance or external root tools, turn multi-command changes into kernel transactions, or guarantee observation after an unreachable shell. #15 has controlled command-level JVM proof; device/kernel traffic and partial native effects remain separate.
+
+### Literal kernel cleanup identity — #165
+
+The Android `wg-quick` helper treats the validated interface name as a literal in its firewall-comment and route-table matchers. Valid `.` and `+` characters are escaped for POSIX extended regular expressions; a route-table name must end or be followed by whitespace. Cleanup selects only comments with the complete quoted `wireguard rule <name>` identity and the matching netd route table. Shell command names, IPv4/IPv6 cleanup, root admission, transition serialization and existing failure/recovery behavior remain unchanged.
+
+CMake applies the maintained GPL patch in `tunnel/tools/patches/wg-quick-literal-cleanup.patch` to generated build input and tracks the upstream source and patch as configure dependencies. The pinned wireguard-tools submodule remains unchanged. Patch failure, including already-applied/reversed input, stops configuration rather than building unpatched cleanup. Host tests execute production `del_if` and its POSIX matching with command stubs; they establish command selection, not actual Android kernel/firewall/netd side effects. Shared root-tools ownership remains under #71.
 
 ## Native handshake observations — #73 draft
 
