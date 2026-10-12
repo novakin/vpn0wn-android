@@ -1,6 +1,6 @@
 # Retained-TUN userspace rebind: rooted Android acceptance
 
-Last updated: 2026-10-10 (Europe/Paris).
+Last updated: 2026-10-12 (Europe/Paris).
 
 ## Scope and provenance
 
@@ -55,6 +55,12 @@ The earlier `bbfb3afa` CI checkpoint retains its scope: run `38049341272` attemp
 
 ## Remaining acceptance
 
-These runs prove bounded manual rebind, actual successful protection returns, retained TUN/session, synthetic authenticated traffic, debugger-injected protection failure/retry, sequential retirement and actual system-initiated service destruction followed by fresh activation. They do not exercise actual Android OS protection denial, interruption/cancellation, concurrent recovery/replacement/destruction, endpoint refresh, family fallback or underlying-network handover on the phone. Host/JVM race controls retain their separate scope under [QA](../qa-test-plan.md#native-rebind-controls--73); debugger scheduling establishes no timing bound.
+### Port-release evidence clarification — 2026-10-12
+
+The original physical controls already observed retired UDP inodes after rebind and no owned UDP sockets after DOWN, injected protection failure and actual service destruction. Saying all physical port-release testing is unverified understates those scoped observations. They did not independently acquire the released IPv4/IPv6 tuples with another socket. That physical bind/reuse boundary remains unverified; the older source/APK and event dates above are unchanged.
+
+New Linux host controls in `androidbind/socket_linux_test.go` use actual production bind/device owners and independent contenders with reuse disabled. The full host race/JNI gate passed for collision while open, port reacquisition after close/shutdown/failed protection/DOWN/device teardown, and same-port rebind/retry with explicit/omitted/direct-zero intent. Synthetic initiation-byte sends check both-family ordering/source ports and disabled warm-up; no authenticated traffic or actual Android protection return is established by this new run. No release defect reproduced, so no production behavior or port-policy change is justified. [QA](../qa-test-plan.md#native-rebind-controls--73) owns these regressions. Fresh physical independent reuse, shipping-artifact acceptance and the wider #61/#73 gates remain separate.
+
+The original rooted Android runs prove bounded manual rebind, actual successful protection returns, retained TUN/session, synthetic authenticated traffic, debugger-injected protection failure/retry, sequential retirement and actual system-initiated service destruction followed by fresh activation. They do not exercise actual Android OS protection denial, interruption/cancellation, concurrent recovery/replacement/destruction, endpoint refresh, family fallback or underlying-network handover on the phone. Host/JVM race controls retain their separate scope under [QA](../qa-test-plan.md#native-rebind-controls--73); debugger scheduling establishes no timing bound.
 
 No packet capture, leak/lockdown enforcement, IPv6 traffic, warm-up emission/adjacency, hardware suspend, wake timing, broader unchanged kernel-server interoperability, DPI, battery or speed claim is established. #73 remains open for automatic recovery, bootstrap policy, diagnostics presentation and full network/packet acceptance; #61 retains its remaining lifecycle/interoperability/DPI gates. This primitive adds no automatic trigger, DNS or endpoint/config rewrite.
