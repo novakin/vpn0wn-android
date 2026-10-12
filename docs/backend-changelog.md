@@ -1,6 +1,6 @@
 # Backend & Functional Changelog
 
-Last updated: 2026-10-11 (Europe/Paris).
+Last updated: 2026-10-12 (Europe/Paris).
 
 Tracks non-UI changes: backend logic, data layer, permissions, networking, build config, and any functional behavior changes. Separate from `ui-redesign-roadmap.md` which covers visual/layout work only.
 
@@ -60,6 +60,8 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 - [x] Add opt-in destructive end-to-end test path against a disposable Ubuntu/Debian VPS.
 
 ## Done
+
+- **Ordinary import resource bounds — [#167](https://github.com/novakin/vpn0wn-android/issues/167) (2026-10-12, Europe/Paris):** `TunnelImportInput.read` bounds source/expanded bytes, per-profile bytes/decoded lines and ZIP/profile counts, consuming ignored and invalid entry bodies before parser work. `TunnelImporter.importTunnel` stages bounded results and awaits creations sequentially; text/QR validation shares profile limits. Existing multi-peer grammar, names/duplicates, partial success, full-transfer redirect, no extraction, initial DOWN state and cancellation/Error propagation remain. Limit errors contain no input payload; owned streams close on all exits. [Contracts](backend-contracts.md#import-ordering-and-export) own values and blocked-provider limits; focused synthetic tests cover hostile/exact-boundary inputs without APK/device/root operations. Library `Config.parse`/Builder semantics stay unchanged.
 
 - **Lifecycle test dispatcher teardown source repair — [#154](https://github.com/novakin/vpn0wn-android/issues/154) (2026-10-11, Europe/Paris):** `TunnelTestEnvironment.close()` drains its owned application job and IO descendants in cancellation-safe cleanup. The userspace lifecycle test and kernel transition fixtures close after setup/body or worker failure, before resetting Main. Production shutdown, unrelated scopes and existing profile/transition assertions remain unchanged. PR #152's first merged-master CI and the initial repair's full-suite run reported this teardown boundary; those exceptions alone established no separate assertion outcomes. The completed source passes focused regressions and the full UI unit suite; final-head review, CI and delivery state belong in the repair PR. [Development guidance](development.md#verification-commands-and-ownership) owns the cleanup rule. No suite-wide fixture migration, APK/device or full #71 acceptance is supplied.
 
