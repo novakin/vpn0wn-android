@@ -1,6 +1,6 @@
 # Software licenses and credits
 
-Last updated: 2026-10-11 (Europe/Paris).
+Last updated: 2026-10-12 (Europe/Paris).
 
 Settings → About → Licenses & credits opens a private native activity with selectable, scrollable offline text. The version row opens the same screen, identifies vpn0wn and keeps its actual backend-version summary. The upstream donation preference, URL, Google Play-specific dialog and donation strings in all 29 affected resource sets are removed. English/French navigation strings use normal English fallback elsewhere. The [Android artwork adoption](ui-redesign-roadmap.md#android-brand-asset-adoption--2026-10-10) adds the complete Sora notice for the outlined logo. Current [source/package identity](backend-contracts.md#application-and-source-identity--71) uses vpn0wn; renamed artifact/distribution, tools coexistence and complete old/new-app transfer acceptance remain separate [#71](https://github.com/novakin/vpn0wn-android/issues/71) work. The namespace slice retains original source copyrights, external/legal identities, licenses and offline notice payload; this is no new artifact/license audit. The [upstream app updater is retired](operations.md#app-updates) in a separate source-preparation slice; its removal introduced no dependency or notice change. [Operations](operations.md#app-data-transfer) owns implemented legacy-ID transfer preparation and its limits.
 
@@ -30,6 +30,8 @@ Keyboard-focused notices retain their normal text contrast and display a cyan ou
 | Host build helper | Full GPL-3.0-or-later and Fredrik Fornwall/Termux notices from elf-cleaner `7efc05090675ec6161b7def862728086a26c3b1f`. CMake executes it on the build host; this inventory does not establish APK inclusion. |
 
 The 2026-10-09 source inventory resolved `debugRuntimeClasspath`, `releaseRuntimeClasspath`, `googleplayRuntimeClasspath` and `coreLibraryDesugaring` using Gradle 9.8.1 on WSL/OpenJDK 21. All three Android graphs selected the same 108 external module identities; desugaring selected two more. These include BOM/multiplatform metadata. The offline version list includes the 86 Android runtime identities with cached JAR/AAR archives, omitting metadata-only identities. The two desugaring identities are covered separately. Test-only dependencies and compile-only JSR305 are excluded. Reassess versions and notices when the dependency graph changes.
+
+The [scoped JSR305 terms audit](reviews/2026-10-11-jsr305-terms-and-artifact-scope.md) separately preserves four selected jsr305 3.0.2 concurrent-annotation headers declaring copyright 2005 Brian Goetz and CC BY 2.5. Its Apache 2.0 POM does not establish a file-specific override. The four definitions/type references are absent from the inspected historical release/googleplay and later debug APKs; retained release configuration disables obfuscation, and the exact annotation classes have no concrete code to inline. No additional app-credit repair is indicated for these four definitions in those artifacts. Applicable recipient source/build copies or adaptations still need the original notices, CC license copy or URI and appropriate attribution; local retention establishes no recipient delivery. [#158](https://github.com/novakin/vpn0wn-android/issues/158) owns this bounded finding; broader contributor/source/distribution acceptance stays under #71.
 
 ## Fork source notices
 
