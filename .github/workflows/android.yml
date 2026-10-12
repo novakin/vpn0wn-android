@@ -49,6 +49,8 @@ jobs:
         run: ./gradlew :ui:testReleaseUnitTest --tests com.vpn0wn.android.ApplicationBackendLifecycleTest --console=plain
       - name: Run native UAPI lifecycle checks
         run: bash tunnel/tools/libwg-go/test-host.sh
+      - name: Check kernel cleanup identity
+        run: python3 -m unittest discover -s scripts/tests -p 'test_wg_quick_cleanup.py'
       - name: Retain check reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

@@ -1,6 +1,6 @@
 # Development and contribution workflow
 
-Last updated: 2026-10-11 (Europe/Paris).
+Last updated: 2026-10-12 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Setup substantively updated 2026-10-11 (Europe/Paris); historical process/runtime evidence retains its original scope.
 
@@ -223,6 +223,8 @@ For documentation-only work, validate relative links, fences, examples/source cl
 
 ## Android CI and debug APK artifacts
 
+For #165 kernel cleanup, run `python3 -m unittest discover -s scripts/tests -p 'test_wg_quick_cleanup.py'` in Linux/WSL with `cc` and `patch`. CI runs this command after the native lifecycle checks. It applies the maintained production patch and compiles the actual cleanup functions with harmless command stubs; no root, network mutation or Android netd call runs. CMake needs the existing `patch` tool to generate `wg-quick` build input and fails configuration if the patch cannot apply. Changing the source or patch triggers reconfiguration; compile affected native ABIs for build-owner changes.
+
 The existing workflow also runs the stdlib offline VPS harness suite with `python3 -m unittest discover -s scripts/tests -p 'test_vps_integration_test.py'` after checkout. The suite injects remote responses and temporary fake package queries; it makes no SSH, root, package or live-server operation. This protects C9 postcondition/redaction behavior in ordinary CI without enabling the destructive `vpsIntegrationTest`. Final-head execution and results still need their own readback.
 
 The [Android checks workflow](../.github/workflows/android.yml) runs `:ui:testDebugUnitTest :tunnel:testDebugUnitTest :ui:detekt` and targeted `:ui:testReleaseUnitTest --tests com.vpn0wn.android.ApplicationBackendLifecycleTest` on pull requests, pushes to `master` and manual dispatch. It checks out the actual PR head SHA rather than the synthetic merge revision, initializes recursive native submodules and uses Ubuntu 24.04, Temurin Java 21 and the Android toolchain above. Actions use reviewed commit pins; token permissions are `contents: read`, checkout credentials are not persisted and no repository secrets are configured. PR/push checks never assemble an APK. Unit/static checks do not establish native VPN execution or device behavior.
@@ -254,6 +256,18 @@ Use these meanings consistently:
 Do not end required work while commands or reviewers are still running. State behavior/files changed, commit/PR state, actual verification and residual risk. Update plan action states by linking here; keep broader unimplemented actions visible.
 
 ## Recorded verification
+
+### Ordinary import bounds — 2026-10-12
+
+The authorized [#167](https://github.com/novakin/vpn0wn-android/issues/167) source follow-up starts from `f6a617149b11b4a19de6c9b399b7ff47ee141b36` in a dedicated worktree. Two focused provider regressions fail before importer wiring: 257 valid ZIP profiles were created instead of the 256 limit, and an oversized single comment profile was accepted. Retained baseline log: `20261012-191126-981-37a09bf3f8ec45beb6fcbaaf83e4c76b.log` under that worktree's ignored `.artifacts/codex-command-logs`.
+
+`TunnelImportInputTest` covers finite/endless/zero-progress input, exact and exceeded profile/expanded/source/entry/profile-count boundaries, ignored and invalid ZIP bodies, valid long lines/multi-peer/text grammar, cancellation and owned-stream closure. `TunnelImporterTest` covers real utility/provider delivery, duplicate/name validation, partial success, new profiles DOWN and full-transfer redirect; its environment is drained before resetting Main. Existing `AppDataTransferTest` and `QrScannerPermissionTest` preserve transfer/QR compatibility. The [contract](backend-contracts.md#import-ordering-and-export) owns limit values and compatibility. These temporary-file/injected-stream/Robolectric controls do not establish Android provider wall-time enforcement or measured device exhaustion. No APK assembly, device, root or server operation is part of this source follow-up.
+
+The first patched gate passed both provider regressions, all transfer/QR controls and Detekt; three new helper comparisons failed because Config equality retained private KeyPair object identity. Those assertions now compare canonical wg-quick serialization, matching existing transfer controls. Retained failed fixture log: `20261012-192154-950-c6d46ca5ab6d4dbaac963fd1d028c34b.log`. Production bounds were unchanged by that correction.
+
+Subsequent source inspection also placed zero-progress rejection at the raw input wrapper, before ZIP header/inflater internals can loop; the corresponding control now exercises both file and ZIP input. The final focused rerun must cover this source delta and the corrected assertions: `./gradlew :ui:testDebugUnitTest --tests com.vpn0wn.android.util.TunnelImportInputTest --tests com.vpn0wn.android.util.TunnelImporterTest --tests com.vpn0wn.android.util.AppDataTransferTest --tests com.vpn0wn.android.fragment.QrScannerPermissionTest :ui:detekt --console=plain`. The final focused rerun passed all 45 controls (14 input, 11 importer, 17 transfer and 3 QR) with zero Detekt findings, including the zero-progress delta and corrected comparisons; retained log `20261012-193453-480-c40ab370804a416bace5e8b389868ca6.log`. Final-head CI/integrated full UI verification and independent review remain delivery gates.
+
+README, architecture, agent instructions and templates need no edit for this slice: entry-point capabilities, module ownership, setup/dependencies and contribution boundaries remain unchanged. The functional changelog, operations, backend contract, QA controls and scoped audit follow-up own changed behavior and evidence. Final-head independent review/CI/publication remain in the delivering PR.
 
 ### Standard kernel-peer packet acceptance — 2026-10-11
 
