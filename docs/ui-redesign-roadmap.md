@@ -102,6 +102,12 @@ The binding initializes padding when the header is laid out, using its native be
 
 ## Design System
 
+### Empty Home guidance refinement — 2026-10-12
+
+The maintainer requested smaller, better placed “add a tunnel” guidance after physical empty-Home inspection. `Vpn0wnEmptyStateText` now reuses the existing Inter Tight secondary-text role at 14sp instead of the previous 20sp value style. `home_empty_placeholder` centers each line beneath the unchanged 112dp symbol and limits normal text measure to 280dp, while retaining localized copy, font scaling, natural wrapping and native overflow scrolling. The visible artwork/guidance group keeps its existing viewport-centering owner. The fixed 48dp Add action, its 13sp regular mono label/14dp plus, palette, focus, navigation and tunnel behavior retain their contracts.
+
+`HomeSelectionTest` checks actual centered line geometry alongside existing startup, late-binding, header-offset, large-text/RTL, focus and minimum-API controls. Source checks and new physical candidate output must cover this refinement before delivery; the prior centering record retains its original artifact and start-aligned guidance. Full #80/#52 accessibility/state acceptance remains separate.
+
 ### Typography
 
 | Role | Font family | Weight | Usage |
@@ -488,6 +494,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 ## Progress
 
 ### Done
+
+- [x] **Empty Home guidance source refinement — #80, 2026-10-12:** `Vpn0wnEmptyStateText` reuses Inter Tight at 14sp and `home_empty_placeholder` centers localized lines within a 280dp maximum measure. Symbol, viewport-centering owner and fixed Add action remain unchanged. [The scoped contract](#empty-home-guidance-refinement--2026-10-12) retains runtime and broader acceptance gates.
 
 - [x] **Empty Home visible-centering source repair — #80, 2026-10-11:** the empty artwork/guidance group compensates for the remaining native header-collapse space through `BindingAdapters.setHomeEmptyAppBar`, preserving the fixed Add action and native scrolling/focus. [The scoped contract](#empty-home-visible-centering--2026-10-11) distinguishes source controls from actual Android and broader acceptance.
 
