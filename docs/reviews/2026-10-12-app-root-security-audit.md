@@ -126,6 +126,12 @@ Detailed local evidence is retained under ignored `.artifacts/security-audit-202
 
 The bounded assessment is complete; broader runtime security assurance remains partial and security sign-off is withheld. The documentation PR owns final publication review and routine CI acceptance. Future repairs and runtime validation retain their separate issue acceptance and authorization boundaries.
 
+## Scoped cleanup repair follow-up — #165
+
+On 2026-10-12 (Europe/Paris), the authorized repair reproduces the cleanup defect with actual production `del_if` and real POSIX matching under harmless host command stubs: five test methods produced eleven failing subtests on the pinned upstream source. The maintained generated-source patch escapes valid name metacharacters and requires a complete route-table token. All six repaired test methods pass, covering owned IPv4/IPv6 cleanup, colliding names, no-owned-table rejection, legitimate delimiters and rejection of already-patched input. Independent review found GNU patch could reverse an already-applied patch; explicit forward-only application fixes this build admission defect. `libwg-quick.so` compiles for arm64-v8a, armeabi-v7a, x86 and x86_64; changing the patch's timestamp causes CMake reconfiguration and native recompilation. The upstream submodule pin remains unchanged.
+
+These controls verify native build input and command selection. They do not execute Android kernel/firewall/netd side effects or establish shared root-resource ownership. The original finding and broader withheld sign-off retain their audited-revision scope; #71 policy and remaining audit criteria stay separate. The repair PR owns final-head review, CI and delivery state.
+
 ## Authorized IPC-DATA-02 source follow-up — 2026-10-12
 
 The separately authorized [#167](https://github.com/novakin/vpn0wn-android/issues/167) repair is based on `f6a617149b11b4a19de6c9b399b7ff47ee141b36`. `TunnelImportInput` bounds complete ordinary-profile input before Config parsing, counts consumed source bytes and every expanded ZIP body/entry, caps attempted profiles and retains bounded partial results. `TunnelImporter` then creates profiles sequentially; text/QR validation shares the profile allowance. [The import contract](../backend-contracts.md#import-ordering-and-export) owns chosen values, long-line/library compatibility and the already-blocked provider-read limitation. No global Config parser or Builder cap, ZIP extraction, external activation or new deployment boundary is introduced.

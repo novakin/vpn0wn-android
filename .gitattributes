@@ -13,3 +13,5 @@
 *.ttf binary
 *.otf binary
 *.keystore binary
+
+tunnel/tools/patches/*.patch whitespace=-blank-at-eol,-space-before-tab
