@@ -150,9 +150,9 @@
         <item name="android:textSize">11sp</item>
     </style>
 
-    <style name="Vpn0wnEmptyStateText" parent="Vpn0wnMonoValueText">
+    <style name="Vpn0wnEmptyStateText" parent="Vpn0wnHomeSecondaryText">
         <item name="android:textColor">@color/vpn0wn_ink_2</item>
-        <item name="android:textSize">20sp</item>
+        <item name="android:textSize">14sp</item>
     </style>
 
     <style name="Vpn0wnDetailRow">

@@ -767,6 +767,11 @@ class HomeSelectionTest {
         assertFullyVisible(binding.logoPlaceholder, "$name: empty artwork")
         assertFullyVisible(binding.homeEmptyPlaceholder, "$name: empty guidance")
         assertEquals("$name: horizontally centered artwork", viewport.centerX(), artwork.centerX())
+        val guidanceLayout = binding.homeEmptyPlaceholder.layout
+        for (line in 0 until guidanceLayout.lineCount) {
+            assertEquals("$name: centered guidance line $line", guidanceLayout.width / 2f,
+                (guidanceLayout.getLineLeft(line) + guidanceLayout.getLineRight(line)) / 2f, 1f)
+        }
         assertEquals("$name: vertically centered empty group", viewport.exactCenterY(),
             (artwork.top + guidance.bottom) / 2f, 1f)
         assertFullyVisible(binding.createFab, "$name: fixed Add")
