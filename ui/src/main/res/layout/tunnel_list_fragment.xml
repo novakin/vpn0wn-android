@@ -376,6 +376,7 @@
                             android:layout_gravity="center"
                             android:layout_marginStart="@dimen/tunnel_list_placeholder_margin"
                             android:layout_marginEnd="@dimen/tunnel_list_placeholder_margin"
+                            android:breakStrategy="balanced"
                             android:gravity="center"
                             android:maxWidth="280dp"
                             android:text="@string/tunnel_list_placeholder" />
