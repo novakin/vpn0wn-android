@@ -1,10 +1,13 @@
 package com.vpn0wn.android.util
 
+import com.vpn0wn.config.BadConfigException
 import com.vpn0wn.config.Config
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
+import java.io.SequenceInputStream
 import java.nio.charset.StandardCharsets
+import java.util.Collections
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlin.coroutines.EmptyCoroutineContext
@@ -59,7 +62,8 @@ class TunnelImportInputTest {
 
     @Test
     fun expandedExactBoundaryProfilesImportAndOneExtraByteStops() {
-        val entries = (1..16).map { "p$it.conf" to paddedProfile(TunnelImportInput.MAX_PROFILE_BYTES) }
+        val body = paddedProfile(TunnelImportInput.MAX_PROFILE_BYTES)
+        val entries = (1..16).map { "p$it.conf" to body }
         val exact = readZip(entries)
         assertEquals(16, exact.profiles.size)
         assertTrue(exact.failures.isEmpty())
@@ -73,12 +77,26 @@ class TunnelImportInputTest {
         val ignored = "x".repeat(TunnelImportInput.MAX_PROFILE_BYTES)
         val exact = readZip((1..16).map { "notes$it.txt" to ignored })
         assertTrue(exact.failures.isEmpty())
-        val exceeded = readZip((1..16).map { "invalid$it.conf" to ignored } + ("valid.conf" to profile))
+        val invalidPrefix = "invalid\n#"
+        val invalid = invalidPrefix + "x".repeat(TunnelImportInput.MAX_PROFILE_BYTES - invalidPrefix.length)
+        val exceeded = readZip((1..16).map { "invalid$it.conf" to invalid } + ("valid.conf" to profile))
         assertTrue(exceeded.profiles.isEmpty())
         assertEquals(17, exceeded.failures.size)
+        assertTrue(exceeded.failures.dropLast(1).all { it is BadConfigException })
         assertTrue(exceeded.failures.last() is TunnelImportInput.LimitExceededException)
         val oversizedIgnored = read(oversizedIgnoredZip().inputStream(), isZip = true)
         assertLimit(oversizedIgnored)
+    }
+
+    @Test
+    fun unsupportedLongLineRemainsAParseFailureWithinByteBudget() {
+        val input = TrackingInput(zip(listOf("invalid.conf" to "x".repeat(TunnelImportInput.MAX_PROFILE_BYTES))).inputStream())
+
+        val result = read(input, isZip = true)
+
+        assertTrue(result.profiles.isEmpty())
+        assertTrue(result.failures.single() is BadConfigException)
+        assertEquals(1, input.closes)
     }
 
     @Test
@@ -117,12 +135,9 @@ class TunnelImportInputTest {
             this[4] = 20
             this[26] = 0xff.toByte(); this[27] = 0xff.toByte()
         }
-        val output = ByteArrayOutputStream()
-        repeat(TunnelImportInput.MAX_PROFILES + 1) {
-            output.write(header)
-            output.write(ByteArray(65_535) { 'n'.code.toByte() })
-        }
-        val input = TrackingInput(output.toByteArray().inputStream())
+        val record = header + ByteArray(65_535) { 'n'.code.toByte() }
+        val entries = Collections.enumeration(List(TunnelImportInput.MAX_PROFILES + 1) { record.inputStream() })
+        val input = TrackingInput(SequenceInputStream(entries))
         val result = read(input, isZip = true)
         assertLimit(result)
         assertEquals(TunnelImportInput.MAX_SOURCE_BYTES + 1, input.consumed)
