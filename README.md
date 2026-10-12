@@ -1,6 +1,6 @@
 # vpn0wn — WireGuard Android fork
 
-Last updated: 2026-10-11 (Europe/Paris).
+Last updated: 2026-10-12 (Europe/Paris).
 
 vpn0wn, previously presented as Tunnl, is [novakin's WireGuard Android fork](https://github.com/novakin/vpn0wn-android), adding an engineering-console redesign and a partial VPS fleet/provisioning flow to the existing Android DataBinding/Fragment architecture.
 
@@ -61,6 +61,7 @@ vpn0wn redesign and functional work are tracked in:
 - [QA test plan](docs/qa-test-plan.md): coverage requirements, verification layers and opt-in VPS validation.
 - [Agent/README review](docs/reviews/2026-10-06-agent-readme-review.md): bounded quality criteria, fixes, reused process and review evidence.
 - [Full documentation review](docs/reviews/2026-10-06-full-documentation-review.md): committed-source reconciliation, coverage limits and confirmed runtime handoff.
+- [App/root security audit](docs/reviews/2026-10-12-app-root-security-audit.md): pinned source assessment, scoped separate-app Android controls, confirmed findings and remaining security sign-off gates.
 - [WG Tunnel comparison](docs/reviews/2026-10-08-wgtunnel-comparison.md): versioned feature/ownership assessment, current native/statistics repair status and bounded reuse/refactoring advice.
 - [Font attribution](docs/font-attribution.md) and [provisioning upstream reference](third_party/wireguard-install/UPSTREAM.md).
 

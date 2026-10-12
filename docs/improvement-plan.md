@@ -1,6 +1,6 @@
 # vpn0wn improvement plan
 
-Last updated: 2026-10-11 (Europe/Paris).
+Last updated: 2026-10-12 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Agent/process and delivery pointers updated 2026-10-06 (Europe/Paris); initial runtime assessment remains historical.
 
@@ -319,6 +319,8 @@ Do not claim full completion while required commands are running or relevant pro
 | Packaging/release process | A requested distribution or rollback need. | Explicit artifacts, version locations, attribution and validation; no inferred publication or deployment. |
 
 ## Recorded evidence and next task
+
+2026-10-12 (Europe/Paris): the [app/root security audit](reviews/2026-10-12-app-root-security-audit.md) records delivered source `5b1ddffb`, scoped separate-app component/URI controls and checked restoration. It identifies two Medium source concerns and one Low import-availability concern; the report links their owning issues and separates findings from root-policy questions and remaining runtime/release proof. The assessment adds no application fix or security sign-off, and the unmerged #73 recovery candidates retain their separate acceptance gates. No new repair is silently added to the ongoing goal.
 
 2026-10-06: repository-wide static audit and local reuse review completed. Earlier review checks passed `git diff --check` and parsed 135 resource/manifest XML files. Translation review identified `tunnel_udp_preflight_failure` absent from 34 locale files. These checks are historical review evidence, not a build or device result. Source-inspected tests do not count as executed tests. No fresh Gradle, device or live-server validation was performed for the review.
 
