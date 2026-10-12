@@ -77,7 +77,7 @@ class TunnelImportInputTest {
         assertTrue(exceeded.profiles.isEmpty())
         assertEquals(17, exceeded.failures.size)
         assertTrue(exceeded.failures.last() is TunnelImportInput.LimitExceededException)
-        val oversizedIgnored = readZip(listOf("notes.txt" to "x".repeat(TunnelImportInput.MAX_EXPANDED_BYTES + 1)))
+        val oversizedIgnored = read(oversizedIgnoredZip().inputStream(), isZip = true)
         assertLimit(oversizedIgnored)
     }
 
@@ -208,6 +208,18 @@ class TunnelImportInputTest {
             }
         }
     }.toByteArray()
+
+    private fun oversizedIgnoredZip(): ByteArray {
+        val output = ByteArrayOutputStream()
+        ZipOutputStream(output).use { zip ->
+            zip.putNextEntry(ZipEntry("notes.txt"))
+            val buffer = ByteArray(8192) { 'x'.code.toByte() }
+            repeat(TunnelImportInput.MAX_EXPANDED_BYTES / buffer.size) { zip.write(buffer) }
+            zip.write(buffer, 0, TunnelImportInput.MAX_EXPANDED_BYTES % buffer.size + 1)
+            zip.closeEntry()
+        }
+        return output.toByteArray()
+    }
 
     private class EndlessInput : InputStream() {
         override fun read() = 'x'.code
