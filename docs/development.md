@@ -1,6 +1,6 @@
 # Development and contribution workflow
 
-Last updated: 2026-10-11 (Europe/Paris).
+Last updated: 2026-10-12 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Setup substantively updated 2026-10-11 (Europe/Paris); historical process/runtime evidence retains its original scope.
 
@@ -222,6 +222,8 @@ Broaden tests for shared state, public/script contracts or cross-cutting/high-ri
 For documentation-only work, validate relative links, fences, examples/source claims, consistency with AGENTS.md, date presence/actual edit date and `git diff --check`. Keep historical event/test/review dates separate from the latest edit marker. A search with no matches returns `rg` exit 1; exit 2 is a search error. An executed test suite with disclosed skips differs from source-inspected tests, and neither proves unperformed device or live-server behavior.
 
 ## Android CI and debug APK artifacts
+
+For #165 kernel cleanup, run `python3 -m unittest discover -s scripts/tests -p 'test_wg_quick_cleanup.py'` in Linux/WSL with `cc` and `patch`. CI runs this command after the native lifecycle checks. It applies the maintained production patch and compiles the actual cleanup functions with harmless command stubs; no root, network mutation or Android netd call runs. CMake needs the existing `patch` tool to generate `wg-quick` build input and fails configuration if the patch cannot apply. Changing the source or patch triggers reconfiguration; compile affected native ABIs for build-owner changes.
 
 The existing workflow also runs the stdlib offline VPS harness suite with `python3 -m unittest discover -s scripts/tests -p 'test_vps_integration_test.py'` after checkout. The suite injects remote responses and temporary fake package queries; it makes no SSH, root, package or live-server operation. This protects C9 postcondition/redaction behavior in ordinary CI without enabling the destructive `vpsIntegrationTest`. Final-head execution and results still need their own readback.
 

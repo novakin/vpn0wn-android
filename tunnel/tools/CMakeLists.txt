@@ -9,7 +9,16 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 add_link_options(LINKER:--build-id=none)
 add_compile_options(-Wall -Werror)
 
-add_executable(libwg-quick.so wireguard-tools/src/wg-quick/android.c ndk-compat/compat.c)
+set(WG_QUICK_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/wireguard-tools/src/wg-quick/android.c")
+set(WG_QUICK_PATCH "${CMAKE_CURRENT_SOURCE_DIR}/patches/wg-quick-literal-cleanup.patch")
+set(WG_QUICK_GENERATED "${CMAKE_CURRENT_BINARY_DIR}/wg-quick-android.c")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${WG_QUICK_SOURCE}" "${WG_QUICK_PATCH}")
+execute_process(COMMAND patch --batch --fuzz=0 --output "${WG_QUICK_GENERATED}" "${WG_QUICK_SOURCE}" "${WG_QUICK_PATCH}"
+    RESULT_VARIABLE WG_QUICK_PATCH_RESULT OUTPUT_VARIABLE WG_QUICK_PATCH_OUTPUT ERROR_VARIABLE WG_QUICK_PATCH_ERROR)
+if(NOT WG_QUICK_PATCH_RESULT EQUAL 0)
+    message(FATAL_ERROR "Cannot apply wg-quick cleanup patch: ${WG_QUICK_PATCH_OUTPUT}${WG_QUICK_PATCH_ERROR}")
+endif()
+add_executable(libwg-quick.so "${WG_QUICK_GENERATED}" ndk-compat/compat.c)
 target_compile_options(libwg-quick.so PUBLIC -std=gnu11 -include ${CMAKE_CURRENT_SOURCE_DIR}/ndk-compat/compat.h -DWG_PACKAGE_NAME=\"${ANDROID_PACKAGE_NAME}\")
 target_link_libraries(libwg-quick.so -ldl)
 
