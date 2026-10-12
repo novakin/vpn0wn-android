@@ -77,7 +77,7 @@ In retained baseline logs, `UDP preflight sent` means the protected Java socket 
 
 The Android `wg-quick` helper treats the validated interface name as a literal in its firewall-comment and route-table matchers. Valid `.` and `+` characters are escaped for POSIX extended regular expressions; a route-table name must end or be followed by whitespace. Cleanup selects only comments with the complete quoted `wireguard rule <name>` identity and the matching netd route table. Shell command names, IPv4/IPv6 cleanup, root admission, transition serialization and existing failure/recovery behavior remain unchanged.
 
-CMake applies the maintained GPL patch in `tunnel/tools/patches/wg-quick-literal-cleanup.patch` to generated build input and tracks the upstream source and patch as configure dependencies. The pinned wireguard-tools submodule remains unchanged. Patch failure stops configuration rather than building unpatched cleanup. Host tests execute production `del_if` and its POSIX matching with command stubs; they establish command selection, not actual Android kernel/firewall/netd side effects. Shared root-tools ownership remains under #71.
+CMake applies the maintained GPL patch in `tunnel/tools/patches/wg-quick-literal-cleanup.patch` to generated build input and tracks the upstream source and patch as configure dependencies. The pinned wireguard-tools submodule remains unchanged. Patch failure, including already-applied/reversed input, stops configuration rather than building unpatched cleanup. Host tests execute production `del_if` and its POSIX matching with command stubs; they establish command selection, not actual Android kernel/firewall/netd side effects. Shared root-tools ownership remains under #71.
 
 ## Native handshake observations — #73 draft
 

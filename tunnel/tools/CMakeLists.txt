@@ -13,7 +13,7 @@ set(WG_QUICK_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/wireguard-tools/src/wg-quick/an
 set(WG_QUICK_PATCH "${CMAKE_CURRENT_SOURCE_DIR}/patches/wg-quick-literal-cleanup.patch")
 set(WG_QUICK_GENERATED "${CMAKE_CURRENT_BINARY_DIR}/wg-quick-android.c")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${WG_QUICK_SOURCE}" "${WG_QUICK_PATCH}")
-execute_process(COMMAND patch --batch --fuzz=0 --output "${WG_QUICK_GENERATED}" "${WG_QUICK_SOURCE}" "${WG_QUICK_PATCH}"
+execute_process(COMMAND patch --batch --forward --fuzz=0 --output "${WG_QUICK_GENERATED}" "${WG_QUICK_SOURCE}" "${WG_QUICK_PATCH}"
     RESULT_VARIABLE WG_QUICK_PATCH_RESULT OUTPUT_VARIABLE WG_QUICK_PATCH_OUTPUT ERROR_VARIABLE WG_QUICK_PATCH_ERROR)
 if(NOT WG_QUICK_PATCH_RESULT EQUAL 0)
     message(FATAL_ERROR "Cannot apply wg-quick cleanup patch: ${WG_QUICK_PATCH_OUTPUT}${WG_QUICK_PATCH_ERROR}")

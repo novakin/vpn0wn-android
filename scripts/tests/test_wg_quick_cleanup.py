@@ -73,7 +73,7 @@ class WgQuickCleanupTest(unittest.TestCase):
         cls.workspace = tempfile.TemporaryDirectory(prefix='vpn0wn-cleanup-')
         cls.directory = pathlib.Path(cls.workspace.name)
         patched = cls.directory / 'android.c'
-        subprocess.run(['patch', '--batch', '--fuzz=0', '--output', str(patched), str(SOURCE), str(PATCH)],
+        subprocess.run(['patch', '--batch', '--forward', '--fuzz=0', '--output', str(patched), str(SOURCE), str(PATCH)],
                        check=True, capture_output=True, timeout=5)
         source = patched.read_text()
         owners = '\n'.join(function(source, name) for name in ('xmalloc', 'xregcomp', 'concat', 'freep', 'del_if'))
@@ -105,6 +105,13 @@ class WgQuickCleanupTest(unittest.TestCase):
                 owned, unrelated = self.rule(name), self.rule(other)
                 self.assertEqual(self.cleanup(name, (unrelated, owned), (unrelated, owned)),
                                  ['ip link del ' + name, 'iptables -D ' + owned[3:], 'ip6tables -D ' + owned[3:]])
+
+    def test_already_patched_input_is_rejected(self):
+        patched = self.directory / 'android.c'
+        output = self.directory / 'reapplied.c'
+        result = subprocess.run(['patch', '--batch', '--forward', '--fuzz=0', '--output', str(output),
+                                 str(patched), str(PATCH)], capture_output=True, text=True, timeout=5)
+        self.assertNotEqual(result.returncode, 0)
 
     def test_network_destroy_uses_literal_requested_table(self):
         for name, other in (('a.b', 'aXb'), ('a+b', 'aaab'), ('wg0', 'wg01')):
