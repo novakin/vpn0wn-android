@@ -1,6 +1,6 @@
 # Backend & Functional Changelog
 
-Last updated: 2026-10-11 (Europe/Paris).
+Last updated: 2026-10-12 (Europe/Paris).
 
 Tracks non-UI changes: backend logic, data layer, permissions, networking, build config, and any functional behavior changes. Separate from `ui-redesign-roadmap.md` which covers visual/layout work only.
 
@@ -60,6 +60,8 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 - [x] Add opt-in destructive end-to-end test path against a disposable Ubuntu/Debian VPS.
 
 ## Done
+
+- **Execution-time administrator policy — #166 (2026-10-12, Europe/Paris):** `ZipExporterPreference.onClick/exportZip/onDetached` binds authentication and loading to the current Settings view, consumes terminal callbacks once and rechecks `AdminKnobs.disableConfigExport` before loading/acquisition/writing. `TunnelEditorFragment.onKeyFocusChange/onSelectedTunnelChanged/onDestroyView` checks live policy, retires stale requests, masks loaded secrets and resets visibility for replaced selections/views. Late config loads/reveals cannot target a newer owner. Existing configured-authentication, failed-sample, cancellation and no-lock behavior stays intact. Owner-focused Robolectric regressions use synthetic restrictions, authentication and provider/config responses; real DPC timing, APK and device proof remain separate.
 
 - **Lifecycle test dispatcher teardown source repair — [#154](https://github.com/novakin/vpn0wn-android/issues/154) (2026-10-11, Europe/Paris):** `TunnelTestEnvironment.close()` drains its owned application job and IO descendants in cancellation-safe cleanup. The userspace lifecycle test and kernel transition fixtures close after setup/body or worker failure, before resetting Main. Production shutdown, unrelated scopes and existing profile/transition assertions remain unchanged. PR #152's first merged-master CI and the initial repair's full-suite run reported this teardown boundary; those exceptions alone established no separate assertion outcomes. The completed source passes focused regressions and the full UI unit suite; final-head review, CI and delivery state belong in the repair PR. [Development guidance](development.md#verification-commands-and-ownership) owns the cleanup rule. No suite-wide fixture migration, APK/device or full #71 acceptance is supplied.
 

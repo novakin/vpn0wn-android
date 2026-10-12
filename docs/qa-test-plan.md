@@ -223,6 +223,8 @@ The later [Android brand adoption](#android-brand-artwork-controls) supersedes t
 
 ### Security Regression Tests
 
+`ZipExporterPolicyTest` and `TunnelEditorKeyPolicyTest` drive the existing preference/fragment owners with synthetic restriction/authentication callbacks. They cover denial before click/focus, revocation during authentication/config loading and at stream acquisition, allowed ZIP contents/no-lock paths, terminal failure/cancellation, nonterminal failed samples, duplicate callbacks and stale editor/Settings views or selections. These are Robolectric policy/ownership controls, not Android DPC or biometric proof. Real #166 timing acceptance, when separately authorized, needs a disposable managed user/profile with denied/allowed pairs; do not enroll or change ownership on the personal phone. Blocking writes and already-visible/copied data retain the [contract limits](backend-contracts.md#import-ordering-and-export).
+
 - Passwords are not included in snackbars, logs, exceptions, or copied text.
 - Generic copy handlers do not accidentally expose private keys; deliberate authorized profile export/import retains the full required credentials.
 - Password/session secret is cleared on cancel and view destruction.

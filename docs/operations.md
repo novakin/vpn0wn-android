@@ -1,6 +1,6 @@
 # Operations and recovery
 
-Last updated: 2026-10-11 (Europe/Paris).
+Last updated: 2026-10-12 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -45,6 +45,8 @@ The upstream WireGuard update checker, APK downloader, self-installer and update
 ## App-data transfer
 
 Sensitive exports and private-key reveal use Android's configured biometrics or PIN/password/pattern. Complete the system prompt; cancelling prevents the sensitive action. When Android reports no configured authentication, the existing no-lock behavior permits the action without a prompt. Authentication errors or unavailable service/hardware do not authorize it; retry after resolving the system-authentication problem.
+
+An administrator disabling configuration export also prevents new private-key/PSK reveals. Profile export and editor reveal recheck the current restriction after authentication and before sensitive output, so a pending allowed prompt cannot override a newly applied restriction. Changing the editor selection or recreating its view clears key-reveal authorization and masks the fields. Later key focus checks policy again. Completed exports or data already seen/copied cannot be recalled; remove retained private Downloads copies when policy requires it. Source tests for [#166](https://github.com/novakin/vpn0wn-android/issues/166) use mocked restrictions/authentication; real DPC timing remains unverified.
 
 Settings → Export app data creates a new private ZIP in Downloads after the existing administrator and biometric/device-credential gates. It includes tunnel profiles, selected settings and saved VPS connection/display records. It works with no tunnel profiles. The archive is unencrypted and contains private keys/PSKs; keep it out of Git, issues and shared evidence. Older same-name files are not overwritten by this action. Existing Export tunnels remains a profiles-only ZIP.
 
