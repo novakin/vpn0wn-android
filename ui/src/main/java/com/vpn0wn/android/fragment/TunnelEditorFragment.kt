@@ -406,13 +406,20 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
         binding?.mainContainer?.descendants?.filterIsInstance<EditText>()?.filter {
             it.id == R.id.private_key_text || it.id == R.id.pre_shared_key_text
         }?.forEach {
-            it.inputType = KEY_MASKED_INPUT_TYPE
+            setKeyInputType(it, KEY_MASKED_INPUT_TYPE)
         }
     }
 
     private fun showPrivateKey(edit: EditText) {
         activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        edit.inputType = KEY_VISIBLE_INPUT_TYPE
+        setKeyInputType(edit, KEY_VISIBLE_INPUT_TYPE)
+    }
+
+    private fun setKeyInputType(edit: EditText, inputType: Int) {
+        // TextView replaces custom fonts when changing password variations.
+        val typeface = edit.typeface
+        edit.inputType = inputType
+        edit.typeface = typeface
     }
 
     companion object {

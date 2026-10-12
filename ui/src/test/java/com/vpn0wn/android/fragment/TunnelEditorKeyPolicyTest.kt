@@ -3,6 +3,7 @@ package com.vpn0wn.android.fragment
 import android.app.Application
 import android.content.Context
 import android.content.RestrictionsManager
+import android.graphics.Typeface
 import android.os.Bundle
 import android.text.InputType
 import android.text.method.PasswordTransformationMethod
@@ -49,6 +50,28 @@ import org.robolectric.Shadows.shadowOf
 class TunnelEditorKeyPolicyTest {
     @get:Rule val folder = TemporaryFolder()
     @After fun tearDown() = Dispatchers.resetMain()
+
+    @Test
+    fun revealAndPolicyRemaskPreserveEachKeyFieldTypeface() = runTest {
+        withEnvironment { env, fixture ->
+            val privateTypeface = Typeface.create("serif", Typeface.BOLD_ITALIC)
+            val pskTypeface = Typeface.create("sans-serif", Typeface.BOLD)
+            fixture.binding.privateKeyText.typeface = privateTypeface
+            fixture.psk.typeface = pskTypeface
+            fixture.fragment.onKeyClick(fixture.binding.privateKeyText)
+            Authentication.callbacks.single()(BiometricAuthenticator.Result.Success(null))
+            assertVisible(fixture.binding.privateKeyText)
+            assertEquals(privateTypeface, fixture.binding.privateKeyText.typeface)
+
+            restrict(env, true)
+            fixture.fragment.onKeyClick(fixture.psk)
+
+            assertMasked(fixture.binding.privateKeyText)
+            assertMasked(fixture.psk)
+            assertEquals(privateTypeface, fixture.binding.privateKeyText.typeface)
+            assertEquals(pskTypeface, fixture.psk.typeface)
+        }
+    }
 
     @Test
     fun selectedProfileLoadsPrivateKeyAndPskWithPasswordTransformation() = runTest {
