@@ -24,7 +24,7 @@ func pinnedDirectory(t *testing.T) string {
 func TestPinnedOverlayPreservesModuleSource(t *testing.T) {
 	directory := pinnedDirectory(t)
 	before := make(map[string][]byte)
-	for _, file := range []string{"device/device.go", "device/uapi.go", "device/send.go", "device/timers.go", "conn/boundif_android.go"} {
+	for _, file := range []string{"device/device.go", "device/peer.go", "device/noise-protocol.go", "device/uapi.go", "device/send.go", "device/timers.go", "conn/boundif_android.go"} {
 		source := filepath.Join(directory, file)
 		data, err := os.ReadFile(source)
 		if err != nil {
@@ -61,7 +61,7 @@ func TestPinnedOverlayPreservesModuleSource(t *testing.T) {
 
 func TestOverlayRejectsChangedUpstreamSource(t *testing.T) {
 	directory := pinnedDirectory(t)
-	for _, file := range []string{"device/device.go", "device/uapi.go", "device/send.go", "device/timers.go", "conn/boundif_android.go"} {
+	for _, file := range []string{"device/device.go", "device/peer.go", "device/noise-protocol.go", "device/uapi.go", "device/send.go", "device/timers.go", "conn/boundif_android.go"} {
 		source, err := os.ReadFile(filepath.Join(directory, file))
 		if err != nil {
 			t.Fatal(err)

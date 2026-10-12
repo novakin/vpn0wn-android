@@ -1,6 +1,6 @@
 # Architecture and maintenance boundaries
 
-Last updated: 2026-10-11 (Europe/Paris).
+Last updated: 2026-10-12 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -110,6 +110,16 @@ See [backend contracts](backend-contracts.md) for known divergences and [the pla
 **Alternatives/consequences:** triggering on a transient send failure or stale age would bypass native retries and invent failure during idle/Doze. Continuous monitoring, ping, wake locks, a new service/scheduler and full VPN rebuild add unnecessary ownership. Calling existing boolean rebind blindly cannot prove non-mutation, admission or initiation. A qualifying peer's replacement affects all shared sockets, so transport state is activation-wide while initiation/authentication stay peer-attributed. The pilot preserves saved profiles, current numeric destinations, port/warm-up intent, protocol timing and manual transition/restoration behavior; kernel recovery, DNS/family rewriting and preemptive handover remain outside it. #73/#75 bootstrap and #74 arbitration require their separate policy choices.
 
 **Verification/migration impact:** no source, public API, persistence format or migration changes with this proposal. Require [future deterministic owner controls](qa-test-plan.md#proposed-recovery-controls--73), final-head independent ultra review of code/owning docs and actual required checks before delivery. Separately authorized Android/packet proof retains its own scope. Revisit when the maintainer selects defaults, the native claim design changes, or broader DNS/network/arbitration scope is selected; full #73 remains open.
+
+### Expected-session recovery primitive — 2026-10-12
+
+**Problem:** the approved bounded pilot needs exact native exhaustion admission; Java sequence and existing boolean rebind cannot prove cycle identity, nonmutation or usable settlement. Authentication can precede its diagnostic callback, and a public-key peer can be removed/re-added within one device.
+
+**Decision/status:** following [maintainer selection](https://github.com/novakin/vpn0wn-android/issues/73#issuecomment-6121757274) on 2026-10-12 (Europe/Paris), implement the first separately reviewable primitive in existing overlay/bind/handle/JNI/`GoBackend` owners. Device-wide monotonic tokens and a short peer recovery owner coordinate settled exhaustion, ordinary initiation eligibility, accepted protocol state and responder confirmation. Static identity precedes recovery during preparation; an internal caller-owned-static-lock helper avoids recursive read-lock acquisition with a pending writer. Non-waiting IPC/peer claim validates the exact episode and numeric endpoint. Locks release before native I/O and observation publication. Java validates expected session inside state admission, calls JNI outside `stateLock`, and retains mutation evidence when completion becomes obsolete.
+
+**Alternatives/consequences:** an IPC-only gate misses timer/authentication races; per-peer reset counters permit same-key replacement ABA. Holding recovery across a send would block cancellation, while introducing a monitor/service would duplicate established owners. The explicit library API exposes fixed settlement facts needed by the selected application controller, preserving `rebind(Tunnel)` and the prior observation constructor. No app caller/automatic trigger, budget/accounting, persistence or migration is added. Shared replacement affects all peers; failed transport can require manual reconnect. The [contract](backend-contracts.md#expected-session-exhausted-cycle-recovery-primitive--73) defines outcomes and initiation/cancellation linearization.
+
+**Verification and limits:** require actual timer/protocol claim and progress-window controls, pending-static-writer and blocked-send teardown proof, JNI token/interruption/context checks, expected-session Java lifecycle controls and all native ABIs. Final-head independent ultra and required CI remain separate gates. Existing manual-rebind/device evidence cannot establish this primitive or automatic recovery runtime; full #73 and later application controller remain open.
 
 ### Android owns system VPN policy — 2026-10-09
 

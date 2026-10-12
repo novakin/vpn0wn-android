@@ -58,6 +58,7 @@ import androidx.collection.ArraySet;
 public final class GoBackend implements Backend {
     private static final int DNS_RESOLUTION_RETRIES = 10;
     private static final int NATIVE_HANDSHAKE_EVENT_FIRST = 1;
+    private static final int NATIVE_RECOVERY_CONTEXT_UNAVAILABLE = 1 << 8;
     private static final String TAG = "vpn0wn/GoBackend";
     @Nullable private static AlwaysOnCallback alwaysOnCallback;
     private static final AtomicReference<CompletableFuture<VpnService>> vpnServiceRef =
@@ -90,12 +91,12 @@ public final class GoBackend implements Backend {
         }
 
         private synchronized void observe(final Key peer, final HandshakeObservation.Event event, final boolean retry,
-                                          @Nullable final InetEndpoint endpoint, final HandshakeObservation.AddressFamily family) {
+                                          @Nullable final InetEndpoint endpoint, final HandshakeObservation.AddressFamily family, final long exhaustedEpisode) {
             final EnumMap<HandshakeObservation.Event, HandshakeObservation> events = pending.get(peer);
             if (retired || events == null)
                 return;
             events.put(event, new HandshakeObservation(session, peer, event, retry, endpoint, family,
-                    ++sequence, SystemClock.elapsedRealtime()));
+                    ++sequence, SystemClock.elapsedRealtime(), exhaustedEpisode));
             if (committed && !queued) {
                 queued = true;
                 observationHandler.post(drain);
@@ -180,12 +181,14 @@ public final class GoBackend implements Backend {
 
     private static native int wgRebind(int handle);
 
+    private static native int wgRecover(int handle, byte[] peer, long episode, String endpoint, Thread caller);
+
     private static native void wgTurnOff(int handle);
 
     private static native int wgTurnOn(String ifName, int tunFd, String settings, VpnService service, Thread activationThread, long activationId);
 
     private void captureHandshakeObservation(final VpnService service, final long activationId, final byte[] publicKey,
-                                             final int eventCode, final boolean retry, final String endpoint) {
+                                             final int eventCode, final boolean retry, final String endpoint, final long exhaustedEpisode) {
         final Activation captured = activation;
         if (captured == null || captured.service != service || captured.session.getId() != activationId)
             return;
@@ -204,7 +207,7 @@ public final class GoBackend implements Backend {
             }
         }
         try {
-            captured.observe(Key.fromBytes(publicKey), events[eventCode - NATIVE_HANDSHAKE_EVENT_FIRST], retry, numericEndpoint, family);
+            captured.observe(Key.fromBytes(publicKey), events[eventCode - NATIVE_HANDSHAKE_EVENT_FIRST], retry, numericEndpoint, family, exhaustedEpisode);
         } catch (final KeyFormatException e) {
             throw new IllegalArgumentException("Invalid native peer identity");
         }
@@ -313,6 +316,48 @@ public final class GoBackend implements Backend {
         if (result != 0)
             throw new IOException("Native tunnel rebind failed: " + result);
         return true;
+    }
+
+    /**
+     * Claim a still-exhausted native episode and replace its activation's shared protected transport.
+     * Call off Main. Exceptions or interruption can follow mutation and require conservative accounting.
+     * Only the triggering peer receives an ordinary initiation request; saved configuration is untouched.
+     */
+    public RecoveryResult recover(final Tunnel tunnel, final HandshakeObservation observation) throws Exception {
+        if (Thread.currentThread().isInterrupted())
+            throw new InterruptedException("VPN recovery interrupted");
+        if (observation.event() != HandshakeObservation.Event.EXHAUSTED)
+            throw new IllegalArgumentException("Recovery requires native exhaustion");
+        final int handle;
+        final VpnService service;
+        final Activation capturedActivation;
+        synchronized (stateLock) {
+            capturedActivation = activation;
+            if (currentTunnel != tunnel || currentTunnelHandle == -1 || currentService == null || capturedActivation == null)
+                return new RecoveryResult(RecoveryResult.Outcome.UNAVAILABLE, false, false);
+            if (capturedActivation.session != observation.session() || !observation.session().isActive() ||
+                    observation.exhaustedEpisode() <= 0 || observation.endpoint() == null ||
+                    observation.addressFamily() == HandshakeObservation.AddressFamily.UNKNOWN ||
+                    !capturedActivation.pending.containsKey(observation.peer()))
+                return new RecoveryResult(RecoveryResult.Outcome.OBSOLETE, false, false);
+            handle = currentTunnelHandle;
+            service = currentService;
+            requireActiveService(service);
+        }
+        final int result = wgRecover(handle, observation.peer().getBytes(), observation.exhaustedEpisode(),
+                observation.endpoint().toString(), Thread.currentThread());
+        if (Thread.currentThread().isInterrupted())
+            throw new InterruptedException("VPN recovery interrupted");
+        final int outcomeCode = result & ~NATIVE_RECOVERY_CONTEXT_UNAVAILABLE;
+        final RecoveryResult.Outcome[] outcomes = RecoveryResult.Outcome.values();
+        if (outcomeCode < 1 || outcomeCode > outcomes.length)
+            throw new IllegalStateException("Invalid native recovery outcome");
+        final boolean current;
+        synchronized (stateLock) {
+            current = currentTunnel == tunnel && currentTunnelHandle == handle && currentService == service &&
+                    activation == capturedActivation && capturedActivation.session.isActive() && !service.destroyed;
+        }
+        return new RecoveryResult(outcomes[outcomeCode - 1], (result & NATIVE_RECOVERY_CONTEXT_UNAVAILABLE) == 0, current);
     }
 
     /**
@@ -680,10 +725,10 @@ public final class GoBackend implements Backend {
 
         @Keep
         private void onNativeHandshakeObservation(final long activationId, final byte[] publicKey, final int event,
-                                                  final boolean retry, final String endpoint) {
+                                                  final boolean retry, final String endpoint, final long exhaustedEpisode) {
             final GoBackend currentOwner = owner;
             if (currentOwner != null)
-                currentOwner.captureHandshakeObservation(this, activationId, publicKey, event, retry, endpoint);
+                currentOwner.captureHandshakeObservation(this, activationId, publicKey, event, retry, endpoint, exhaustedEpisode);
         }
 
         @Keep

@@ -9,13 +9,18 @@ struct callback_run {
 	int active;
 };
 
+JNIEXPORT jboolean JNICALL Java_WgContextTest_callerInterrupted(JNIEnv *env, jclass type, jobject caller)
+{
+	return wgCallerInterrupted(env, caller) != 0;
+}
+
 static void *run_callback(void *argument)
 {
 	struct callback_run *run = argument;
 	run->protected = wgProtectSocket(run->context, 42);
 	run->active = wgServiceActive(run->context);
 	char peer[32] = { 9 };
-	wgHandshakeObservation(run->context, peer, 3, 1, "[::1]:51820");
+	wgHandshakeObservation(run->context, peer, 3, 1, "[::1]:51820", 91);
 	return NULL;
 }
 

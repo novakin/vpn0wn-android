@@ -4,6 +4,12 @@ public final class WgContextTest {
     private static native long createRetained(Service service, Thread startup);
     private static native int checkRetained(long handle);
     private static native void closeRetained(long handle);
+    private static native boolean callerInterrupted(Object caller);
+
+    private static final class FailedCaller {
+        final Error failure = new AssertionError("Synthetic caller defect");
+        public boolean isInterrupted() { throw failure; }
+    }
 
     private static final class Service {
         final Thread expectedStartup = Thread.currentThread();
@@ -40,9 +46,9 @@ public final class WgContextTest {
             return allowProtection;
         }
 
-        private void onNativeHandshakeObservation(long activation, byte[] peer, int event, boolean retry, String endpoint) {
+        private void onNativeHandshakeObservation(long activation, byte[] peer, int event, boolean retry, String endpoint, long episode) {
             if ((workerCallbacksOnly && Thread.currentThread() == expectedStartup) || activation != 73 || peer.length != 32
-                    || peer[0] != 9 || event != 3 || !retry || !endpoint.equals("[::1]:51820"))
+                    || peer[0] != 9 || event != 3 || !retry || !endpoint.equals("[::1]:51820") || episode != 91)
                 throw new AssertionError("Handshake callback lost scoped observation");
             observationCalls++;
             if (observationFailure != null)
@@ -52,6 +58,20 @@ public final class WgContextTest {
 
     public static void main(String[] args) throws Exception {
         System.load(args[0]);
+        if (callerInterrupted(Thread.currentThread()))
+            throw new AssertionError("Fresh recovery caller reported interrupted");
+        Thread.currentThread().interrupt();
+        if (!callerInterrupted(Thread.currentThread()) || !Thread.currentThread().isInterrupted())
+            throw new AssertionError("Recovery caller interruption was lost");
+        Thread.interrupted();
+        FailedCaller failedCaller = new FailedCaller();
+        try {
+            callerInterrupted(failedCaller);
+            throw new AssertionError("Caller defect was swallowed");
+        } catch (Error actual) {
+            if (actual != failedCaller.failure)
+                throw new AssertionError("Caller defect identity changed");
+        }
         Service service = new Service();
         if (exercise(service, Thread.currentThread()) != 31 || service.protectedCalls != 2
                 || service.startupCalls != 3 || service.laterCalls != 3 || service.observationCalls != 2)

@@ -10,7 +10,13 @@ import androidx.annotation.Nullable;
 @NonNullForAll
 public record HandshakeObservation(HandshakeSession session, Key peer, Event event, boolean retry,
                                    @Nullable InetEndpoint endpoint, AddressFamily addressFamily,
-                                   long sequence, long elapsedRealtimeMillis) {
+                                   long sequence, long elapsedRealtimeMillis, long exhaustedEpisode) {
+    public HandshakeObservation(HandshakeSession session, Key peer, Event event, boolean retry,
+                                @Nullable InetEndpoint endpoint, AddressFamily addressFamily,
+                                long sequence, long elapsedRealtimeMillis) {
+        this(session, peer, event, retry, endpoint, addressFamily, sequence, elapsedRealtimeMillis, 0);
+    }
+
     public enum Event {
         ATTEMPT,
         SENT,

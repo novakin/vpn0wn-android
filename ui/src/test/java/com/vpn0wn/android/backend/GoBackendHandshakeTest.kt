@@ -109,6 +109,14 @@ class GoBackendHandshakeTest {
         assertTrue(observations.isEmpty())
     }
 
+    @Test fun exhaustionRetainsNativeEpisodeDistinctFromCaptureSequence() {
+        NativeShadow.startup = { owner, id -> capture(owner, id, peer, 5, episode = 73); 7 }
+        backend.setState(tunnel, Tunnel.State.UP, profile())
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(73L, observations.single().exhaustedEpisode())
+        assertEquals(1L, observations.single().sequence())
+    }
+
     @Test fun invalidNativeHostnameFailsStartupWithoutPublishingStagedState() {
         NativeShadow.startup = { owner, id ->
             capture(owner, id, peer, 4)
@@ -201,10 +209,10 @@ class GoBackendHandshakeTest {
         AllowedIPs = 192.0.2.3/32
     """.trimIndent().byteInputStream())
 
-    private fun capture(owner: GoBackend.VpnService, id: Long, key: Key, event: Int, endpoint: String = "127.0.0.1:51820") {
+    private fun capture(owner: GoBackend.VpnService, id: Long, key: Key, event: Int, endpoint: String = "127.0.0.1:51820", episode: Long = 0) {
         GoBackend.VpnService::class.java.getDeclaredMethod("onNativeHandshakeObservation", Long::class.javaPrimitiveType,
-            ByteArray::class.java, Int::class.javaPrimitiveType, Boolean::class.javaPrimitiveType, String::class.java)
-            .apply { isAccessible = true }.invoke(owner, id, key.bytes, event, true, endpoint)
+            ByteArray::class.java, Int::class.javaPrimitiveType, Boolean::class.javaPrimitiveType, String::class.java, Long::class.javaPrimitiveType)
+            .apply { isAccessible = true }.invoke(owner, id, key.bytes, event, true, endpoint, episode)
     }
 
     @Implements(value = VpnService.Builder::class)

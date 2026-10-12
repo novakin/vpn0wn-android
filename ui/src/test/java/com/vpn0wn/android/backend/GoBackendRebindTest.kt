@@ -6,6 +6,8 @@ import android.os.Looper
 import android.os.ParcelFileDescriptor
 import androidx.test.core.app.ApplicationProvider
 import com.vpn0wn.config.Config
+import com.vpn0wn.config.InetEndpoint
+import com.vpn0wn.crypto.Key
 import java.io.IOException
 import java.util.Collections
 import java.util.concurrent.CompletableFuture
@@ -61,6 +63,8 @@ class GoBackendRebindTest {
         NativeShadow.nextHandle = 7
         NativeShadow.rebindCalls.clear()
         NativeShadow.rebind = null
+        NativeShadow.recover = null
+        NativeShadow.recoveryCalls.clear()
         NativeShadow.turnOff = null
         NativeShadow.stateLock = checkNotNull(field("stateLock").get(backend))
     }
@@ -68,6 +72,7 @@ class GoBackendRebindTest {
     @After fun tearDown() {
         Thread.interrupted()
         NativeShadow.rebind = null
+        NativeShadow.recover = null
         NativeShadow.turnOff = null
         backend.setState(tunnel, Tunnel.State.DOWN, null)
         shadowOf(Looper.getMainLooper()).idle()
@@ -227,6 +232,133 @@ class GoBackendRebindTest {
         assertEquals(Tunnel.State.UP, backend.getState(tunnel))
     }
 
+    @Test fun recoveryChecksExpectedSessionBeforeNativeLookup() {
+        connect()
+        val old = exhaustion()
+        backend.setState(tunnel, Tunnel.State.DOWN, null)
+        service = Robolectric.buildService(GoBackend.VpnService::class.java).create().get()
+        connect()
+        assertEquals(RecoveryResult.Outcome.OBSOLETE, backend.recover(tunnel, old).outcome())
+        assertTrue(NativeShadow.recoveryCalls.isEmpty())
+        assertFalse(old.session().isActive)
+    }
+
+    @Test fun recoveryPreservesOwnershipAndSeparatesOutcomeFacts() {
+        val config = connect()
+        val active = session()
+        val trigger = exhaustion()
+        for ((index, outcome) in RecoveryResult.Outcome.values().withIndex()) {
+            NativeShadow.recover = { index + 1 }
+            val result = backend.recover(tunnel, trigger)
+            assertEquals(outcome, result.outcome())
+            assertEquals(index >= 3, result.admitted())
+            assertEquals(index >= 4, result.transportReady())
+            assertEquals(outcome == RecoveryResult.Outcome.INITIATION_STARTED ||
+                outcome == RecoveryResult.Outcome.INITIATION_SEND_FAILED, result.initiationStarted())
+            assertTrue(result.contextReusable())
+            assertTrue(result.currentActivation())
+        }
+        assertSame(config, field("currentConfig").get(backend))
+        assertSame(active, session())
+        assertEquals(1, BuilderShadow.establishCalls)
+        assertEquals(Tunnel.State.UP, backend.getState(tunnel))
+    }
+
+    @Test fun admittedUnavailableContextCannotReportReadyWithoutThrowable() {
+        connect()
+        NativeShadow.recover = { 5 or (1 shl 8) }
+        val result = backend.recover(tunnel, exhaustion())
+        assertTrue(result.admitted())
+        assertTrue(result.initiationStarted())
+        assertFalse(result.contextReusable())
+        assertFalse(result.transportReady())
+    }
+
+    @Test fun admittedObsoleteCompletionKeepsChargeEvidence() {
+        connect()
+        val trigger = exhaustion()
+        NativeShadow.recover = {
+            backend.setState(tunnel, Tunnel.State.DOWN, null)
+            service = Robolectric.buildService(GoBackend.VpnService::class.java).create().get()
+            connect()
+            5
+        }
+        val result = backend.recover(tunnel, trigger)
+        assertTrue(result.admitted())
+        assertFalse(result.currentActivation())
+        assertFalse(result.transportReady())
+        assertTrue(session().isActive)
+        assertFalse(trigger.session().isActive)
+    }
+
+    @Test fun disconnectCancelsBlockedRecoveryOutsideStateLock() {
+        assertBlockedRecoveryTeardown(false)
+    }
+
+    @Test fun serviceDestructionCancelsBlockedRecoveryOutsideStateLock() {
+        assertBlockedRecoveryTeardown(true)
+    }
+
+    private fun assertBlockedRecoveryTeardown(destruction: Boolean) {
+        connect()
+        val trigger = exhaustion()
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        NativeShadow.recover = {
+            entered.countDown()
+            assertTrue(release.await(5, TimeUnit.SECONDS))
+            4
+        }
+        NativeShadow.turnOff = { release.countDown() }
+        val executor = Executors.newFixedThreadPool(2)
+        try {
+            val recovering = executor.submit<RecoveryResult> { backend.recover(tunnel, trigger) }
+            assertTrue(entered.await(5, TimeUnit.SECONDS))
+            executor.submit {
+                if (destruction) service.onDestroy() else backend.setState(tunnel, Tunnel.State.DOWN, null)
+            }.get(5, TimeUnit.SECONDS)
+            assertTrue(down.await(5, TimeUnit.SECONDS))
+            val result = recovering.get(5, TimeUnit.SECONDS)
+            assertTrue(result.admitted())
+            assertFalse(result.currentActivation())
+            assertEquals(Tunnel.State.DOWN, backend.getState(tunnel))
+        } finally {
+            release.countDown()
+            executor.shutdownNow()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+        }
+    }
+
+    @Test fun recoveryInterruptionPreservesFlagAndWaitsForNativeSettlement() {
+        connect()
+        val trigger = exhaustion()
+        Thread.currentThread().interrupt()
+        try {
+            assertThrows(InterruptedException::class.java) { backend.recover(tunnel, trigger) }
+            assertTrue(NativeShadow.recoveryCalls.isEmpty())
+        } finally { Thread.interrupted() }
+        NativeShadow.recover = { Thread.currentThread().interrupt(); 5 }
+        try {
+            assertThrows(InterruptedException::class.java) { backend.recover(tunnel, trigger) }
+            assertTrue(Thread.currentThread().isInterrupted)
+            assertTrue(session().isActive)
+        } finally { Thread.interrupted() }
+    }
+
+    @Test fun recoveryPreservesNativeExceptionAndErrorIdentity() {
+        connect()
+        val trigger = exhaustion()
+        for (failure in listOf(InterruptedException("Synthetic interruption"), IllegalStateException("Synthetic defect"), AssertionError("Synthetic Error"))) {
+            NativeShadow.recover = { throw failure }
+            assertSame(failure, assertThrows(failure.javaClass) { backend.recover(tunnel, trigger) })
+            assertTrue(session().isActive)
+        }
+    }
+
+    private fun exhaustion() = HandshakeObservation(session(),
+        Key.fromBase64("CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk="), HandshakeObservation.Event.EXHAUSTED, true,
+        InetEndpoint.parse("127.0.0.1:51820"), HandshakeObservation.AddressFamily.IPV4, 1, 1, 73)
+
     private fun assertSuccessfulRebindPreservesOwnership(port: Int?) {
         val config = connect(port)
         val activation = field("activation").get(backend)
@@ -326,6 +458,8 @@ class GoBackendRebindTest {
             var nextHandle = 7
             val rebindCalls = mutableListOf<Int>()
             var rebind: ((Int) -> Int)? = null
+            var recover: ((Int) -> Int)? = null
+            val recoveryCalls = mutableListOf<Int>()
             var turnOff: ((Int) -> Unit)? = null
             lateinit var stateLock: Any
             lateinit var expectedService: GoBackend.VpnService
@@ -343,6 +477,15 @@ class GoBackendRebindTest {
                 assertFalse(Thread.holdsLock(stateLock))
                 rebindCalls += handle
                 return rebind?.invoke(handle) ?: 0
+            }
+            @Implementation @JvmStatic fun wgRecover(handle: Int, peer: ByteArray, episode: Long, endpoint: String, caller: Thread): Int {
+                assertFalse(Thread.holdsLock(stateLock))
+                assertEquals(32, peer.size)
+                assertEquals(73L, episode)
+                assertEquals("127.0.0.1:51820", endpoint)
+                assertSame(Thread.currentThread(), caller)
+                recoveryCalls += handle
+                return recover?.invoke(handle) ?: 6
             }
             @Implementation @JvmStatic fun wgTurnOff(handle: Int) { turnOff?.invoke(handle) }
             // Robolectric must retain the zero-argument JNI method shape.
