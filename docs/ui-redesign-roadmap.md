@@ -102,6 +102,16 @@ The binding initializes padding when the header is laid out, using its native be
 
 ## Design System
 
+### Empty Home guidance refinement — 2026-10-12
+
+The maintainer requested smaller, better placed “add a tunnel” guidance after physical empty-Home inspection. `Vpn0wnEmptyStateText` now reuses the existing Inter Tight secondary-text role at 14sp instead of the previous 20sp value style. `home_empty_placeholder` centers each line beneath the unchanged 112dp symbol and limits normal text measure to 280dp, using Android's balanced line breaking to avoid an isolated short final line. Localized copy, font scaling and native overflow scrolling remain intact. The visible artwork/guidance group keeps its existing viewport-centering owner. The fixed 48dp Add action, its 13sp regular mono label/14dp plus, palette, focus, navigation and tunnel behavior retain their contracts.
+
+`HomeSelectionTest` checks actual centered line geometry alongside existing startup, late-binding, header-offset, large-text/RTL, focus and minimum-API controls. The four focused empty-Home controls and Detekt passed for the changed source; the prior centering record retains its original artifact and start-aligned guidance. Full #80/#52 accessibility/state acceptance remains separate.
+
+Scoped rooted output on 2026-10-12 (Europe/Paris) used clean source `9fa508d653e904a40a5845a3fc1c5249b3a7eb45` on Pixel 7 Pro/API 34. In-place installation and full APK pullback matched SHA-256 `0998f14f1b0e85ee2799618ff7677e50c739db365d35ad14464f8c2c471ac9f5`. French 1× portrait has balanced two-line guidance; 2× French and Arabic RTL portrait retain complete copy. Fitting groups in these frames and collapsed landscape stay within 0.5px of the visible viewport center. Expanded French landscape clips 4px of the caption bounds and expanded 2× RTL landscape hides the caption; native header collapse reveals the complete guidance. The 48dp Add action remains reachable, and its sheet opens and returns with Back. Both requested system modes retain the app's fixed dark palette.
+
+Final readback restores all 14 sampled device settings, both app locales/UID policies and the inspected size/density, interface, tool and module inventories. The legacy APK and four store-file hashes match the initial baseline. The empty candidate has no personal files; its APK and sole AndroidX ProfileVerifier cache intentionally change with installation. Earlier transition frames and failed restoration/readback attempts remain retained and excluded from acceptance. Populated states, spoken TalkBack, other devices/navigation modes and broader #80/#52 remain open; this run adds no VPN, DPI or performance proof.
+
 ### Typography
 
 | Role | Font family | Weight | Usage |
@@ -488,6 +498,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 ## Progress
 
 ### Done
+
+- [x] **Empty Home guidance source refinement — #80, 2026-10-12:** `Vpn0wnEmptyStateText` reuses Inter Tight at 14sp and `home_empty_placeholder` centers localized lines within a 280dp maximum measure. Symbol, viewport-centering owner and fixed Add action remain unchanged. [The scoped contract](#empty-home-guidance-refinement--2026-10-12) retains runtime and broader acceptance gates.
 
 - [x] **Empty Home visible-centering source repair — #80, 2026-10-11:** the empty artwork/guidance group compensates for the remaining native header-collapse space through `BindingAdapters.setHomeEmptyAppBar`, preserving the fixed Add action and native scrolling/focus. [The scoped contract](#empty-home-visible-centering--2026-10-11) distinguishes source controls from actual Android and broader acceptance.
 
