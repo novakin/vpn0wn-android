@@ -79,6 +79,7 @@ class AppDataTransferSettingsTest {
         SettingsActivityTest.KernelSupport.available = false
         Authentication.calls = 0
         Authentication.autoCancel = true
+        Authentication.expectedTitleRes = R.string.app_data_transfer_auth_title
         Authentication.callbacks.clear()
         ShadowLog.clear()
     }
@@ -567,11 +568,12 @@ class AppDataTransferSettingsTest {
         override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<out String>?) = 0
     }
 
+    // The Kotlin singleton can retain its attached shadow when Robolectric reuses a sandbox.
     @Implements(BiometricAuthenticator::class)
     class Authentication {
         @Implementation
         fun authenticate(dialogTitleRes: Int, fragment: Fragment, callback: (BiometricAuthenticator.Result) -> Unit) {
-            assertEquals(R.string.app_data_transfer_auth_title, dialogTitleRes)
+            assertEquals(expectedTitleRes, dialogTitleRes)
             assertTrue(fragment.isAdded)
             calls++
             callbacks += callback
@@ -581,6 +583,7 @@ class AppDataTransferSettingsTest {
         companion object {
             var calls = 0
             var autoCancel = true
+            var expectedTitleRes = R.string.app_data_transfer_auth_title
             val callbacks = mutableListOf<(BiometricAuthenticator.Result) -> Unit>()
         }
     }

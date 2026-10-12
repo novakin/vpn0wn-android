@@ -3,22 +3,29 @@ package com.vpn0wn.android.preference
 import android.app.Application
 import android.content.ContentProvider
 import android.content.ContentValues
+import android.content.Context
 import android.content.pm.ProviderInfo
 import android.database.Cursor
 import android.database.MatrixCursor
 import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
+import android.view.View
 import androidx.lifecycle.lifecycleScope
+import androidx.preference.PreferenceFragmentCompat
 import com.vpn0wn.android.R
 import com.vpn0wn.android.activity.SettingsActivity
+import com.vpn0wn.android.activity.SettingsActivityTest
 import com.vpn0wn.android.model.TunnelTestEnvironment
+import com.vpn0wn.android.util.RootShell
+import com.vpn0wn.android.util.ToolsInstaller
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.zip.ZipFile
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -41,7 +48,8 @@ import org.robolectric.shadows.ShadowContentResolver
 import org.robolectric.shadows.ShadowLog
 
 @RunWith(RobolectricTestRunner::class)
-@Config(application = Application::class, sdk = [29])
+@Config(application = Application::class, sdk = [29], shadows = [SettingsActivityTest.KernelSupport::class, SettingsActivityTest.InstalledTools::class])
+@OptIn(ExperimentalCoroutinesApi::class)
 class ZipExporterPreferenceTest {
     @get:Rule val folder = TemporaryFolder()
     @After fun tearDown() = Dispatchers.resetMain()
@@ -49,13 +57,13 @@ class ZipExporterPreferenceTest {
     @Test
     fun successfulExportPreservesProfilesAndRestoresControl() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val env = TunnelTestEnvironment(folder.root, backgroundScope)
+        val env = TunnelTestEnvironment(folder.root, backgroundScope).also(::prepareSettings)
         val profile = TunnelTestEnvironment.profile()
         env.manager.create("one", profile)
         env.manager.create("two", profile)
         val controller = Robolectric.buildActivity(SettingsActivity::class.java)
         val activity = controller.get().apply { setTheme(R.style.AppTheme) }
-        controller.create()
+        controller.setup()
         val output = folder.newFile("export.zip")
         val provider = ExportProvider(output, writable = true)
         provider.attachInfo(activity, ProviderInfo().apply { authority = "media" })
@@ -63,11 +71,13 @@ class ZipExporterPreferenceTest {
         val preference = ZipExporterPreference(activity, null)
         runCurrent()
         try {
-            val priorJobs = activity.lifecycleScope.coroutineContext[Job]!!.children.toSet()
+            val fragment = activity.supportFragmentManager.findFragmentById(R.id.settings_content) as PreferenceFragmentCompat
+            val ownerScope = fragment.viewLifecycleOwner.lifecycleScope
+            val priorJobs = ownerScope.coroutineContext[Job]!!.children.toSet()
             preference.isEnabled = false
-            ZipExporterPreference::class.java.getDeclaredMethod("exportZip")
-                .apply { isAccessible = true }.invoke(preference)
-            activity.lifecycleScope.coroutineContext[Job]!!.children.single { it !in priorJobs }.join()
+            ZipExporterPreference::class.java.getDeclaredMethod("exportZip", PreferenceFragmentCompat::class.java, View::class.java)
+                .apply { isAccessible = true }.invoke(preference, fragment, fragment.requireView())
+            ownerScope.coroutineContext[Job]!!.children.single { it !in priorJobs }.join()
             assertTrue(preference.isEnabled)
             assertEquals(activity.getString(R.string.zip_export_success, output.absolutePath), preference.summary)
             assertEquals("vpn0wn-export.zip", provider.insertedValues?.getAsString(MediaStore.MediaColumns.DISPLAY_NAME))
@@ -79,19 +89,22 @@ class ZipExporterPreferenceTest {
             }
             assertEquals(0, provider.cleanupAttempts)
         } finally {
-            controller.destroy()
-            env.application.onTerminate()
+            try {
+                controller.destroy()
+            } finally {
+                env.close()
+            }
         }
     }
 
     @Test
     fun failedWriteRetainsPrimaryFailureAndCleanupErrorAndRestoresControl() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val env = TunnelTestEnvironment(folder.root, backgroundScope)
+        val env = TunnelTestEnvironment(folder.root, backgroundScope).also(::prepareSettings)
         env.manager.create("one", TunnelTestEnvironment.profile())
         val controller = Robolectric.buildActivity(SettingsActivity::class.java)
         val activity = controller.get().apply { setTheme(R.style.AppTheme) }
-        controller.create()
+        controller.setup()
         val provider = ExportProvider(folder.newFile("export.zip"))
         provider.attachInfo(activity, ProviderInfo().apply { authority = "media" })
         ShadowContentResolver.registerProviderInternal("media", provider)
@@ -99,11 +112,13 @@ class ZipExporterPreferenceTest {
         runCurrent()
         ShadowLog.clear()
         try {
-            val priorJobs = activity.lifecycleScope.coroutineContext[Job]!!.children.toSet()
+            val fragment = activity.supportFragmentManager.findFragmentById(R.id.settings_content) as PreferenceFragmentCompat
+            val ownerScope = fragment.viewLifecycleOwner.lifecycleScope
+            val priorJobs = ownerScope.coroutineContext[Job]!!.children.toSet()
             preference.isEnabled = false
-            ZipExporterPreference::class.java.getDeclaredMethod("exportZip")
-                .apply { isAccessible = true }.invoke(preference)
-            val export = activity.lifecycleScope.coroutineContext[Job]!!.children.single { it !in priorJobs }
+            ZipExporterPreference::class.java.getDeclaredMethod("exportZip", PreferenceFragmentCompat::class.java, View::class.java)
+                .apply { isAccessible = true }.invoke(preference, fragment, fragment.requireView())
+            val export = ownerScope.coroutineContext[Job]!!.children.single { it !in priorJobs }
             export.join()
             assertTrue(preference.isEnabled)
             assertEquals(activity.getString(R.string.zip_export_summary), preference.summary)
@@ -115,15 +130,18 @@ class ZipExporterPreferenceTest {
             })
             assertFalse(failure!!.message == "fixture delete failure")
         } finally {
-            controller.destroy()
-            env.application.onTerminate()
+            try {
+                controller.destroy()
+            } finally {
+                env.close()
+            }
         }
     }
 
     @Test
     fun cancelledConfigLoadingSettlesChildrenWithoutSuccessAndRestoresControl() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val env = TunnelTestEnvironment(folder.root, backgroundScope)
+        val env = TunnelTestEnvironment(folder.root, backgroundScope).also(::prepareSettings)
         env.store.configs["one"] = TunnelTestEnvironment.profile()
         env.store.configs["two"] = TunnelTestEnvironment.profile()
         val entered = CountDownLatch(1)
@@ -133,17 +151,19 @@ class ZipExporterPreferenceTest {
         env.manager.getTunnels()
         val controller = Robolectric.buildActivity(SettingsActivity::class.java)
         val activity = controller.get().apply { setTheme(R.style.AppTheme) }
-        controller.create()
+        controller.setup()
         val preference = ZipExporterPreference(activity, null)
         runCurrent()
         ShadowLog.clear()
         try {
-            val priorJobs = activity.lifecycleScope.coroutineContext[Job]!!.children.toSet()
+            val fragment = activity.supportFragmentManager.findFragmentById(R.id.settings_content) as PreferenceFragmentCompat
+            val ownerScope = fragment.viewLifecycleOwner.lifecycleScope
+            val priorJobs = ownerScope.coroutineContext[Job]!!.children.toSet()
             preference.isEnabled = false
-            ZipExporterPreference::class.java.getDeclaredMethod("exportZip")
-                .apply { isAccessible = true }.invoke(preference)
+            ZipExporterPreference::class.java.getDeclaredMethod("exportZip", PreferenceFragmentCompat::class.java, View::class.java)
+                .apply { isAccessible = true }.invoke(preference, fragment, fragment.requireView())
             assertTrue(withContext(Dispatchers.IO) { entered.await(5, TimeUnit.SECONDS) })
-            val export = activity.lifecycleScope.coroutineContext[Job]!!.children.single { it !in priorJobs }
+            val export = ownerScope.coroutineContext[Job]!!.children.single { it !in priorJobs }
             export.cancel()
             runCurrent()
             assertFalse(export.isCompleted)
@@ -156,9 +176,22 @@ class ZipExporterPreferenceTest {
             assertTrue(ShadowLog.getLogsForTag("vpn0wn/ZipExporterPreference").isEmpty())
         } finally {
             release.countDown()
-            controller.destroy()
-            env.application.onTerminate()
+            try {
+                controller.destroy()
+            } finally {
+                env.close()
+            }
         }
+    }
+
+    private fun prepareSettings(env: TunnelTestEnvironment) {
+        SettingsActivityTest.KernelSupport.available = false
+        val shell = object : RootShell(env.application) { override fun start() = Unit }
+        com.vpn0wn.android.Application::class.java.getDeclaredField("rootShell").apply { isAccessible = true }.set(env.application, shell)
+        com.vpn0wn.android.Application::class.java.getDeclaredField("toolsInstaller").apply { isAccessible = true }
+            .set(env.application, ToolsInstaller(env.application, shell))
+        val restrictions = env.application.getSystemService(Context.RESTRICTIONS_SERVICE) as android.content.RestrictionsManager
+        org.robolectric.Shadows.shadowOf(restrictions).setApplicationRestrictions(android.os.Bundle())
     }
 
     private class ExportProvider(private val file: File, private val writable: Boolean = false) : ContentProvider() {
