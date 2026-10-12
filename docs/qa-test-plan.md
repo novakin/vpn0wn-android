@@ -223,6 +223,8 @@ The later [Android brand adoption](#android-brand-artwork-controls) supersedes t
 
 ### Security Regression Tests
 
+Editor mask controls also require a real `PasswordTransformationMethod` and transformed text after initial/delayed loads and policy/selection resets; comparing numeric input types alone cannot establish masking.
+
 `ZipExporterPolicyTest` and `TunnelEditorKeyPolicyTest` drive the existing preference/fragment owners with synthetic restriction/authentication callbacks. They cover denial before click/focus, revocation during authentication/config loading and at stream acquisition, allowed ZIP contents/no-lock paths, terminal failure/cancellation, nonterminal failed samples, duplicate callbacks and stale editor/Settings views or selections. These are Robolectric policy/ownership controls, not Android DPC or biometric proof. Real #166 timing acceptance, when separately authorized, needs a disposable managed user/profile with denied/allowed pairs; do not enroll or change ownership on the personal phone. Blocking writes and already-visible/copied data retain the [contract limits](backend-contracts.md#import-ordering-and-export).
 
 - Passwords are not included in snackbars, logs, exceptions, or copied text.

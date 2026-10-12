@@ -351,7 +351,7 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
             return
         }
         if (authenticationRequest != null) return
-        if (edit.inputType == InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD) return
+        if (edit.inputType == KEY_VISIBLE_INPUT_TYPE) return
         if (!haveShownKeys && edit.text.isNotEmpty()) {
             val request = Any()
             val ownerConfig = ownerBinding.config
@@ -406,16 +406,20 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
         binding?.mainContainer?.descendants?.filterIsInstance<EditText>()?.filter {
             it.id == R.id.private_key_text || it.id == R.id.pre_shared_key_text
         }?.forEach {
-            it.inputType = InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            it.inputType = KEY_MASKED_INPUT_TYPE
         }
     }
 
     private fun showPrivateKey(edit: EditText) {
         activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        edit.inputType = InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+        edit.inputType = KEY_VISIBLE_INPUT_TYPE
     }
 
     companion object {
+        private const val KEY_MASKED_INPUT_TYPE = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or
+            InputType.TYPE_TEXT_VARIATION_PASSWORD
+        private const val KEY_VISIBLE_INPUT_TYPE = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or
+            InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
         private const val KEY_LOCAL_CONFIG = "local_config"
         private const val KEY_ORIGINAL_NAME = "original_name"
         private const val TAG = "vpn0wn/TunnelEditorFragment"

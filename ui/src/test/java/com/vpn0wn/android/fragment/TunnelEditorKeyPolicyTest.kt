@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.RestrictionsManager
 import android.os.Bundle
 import android.text.InputType
+import android.text.method.PasswordTransformationMethod
 import android.widget.EditText
 import androidx.databinding.DataBindingUtil
 import androidx.lifecycle.lifecycleScope
@@ -48,6 +49,23 @@ import org.robolectric.Shadows.shadowOf
 class TunnelEditorKeyPolicyTest {
     @get:Rule val folder = TemporaryFolder()
     @After fun tearDown() = Dispatchers.resetMain()
+
+    @Test
+    fun selectedProfileLoadsPrivateKeyAndPskWithPasswordTransformation() = runTest {
+        withEnvironment { env, fixture ->
+            val selected = env.manager.create("loaded", secretProfile())
+            fixture.fragment.onSelectedTunnelChanged(null, selected)
+
+            runCurrent()
+            fixture.settle()
+
+            assertTrue(fixture.binding.privateKeyText.text.isNotEmpty())
+            assertTrue(fixture.psk.text.isNotEmpty())
+            assertMasked(fixture.binding.privateKeyText)
+            assertMasked(fixture.psk)
+            assertTrue(Authentication.callbacks.isEmpty())
+        }
+    }
 
     @Test
     fun restrictionBeforeFocusBlocksAuthenticationAndEmptyFieldReveal() = runTest {
@@ -324,11 +342,16 @@ class TunnelEditorKeyPolicyTest {
     }
 
     private fun assertMasked(edit: EditText) {
-        assertFalse(edit.inputType == visibleInputType)
+        assertEquals(InputType.TYPE_CLASS_TEXT, edit.inputType and InputType.TYPE_MASK_CLASS)
+        assertTrue(edit.transformationMethod is PasswordTransformationMethod)
+        if (edit.text.isNotEmpty()) {
+            assertFalse(edit.transformationMethod.getTransformation(edit.text, edit).toString() == edit.text.toString())
+        }
     }
 
     private fun assertVisible(edit: EditText) {
         assertEquals(visibleInputType, edit.inputType)
+        assertFalse(edit.transformationMethod is PasswordTransformationMethod)
     }
 
     private fun secretProfile() = Config.parse("""
@@ -344,6 +367,7 @@ class TunnelEditorKeyPolicyTest {
     }
 
     companion object {
-        private const val visibleInputType = InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+        private const val visibleInputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or
+            InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
     }
 }
