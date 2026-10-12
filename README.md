@@ -91,6 +91,8 @@ dependencies {
 
 See Android's [desugaring guidance](https://developer.android.com/studio/write/java8-support#library-desugaring) for consumer configuration.
 
+The later [physical port-lifecycle trial](docs/reviews/2026-10-12-udp-port-release-acceptance.md) adds independent IPv4/IPv6 port collision/reuse, retained-port rebind and genuine destruction/fresh activation through a separate-UID production-backend package-path build. It preserves the captured original apps/kernel state and retains shipping-artifact, traffic and wider #61/#73 limits.
+
 ## Translating
 
 Upstream WireGuard uses its [Crowdin translation project](https://crowdin.com/project/WireGuard). That service and this repository's upstream sync script are not evidence that vpn0wn-specific strings are synchronized there. Contribute fork-specific resource changes through a scoped PR, updating [default strings](ui/src/main/res/values/strings.xml), appropriate locales and affected [QA guidance](docs/qa-test-plan.md).
