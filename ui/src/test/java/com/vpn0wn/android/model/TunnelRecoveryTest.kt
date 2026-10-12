@@ -866,15 +866,16 @@ class TunnelRecoveryTest {
         runCurrent()
     }
 
-    private suspend fun TestScope.awaitSnapshot(fixture: Fixture,
-                                                condition: (ObservableTunnel.RecoverySnapshot) -> Boolean): ObservableTunnel.RecoverySnapshot {
+    // A real-IO suspension lets runTest consume the virtual BUSY delay before the waiting test observes admission.
+    private fun TestScope.awaitSnapshot(fixture: Fixture,
+                                       condition: (ObservableTunnel.RecoverySnapshot) -> Boolean): ObservableTunnel.RecoverySnapshot {
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
         while (true) {
             pump()
             val snapshot = fixture.tunnel.recoverySnapshot
             if (snapshot != null && condition(snapshot)) return snapshot
             assertTrue("Recovery did not settle: $snapshot", System.nanoTime() < deadline)
-            withContext(Dispatchers.IO) { Thread.yield() }
+            Thread.yield()
         }
     }
 
@@ -882,12 +883,12 @@ class TunnelRecoveryTest {
         assertTrue("Recovery fixture did not reach its barrier", withContext(Dispatchers.IO) { latch.await(5, TimeUnit.SECONDS) })
     }
 
-    private suspend fun TestScope.awaitCondition(condition: () -> Boolean) {
+    private fun TestScope.awaitCondition(condition: () -> Boolean) {
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
         while (!condition()) {
             pump()
             assertTrue("Recovery fixture did not settle", System.nanoTime() < deadline)
-            withContext(Dispatchers.IO) { Thread.yield() }
+            Thread.yield()
         }
     }
 
