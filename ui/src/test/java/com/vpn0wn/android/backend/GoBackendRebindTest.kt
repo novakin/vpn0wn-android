@@ -345,6 +345,34 @@ class GoBackendRebindTest {
         } finally { Thread.interrupted() }
     }
 
+    @Test fun recoveryInterruptedDuringStateAdmissionNeverEntersNative() {
+        connect()
+        val trigger = exhaustion()
+        val caller = AtomicReference<Thread>()
+        val executor = Executors.newSingleThreadExecutor()
+        try {
+            val waiting = synchronized(checkNotNull(field("stateLock").get(backend))) {
+                val operation = executor.submit<Boolean> {
+                    caller.set(Thread.currentThread())
+                    assertThrows(InterruptedException::class.java) { backend.recover(tunnel, trigger) }
+                    Thread.currentThread().isInterrupted
+                }
+                val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+                while (caller.get()?.state != Thread.State.BLOCKED) {
+                    assertTrue("Recovery did not wait for state admission", System.nanoTime() < deadline)
+                    Thread.yield()
+                }
+                caller.get().interrupt()
+                operation
+            }
+            assertTrue(waiting.get(5, TimeUnit.SECONDS))
+            assertTrue(NativeShadow.recoveryCalls.isEmpty())
+        } finally {
+            executor.shutdownNow()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+        }
+    }
+
     @Test fun recoveryPreservesNativeExceptionAndErrorIdentity() {
         connect()
         val trigger = exhaustion()
