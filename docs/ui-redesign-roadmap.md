@@ -1,6 +1,6 @@
 # vpn0wn UI Redesign Roadmap
 
-Last updated: 2026-10-11 (Europe/Paris).
+Last updated: 2026-10-12 (Europe/Paris).
 
 ## Design Source
 
@@ -97,6 +97,8 @@ Placement review found Android's default keyboard-focus foreground highlight dim
 The maintainer requested centering the standalone Ø when no tunnels are configured. The existing `fillViewport` container centered its artwork/guidance group inside Material's larger scrolling extent, which includes header-collapse space below the visible viewport. `BindingAdapters.setHomeEmptyAppBar` now adjusts only the empty group's bottom padding as the header moves, keeping the artwork and guidance centered together between the visible header/status strip and fixed Add action. The existing 112dp symbol, 16dp guidance gap, colors, decorative accessibility role, focus treatment and native short-screen/large-text scrolling remain intact. Populated-list and selection behavior are unchanged.
 
 The binding initializes padding when the header is laid out, using its native behavior's current offset, then follows later offset changes. Padding changes during a native layout schedule one content remeasurement after that traversal, preventing LinearLayout's previous measured gravity from preserving the old position. This covers bindings attached after the first layout without requiring a header gesture. `HomeSelectionTest.emptyHomeGroupCentersInTheVisibleViewport` checks actual visible bounds with expanded, intermediate and collapsed headers in normal and 2× RTL portrait; a separate late-binding regression covers startup. Existing short-landscape and focus controls retain their own coverage. Source checks, independently reviewed final head and actual Android output are required before delivery. This bounded correction does not complete #80's broader physical/TalkBack acceptance.
+
+[Rooted phone acceptance on 2026-10-12](reviews/2026-10-12-rooted-home-centering.md) verifies the current `d54cf2b1` debug APK on Pixel 7 Pro/API 34. Nine actual frames cover normal/2× text, portrait/landscape, expanded/collapsed headers and app-scoped RTL in system night/day modes. Fitting artwork/guidance groups stay within 0.5px of the visible viewport center; the 48dp Add action remains clear of native three-button navigation. At 2× RTL landscape, expanded-header overflow hides the guidance; actual header collapse reveals the whole group. Requested labels do not override measured state. Original app locale/device settings and four legacy store-file hashes were verified after restoration; vpn0wn remains installed alongside the legacy app. Populated Home, spoken TalkBack, other navigation/device combinations and broader #80/#52 remain open.
 
 ## Design System
 
