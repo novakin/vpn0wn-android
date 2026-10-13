@@ -1,6 +1,6 @@
 # Architecture and maintenance boundaries
 
-Last updated: 2026-10-12 (Europe/Paris).
+Last updated: 2026-10-13 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -121,7 +121,7 @@ See [backend contracts](backend-contracts.md) for known divergences and [the pla
 
 **Alternatives/consequences:** a general recovery service/provider/clock framework adds ownership this fixed flow does not need. Reusing statistics-read cancellation would discard mutation evidence; clearing counters on a no-op UP would permit a third same-session replacement. Manual invalidation therefore cancels the request generation without resetting same-session accounting or known transport facts, and never joins while locked. Restoration retains the existing serialized transition owner without the public manual hook. Only native retirement/new session hides/refills the record. The snapshot reports counts, fixed categories, observed power and shared transport facts without converting historical authentication into health. Expected I/O failure disables further automatic work when settlement is unknown; no logs retain exception payloads.
 
-**Verification and limits:** actual manager/final-GoBackend tests use native-only responses, coroutine scheduling and Android elapsed time for admission, refusal, Doze, pending bursts, no-op manual intent, cancellation and blocked DOWN. Focused checks, final-head independent ultra and required CI remain distinct gates; separately authorized Android controller/packet proof remains pending. The underlying primitive remains draft [PR #162](https://github.com/novakin/vpn0wn-android/pull/162). No recovery UI, DNS/family/config rewrite, network trigger, monitoring/ping/wake lock, UP or restoration-intent write is added. Full #73, hostname/handover/bootstrap and #74 arbitration remain open.
+**Verification and limits:** actual manager/final-GoBackend tests use native-only responses, coroutine scheduling and Android elapsed time for admission, refusal, Doze, pending bursts, no-op manual intent, cancellation and blocked DOWN. Focused checks, final-head independent ultra and required CI remain distinct gates; [scoped integrated Android acceptance](reviews/2026-10-13-bounded-recovery-acceptance.md) records natural explicit/omitted-port recovery and partial budget evidence with a live-TUN proof gap. Complete physical controller-budget and broader Android/packet proof remain pending. The underlying primitive is delivered through [PR #162](https://github.com/novakin/vpn0wn-android/pull/162). No recovery UI, DNS/family/config rewrite, network trigger, monitoring/ping/wake lock, UP or restoration-intent write is added. Full #73, hostname/handover/bootstrap and #74 arbitration remain open.
 
 ### Expected-session recovery primitive — 2026-10-12
 
