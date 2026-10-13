@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -742,16 +743,49 @@ func TestVpn0wnHandshakeRecoveryPreservesMixedPeersOnSharedTransport(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	filterCounters := func(config string) string {
-		var retained []string
-		for _, line := range strings.Split(config, "\n") {
-			if !strings.HasPrefix(line, "tx_bytes=") {
-				retained = append(retained, line)
-			}
-		}
-		return strings.Join(retained, "\n")
-	}
-	if filterCounters(before) != filterCounters(after) || endpointFree.endpoint.val != nil || bind.tunCloseCalls.Load() != 0 {
+	if vpn0wnRecoveryConfiguration(before) != vpn0wnRecoveryConfiguration(after) || endpointFree.endpoint.val != nil || bind.tunCloseCalls.Load() != 0 {
 		t.Fatal("recovery changed mixed peer configuration or retained TUN")
+	}
+}
+
+func vpn0wnRecoveryConfiguration(config string) string {
+	var lines []string
+	for _, line := range strings.Split(config, "\n") {
+		if !strings.HasPrefix(line, "tx_bytes=") {
+			lines = append(lines, line)
+		}
+	}
+	blocks := strings.Split(strings.TrimSuffix(strings.Join(lines, "\n"), "\n"), "\npublic_key=")
+	sort.Strings(blocks[1:])
+	return strings.Join(blocks, "\npublic_key=")
+}
+
+func TestVpn0wnHandshakeRecoveryConfigurationComparison(t *testing.T) {
+	header := "private_key=synthetic\nlisten_port=35000\n"
+	first := "public_key=aaa\npreshared_key=first\nendpoint=127.0.0.1:51820\nallowed_ip=10.7.0.1/32\nrx_bytes=0\ntx_bytes=1\n"
+	second := "public_key=bbb\npreshared_key=second\nendpoint=127.0.0.1:51821\nallowed_ip=10.7.0.2/32\nrx_bytes=0\ntx_bytes=2\n"
+	original := header + first + second
+	permuted := header + second + first
+	if vpn0wnRecoveryConfiguration(original) != vpn0wnRecoveryConfiguration(permuted) {
+		t.Fatal("unordered peer blocks changed configuration comparison")
+	}
+	counters := strings.NewReplacer("tx_bytes=1", "tx_bytes=3", "tx_bytes=2", "tx_bytes=4").Replace(permuted)
+	if vpn0wnRecoveryConfiguration(original) != vpn0wnRecoveryConfiguration(counters) {
+		t.Fatal("allowed transmitted-byte changes changed configuration comparison")
+	}
+	changes := map[string]string{
+		"endpoint association":   strings.NewReplacer("127.0.0.1:51820", "127.0.0.1:51821", "127.0.0.1:51821", "127.0.0.1:51820").Replace(permuted),
+		"PSK association":        strings.NewReplacer("preshared_key=first", "preshared_key=second", "preshared_key=second", "preshared_key=first").Replace(permuted),
+		"allowed IP association": strings.NewReplacer("10.7.0.1/32", "10.7.0.2/32", "10.7.0.2/32", "10.7.0.1/32").Replace(permuted),
+		"removed peer":           header + first,
+		"changed device port":    strings.Replace(permuted, "listen_port=35000", "listen_port=35001", 1),
+		"received-byte change":   strings.Replace(permuted, "rx_bytes=0", "rx_bytes=1", 1),
+	}
+	for name, changed := range changes {
+		t.Run(name, func(t *testing.T) {
+			if vpn0wnRecoveryConfiguration(original) == vpn0wnRecoveryConfiguration(changed) {
+				t.Fatal("meaningful peer/device change was ignored")
+			}
+		})
 	}
 }

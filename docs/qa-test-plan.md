@@ -1,6 +1,6 @@
 # vpn0wn QA Test Plan
 
-Last updated: 2026-10-12 (Europe/Paris).
+Last updated: 2026-10-13 (Europe/Paris).
 
 This document tracks the automated and manual QA coverage required for the vpn0wn Android redesign.
 
@@ -65,6 +65,8 @@ Run focused lifecycle/rebind/statistics/handshake tests and host race/JNI contro
 The first source slice has no automatic trigger/controller. Exercise actual `Device.Recover` through settled exhaustion, duplicate/coalesced tokens, a fresh cycle followed by delayed old evidence, same-key peer removal/re-addition, current-endpoint mismatch and busy IPC/peer ownership. Inspect cleanup at publication; callbacks must not hold the peer recovery owner. Preserve pending-cycle eligibility through a throttled ordinary reset while accepted progress followed by stale expiry produces no eligible token. Accept a real protocol response and pause before completion-timer reset; the old retry callback cannot mint a claimable token. Cover responder key confirmation independently.
 
 Prove static identity/recovery ordering under a pending static writer without recursive read-lock acquisition, and cancellation while initiation waits for static identity. Actual blocked UDP send must be cancelled before the native network write-lock wait; pair `Recover` with DOWN/destruction and retained handle/TUN lifetime. Cover ready-and-started, throttle/progress/cancellation skip, preparation failure, started/local-send failure and failed protection/open without initiation. Shared peers, endpoints, keys/settings, explicit/automatic ListenPort and warm-up intent remain preserved.
+
+Compare mixed-peer UAPI snapshots by complete public-key-associated peer blocks: native `IpcGet` emits unsorted peer-map iteration. Preserve interface fields and every peer association; ignore only the transmitted-byte counter expected to change during initiation. Positive controls accept peer-block permutation and that counter change. Negative controls reject reassigned endpoints/PSKs/AllowedIPs, removed peers, changed device port and received-byte changes. Do not sort all lines together, which could hide cross-peer configuration changes.
 
 Invoke actual `GoBackend.recover` with expected old session across same-model reconnect before JNI lookup. Preserve admitted evidence on obsolete completion, unavailable-context evidence without a throwable, original exception/Error identity and pre-entry/post-settlement interruption. JNI must carry the exact opaque episode and inspect the actual caller's interrupt flag without clearing it or poisoning the retained context. `transportReady()` requires current reusable ownership and never asserts authentication/reachability. Run host race/JNI, focused lifecycle/statistics/handshake/model controls, full unit/static gates and native ABI compilation; record actual results and remaining runtime limits in the PR.
 
