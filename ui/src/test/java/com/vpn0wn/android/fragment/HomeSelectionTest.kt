@@ -44,6 +44,7 @@ import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.shadows.ShadowChoreographer
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import org.robolectric.Shadows.shadowOf
@@ -180,16 +181,23 @@ class HomeSelectionTest {
         selectAll(f)
         confirm(f)
         deletion(f.fragment).join()
-        runCurrent()
-        layout(f.binding)
-        shadowOf(Looper.getMainLooper()).idle()
-        assertEquals(listOf("bravo", "charlie"), f.env.store.deleteAttempts)
-        assertEquals(setOf("bravo"), f.env.store.configs.keys.toSet())
-        assertEquals(Tunnel.State.UP, active.state)
-        assertTrue(row(f.binding, 0).isActivated)
-        assertTrue(f.binding.selectionDelete.isEnabled)
-        assertEquals(View.GONE, f.binding.createFab.visibility)
-        assertTrue(message(f.binding).contains("Removed 1 of 2 selected tunnels. 1 remain."))
+        val choreographerWasPaused = ShadowChoreographer.isPaused()
+        // Automatic synthetic animation frames can advance past the Snackbar timeout during layout.
+        ShadowChoreographer.setPaused(true)
+        try {
+            runCurrent()
+            layout(f.binding)
+            shadowOf(Looper.getMainLooper()).idle()
+            assertEquals(listOf("bravo", "charlie"), f.env.store.deleteAttempts)
+            assertEquals(setOf("bravo"), f.env.store.configs.keys.toSet())
+            assertEquals(Tunnel.State.UP, active.state)
+            assertTrue(row(f.binding, 0).isActivated)
+            assertTrue(f.binding.selectionDelete.isEnabled)
+            assertEquals(View.GONE, f.binding.createFab.visibility)
+            assertTrue(message(f.binding).contains("Removed 1 of 2 selected tunnels. 1 remain."))
+        } finally {
+            ShadowChoreographer.setPaused(choreographerWasPaused)
+        }
     }
 
     @Test fun completeDeletionExitsSelectionAndKeepsUnselectedConfig() = runHomeTest {

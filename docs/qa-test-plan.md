@@ -217,6 +217,8 @@ Baseline requirements:
 
 ### Connecting motion controls — #174
 
+Run `HomeSelectionTest`, `TunnelPresentationTest` and `BindingAdaptersTest` alongside Detekt. The mixed-delete feedback fixture pauses Robolectric's synthetic Choreographer only after deletion settles and restores its prior state afterward; automatic frame advancement would otherwise run the longer connecting loops past the real Snackbar timeout before its exact message assertion. The fixture retains active rollback, surviving selection, retry availability and feedback text checks; this host clock control provides no native motion acceptance.
+
 On an authorized isolated installation, record at least three complete CONNECTING loops in both Home and Detail. Require the existing warning color and halfway path, a 1.8-second cycle, smooth fades over the first and last 20%, and no visible reset flash. Check transitions into CONNECTING, connected blue motion, DOWN and ERROR without stale dots or colors. Reopen the view and switch between Home and Detail to confirm the current state and resumed motion.
 
 Inspect native output at supported portrait and landscape sizes in both themes, at normal and large text, with LTR and RTL layouts; record actual dimensions. Record effective animator scale 1 and 0: scale 1 must show the sweep; scale 0 must retain an opaque stationary warning dot at 25% of the full rail. Preserve and restore original animation, theme, text and locale settings, personal profiles and VPN state. `BindingAdaptersTest` and `TunnelPresentationTest` check presentation semantics, not motion frames. Link actual recordings and restoration evidence from the PR acceptance; [#47](https://github.com/novakin/vpn0wn-android/issues/47) retains broader scheduling/battery policy.
