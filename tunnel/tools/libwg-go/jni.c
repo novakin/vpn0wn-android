@@ -15,6 +15,7 @@ extern int wgTurnOn(struct go_string ifname, int tun_fd, struct go_string settin
 extern void wgTurnOff(int handle, JNIEnv *env);
 extern char *wgGetConfig(int handle, JNIEnv *env);
 extern int wgRebind(int handle, JNIEnv *env);
+extern int wgRecover(int handle, const char *peer, jlong episode, struct go_string endpoint, JNIEnv *env, jobject caller);
 extern char *wgVersion();
 
 JNIEXPORT jint JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgTurnOn(JNIEnv *env, jclass c, jstring ifname, jint tun_fd, jstring settings, jobject service, jobject activation_thread, jlong activation_id)
@@ -59,6 +60,23 @@ JNIEXPORT void JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgTurnOff(JNIEn
 JNIEXPORT jint JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgRebind(JNIEnv *env, jclass c, jint handle)
 {
 	return wgRebind(handle, env);
+}
+
+JNIEXPORT jint JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgRecover(JNIEnv *env, jclass c, jint handle, jbyteArray peer, jlong episode, jstring endpoint, jobject caller)
+{
+	if ((*env)->GetArrayLength(env, peer) != 32)
+		return 2;
+	jbyte public_key[32];
+	(*env)->GetByteArrayRegion(env, peer, 0, 32, public_key);
+	if ((*env)->ExceptionCheck(env))
+		return 3;
+	const char *endpoint_str = (*env)->GetStringUTFChars(env, endpoint, 0);
+	if (!endpoint_str)
+		return 3;
+	size_t endpoint_len = (*env)->GetStringUTFLength(env, endpoint);
+	int result = wgRecover(handle, (const char *)public_key, episode, (struct go_string){endpoint_str, endpoint_len}, env, caller);
+	(*env)->ReleaseStringUTFChars(env, endpoint, endpoint_str);
+	return result;
 }
 
 JNIEXPORT jstring JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgGetConfig(JNIEnv *env, jclass c, jint handle)

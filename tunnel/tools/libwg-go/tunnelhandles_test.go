@@ -121,6 +121,14 @@ func TestHandleCloseDrainsAdmittedQueryBeforeDeviceRelease(t *testing.T) {
 }
 
 func TestHandleTeardownCancelsRebindBeforeBorrowDrain(t *testing.T) {
+	testHandleTeardownCancelsTransportBeforeBorrowDrain(t, false)
+}
+
+func TestHandleTeardownCancelsRecoveryBeforeBorrowDrain(t *testing.T) {
+	testHandleTeardownCancelsTransportBeforeBorrowDrain(t, true)
+}
+
+func testHandleTeardownCancelsTransportBeforeBorrowDrain(t *testing.T, recovery bool) {
 	entered, releaseProtection := make(chan struct{}), make(chan struct{})
 	var protection atomic.Int32
 	var released sync.Once
@@ -136,8 +144,23 @@ func TestHandleTeardownCancelsRebindBeforeBorrowDrain(t *testing.T) {
 	wg := device.NewDevice(tunnel.TUN(), bind, device.NewLogger(device.LogLevelSilent, ""))
 	t.Cleanup(func() { bind.Shutdown(); wg.Close() })
 	t.Cleanup(func() { released.Do(func() { close(releaseProtection) }) })
+	key := [32]byte{9}
+	if recovery {
+		privateKey := [32]byte{1}
+		if err := wg.IpcSet(fmt.Sprintf("private_key=%x\npublic_key=%x\nendpoint=127.0.0.1:51820\n", privateKey, key)); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if err := wg.Up(); err != nil {
 		t.Fatal(err)
+	}
+	var episode uint64
+	if recovery {
+		var err error
+		episode, err = wg.ExhaustPeerForTest(key)
+		if err != nil || episode == 0 {
+			t.Fatalf("fixture exhaustion: token=%d error=%v", episode, err)
+		}
 	}
 	h := &TunnelHandle{device: wg, bind: bind}
 	table := handleTable{items: make(map[int32]*TunnelHandle)}
@@ -149,7 +172,16 @@ func TestHandleTeardownCancelsRebindBeforeBorrowDrain(t *testing.T) {
 	rebound := make(chan error, 1)
 	go func() {
 		defer borrowed.queries.Done()
-		rebound <- borrowed.device.Rebind()
+		if recovery {
+			result := borrowed.device.Recover(key, episode, "127.0.0.1:51820", func() bool { return false })
+			if result != device.RecoveryTransportFailed {
+				rebound <- fmt.Errorf("cancelled recovery outcome=%d", result)
+			} else {
+				rebound <- net.ErrClosed
+			}
+		} else {
+			rebound <- borrowed.device.Rebind()
+		}
 		<-releaseBorrow
 	}()
 	awaitHandle(t, entered)

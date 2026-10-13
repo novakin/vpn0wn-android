@@ -97,12 +97,12 @@ func wgTurnOn(interfaceName string, tunFd int32, settings string, context *C.str
 			return C.wgProtectSocket(context, C.int(fd)) != 0
 		})
 	}, func() bool { return C.wgServiceActive(context) != 0 })
-	bind.SetHandshakeObserver(func(peer [32]byte, event int, retry bool, endpoint string) {
+	bind.SetHandshakeObserver(func(peer [32]byte, event int, retry bool, endpoint string, episode uint64) {
 		isRetry := C.int(0)
 		if retry {
 			isRetry = 1
 		}
-		C.wgHandshakeObservation(context, (*C.char)(unsafe.Pointer(&peer[0])), C.int(event), isRetry, cstring(endpoint))
+		C.wgHandshakeObservation(context, (*C.char)(unsafe.Pointer(&peer[0])), C.int(event), isRetry, cstring(endpoint), C.jlong(episode))
 	})
 	device := device.NewDevice(tun, bind, logger)
 	handle := &TunnelHandle{device: device, bind: bind, context: context}
@@ -202,6 +202,42 @@ func wgRebind(tunnelHandle int32, env *C.JNIEnv) int32 {
 		return -int32(unix.EIO)
 	}
 	return 0
+}
+
+const recoveryContextUnavailable = 1 << 8
+
+//export wgRecover
+func wgRecover(tunnelHandle int32, publicKey *C.char, episode C.jlong, endpoint string, env *C.JNIEnv, caller C.jobject) int32 {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	handle := tunnelHandles.acquire(tunnelHandle)
+	if handle == nil {
+		return device.RecoveryUnavailable | recoveryContextUnavailable
+	}
+	defer handle.queries.Done()
+	if C.wgRethrowException(env, handle.context) != 0 || C.wgServiceActive(handle.context) == 0 {
+		C.wgRethrowException(env, handle.context)
+		return device.RecoveryUnavailable | recoveryContextUnavailable
+	}
+	var key [32]byte
+	copy(key[:], unsafe.Slice((*byte)(unsafe.Pointer(publicKey)), len(key)))
+	callerException := false
+	result := handle.device.Recover(key, uint64(episode), endpoint, func() bool {
+		interrupted := C.wgCallerInterrupted(env, caller)
+		callerException = interrupted < 0
+		return interrupted != 0
+	})
+	if callerException {
+		return int32(result) | recoveryContextUnavailable
+	}
+	if C.wgRethrowException(env, handle.context) != 0 {
+		return int32(result) | recoveryContextUnavailable
+	}
+	if handle.bind.IsStopped() || result == device.RecoveryUnavailable || C.wgServiceActive(handle.context) == 0 {
+		C.wgRethrowException(env, handle.context)
+		return int32(result) | recoveryContextUnavailable
+	}
+	return int32(result)
 }
 
 //export wgVersion

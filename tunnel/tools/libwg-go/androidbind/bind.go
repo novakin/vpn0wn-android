@@ -25,7 +25,7 @@ type Bind struct {
 	protect   func(conn.Bind, int) error
 	active    func() bool
 	newBind   func() conn.Bind
-	observe   func([32]byte, int, bool, string)
+	observe   func([32]byte, int, bool, string, uint64)
 }
 
 const (
@@ -36,18 +36,18 @@ const (
 	HandshakeExhausted
 )
 
-func (b *Bind) SetHandshakeObserver(observe func([32]byte, int, bool, string)) {
+func (b *Bind) SetHandshakeObserver(observe func([32]byte, int, bool, string, uint64)) {
 	b.mu.Lock()
 	b.observe = observe
 	b.mu.Unlock()
 }
 
-func (b *Bind) ObserveHandshake(peer [32]byte, event int, retry bool, endpoint string) {
+func (b *Bind) ObserveHandshake(peer [32]byte, event int, retry bool, endpoint string, episode uint64) {
 	b.mu.Lock()
 	observe, stopped := b.observe, b.stopped
 	b.mu.Unlock()
 	if observe != nil && !stopped {
-		observe(peer, event, retry, endpoint)
+		observe(peer, event, retry, endpoint, episode)
 	}
 }
 

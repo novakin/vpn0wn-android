@@ -78,7 +78,7 @@ struct wg_context *wgCreateContext(JNIEnv *env, jobject service, jobject activat
 	if (context->protect)
 		context->active = (*env)->GetMethodID(env, service_class, "isNativeServiceActive", "(Ljava/lang/Thread;)Z");
 	if (context->active)
-		context->observation = (*env)->GetMethodID(env, service_class, "onNativeHandshakeObservation", "(J[BIZLjava/lang/String;)V");
+		context->observation = (*env)->GetMethodID(env, service_class, "onNativeHandshakeObservation", "(J[BIZLjava/lang/String;J)V");
 	(*env)->DeleteLocalRef(env, service_class);
 	if (!context->protect || !context->active || !context->observation)
 		goto failed;
@@ -122,7 +122,7 @@ int wgServiceActive(struct wg_context *context)
 	return callback(context, -1, 0);
 }
 
-void wgHandshakeObservation(struct wg_context *context, const char *peer, int event, int retry, const char *endpoint)
+void wgHandshakeObservation(struct wg_context *context, const char *peer, int event, int retry, const char *endpoint, jlong episode)
 {
 	pthread_mutex_lock(&context->mutex);
 	int attached;
@@ -140,7 +140,7 @@ void wgHandshakeObservation(struct wg_context *context, const char *peer, int ev
 				address = (*env)->NewStringUTF(env, endpoint);
 			if (!captureException(env, context) && key && address) {
 				(*env)->CallVoidMethod(env, context->service, context->observation, context->activation_id,
-					key, (jint)event, (jboolean)(retry != 0), address);
+					key, (jint)event, (jboolean)(retry != 0), address, episode);
 				captureException(env, context);
 			}
 			if (address)
@@ -152,6 +152,21 @@ void wgHandshakeObservation(struct wg_context *context, const char *peer, int ev
 	if (attached)
 		(*context->vm)->DetachCurrentThread(context->vm);
 	pthread_mutex_unlock(&context->mutex);
+}
+
+int wgCallerInterrupted(JNIEnv *env, jobject caller)
+{
+	jclass caller_class = (*env)->GetObjectClass(env, caller);
+	if (!caller_class)
+		return -1;
+	jmethodID interrupted = (*env)->GetMethodID(env, caller_class, "isInterrupted", "()Z");
+	(*env)->DeleteLocalRef(env, caller_class);
+	if (!interrupted)
+		return -1;
+	int result = (*env)->CallBooleanMethod(env, caller, interrupted);
+	if ((*env)->ExceptionCheck(env))
+		return -1;
+	return result;
 }
 
 int wgFinishStartup(JNIEnv *env, struct wg_context *context)
