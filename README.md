@@ -61,6 +61,7 @@ vpn0wn redesign and functional work are tracked in:
 - [QA test plan](docs/qa-test-plan.md): coverage requirements, verification layers and opt-in VPS validation.
 - [Agent/README review](docs/reviews/2026-10-06-agent-readme-review.md): bounded quality criteria, fixes, reused process and review evidence.
 - [Full documentation review](docs/reviews/2026-10-06-full-documentation-review.md): committed-source reconciliation, coverage limits and confirmed runtime handoff.
+- [App/root security audit](docs/reviews/2026-10-12-app-root-security-audit.md): pinned source assessment, scoped separate-app Android controls, confirmed findings and remaining security sign-off gates.
 - [WG Tunnel comparison](docs/reviews/2026-10-08-wgtunnel-comparison.md): versioned feature/ownership assessment, current native/statistics repair status and bounded reuse/refactoring advice.
 - [Font attribution](docs/font-attribution.md) and [provisioning upstream reference](third_party/wireguard-install/UPSTREAM.md).
 
@@ -89,6 +90,8 @@ dependencies {
 ```
 
 See Android's [desugaring guidance](https://developer.android.com/studio/write/java8-support#library-desugaring) for consumer configuration.
+
+The later [physical port-lifecycle trial](docs/reviews/2026-10-12-udp-port-release-acceptance.md) adds independent IPv4/IPv6 port collision/reuse, retained-port rebind and genuine destruction/fresh activation through a separate-UID production-backend package-path build. It preserves the captured original apps/kernel state and retains shipping-artifact, traffic and wider #61/#73 limits.
 
 ## Translating
 
