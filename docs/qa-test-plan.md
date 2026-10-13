@@ -215,6 +215,12 @@ Baseline requirements:
 - Tunnel list row states, including rail color and stats-row visibility
 - Detail peer card transfer/handshake visual states
 
+### Connecting motion controls — #174
+
+On an authorized isolated installation, record at least three complete CONNECTING loops in both Home and Detail. Require the existing warning color and halfway path, a 1.8-second cycle, smooth fades over the first and last 20%, and no visible reset flash. Check transitions into CONNECTING, connected blue motion, DOWN and ERROR without stale dots or colors. Reopen the view and switch between Home and Detail to confirm the current state and resumed motion.
+
+Inspect native output at supported portrait and landscape sizes in both themes, at normal and large text, with LTR and RTL layouts; record actual dimensions. Record effective animator scale 1 and 0: scale 1 must show the sweep; scale 0 must retain an opaque stationary warning dot at 25% of the full rail. Preserve and restore original animation, theme, text and locale settings, personal profiles and VPN state. `BindingAdaptersTest` and `TunnelPresentationTest` check presentation semantics, not motion frames. Link actual recordings and restoration evidence from the PR acceptance; [#47](https://github.com/novakin/vpn0wn-android/issues/47) retains broader scheduling/battery policy.
+
 ### Detail configured MTU checks — #111
 
 `BindingAdaptersTest` checks actual Canvas MTU text for explicit 1280/1380, omitted/zero/null configuration, UP/DOWN presentation and sequential rebinding. Native raster previews cover light/dark portrait, landscape with unknown MTU and 2× Arabic RTL in both themes at the existing diagram dimensions. Inspect the generated output; the unchanged Canvas font/dp sizing limitation remains in the [UI roadmap](ui-redesign-roadmap.md#fidelity-gaps--remaining).

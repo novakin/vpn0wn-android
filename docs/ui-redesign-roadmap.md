@@ -1,6 +1,6 @@
 # vpn0wn UI Redesign Roadmap
 
-Last updated: 2026-10-12 (Europe/Paris).
+Last updated: 2026-10-13 (Europe/Paris).
 
 ## Design Source
 
@@ -499,6 +499,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
+- [x] **Connecting motion refinement — [#174](https://github.com/novakin/vpn0wn-android/issues/174), 2026-10-13:** `TunnelSignalView` and `TunnelThroughputView` retain the warning token and halfway path, with a 1.8-second sweep that fades the dot during the first and last fifth of each loop to hide its reset. A stopped or disabled animator retains an opaque static warning dot within the existing path. Geometry, fonts, state mapping and connected blue motion are unchanged. Native recordings across Home/Detail, themes, text sizes, RTL and effective animator scales 1/0 remain required; local source/presentation checks do not establish visual acceptance. [#80](https://github.com/novakin/vpn0wn-android/issues/80) retains wider Home visual acceptance, and covered-view scheduling/battery policy remains separate under [#47](https://github.com/novakin/vpn0wn-android/issues/47).
+
 - [x] **Empty Home guidance source refinement — #80, 2026-10-12:** `Vpn0wnEmptyStateText` reuses Inter Tight at 14sp and `home_empty_placeholder` centers localized lines within a 280dp maximum measure. Symbol, viewport-centering owner and fixed Add action remain unchanged. [The scoped contract](#empty-home-guidance-refinement--2026-10-12) retains runtime and broader acceptance gates.
 
 - [x] **Empty Home visible-centering source repair — #80, 2026-10-11:** the empty artwork/guidance group compensates for the remaining native header-collapse space through `BindingAdapters.setHomeEmptyAppBar`, preserving the fixed Add action and native scrolling/focus. [The scoped contract](#empty-home-visible-centering--2026-10-11) distinguishes source controls from actual Android and broader acceptance.
@@ -612,7 +614,7 @@ This is a historical implementation ledger, not newly executed build/device proo
 - [x] Launch/splash background aligned to Tunnl theme: the adaptive icon background color used on the launch screen now matches `tunnl_paper` instead of the old WireGuard red.
 - [x] Earlier Home inset handling moved status-bar padding into the header. Superseded by shared `BaseActivity.applySafeAreaInsets` ownership in the 2026-10-06 phone follow-up below.
 - [x] Log header controls refined: refresh restart is generation-safe to avoid crashes when restarting `logcat`, and the share action now uses the JSX-style upload/share outline icon.
-- [x] **4-state tunnel status system** — shared `BindingAdapters.tunnelMode()` drives labels, rails, status surfaces and animation: recent-handshake UP, TOGGLE/initial no-handshake grace, no-signal after grace or age ≥180s, and DOWN. These are display heuristics, not complete VPN-health proof. Connecting animation runs at 900ms and travels halfway; no-signal is static red.
+- [x] **4-state tunnel status system** — shared `BindingAdapters.tunnelMode()` drives labels, rails, status surfaces and animation: recent-handshake UP, TOGGLE/initial no-handshake grace, no-signal after grace or age ≥180s, and DOWN. These are display heuristics, not complete VPN-health proof. The original connecting sweep ran at 900ms and traveled halfway; the 2026-10-13 motion refinement above supersedes its cadence while preserving that path. No-signal is static red.
 - [x] Tunnel list row state invalidation fixed: signal animation, rail, status label, stats visibility, and switch tint now explicitly bind to `item.state` and `item.statistics`, preventing recycled/stale rows from keeping the old tunnel's active animation or stats after switching servers.
 - [x] Home mini-diagram connected animation refined: `TunnelSignalView` now mirrors the detail topology motion language at card scale with endpoint glow plus multiple bidirectional packets for healthy tunnels.
 - [x] Mode-colored tunnel switch: `ToggleSwitch` tints the active track from tunnel mode (`UP`, `CONNECTING`, `ERROR`) while keeping the checked thumb dark like JSX `.sw[data-on="true"]::after`. The 2026-10-06 follow-up uses the resolved transition target: pending activation stays on; pending disconnect is off rather than yellow; both disable repeat taps until settlement.
