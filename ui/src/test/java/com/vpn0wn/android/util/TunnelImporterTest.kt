@@ -51,6 +51,7 @@ class TunnelImporterTest {
     private val uri = Uri.parse("content://import-fixture/profile")
     private lateinit var application: Application
     private lateinit var provider: InputProvider
+    private var environment: TunnelTestEnvironment? = null
 
     @Before
     fun setUp() {
@@ -67,8 +68,12 @@ class TunnelImporterTest {
 
     @After
     fun tearDown() {
-        application.onTerminate()
-        Dispatchers.resetMain()
+        try {
+            runBlocking { environment?.close() }
+        } finally {
+            application.onTerminate()
+            Dispatchers.resetMain()
+        }
     }
 
     @Test
@@ -113,8 +118,7 @@ class TunnelImporterTest {
 
     @Test
     fun mixedZipImportsAllValidEntriesBeforeOneFinalCallback() = runBlocking {
-        val env = TunnelTestEnvironment(temporary.root, CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate))
-        application = env.application
+        val env = testEnvironment()
         val existing = env.manager.create("duplicate", TunnelTestEnvironment.profile())
         val first = TunnelTestEnvironment.profile(51821)
         val second = TunnelTestEnvironment.profile(51822)
@@ -161,8 +165,7 @@ class TunnelImporterTest {
 
     @Test
     fun nestedManifestNameDoesNotRejectOrdinaryProfiles() = runBlocking {
-        val env = TunnelTestEnvironment(temporary.root, CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate))
-        application = env.application
+        val env = testEnvironment()
         useZipInput("nested.zip", linkedMapOf(
             "folder/${AppDataTransfer.MANIFEST}" to "ignored",
             "alpha.conf" to TunnelTestEnvironment.profile().toWgQuickString(),
@@ -175,8 +178,7 @@ class TunnelImporterTest {
 
     @Test
     fun laterZipInputFailureKeepsParsedProfilesAndReportsOnce() = runBlocking {
-        val env = TunnelTestEnvironment(temporary.root, CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate))
-        application = env.application
+        val env = testEnvironment()
         val archive = ByteArrayOutputStream()
         var ignoredEntryStart = 0
         ZipOutputStream(archive).use { zip ->
@@ -202,9 +204,53 @@ class TunnelImporterTest {
         assertEquals(listOf(context.resources.getQuantityString(R.plurals.import_partial_success, 2, 1, 2)), messages)
     }
 
+    @Test
+    fun excessiveProfilesStopBeforeCreatingTheExtraProfile() = runBlocking {
+        val env = testEnvironment()
+        try {
+            useZipInput("many.zip", (1..257).associate { "p$it.conf" to TunnelTestEnvironment.profile().toWgQuickString() })
+            val messages = mutableListOf<CharSequence>()
+            TunnelImporter.importTunnel(context.contentResolver, uri) { messages.add(it) }
+            assertEquals(256, env.store.configs.size)
+            assertEquals(1, messages.size)
+            assertTrue(env.manager.getTunnels().all { it.state == Tunnel.State.DOWN })
+        } finally {
+            env.close()
+        }
+    }
+
+    @Test
+    fun oversizedCommentLineIsRejectedBeforeCreatingAProfile() = runBlocking {
+        val env = testEnvironment()
+        try {
+            provider.input.writeText(TunnelTestEnvironment.profile().toWgQuickString() + "\n#" + "x".repeat(1_048_576))
+            val messages = mutableListOf<CharSequence>()
+            TunnelImporter.importTunnel(context.contentResolver, uri) { messages.add(it) }
+            assertTrue(env.store.configs.isEmpty())
+            assertEquals(1, messages.size)
+        } finally {
+            env.close()
+        }
+    }
+
+    @Test
+    fun invalidNamesDoNotCancelValidBasenamesOrActivateProfiles() = runBlocking {
+        val env = testEnvironment()
+        useZipInput("names.zip", linkedMapOf(
+            "folder/alpha.conf" to TunnelTestEnvironment.profile().toWgQuickString(),
+            "invalid name.conf" to TunnelTestEnvironment.profile().toWgQuickString(),
+            "../outside.conf" to TunnelTestEnvironment.profile().toWgQuickString(),
+        ))
+        val messages = mutableListOf<CharSequence>()
+        TunnelImporter.importTunnel(context.contentResolver, uri) { messages.add(it) }
+        assertEquals(setOf("alpha", "outside"), env.store.configs.keys)
+        assertEquals(listOf(context.resources.getQuantityString(R.plurals.import_partial_success, 3, 2, 3)), messages)
+        assertTrue(env.manager.getTunnels().all { it.state == Tunnel.State.DOWN })
+        assertTrue(env.backend.appliedConfigs.isEmpty())
+    }
+
     private suspend fun assertAppDataTransferRejected(manifestFirst: Boolean) {
-        val env = TunnelTestEnvironment(temporary.root, CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate))
-        application = env.application
+        val env = testEnvironment()
         val existing = env.manager.create("existing", TunnelTestEnvironment.profile())
         existing.setStateAsync(Tunnel.State.UP)
         val storedProfiles = env.store.configs.toMap()
@@ -236,6 +282,13 @@ class TunnelImporterTest {
             }
         }
         provider.displayName = name
+    }
+
+    private fun testEnvironment(): TunnelTestEnvironment = TunnelTestEnvironment(
+        temporary.root, CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+    ).also {
+        environment = it
+        application = it.application
     }
 
     private class InputProvider(var input: File) : ContentProvider() {

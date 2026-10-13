@@ -1,0 +1,30 @@
+--- android.c
++++ android.c
+@@ -1,5 +1,6 @@
+ // SPDX-License-Identifier: GPL-2.0
+ /*
++ * Modified for vpn0wn.
+  * Copyright (C) 2015-2021 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
+  *
+  * This is a shell script written in C. It very intentionally still functions like
+@@ -643,8 +644,18 @@
+ 	_cleanup_regfree_ regex_t rule_reg = { 0 }, iptables_reg = { 0 };
+ 	regmatch_t matches[2];
+ 	char *netid = NULL;
+-	_cleanup_free_ char *rule_regex = concat("0xc([0-9a-f]+)/0xcffff lookup ", iface, NULL);
+-	_cleanup_free_ char *iptables_regex = concat("^-A (.* --comment \"wireguard rule ", iface, "\"[^\n]*)\n*$", NULL);
++	_cleanup_free_ char *escaped_iface = xmalloc(strlen(iface) * 2 + 1);
++	char *end = escaped_iface;
++
++	/* Valid interface names can contain these POSIX regex metacharacters. */
++	for (const char *cursor = iface; *cursor; ++cursor) {
++		if (*cursor == '.' || *cursor == '+')
++			*end++ = '\\';
++		*end++ = *cursor;
++	}
++	*end = '\0';
++	_cleanup_free_ char *rule_regex = concat("0xc([0-9a-f]+)/0xcffff lookup ", escaped_iface, "([[:space:]]|$)", NULL);
++	_cleanup_free_ char *iptables_regex = concat("^-A (.* --comment \"wireguard rule ", escaped_iface, "\"[^\n]*)\n*$", NULL);
+ 
+ 	xregcomp(&rule_reg, rule_regex, REG_EXTENDED);
+ 	xregcomp(&iptables_reg, iptables_regex, REG_EXTENDED);
