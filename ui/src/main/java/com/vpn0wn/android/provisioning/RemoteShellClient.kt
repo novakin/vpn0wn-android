@@ -10,6 +10,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 interface RemoteShellClient {
     suspend fun execute(command: String): ProvisioningCommandOutput
     suspend fun upload(path: String, content: String, mode: String = "0700"): ProvisioningCommandOutput
+    suspend fun close()
 }
 
 interface RemoteShellClientFactory {
@@ -20,6 +21,8 @@ class GuardedRemoteShellClient(
     private val delegate: RemoteShellClient,
     private val timeoutMillis: Long = DEFAULT_TIMEOUT_MILLIS,
 ) : RemoteShellClient {
+    override suspend fun close() = delegate.close()
+
     override suspend fun execute(command: String): ProvisioningCommandOutput = guard("Remote command timed out", "Remote command failed") {
         delegate.execute(command)
     }

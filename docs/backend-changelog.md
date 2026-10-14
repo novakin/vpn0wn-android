@@ -22,19 +22,16 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
   The maintainer authorized source adoption through PR #63 on 2026-10-08 (Europe/Paris). PR #63 records exact-head review/checks and actual delivery state. #61 stays open for remaining physical lifecycle, unchanged-server interoperability and DPI acceptance. Authorized [APK/Pixel checks and the 195-second forced deep Doze recovery](reviews/2026-10-07-protocol-preflight-experiment.md#authorized-local-apk-and-pixel-checks--2026-10-07) retain their original scope. The maintainer also reported sleep/wake recovery without manual action on 2026-10-08; this is not a new measured hardware-suspend, packet or timing trial. [Rooted IPv4 loopback captures](reviews/2026-10-11-native-warmup-packet-acceptance.md) verify scoped explicit-port warm-up/initiation ordering and source-port continuity, disabled omitted/imported-zero controls and authenticated synthetic traffic, with sampled original-state restoration. The later [standard kernel-peer trial](reviews/2026-10-11-kernel-peer-acceptance.md) adds independently checked handshakes/counters and authenticated HTTP for explicit/omitted controls, with complete sampled restoration; broader deployments remain separate. The [repaired IPv6 outer-transport trial](reviews/2026-10-11-kernel-peer-ipv6-acceptance.md) adds explicit/omitted standard-kernel controls at `[::1]:51891`, authenticated IPv4 inner HTTP and checked restoration. Descriptor/protection timing, external IPv4/IPv6 paths, inner IPv6, hardware deep suspend, underlying-network handover, broader unchanged kernel-server interoperability and DPI benefit remain unverified. G4/#47/#48 are separate, and no DPI, speed or battery gain is established.
 
 - **Android SSH provisioning integration — C11/C12, [#143](https://github.com/novakin/vpn0wn-android/issues/143)**
-  Server-side vpn0wn provisioning scripts now exist under `third_party/wireguard-install/vpn0wn/`, and the VPS fleet now reads persisted non-secret records from `VpsServerStore`. Remaining work: concrete Android SSH transport, SSH credential capture/storage, remote script upload/execution, progress parsing, live server status persistence, and user-management flow wiring.
+  Server-side scripts, persisted non-secret fleet records and the bounded JSch transport below exist. Remaining work: SSH credential capture/protected storage, fingerprint input/storage, API-24 Android runtime proof, wired provisioning/progress/status/user actions and validated generated-profile QR/import. #143 remains open.
 
 - **Provisioning backend QA blockers**
-  Concrete SSH transport must be selected before live provisioning is considered stable. `GuardedRemoteShellClientTest` covers fake execute timeout, I/O failure and cancellation propagation, not actual session closure or upload deadlines. Real-library proof remains required. Disposable integration is opt-in and destructive; C9 now checks harness postconditions and limits failure cleanup to its owned upload directory. It must never run in the default unit-test/local-build path; real-server evidence still requires an explicitly authorized clean disposable target.
+  `GuardedRemoteShellClientTest` covers wrapper deadline ownership; `JschRemoteShellClientTest` uses the actual library and a synthetic authenticated SSH/SFTP peer for transport behavior and resource cancellation. Android/API-24 crypto and real-server proof remain required. Disposable integration is opt-in and destructive; C9 checks harness postconditions and limits failure cleanup to its owned upload directory. It must never run in default checks; real-server evidence requires an explicitly authorized clean disposable target.
 
 - **Disposable VPS integration task**
   Root Gradle task `vpsIntegrationTest` runs `scripts/vps_integration_test.py` through key-only SSH when `TUNNL_VPS_HOST`, `TUNNL_VPS_USER`, and `TUNNL_VPS_DESTRUCTIVE=1` are set. The task uploads the vpn0wn provisioning scripts to an operation-owned `/root/vpn0wn-integration-<timestamp>` directory, runs detect/plan/install/sync/add-peer/revoke/remove/backup/uninstall/reinstall/uninstall, and removes uploaded scripts plus managed test artifacts. Legacy environment variables and `/etc/wireguard/tunnl` paths remain compatible. It is not wired into `check` or any default build.
 
 - **Disposable VPS integration use case**
   `docs/qa-test-plan.md` documents when and how to run `vpsIntegrationTest`, including required environment variables, Windows-vs-WSL key handling, expected cleanup output, and credential-safety rules. The documented target is a disposable Ubuntu/Debian VPS only; production VPN hosts and hosts with user-managed WireGuard configuration are explicitly out of scope.
-
-- **Android SSH transport decision**
-  A concrete Android SSH transport is still not implemented because the app currently has no SSH client dependency. The next backend decision is to choose and review a maintained Android-compatible SSH library, then implement `RemoteShellClientFactory` on top of it with host-key pinning, password/private-key auth, per-command timeout, cancellation that closes the active channel/session, and no credential logging.
 
 ### VPS provisioning implementation task list
 
@@ -44,9 +41,10 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 - [x] Add app-side provisioning domain models and JSON parsers.
 - [x] Add remote shell abstraction for future SSH implementation.
 - [x] Add provisioning client that uploads scripts, executes commands, and parses JSON results.
-- [ ] Add concrete Android SSH transport.
+- [x] Add bounded concrete SSH transport source through the existing Android factory; native runtime acceptance remains separate below.
 - [x] Add timeout, hung-command, cancellation, and unreachable-host guard tests at the remote-shell boundary.
-- [ ] Add timeout, hung-command, cancellation, and unreachable-host tests for the concrete SSH transport library/session implementation.
+- [x] Add real-library JVM timeout, hung-command/upload, cancellation, unreachable-host and channel/session teardown controls against a synthetic authenticated SSH/SFTP peer.
+- [ ] Verify native Android/API-24 crypto, auth, exec/SFTP, routing and cancellation behavior; JVM transport controls do not complete C11.
 - [ ] Store SSH host fingerprints and encrypted private key/password material with Android Keystore.
 - [x] Persist non-secret server fleet records locally.
 - [x] Wire persisted non-secret server records into the server fleet UI.
@@ -60,6 +58,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 - [x] Add opt-in destructive end-to-end test path against a disposable Ubuntu/Debian VPS.
 
 ## Done
+
+- **Bounded concrete SSH transport — C11 source slice, #143 (2026-10-15, Europe/Paris)**
+  `JschRemoteShellClientFactory.create` provides lazy mwiede JSch 2.28.8 exec/SFTP with required canonical SHA256 pinning, numeric IPv4/IPv6 endpoints, password/traditional RSA/ECDSA PEM auth, separate bounded command output and checked upload/chmod. `operate` registers cancellation before blocking work, closes the published raw socket first, interrupts library waits and drains operation/JSch threads; `close` is terminal. Expected driver failures omit raw library text/causes and `PrivateKey.toString` is redacted. `Vpn0wnProvisioningClient.withClient` validates the exact current mktemp prefix and six alphanumeric suffix characters before upload or remote cleanup; invalid replies fail as `INVALID_RESPONSE` without becoming mutation targets. It always closes local resources, including failed/invalid `mktemp`, while retaining original cancellation/Errors through cleanup. Existing offline credits retain full JSch/JZlib/jBCrypt notices. [Contracts](backend-contracts.md#concrete-ssh-transport--c11), [dependency decision](architecture.md#bounded-jsch-transport--2026-10-15) and [QA scope](qa-test-plan.md#concrete-ssh-transport-controls--c11) separate synthetic-peer proof from the open credential/UI/API-24/live gates. No server mutation or persisted migration is performed.
 
 - **Selected name/key replacement — #188 (2026-10-15, Europe/Paris):** `NameInputFilter.filter` and `KeyInputFilter.filter` calculate the allowance from destination text outside the replaced range and position accepted characters without counting rejected source characters. Single-character/select-all edits at maximum length and filtered key padding remain usable; existing character rules, limits, deletion, source spans and parser validation are retained. `InputFilterReplacementTest` exercises actual Android Editable filter dispatch; physical editor/accessibility and whole-C8 acceptance remain separate.
 

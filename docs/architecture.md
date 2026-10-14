@@ -1,6 +1,6 @@
 # Architecture and maintenance boundaries
 
-Last updated: 2026-10-14 (Europe/Paris).
+Last updated: 2026-10-15 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -19,7 +19,7 @@ Preserve the existing Android DataBinding/Fragment foundation and upstream WireG
 | [Native tunnel handles](../tunnel/tools/libwg-go/tunnelhandles.go), [Android bind lifetime](../tunnel/tools/libwg-go/androidbind/bind.go), [UAPI server](../tunnel/tools/libwg-go/uapiserver/server.go) | Lookup admission and device/socket/client ownership; cancel owned I/O before draining queries and releasing the device/JNI context. |
 | [RootShell](../tunnel/src/main/java/com/vpn0wn/android/util/RootShell.java) and native tools | Root command protocol and existing WireGuard tool execution. |
 | [Provisioning client](../ui/src/main/java/com/vpn0wn/android/provisioning/Vpn0wnProvisioningClient.kt), models and script bundle | Remote orchestration, argument construction, packaged script upload and typed result parsing. |
-| [Remote-shell boundary](../ui/src/main/java/com/vpn0wn/android/provisioning/RemoteShellClient.kt) | Transport factory and guarded execute/upload; concrete SSH/session implementation is still missing. |
+| [Remote-shell boundary](../ui/src/main/java/com/vpn0wn/android/provisioning/RemoteShellClient.kt), [JSch transport](../ui/src/main/java/com/vpn0wn/android/provisioning/JschRemoteShellClientFactory.kt) | Guarded execute/upload and flow-owned SSH socket, channels, session and local close. |
 | [VPS store](../ui/src/main/java/com/vpn0wn/android/provisioning/VpsServerStore.kt), [mapper](../ui/src/main/java/com/vpn0wn/android/provisioning/VpsDeployMapper.kt) | Transactional non-secret fleet records and projection into UI models. |
 | [FileConfigStore](../ui/src/main/java/com/vpn0wn/android/configStore/FileConfigStore.kt) | Serialized local profile operations; private staged writes, file sync and native atomic rename preserve prior valid configs on failed updates. |
 | [TunnelImporter](../ui/src/main/java/com/vpn0wn/android/util/TunnelImporter.kt), [QR scanner](../ui/src/main/java/com/vpn0wn/android/util/QrCodeFromFileScanner.kt), [ZIP exporter](../ui/src/main/java/com/vpn0wn/android/preference/ZipExporterPreference.kt) | Import result delivery, image retry/resource ownership and export children/output cleanup; models/stores retain profile ownership. |
@@ -57,14 +57,14 @@ The [G2 performance investigation](reviews/2026-10-07-performance-source-investi
 flowchart LR
     Client[Vpn0wnProvisioningClient] --> Bundle[Packaged vpn0wn scripts]
     Client --> Boundary[RemoteShellClient]
-    Boundary -. missing transport .-> SSH[Concrete SSH session]
-    SSH -. future execution .-> Server[Server scripts]
+    Boundary --> SSH[JSch SSH session]
+    SSH --> Server[Server scripts]
     Client --> Results[Typed results]
     Results -. future live wiring .-> Fleet[VpsServerStore and mapper]
     Fleet --> Screen[Fleet UI]
 ```
 
-The provisioning client and scripts exist, while concrete SSH, protected credential persistence and live action/result wiring remain planned. Persisted fleet records already render. The dotted flow is not a claim of working deployment, user management or generated-profile QR.
+The provisioning client, scripts and concrete transport exist. Protected credential persistence and live action/result wiring remain planned; persisted fleet records already render. The transport is exercised with a synthetic loopback peer. This flow establishes no Android runtime, live deployment, user management or generated-profile QR acceptance.
 
 ## Boundaries and invariants
 
@@ -215,9 +215,17 @@ Alternatives include Compose/MVVM or a general controller/DI rewrite. Current re
 
 ### Keep provisioning behind explicit transport and script contracts
 
-Status: boundary implemented; concrete SSH integration pending. Existing client/factory separation supports injected remote responses and preserves non-interactive packaged scripts.
+Status: boundary and bounded concrete transport implemented; protected credentials and UI integration remain open under [#143](https://github.com/novakin/vpn0wn-android/issues/143). Existing client/factory separation supports injected remote responses and preserves non-interactive packaged scripts.
 
-Alternatives include embedding all server management in Android or invoking the upstream interactive installer. Neither fits the current machine-readable flow. Before choosing an SSH dependency, record maintenance/Android fit, alternatives, host-key/auth behavior, deadlines, session cleanup and credential exposure. Real library verification remains required; no library choice is claimed here.
+Alternatives include embedding all server management in Android or invoking the upstream interactive installer. Neither fits the current machine-readable flow.
+
+### Bounded JSch transport — 2026-10-15
+
+**Problem/decision:** the provisioning boundary lacked a concrete SSH owner. Select maintained [mwiede JSch 2.28.8](https://github.com/mwiede/jsch/releases/tag/jsch-2.28.8), whose [published POM](https://repo.maven.apache.org/maven2/com/github/mwiede/jsch/2.28.8/jsch-2.28.8.pom) declares no required transitive dependencies. [SSHJ 0.41.2](https://github.com/hierynomus/sshj/releases/tag/v0.41.2) also remains maintained, but adds SLF4J, Bouncy Castle and ASN.1 dependencies. JSch supplies the required exec/SFTP/auth/socket hooks without those additional runtime owners. This source slice retains the existing factory, guard and orchestration rather than adding another transport layer.
+
+**Consequences/limits:** require a canonical out-of-band SHA256 host-key pin and numeric IPv4/IPv6 address before networking; the legacy trust Boolean never bypasses verification. Use ordinary VPN routing. Support password and bounded traditional RSA/ECDSA PEM credentials, with RSA-SHA2/ECDSA host/auth algorithms, SHA2 key exchanges/MACs and AES ciphers. No Ed25519/provider dependency, OpenSSH/PKCS8 key format, hostname resolution, fingerprint enrollment or credential persistence is added. Expected library failures expose fixed messages without raw causes; private-key stringification is redacted. The [transport contract](backend-contracts.md#concrete-ssh-transport--c11) owns exact limits and teardown.
+
+**Verification/migration impact:** Apache MINA SSHD 2.20.0 is test-only, providing a synthetic authenticated loopback SSH/SFTP peer within existing JUnit/Robolectric infrastructure. Controlled blocking sockets additionally exercise cancellation before socket connect returns, banner IO and channel-open waits. JSch declares Java 8; desktop/Robolectric checks do not certify Android API 24 crypto, desugaring or networking. API-24 runtime, credential storage, wired workflow and live-server acceptance remain open under #143. No persisted contract or live server is migrated. [Offline attribution](license-attribution.md#jsch-transport-notices) retains JSch, JZlib and jBCrypt notices.
 
 ### Full transfer uses existing profile and metadata owners — 2026-10-09
 

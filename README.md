@@ -1,6 +1,6 @@
 # vpn0wn — WireGuard Android fork
 
-Last updated: 2026-10-13 (Europe/Paris).
+Last updated: 2026-10-15 (Europe/Paris).
 
 vpn0wn, previously presented as Tunnl, is [novakin's WireGuard Android fork](https://github.com/novakin/vpn0wn-android), adding an engineering-console redesign and a partial VPS fleet/provisioning flow to the existing Android DataBinding/Fragment architecture.
 
@@ -10,7 +10,7 @@ The app uses [WireGuard](https://www.wireguard.com/), with the [kernel implement
 
 The [approved Android brand assets](docs/ui-redesign-roadmap.md#android-brand-asset-adoption--2026-10-10) supply launcher/tile/TV artwork, the Home symbol and outlined wordmark, and the visible vpn0wn app/version names. Source packages now use `com.vpn0wn.*`, with configured release/debug IDs `com.vpn0wn.android` and `com.vpn0wn.android.debug`. This creates a separate Android sandbox when installed. [The namespace contract](docs/backend-contracts.md#application-and-source-identity--71) preserves WireGuard protocol/configuration and stored/provisioning contracts; disposable validation harness naming now identifies vpn0wn. [Scoped namespace acceptance](docs/reviews/2026-10-11-namespace-acceptance.md) records source/native/artifact checks and rooted new-ID startup, synthetic import, traffic and manual rebind controls; it records checked preservation/cleanup and retains lifecycle limits. Root-tools ownership, complete renamed artifact/device and two-installation acceptance remain open under [#71](https://github.com/novakin/vpn0wn-android/issues/71). Existing Inter Tight and JetBrains Mono UI font roles remain.
 
-The redesign builds on existing tunnel import/edit/connect behavior. Native VPS fleet screens render persisted non-secret records. Concrete SSH transport, protected SSH credential persistence and live provisioning/user actions remain unfinished; current VPS QR data is a placeholder rather than an importable generated profile.
+The redesign builds on existing tunnel import/edit/connect behavior. Native VPS fleet screens render persisted non-secret records. A bounded [JSch transport](docs/backend-contracts.md#concrete-ssh-transport--c11) now supplies SSH exec/SFTP through the existing factory, with synthetic-peer verification. Protected SSH credentials, fingerprint input/storage, Android runtime proof and live provisioning/user actions remain unfinished; current VPS QR data is a placeholder rather than an importable generated profile.
 
 Read [operations and recovery](docs/operations.md) and [backend contracts](docs/backend-contracts.md) before relying on experimental provisioning scripts or runtime labels. The [improvement plan](docs/improvement-plan.md) tracks known safety, compatibility and lifecycle repairs; a UI label or successful command is not proof of VPN health. The source declares minimum Android API 24; executed device coverage is separate in the [QA plan](docs/qa-test-plan.md).
 
