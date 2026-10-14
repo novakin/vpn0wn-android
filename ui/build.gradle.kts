@@ -71,7 +71,7 @@ android {
             isIncludeAndroidResources = true
             isReturnDefaultValues = true
             all {
-                it.maxHeapSize = "1g"
+                it.maxHeapSize = "2g"
             }
         }
     }
@@ -113,7 +113,7 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 tasks.withType<Test>().configureEach {
-    maxHeapSize = "1g"
+    maxHeapSize = "2g"
 }
 
 detekt {

@@ -6,6 +6,7 @@
 package com.vpn0wn.android.fragment
 
 import android.content.ActivityNotFoundException
+import android.app.Activity
 import kotlinx.coroutines.CancellationException
 import android.content.Context
 import android.util.Log
@@ -15,10 +16,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.databinding.DataBindingUtil
 import androidx.databinding.ViewDataBinding
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.ViewModel
 import com.google.android.material.snackbar.Snackbar
 import com.vpn0wn.android.Application
 import com.vpn0wn.android.R
+import com.vpn0wn.android.BR
 import com.vpn0wn.android.activity.BaseActivity
 import com.vpn0wn.android.activity.BaseActivity.OnSelectedTunnelChangedListener
 import com.vpn0wn.android.backend.GoBackend
@@ -35,15 +39,16 @@ import kotlinx.coroutines.launch
  * attached to a `BaseActivity`.
  */
 abstract class BaseFragment : Fragment(), OnSelectedTunnelChangedListener {
-    private var pendingTunnel: ObservableTunnel? = null
-    private var pendingTunnelUp: Boolean? = null
-    private val permissionActivityResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        val tunnel = pendingTunnel
-        val checked = pendingTunnelUp
-        if (tunnel != null && checked != null)
-            setTunnelStateWithPermissionsResult(tunnel, checked)
-        pendingTunnel = null
-        pendingTunnelUp = null
+    private val permissionState by viewModels<VpnPermissionViewModel>()
+    private val permissionActivityResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val request = permissionState.request
+        permissionState.request = null
+        if (request != null) {
+            if (result.resultCode == Activity.RESULT_OK)
+                setTunnelStateWithPermissionsResult(request.tunnel, request.checked)
+            else
+                request.tunnel.notifyPropertyChanged(BR.state)
+        }
     }
 
     protected var selectedTunnel: ObservableTunnel?
@@ -77,20 +82,25 @@ abstract class BaseFragment : Fragment(), OnSelectedTunnelChangedListener {
                 .show()
             Log.e(TAG, message, error)
         }
-        activity.lifecycleScope.launch {
+        lifecycleScope.launch {
             if (Application.getBackend() is GoBackend) {
                 try {
                     val intent = GoBackend.VpnService.prepare(activity)
                     if (intent != null) {
-                        pendingTunnel = tunnel
-                        pendingTunnelUp = checked
+                        permissionState.request = VpnPermissionViewModel.Request(tunnel, checked)
                         permissionActivityResultLauncher.launch(intent)
                         return@launch
                     }
                 } catch (e: SecurityException) {
+                    permissionState.request = null
+                    tunnel.notifyPropertyChanged(BR.state)
                     reportPreparationFailure(e)
+                    return@launch
                 } catch (e: ActivityNotFoundException) {
+                    permissionState.request = null
+                    tunnel.notifyPropertyChanged(BR.state)
                     reportPreparationFailure(e)
+                    return@launch
                 }
             }
             setTunnelStateWithPermissionsResult(tunnel, checked)
@@ -119,6 +129,8 @@ abstract class BaseFragment : Fragment(), OnSelectedTunnelChangedListener {
                 else
                     Toast.makeText(activity, message, Toast.LENGTH_LONG).show()
                 Log.e(TAG, message, e)
+            } finally {
+                tunnel.notifyPropertyChanged(BR.state)
             }
         }
     }
@@ -126,4 +138,10 @@ abstract class BaseFragment : Fragment(), OnSelectedTunnelChangedListener {
     companion object {
         private const val TAG = "vpn0wn/BaseFragment"
     }
+}
+
+internal class VpnPermissionViewModel : ViewModel() {
+    var request: Request? = null
+
+    data class Request(val tunnel: ObservableTunnel, val checked: Boolean)
 }

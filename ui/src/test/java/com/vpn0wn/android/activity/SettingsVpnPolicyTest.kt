@@ -14,6 +14,7 @@ import android.provider.Settings
 import android.widget.TextView
 import androidx.lifecycle.lifecycleScope
 import androidx.preference.Preference
+import com.google.android.material.snackbar.Snackbar
 import com.vpn0wn.android.R
 import com.vpn0wn.android.backend.Backend
 import com.vpn0wn.android.backend.GoBackend
@@ -24,6 +25,7 @@ import com.vpn0wn.android.model.TunnelTestEnvironment
 import com.vpn0wn.android.util.RootShell
 import com.vpn0wn.android.util.ToolsInstaller
 import com.vpn0wn.android.util.UserKnobs
+import com.vpn0wn.android.util.vpn0wnStyle
 import com.vpn0wn.config.Config as WireGuardConfig
 import java.io.IOException
 import java.util.concurrent.CompletableFuture
@@ -61,6 +63,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.Implementation
 import org.robolectric.annotation.Implements
 import org.robolectric.shadows.ShadowInstrumentation
+import org.robolectric.shadows.ShadowPausedLooper
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, sdk = [29], shadows = [
@@ -83,7 +86,7 @@ class SettingsVpnPolicyTest {
     }
 
     @After fun tearDown() {
-        controllers.forEach { it.pause().stop().destroy() }
+        destroyControllers()
         fixtures.clear()
         Dispatchers.resetMain()
         VpnSettingsLaunch.denied = false
@@ -239,6 +242,31 @@ class SettingsVpnPolicyTest {
         assertNull(shadowOf(activity).nextStartedActivity)
     }
 
+    @Test fun teardownReleasesSnackbarBeforeLooperResetAndNextDenial() = runTest {
+        val fixture = environment()
+        val previous = openSettings()
+        settle(previous)
+        val previousSnackbar = Snackbar.make(fragment(previous).requireView(),
+            R.string.system_vpn_settings_admin_restricted, Snackbar.LENGTH_SHORT).vpn0wnStyle()
+        previousSnackbar.show()
+        assertFeedback(previous, R.string.system_vpn_settings_admin_restricted)
+        assertTrue(previousSnackbar.isShown)
+        assertTrue(previousSnackbar.view.isAttachedToWindow)
+        destroyControllers()
+        assertFalse("Owned Snackbar must be released before the test looper resets", previousSnackbar.isShownOrQueued)
+        ShadowPausedLooper.resetLoopers()
+
+        setRestricted(fixture.env, false)
+        val current = openSettings()
+        settle(current)
+        assertTrue(preference(current).isEnabled)
+        VpnSettingsLaunch.denied = true
+        preference(current).performClick()
+        assertFeedback(current, R.string.system_vpn_settings_launch_denied)
+        assertNull(shadowOf(current).nextStartedActivity)
+        assertFalse(previousSnackbar.isShownOrQueued)
+    }
+
     @Test fun returningToForegroundRefreshesPolicyObservation() = runTest {
         val fixture = environment()
         val activity = openSettings()
@@ -379,6 +407,12 @@ class SettingsVpnPolicyTest {
         controller.setup()
         controller.get().supportFragmentManager.executePendingTransactions()
         return controller.get()
+    }
+
+    private fun destroyControllers() {
+        controllers.forEach { it.pause().stop().destroy() }
+        controllers.clear()
+        shadowOf(Looper.getMainLooper()).idle()
     }
 
     private suspend fun TestScope.settle(activity: SettingsActivity) {
