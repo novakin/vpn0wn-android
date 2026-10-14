@@ -1,4 +1,4 @@
-<!-- Template last updated: 2026-10-11 (Europe/Paris). -->
+<!-- Template last updated: 2026-10-14 (Europe/Paris). -->
 
 ## Problem and resulting behavior
 
@@ -12,7 +12,7 @@ Fill this description before opening the PR, including a draft. Update the title
 - Plan/action context, when relevant:
 - Base and head branches:
 
-Use closing keywords only when merge fulfils the issue's complete acceptance boundary; use non-closing references for partial work. Set actual GitHub labels and assignee explicitly, preserving deliberate assignments and unrelated labels; metadata fields are authoritative. This template does not apply them automatically. Keep text free of connector/generated-by attribution.
+Use closing keywords only when merge fulfils the issue's complete acceptance boundary. For partial work, use `Related to #N` and `#N remains open`; negation does not neutralize closing-keyword syntax. Follow the [issue-link rule](https://github.com/novakin/vpn0wn-android/blob/master/docs/development.md#issue-links-and-resolution), including actual relationship/state readback after body changes and before merge. Set actual GitHub labels and assignee explicitly, preserving deliberate assignments and unrelated labels; metadata fields are authoritative. This template does not apply them automatically. Keep text free of connector/generated-by attribution.
 
 Reuse existing issue owners for bounded follow-ups, including documentation and maintenance. Create an issue only for distinct untracked work; a named action does not replace an issue reference.
 
