@@ -1,6 +1,6 @@
 # vpn0wn UI Redesign Roadmap
 
-Last updated: 2026-10-14 (Europe/Paris).
+Last updated: 2026-10-15 (Europe/Paris).
 
 ## Design Source
 
@@ -498,6 +498,10 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 ## Progress
 
 ### Done
+
+- [x] **Selected name/key replacement source repair — #188, 2026-10-15:** `NameInputFilter`/`KeyInputFilter` permit replacement in full-length fields and retain accepted-character positions after filtering. Existing character/padding rules, limits, deletion, source spans and all layout/type/palette roles remain. Android Editable regression controls cover the source behavior; physical editor/accessibility acceptance remains separate.
+
+- [x] **QR naming retry behavior — #186, 2026-10-15:** `ConfigNamingDialogFragment` preserves its current profile and editable error after failed creation, admits one submission at a time and closes only after success. Existing dialog layout, palette and type remain unchanged. Material-dialog Robolectric controls verify the behavior; physical lens decoding, accessibility and broader #35 acceptance remain separate.
 
 - [x] **Connecting motion refinement — [#174](https://github.com/novakin/vpn0wn-android/issues/174), source 2026-10-13 / fresh matrix 2026-10-14:** `TunnelSignalView` and `TunnelThroughputView` use a 1.8-second halfway warning sweep with first/last-fifth fades and an opaque quarter-rail dot when motion is disabled. Geometry, fonts, state mapping and connected blue motion stay unchanged. The Home mixed-delete fixture preserves exact feedback/recovery assertions while separating synthetic animation time from Snackbar expiry. [Fresh integrated acceptance](reviews/2026-10-13-connecting-motion-acceptance.md#fresh-integrated-matrix--2026-10-14) at `cc0c3ea8` passes all 64 CONNECTING cells across Home/Detail, system night/day, portrait/landscape, normal/2× text, French LTR/requested Arabic RTL and scales 1/0; both system modes retain the fixed navy app palette. All 44 focused tests and zero-finding Detekt pass. The record retains prior failures and distinct dark 12/12 versus strict light FAILED 11/12 cleanup scopes; no owned test resources remain in the assessed light-session network delta. A fresh installer timeout was separately reconciled without reboot. The [fresh state run](reviews/2026-10-13-connecting-motion-acceptance.md#fresh-state-and-recreation-run--2026-10-14) passes native mode, authenticated synthetic traffic, same-PID Activity recreation, all eight decoded state/motion sets and independently recomputed 16/16 reconciled cleanup; its initial 14/16 cleanup failure remains retained. Scoped #174 native acceptance is met with sampling, shorter DOWN clips, landscape Detail-switch and toast limits in the record. [QA](qa-test-plan.md#connecting-motion-controls--174) owns controls; [PR #175](https://github.com/novakin/vpn0wn-android/pull/175) merged on 2026-10-14 at `813b484e` after final-head ultra review and successful exact-head CI; #174 closure was verified. The record owns review/CI identities. Broader Home/accessibility and battery acceptance remain #80/#52 and #47; no whole-E2 or release acceptance follows.
 

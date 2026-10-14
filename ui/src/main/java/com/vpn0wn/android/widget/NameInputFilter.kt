@@ -22,14 +22,14 @@ class NameInputFilter : InputFilter {
     ): CharSequence? {
         var replacement: SpannableStringBuilder? = null
         var rIndex = 0
-        val dLength = dest.length
+        val retainedLength = dest.length - (dEnd - dStart)
         for (sIndex in sStart until sEnd) {
             val c = source[sIndex]
-            val dIndex = dStart + (sIndex - sStart)
+            val dIndex = dStart + rIndex
             // Restrict characters to those valid in interfaces.
             // Ensure adding this character does not push the length over the limit.
             if (dIndex < Tunnel.NAME_MAX_LENGTH && isAllowed(c) &&
-                dLength + (sIndex - sStart) < Tunnel.NAME_MAX_LENGTH
+                retainedLength + rIndex < Tunnel.NAME_MAX_LENGTH
             ) {
                 ++rIndex
             } else {
