@@ -1,6 +1,6 @@
 # vpn0wn — WireGuard Android fork
 
-Last updated: 2026-10-11 (Europe/Paris).
+Last updated: 2026-10-14 (Europe/Paris).
 
 ## Source of Truth — Prompt Instructions
 
@@ -71,7 +71,7 @@ Record consequential architecture decisions in `docs/architecture.md` and operat
 - Every PR references its owning issue(s), including partial, documentation and maintenance slices. Reuse existing owners for bounded follow-ups; create an issue only for distinct untracked work. A named request or plan action adds context and does not replace the issue reference.
 - During the authorized GitHub workflow, check for duplicates and create/update an issue for concrete unresolved work. Include observed/expected behavior, impact, bounded scope, approval/dependencies and observable acceptance. Do not create speculative work or a separate issue for each small fix completed within the current PR.
 - Default new issues/PRs to `novakin`; preserve deliberate existing assignments and unrelated labels. Use existing repository labels matching scope. Read current fields, prefer additive changes and verify the write/readback; metadata belongs in GitHub fields, not duplicated mutable prose. Report rejected/unverified fields.
-- Use a closing PR-description keyword only when merge into the default branch fulfils the issue's full acceptance boundary. Use a non-closing reference for partial work or separate operational proof. Verify the Development link and actual post-merge issue state, or disclose the access limit; a reference or closed unmerged PR is not delivery.
+- Use a closing PR-description keyword only when merge into the default branch fulfils the issue's full acceptance boundary. For partial work or separate operational proof, use `Related to #N` and `#N remains open`; negation does not neutralize closing-keyword syntax. Verify the actual Development relationship and issue state after PR-body changes, before merge and after merge, or disclose the access limit; a reference or closed unmerged PR is not delivery.
 - Keep substantive historical assessments in `docs/reviews/` with scope, revision, evidence, findings/resolution and limits. Routine self-review/CI acceptance stays in the PR. Never commit raw chat, private reasoning, credentials or host reports.
 - If GitHub is unavailable, disclose current action status as unverified and retain an explicitly unpublished handoff. Issue/template metadata and an earlier unrelated approval do not authorize new operations.
 
