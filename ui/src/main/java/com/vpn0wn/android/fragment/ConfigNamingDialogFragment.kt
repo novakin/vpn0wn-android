@@ -7,8 +7,10 @@ package com.vpn0wn.android.fragment
 
 import kotlinx.coroutines.CancellationException
 import android.app.Dialog
+import android.content.DialogInterface
 import android.os.Bundle
 import android.view.WindowManager
+import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -25,23 +27,38 @@ import java.nio.charset.StandardCharsets
 class ConfigNamingDialogFragment : DialogFragment() {
     private var binding: ConfigNamingDialogFragmentBinding? = null
     private lateinit var config: Config
+    private var pendingDismiss = false
 
     // Backend/ConfigStore expose Exception; this operation reports their failures while cancellation and Errors propagate.
     @Suppress("TooGenericExceptionCaught")
     private fun createTunnelAndDismiss() {
         val binding = binding ?: return
-        val activity = activity ?: return
+        val dialog = dialog as? AlertDialog ?: return
+        val createButton = dialog.getButton(DialogInterface.BUTTON_POSITIVE)
+        if (!createButton.isEnabled) return
         val name = binding.tunnelNameText.text.toString()
-        activity.lifecycleScope.launch {
+        createButton.isEnabled = false
+        binding.tunnelNameText.isEnabled = false
+        binding.tunnelNameTextLayout.error = null
+        lifecycleScope.launch {
             try {
                 Application.getTunnelManager().create(name, config)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                binding.tunnelNameTextLayout.error = e.message
+                if (this@ConfigNamingDialogFragment.binding === binding)
+                    binding.tunnelNameTextLayout.error = e.message
                 return@launch
+            } finally {
+                if (this@ConfigNamingDialogFragment.binding === binding) {
+                    createButton.isEnabled = true
+                    binding.tunnelNameText.isEnabled = true
+                }
             }
-            dismiss()
+            if (this@ConfigNamingDialogFragment.binding === binding) {
+                if (isStateSaved) pendingDismiss = true
+                else dismiss()
+            }
         }
     }
 
@@ -67,11 +84,34 @@ class ConfigNamingDialogFragment : DialogFragment() {
             executePendingBindings()
             alertDialogBuilder.setView(root)
         }
-        alertDialogBuilder.setPositiveButton(R.string.create_tunnel) { _, _ -> createTunnelAndDismiss() }
+        alertDialogBuilder.setPositiveButton(R.string.create_tunnel, null)
         alertDialogBuilder.setNegativeButton(R.string.cancel) { _, _ -> dismiss() }
         val dialog = alertDialogBuilder.create()
         dialog.window?.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
         return dialog
+    }
+
+    override fun onStart() {
+        super.onStart()
+        (dialog as? AlertDialog)?.getButton(DialogInterface.BUTTON_POSITIVE)?.setOnClickListener { createTunnelAndDismiss() }
+    }
+
+    override fun onDestroyView() {
+        binding = null
+        super.onDestroyView()
+    }
+
+    override fun onDismiss(dialog: DialogInterface) {
+        binding = null
+        super.onDismiss(dialog)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (pendingDismiss) {
+            pendingDismiss = false
+            dismiss()
+        }
     }
 
     companion object {

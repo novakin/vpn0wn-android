@@ -1,6 +1,6 @@
 # Backend & Functional Changelog
 
-Last updated: 2026-10-14 (Europe/Paris).
+Last updated: 2026-10-15 (Europe/Paris).
 
 Tracks non-UI changes: backend logic, data layer, permissions, networking, build config, and any functional behavior changes. Separate from `ui-redesign-roadmap.md` which covers visual/layout work only.
 
@@ -60,6 +60,8 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 - [x] Add opt-in destructive end-to-end test path against a disposable Ubuntu/Debian VPS.
 
 ## Done
+
+- **QR naming failure/retry — #186 (2026-10-15, Europe/Paris):** `ConfigNamingDialogFragment.onStart` installs the Create click handler without automatic dialog dismissal. `createTunnelAndDismiss` disables duplicate submissions while the existing manager owns creation, retains the scanned profile and editable error after failure, and dismisses only after success. Successful completion after screen-state saving defers dismissal until resume. Fragment lifecycle ownership and binding identity checks prevent stale result publication; `onDismiss`/`onDestroyView` release the dialog binding. Admitted manager mutations retain their existing reconciliation semantics. Focused Material-dialog Robolectric controls cover invalid/duplicate names, successful correction, write failure/retry, repeated clicks, Cancel, dismissal during a failed write and success after screen-state saving and failed-save retry after stop/resume; physical camera/accessibility and replacement-length handling remain separate C8/#35 gates.
 
 - **Caller-owned provisioning timeout cancellation — Related to [#143](https://github.com/novakin/vpn0wn-android/issues/143) (2026-10-14, Europe/Paris):** `RemoteShellClient.kt`, `GuardedRemoteShellClient.guard` uses `withTimeoutOrNull` to convert only its own execute/upload deadline into the existing timeout failure message. A shorter enclosing caller timeout now propagates cancellation instead of becoming `ProvisioningException`; ordinary cancellation, success output/arguments and IO failure behavior remain intact. `GuardedRemoteShellClientTest` covers both parent-timeout paths, the owned upload deadline and delegate settlement, success forwarding and IO cause/message preservation. This repairs the cooperative wrapper only; real SSH resource/deadline proof, protected credentials and live workflow remain C11/C12, and #143 remains open. [The contract](backend-contracts.md#result-error-and-cancellation-meaning) owns the boundary.
 
