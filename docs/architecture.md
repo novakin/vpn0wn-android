@@ -1,6 +1,6 @@
 # Architecture and maintenance boundaries
 
-Last updated: 2026-10-13 (Europe/Paris).
+Last updated: 2026-10-14 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -188,6 +188,12 @@ Alternatives were copying the old complete file, selectively retaining extra pac
 GoBackend retains its existing native transition lock. VpnService destruction marks liveness and resets acquisition without waiting on that lock, then dispatches identity-checked cleanup through the existing CompletableFuture executor. Cleanup callbacks stay ordered under the transition lock. Preflight preserves its explicit-port/endpoint-free policy; expected I/O remains best effort, while UDP interruption aborts with the flag preserved.
 
 Alternatives were UI busy flags alone, detached transition jobs or cancellation after partial backend/store effects. They do not protect queued callers or reconciliation. Extending current owners avoids another operation service. Admitted blocking work can delay cancellation; mutex/service checks do not interrupt hung native calls or prove device traffic, process restart or native reacquisition. WgQuickBackend's complete transition owner is implemented under #15 as recorded below. See [contracts](backend-contracts.md#wireguard-configuration-and-tunnel-state) and [verification](development.md#tunnel-lifecycle-and-transition-settlement--2026-10-06).
+
+### VPN consent intent belongs to the retained fragment — 2026-10-14
+
+**Problem/decision:** Android can return VPN consent to a recreated fragment after its ordinary fields are lost; Activity-owned preparation can also resume after its fragment is removed. For [#177](https://github.com/novakin/vpn0wn-android/issues/177), `BaseFragment` gives preparation to the fragment's `lifecycleScope` and retains original model/direction in its Fragment-scoped AndroidX ViewModel. The callback consumes ephemeral intent once and delegates approved transitions to the existing Activity/manager owners. [The contract](backend-contracts.md#vpn-consent-continuation--177) owns failure settlement; tunnel-state ownership stays unchanged.
+
+**Alternatives/consequences:** persisting a tunnel name could authorize a replacement profile; Activity-wide pending intent/preparation would outlive the requesting fragment. Original identity and Fragment ownership preserve configuration recreation, removal cancellation and manager stale-model checks without a dependency or persistence change. Process death and permanent fragment removal discard unconsumed intent for manual retry. Approved transitions keep their existing Activity scope across navigation; Activity destruction cancels waiting admission, while admitted manager mutations reconcile before propagating cancellation. [QA gates](qa-test-plan.md#vpn-consent-continuation-acceptance--177) keep native Android consent/service and traffic proof separate. Revisit persistent continuation only if a concrete requirement defines identity and authorization after process death.
 
 ### Kernel backend owns complete transitions
 

@@ -1,6 +1,6 @@
 # Backend and provisioning contracts
 
-Last updated: 2026-10-13 (Europe/Paris).
+Last updated: 2026-10-14 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -72,6 +72,14 @@ The prior Java socket owner's TrafficStats tag isolation is historical behavior 
 In retained baseline logs, `UDP preflight sent` means the protected Java socket accepted a local send. It does not acknowledge delivery or DPI resistance. Native warm-up adds no per-packet success log or server acknowledgment and leaves the WireGuard protocol unchanged. Socket continuity and authenticated loopback traffic do not establish hardware deep suspend, broader unchanged kernel-server compatibility or DPI benefit. The maintainer's 2026-10-08 report of sleep/wake recovery without manual action is not new measured packet/timing proof; the earlier 195-second forced Doze trial retains its own scope in [the experiment record](reviews/2026-10-07-protocol-preflight-experiment.md#forced-deep-doze-recovery--2026-10-07). The [G4 investigation](reviews/2026-10-07-g4-preflight-investigation.md) retains its separate incident/port-change scope. No DPI, speed or battery gain is established.
 
 `WgQuickBackend` serializes the entire transition on its existing instance: observed state, config snapshot, prior-tunnel shutdown, apply, rollback, map update and callback. Running-name reads and multiple-tunnel preference changes share that monitor. Application collects those mode changes on IO, so waiting behind a root transition leaves the main thread free. Disabled multiple mode admits one app-owned active tunnel; enabled mode retains supported simultaneous tunnels. Failed apply/shutdown attempts restoration where applicable; restoration failures attach to the primary exception and observed running names remain queryable. RootShell still serializes individual commands; the backend monitor additionally protects the whole transition. This does not coordinate another backend instance or external root tools, turn multi-command changes into kernel transactions, or guarantee observation after an unreachable shell. #15 has controlled command-level JVM proof; device/kernel traffic and partial native effects remain separate.
+
+### VPN consent continuation — #177
+
+`BaseFragment.setTunnelState` uses Android's existing userspace VPN preparation and activity-result path. Preparation belongs to the fragment's `lifecycleScope`; permanent removal cancels a backend-initialization waiter before it can launch consent. A Fragment-scoped `VpnPermissionViewModel` retains an immutable request containing the original managed `ObservableTunnel` object and requested Boolean direction across in-process Activity/Fragment configuration recreation. The callback takes and clears it before acting; only `Activity.RESULT_OK` submits that direction through `ObservableTunnel.setStateAsync` and the existing serialized manager. Selection changes cannot retarget it, and the manager rejects deleted models or same-name replacements.
+
+Denial/cancellation rebinds the captured model's current state for retry without a transition. Expected preparation/launch failures (`SecurityException` or `ActivityNotFoundException`) clear the request, rebind state, report the existing error and return without activation. The approved transition retains Activity `lifecycleScope`, preserving accepted requests across ordinary fragment navigation. Activity destruction cancels waiting manager admission; an admitted mutation still completes existing noncancellable reconciliation before propagating cancellation. The transition operation rebinds state in `finally`; cancellation/Errors propagate and existing failure feedback remains.
+
+Process death or permanent fragment removal drops unconsumed ephemeral consent intent; a restored callback without that owner cannot activate a tunnel. An already-consumed, approved transition is no longer pending consent. Inspect current state and retry manually when pending intent is lost. No name-based saved-state restoration, persistence migration, permission bypass or backend/native/protocol change is added. [QA](qa-test-plan.md#vpn-consent-continuation-acceptance--177) separates source controls from actual Android acceptance.
 
 ### Literal kernel cleanup identity — #165
 
