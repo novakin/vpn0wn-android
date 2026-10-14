@@ -140,6 +140,12 @@ For [#48](https://github.com/novakin/vpn0wn-android/issues/48), `TunnelStatistic
   - active with fresh handshake
   - no signal with stale handshake
 
+### Detail public-key copy controls — #180
+
+`DetailPublicKeyCopyTest` inflates both actual Detail layouts on APIs 28 and 33 with synthetic keys. Require complete base64 clipboard values that differ from unchanged `shortKey` display and match the current interface/peer after config rebinding, peer replacement and a newly inflated Detail view. Interface copying must not return its private key. Clearing config must preserve a sentinel clipboard instead of copying `—` and remove peer rows; retain clipboard labels, row typefaces, pre-Android-13 Snackbar and Android 13+ system-feedback delegation. Run the existing `AddPeerPresentationTest` RX/TX copy controls and focused binding/lifecycle tests with Detekt. These checks do not establish Android paste, system feedback or physical output.
+
+For separately authorized Android clipboard/paste proof, use only synthetic interface/peer keys and compare pasted values with their complete fixture values, including selection/view changes. Preserve and restore original clipboard state where the platform permits it; disclose unavailable restoration or device proof. Retain the existing RX/TX displayed-value contract and private-key authorization boundary. [#180](https://github.com/novakin/vpn0wn-android/issues/180) owns final review, checks and delivery.
+
 ### Robolectric View Tests
 
 `AddPeerPresentationTest.nativeTopologyHeaderKeepsCompleteLabelsSeparatedAtSmallWidthsAndLargeText` inflates the actual bound Detail header with UP and CONNECTING states. Native raster/layout controls cover 320dp portrait at 1×/2× text, the observed 411dp RTL portrait at 2× text and 480dp short landscape at 2× text, in LTR/Arabic RTL and both system themes. Require complete title/status text, no ellipsis or clipping, and at least 4dp between rendered lines sharing vertical space. Inspect the generated `topology-*.png` files under ignored `.artifacts/add-peer-previews`; measured JVM output does not establish physical or spoken-accessibility acceptance.

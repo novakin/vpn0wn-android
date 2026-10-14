@@ -76,8 +76,8 @@
                 <TextView
                     android:id="@+id/public_key_text"
                     style="@style/Vpn0wnConfigRowValue"
-                    android:onClick="@{ClipboardUtils::copyTextView}"
                     android:text="@{BindingAdapters.shortKey(item.publicKey.toBase64)}"
+                    app:copyText="@{item.publicKey.toBase64}"
                     tools:text="kLn9iJ…Nx5UI=" />
             </LinearLayout>
 

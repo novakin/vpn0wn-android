@@ -422,8 +422,8 @@
                             android:id="@+id/public_key_text"
                             style="@style/Vpn0wnConfigRowValue"
                             android:maxLines="1"
-                            android:onClick="@{ClipboardUtils::copyTextView}"
                             android:text="@{BindingAdapters.shortKey(config.interface.keyPair.publicKey.toBase64)}"
+                            app:copyText="@{config.interface.keyPair.publicKey.toBase64}"
                             tools:text="wOs2…BVkA" />
                     </LinearLayout>
 
