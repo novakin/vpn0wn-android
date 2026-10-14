@@ -20,7 +20,9 @@ sealed class VpsCredential {
             value.fill('\u0000')
         }
     }
-    data class PrivateKey(val pem: String, val passphrase: String? = null) : VpsCredential()
+    data class PrivateKey(val pem: String, val passphrase: String? = null) : VpsCredential() {
+        override fun toString(): String = "PrivateKey(redacted)"
+    }
 }
 
 data class VpsConnection(

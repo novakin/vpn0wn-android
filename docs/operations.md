@@ -1,6 +1,6 @@
 # Operations and recovery
 
-Last updated: 2026-10-14 (Europe/Paris).
+Last updated: 2026-10-15 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -143,11 +143,11 @@ Manual DOWN/reconnect, config/name/delete and backend changes invalidate recover
 
 ## VPS feature status
 
-Fleet screens render persisted non-secret records. Concrete Android SSH transport, protected credential storage and live provisioning/user-action wiring are unfinished. The current VPS QR uses a real QR matrix but its payload is placeholder deployment data, not an importable generated WireGuard profile.
+Fleet screens render persisted non-secret records. The bounded [JSch transport](backend-contracts.md#concrete-ssh-transport--c11) supports numeric IPv4/IPv6, a required out-of-band SHA256 pin and in-memory password/traditional RSA/ECDSA PEM credentials through the existing factory. Protected credential storage, fingerprint entry/storage, Android runtime acceptance and live provisioning/user-action wiring remain unfinished. The current VPS QR uses a real QR matrix but its payload is placeholder deployment data, not an importable generated WireGuard profile.
 
 The app-facing server scripts exist under `third_party/wireguard-install/vpn0wn/`, with narrow Ubuntu/Debian, `wg0`, IPv4 `/24`, IPv4 default-route and iptables NAT assumptions. Use their [current contracts and gaps](backend-contracts.md#provisioning-command-surface), not the upstream interactive installer, as the integration reference.
 
-The C2–C3 source repair rejects unmanaged state/config injection and adds serialized writes, checked runtime results and recovery. C4 aligns Android/script responses and safe errors, and persists observed health. [C2–C3 evidence](development.md#c2c3-offline-provisioning-safety--2026-10-06) and [C4 evidence](development.md#c4-provisioning-contracts-and-observed-health--2026-10-06) do not establish real-server reliability. The integration harness and real SSH/UI wiring remain unfinished. Installing or deleting server state is outside an ordinary source/docs task.
+The C2–C3 source repair rejects unmanaged state/config injection and adds serialized writes, checked runtime results and recovery. C4 aligns Android/script responses and safe errors, and persists observed health. [C2–C3 evidence](development.md#c2c3-offline-provisioning-safety--2026-10-06), [C4 evidence](development.md#c4-provisioning-contracts-and-observed-health--2026-10-06) and synthetic SSH transport controls establish no real-server reliability. Live UI integration and authorized disposable-server acceptance remain unfinished. Installing or deleting server state is outside an ordinary source/docs task.
 
 Fleet ONLINE now requires a recent observed running interface; a fresh stopped observation is OFFLINE, and unknown/stale/future observations need ATTENTION. Legacy records retain their connection metadata with unknown health until status is observed. Recent sync and running are separate checks. These labels do not prove handshake, NAT, routing or connectivity; [backend contracts](backend-contracts.md#persistence-and-presentation) owns exact age thresholds.
 

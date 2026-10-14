@@ -25,6 +25,7 @@ class GuardedRemoteShellClientTest {
         var settled = false
         val client = GuardedRemoteShellClient(
             object : RemoteShellClient {
+                override suspend fun close() = Unit
                 override suspend fun execute(command: String): ProvisioningCommandOutput {
                     try {
                         delay(Long.MAX_VALUE)
@@ -52,6 +53,7 @@ class GuardedRemoteShellClientTest {
         var settled = false
         val client = GuardedRemoteShellClient(
             object : RemoteShellClient {
+                override suspend fun close() = Unit
                 override suspend fun execute(command: String) = success()
 
                 override suspend fun upload(path: String, content: String, mode: String): ProvisioningCommandOutput {
@@ -79,6 +81,7 @@ class GuardedRemoteShellClientTest {
         var settled = false
         val client = GuardedRemoteShellClient(
             object : RemoteShellClient {
+                override suspend fun close() = Unit
                 override suspend fun execute(command: String) = success()
 
                 override suspend fun upload(path: String, content: String, mode: String): ProvisioningCommandOutput {
@@ -107,6 +110,7 @@ class GuardedRemoteShellClientTest {
         val uploadOutput = ProvisioningCommandOutput(0, "upload output", "upload stderr")
         val client = GuardedRemoteShellClient(
             object : RemoteShellClient {
+                override suspend fun close() = Unit
                 override suspend fun execute(command: String): ProvisioningCommandOutput {
                     assertEquals("detect", command)
                     return commandOutput
@@ -131,6 +135,7 @@ class GuardedRemoteShellClientTest {
         val failure = IOException("network is unreachable")
         val client = GuardedRemoteShellClient(
             object : RemoteShellClient {
+                override suspend fun close() = Unit
                 override suspend fun execute(command: String) = success()
                 override suspend fun upload(path: String, content: String, mode: String): ProvisioningCommandOutput = throw failure
             },
@@ -148,6 +153,7 @@ class GuardedRemoteShellClientTest {
     fun executeTimesOutHungCommand() = runTest {
         val client = GuardedRemoteShellClient(
             object : RemoteShellClient {
+                override suspend fun close() = Unit
                 override suspend fun execute(command: String): ProvisioningCommandOutput {
                     delay(Long.MAX_VALUE)
                     error("unreachable")
@@ -168,6 +174,7 @@ class GuardedRemoteShellClientTest {
     fun unreachableServerMapsToProvisioningException() = runTest {
         val client = GuardedRemoteShellClient(
             object : RemoteShellClient {
+                override suspend fun close() = Unit
                 override suspend fun execute(command: String): ProvisioningCommandOutput {
                     throw IOException("network is unreachable")
                 }
@@ -186,6 +193,7 @@ class GuardedRemoteShellClientTest {
     fun coroutineCancellationIsNotConvertedToGenericFailure() = runTest {
         val client = GuardedRemoteShellClient(
             object : RemoteShellClient {
+                override suspend fun close() = Unit
                 override suspend fun execute(command: String): ProvisioningCommandOutput {
                     delay(Long.MAX_VALUE)
                     error("unreachable")
@@ -257,6 +265,7 @@ class GuardedRemoteShellClientTest {
     )
 
     private fun fakeClient() = object : RemoteShellClient {
+        override suspend fun close() = Unit
         override suspend fun execute(command: String) = success()
         override suspend fun upload(path: String, content: String, mode: String) = success()
     }
