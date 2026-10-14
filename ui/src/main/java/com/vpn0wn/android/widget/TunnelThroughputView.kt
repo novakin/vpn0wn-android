@@ -97,7 +97,7 @@ class TunnelThroughputView @JvmOverloads constructor(
         }
     }
     private val connectingAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
-        duration = 900L
+        duration = CONNECTING_ANIMATION_DURATION_MS
         repeatCount = ValueAnimator.INFINITE
         interpolator = LinearInterpolator()
         addUpdateListener {
@@ -245,7 +245,14 @@ class TunnelThroughputView @JvmOverloads constructor(
         // Connecting: warn-color packet to midpoint only
         if (connecting && !live) {
             val midX = (pathLeft + pathRight) / 2f
-            val x = pathLeft + (midX - pathLeft) * connectingPhase
+            val progress = if (connectingAnimator.isRunning) connectingPhase else CONNECTING_STATIC_PROGRESS
+            val fade = if (connectingAnimator.isRunning) {
+                min(progress / CONNECTING_FADE_FRACTION, (1f - progress) / CONNECTING_FADE_FRACTION).coerceIn(0f, 1f)
+            } else {
+                1f
+            }
+            warnPaint.alpha = (OPAQUE_ALPHA * fade).toInt()
+            val x = pathLeft + (midX - pathLeft) * progress
             canvas.drawCircle(x, midY, dp(3f), warnPaint)
         }
 
@@ -323,8 +330,12 @@ class TunnelThroughputView @JvmOverloads constructor(
     }
 
     private companion object {
+        const val CONNECTING_ANIMATION_DURATION_MS = 1800L
+        const val CONNECTING_FADE_FRACTION = 0.2f
+        const val CONNECTING_STATIC_PROGRESS = 0.5f
         const val NODE_GLOW_ALPHA = 36
         const val DIMMED_RULE_ALPHA = 56
+        const val OPAQUE_ALPHA = 255
     }
 
     private fun dp(value: Float): Float = value * density

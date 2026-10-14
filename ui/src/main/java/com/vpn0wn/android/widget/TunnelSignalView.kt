@@ -15,6 +15,7 @@ import android.view.View
 import android.view.animation.LinearInterpolator
 import androidx.core.content.ContextCompat
 import com.vpn0wn.android.R
+import kotlin.math.min
 
 class TunnelSignalView @JvmOverloads constructor(
     context: Context,
@@ -117,7 +118,14 @@ class TunnelSignalView @JvmOverloads constructor(
             drawPacket(canvas, start, end, cy, (packetProgress + 0.33f) % 1f, dp(1.7f), 135, signalDeep)
         } else if (mode == TunnelMode.CONNECTING) {
             val rangeEnd = start + (end - start) * 0.5f
-            val x = start + (rangeEnd - start) * packetProgress
+            val progress = if (animator.isRunning) packetProgress else CONNECTING_STATIC_PROGRESS
+            val fade = if (animator.isRunning) {
+                min(progress / CONNECTING_FADE_FRACTION, (1f - progress) / CONNECTING_FADE_FRACTION).coerceIn(0f, 1f)
+            } else {
+                1f
+            }
+            packetPaint.alpha = (OPAQUE_ALPHA * fade).toInt()
+            val x = start + (rangeEnd - start) * progress
             canvas.drawCircle(x, cy, dp(2.5f), packetPaint)
         }
     }
@@ -141,7 +149,6 @@ class TunnelSignalView @JvmOverloads constructor(
     private fun syncAnimator() {
         if (!isAttachedToWindow) return
         val shouldAnimate = mode == TunnelMode.UP || mode == TunnelMode.CONNECTING
-        // Connecting animates 2× faster (0.9s) to signal urgency; UP uses relaxed 1.5s
         val targetDuration = if (mode == TunnelMode.CONNECTING) CONNECTING_ANIMATION_DURATION_MS else CONNECTED_ANIMATION_DURATION_MS
         if (shouldAnimate) {
             if (animator.duration != targetDuration) {
@@ -201,7 +208,9 @@ class TunnelSignalView @JvmOverloads constructor(
     }
 
     private companion object {
-        const val CONNECTING_ANIMATION_DURATION_MS = 900L
+        const val CONNECTING_ANIMATION_DURATION_MS = 1800L
+        const val CONNECTING_FADE_FRACTION = 0.2f
+        const val CONNECTING_STATIC_PROGRESS = 0.5f
         const val CONNECTED_ANIMATION_DURATION_MS = 1500L
         const val NODE_GLOW_ALPHA = 36
         const val OPAQUE_ALPHA = 255
