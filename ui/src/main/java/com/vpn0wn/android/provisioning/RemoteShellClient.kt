@@ -5,8 +5,7 @@
 package com.vpn0wn.android.provisioning
 
 import java.io.IOException
-import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 
 interface RemoteShellClient {
     suspend fun execute(command: String): ProvisioningCommandOutput
@@ -31,9 +30,8 @@ class GuardedRemoteShellClient(
 
     private suspend fun guard(timeoutMessage: String, failureMessage: String, block: suspend () -> ProvisioningCommandOutput): ProvisioningCommandOutput {
         return try {
-            withTimeout(timeoutMillis) { block() }
-        } catch (e: TimeoutCancellationException) {
-            throw ProvisioningException(timeoutMessage, cause = e)
+            withTimeoutOrNull(timeoutMillis) { block() }
+                ?: throw ProvisioningException(timeoutMessage)
         } catch (e: IOException) {
             throw ProvisioningException("$failureMessage: ${e.message.orEmpty()}".trim(), cause = e)
         }
