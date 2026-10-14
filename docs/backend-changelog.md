@@ -1,6 +1,6 @@
 # Backend & Functional Changelog
 
-Last updated: 2026-10-13 (Europe/Paris).
+Last updated: 2026-10-14 (Europe/Paris).
 
 Tracks non-UI changes: backend logic, data layer, permissions, networking, build config, and any functional behavior changes. Separate from `ui-redesign-roadmap.md` which covers visual/layout work only.
 
@@ -60,6 +60,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 - [x] Add opt-in destructive end-to-end test path against a disposable Ubuntu/Debian VPS.
 
 ## Done
+
+- **VPN consent continuation source repair — [#177](https://github.com/novakin/vpn0wn-android/issues/177), Android acceptance pending (2026-10-14, Europe/Paris)**
+  `BaseFragment.setTunnelState` retains the original tunnel identity and requested direction in a Fragment-scoped `VpnPermissionViewModel`; its preparation coroutine now belongs to the fragment. The callback consumes pending intent once; only `RESULT_OK` resumes the existing Activity-owned, manager-serialized transition. Denial/cancellation and expected prepare/launch failures restore bindings; `setTunnelStateWithPermissionsResult` restores them in `finally`. Configuration recreation retains pending consent; process death or permanent fragment removal drops it for manual retry. Focused consent/manager/backend lifecycle controls, the full UI/tunnel unit suite and zero-issue Detekt pass. [Contracts](backend-contracts.md#vpn-consent-continuation--177), [operator handling](operations.md#permissions-and-backend-changes) and [QA acceptance](qa-test-plan.md#vpn-consent-continuation-acceptance--177) own the boundaries. The delivering PR owns exact-head review/checks and integration state; original-phone cause/resolution and native Android acceptance remain unproved, so #177 stays open.
 
 - **Bounded manager recovery source candidate — #73 (2026-10-12, Europe/Paris):** `TunnelManager.onHandshakeExhausted` consumes accepted fresh native exhaustion for configured numeric-endpoint userspace peers, claims one pending/in-flight slot before the operation mutex, and applies two charged attempts/30-second spacing/four entries plus one explicit BUSY 1-second deferral. `enterRecovery` captures a fresh receipt per entry, joins interruptible IO outside the mutex and settles Main accounting under `NonCancellable`; explicit refusals refund, admitted/unknown outcomes retain charges, and unknown/terminal context inhibits later work. Manual/store invalidation cancels without joining under the lock or refilling same-session counters; restoration retains its serialized transition owner. `ObservableTunnel.recoverySnapshot` guards immutable activation counts, fixed failure/power/transport facts and request attribution by atomic native session identity. No native changes, persistence writes, UP, rendered controls, polling, DNS or endpoint/config rewrites. [The contract](backend-contracts.md#proposed-bounded-automatic-recovery--73), [owner decision](architecture.md#bounded-manager-recovery-controller--2026-10-12) and [controller controls](qa-test-plan.md#proposed-recovery-controls--73) retain publication, final-head and Android runtime limits.
 

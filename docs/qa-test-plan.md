@@ -1,6 +1,6 @@
 # vpn0wn QA Test Plan
 
-Last updated: 2026-10-13 (Europe/Paris).
+Last updated: 2026-10-14 (Europe/Paris).
 
 This document tracks the automated and manual QA coverage required for the vpn0wn Android redesign.
 
@@ -269,6 +269,16 @@ Required before merging UI or backend provisioning work, except the explicitly a
 - Background and foreground the app while a tunnel is up.
 - Delete a tunnel.
 - Exercise Android VPN permission flow on a clean install.
+
+## VPN consent continuation acceptance — #177
+
+Run focused `VpnConsentLifecycleTest` and affected manager/backend lifecycle controls before zero-issue Detekt. Require API 28 controls for stable/recreated approval of the original model once, no activation before consent, cancellation with switch recovery/retry, duplicate result rejection, changed selection, deleted/same-name replacement rejection, backend failure/retry, retained DOWN direction, permanent fragment removal, cancelled preparation suspended on backend initialization and saved-state restoration without the retained ViewModel. Inject missing/denied consent launches and require cleared pending intent, usable current-state bindings, truthful feedback, no activation and successful manual retry. The fixture uses production `BaseFragment` activity-result registration, actual Activity/Fragment recreation, synthetic profiles and injected responses. Passing controls establish source/lifecycle behavior, not native Android consent or VPN traffic.
+
+Review preparation-failure paths and unchanged Activity ownership after approval separately; retain existing manager cancellation, Error and stale-model behavior. Source inspection and existing manager controls do not become direct consent-regression or native Android results. Record executed tests, source inspection and missing controls explicitly in PR acceptance.
+
+The baseline production-callback control passed without recreation and failed to continue after actual Activity/Fragment recreation on Robolectric API 28. A later suspended-preparation removal control also failed against the Activity-owned preparation coroutine. These controls establish source lifecycle defects; they do not establish the cause of the originally reported phone failure. Record repaired-source results and their actual scope in the PR acceptance record; required checks remain distinct from performed checks.
+
+Actual Android acceptance requires a separately authorized artifact and device/emulator session. On an owned clean userspace-consent setup, grant with and without rotation while the native consent screen is open, deny/cancel and retry, and inspect the switch after each result. Verify one original-tunnel activation and separately observe service/native state and usable traffic; compare a stable positive control. Exercise configuration recreation with changed selection, process death and fragment removal without stale activation, plus a same-name replacement when safely controllable. Preserve original profiles, authorization, installed package and device settings; report unperformed cases and original-phone reproduction separately. No APK build/install, consent reset, root/network mutation or device trial follows from source-check authorization, and this source fix alone closes neither the phone report nor broader Android acceptance.
 
 ## Android system VPN policy acceptance
 

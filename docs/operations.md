@@ -1,6 +1,6 @@
 # Operations and recovery
 
-Last updated: 2026-10-13 (Europe/Paris).
+Last updated: 2026-10-14 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -75,6 +75,8 @@ Delete opens a confirmation listing the selected profiles and warning that activ
 On Android 13+, Settings offers Add tile after its stored membership state loads without confirmed membership. A confirmed Add/already-added result or manual tile-add notification hides that row across ordinary service/view recreation and subsequent app starts after the write commits. Actual tile removal makes setup available again. A tile installed before confirmation recording began retains the native idempotent Add fallback; an already-installed tile does not require another native dialog. Setup stays hidden while confirmation cannot be read and reloads when Settings resumes or reopens. Cancel and reported request failures leave setup available with existing error feedback. Service destruction alone does not remove the tile. Persistence failure or termination before commit can prevent retained confirmation. [Repaired-APK API 36 checks](reviews/2026-10-09-g4-private-native-acceptance.md#tile-membership-repair-acceptance--2026-10-09) verify native membership, cancellation, independent callbacks and reopening; physical tile toggling, accessibility and broader #34/#52 acceptance retain their own gates.
 
 VPN permission, camera access and document/export handling depend on the selected action and Android version. Grant permissions for the requested workflow and verify the resulting action. Denial/cancellation is not success.
+
+While Android's userspace VPN consent screen is open, configuration recreation keeps the original tunnel and requested direction pending. Granting continues that request once; later selection or same-name replacement cannot receive it. Denial/cancellation restores its switch to current state for retry. A missing/denied consent activity reports an error without activation. Process death or permanent fragment removal drops pending consent and requires manual retry after inspecting state; it is not restored from a profile name. Ordinary navigation after approval keeps the accepted transition's existing Activity owner. Confirm resulting tunnel/service state and usable traffic separately. See [the #177 contract](backend-contracts.md#vpn-consent-continuation--177) and [remaining Android acceptance](qa-test-plan.md#vpn-consent-continuation-acceptance--177).
 
 Switching the kernel/backend preference drains earlier transitions and shuts down active tunnels before committing the setting and restarting. New mutations are rejected between commit and restart. Failed shutdown/restart restores the previous preference and usable control; already-stopped tunnels can remain down with profiles intact. Failed preference rollback keeps the admission reservation and needs diagnosis. PR #25 merged these repairs. #15 serializes whole root/kernel transitions; real device/kernel proof remains separate. Retain sanitized evidence after failure and verify the selected backend after restart. Never delete a profile merely to diagnose an unresolved transition.
 
