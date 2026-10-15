@@ -15,6 +15,15 @@ import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import org.json.JSONTokener
+import java.io.IOException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 data class StoredVpsServer(
     val id: String,
@@ -35,31 +44,77 @@ data class StoredVpsServer(
     val running: Boolean? = null,
 )
 
-class VpsServerStore(private val dataStore: DataStore<Preferences>) {
+class VpsServerStore internal constructor(
+    private val dataStore: DataStore<Preferences>,
+    private val credentialFile: VpsCredentialFile,
+) {
     internal class InvalidTransferMetadataException : IllegalArgumentException("Invalid VPS fleet metadata")
+    class CredentialConflictException : IllegalStateException("Saved SSH credentials do not match the current server; remove them before changing SSH settings")
+    class IncompleteCredentialRecoveryException : IOException("Server change failed; saved SSH credentials could not be restored")
+    private val mutationMutex = Mutex()
 
     val servers: Flow<List<StoredVpsServer>> = dataStore.data.map { preferences ->
         decodeServers(preferences[SERVERS].orEmpty())
     }
 
-    suspend fun upsert(server: StoredVpsServer) {
+    suspend fun upsert(server: StoredVpsServer) = mutate {
+        decodeTransferServers(encodeServers(listOf(server)))
+        val previous = currentServers().singleOrNull { it.id == server.id }
+        if (previous == null || !sameSshEndpoint(previous, server)) {
+            withCredentials { records ->
+                if (server.id in records) throw CredentialConflictException()
+            }
+        }
         dataStore.edit { preferences ->
-            val servers = decodeServers(preferences[SERVERS].orEmpty())
+            val servers = decodeServersForMutation(preferences[SERVERS].orEmpty())
                 .filterNot { it.id == server.id } + server
             preferences[SERVERS] = encodeServers(servers)
         }
+        Unit
     }
 
-    suspend fun remove(id: String) {
-        dataStore.edit { preferences ->
-            val servers = decodeServers(preferences[SERVERS].orEmpty()).filterNot { it.id == id }
-            preferences[SERVERS] = encodeServers(servers)
+    // Separate commits need recovery without reclassifying cancellation or programming defects.
+    @Suppress("TooGenericExceptionCaught", "InstanceOfCheckForException")
+    suspend fun remove(id: String) = mutate {
+        val original = currentServers().singleOrNull { it.id == id }
+        withCredentials { records ->
+            val removed = records.remove(id)
+            var credentialRemoved = false
+            try {
+                if (removed != null) {
+                    writeCredentials(records)
+                    credentialRemoved = true
+                }
+                dataStore.edit { preferences ->
+                    val servers = decodeServersForMutation(preferences[SERVERS].orEmpty()).filterNot { it.id == id }
+                    preferences[SERVERS] = encodeServers(servers)
+                }
+            } catch (failure: Throwable) {
+                if (credentialRemoved && removed != null && original != null) {
+                    try {
+                        val current = currentServers().singleOrNull { it.id == id }
+                        if (current == original) {
+                            records[id] = removed
+                            writeCredentials(records)
+                        } else if (current != null) {
+                            throw CredentialConflictException()
+                        }
+                    } catch (recovery: Throwable) {
+                        if (recovery !== failure) failure.addSuppressed(recovery)
+                        if (failure !is Exception || failure is RuntimeException && failure !is SecurityException) throw failure
+                        throw IncompleteCredentialRecoveryException().apply { initCause(failure) }
+                    }
+                }
+                throw failure
+            } finally {
+                (removed?.credential as? VpsCredential.Password)?.clear()
+            }
         }
     }
 
-    suspend fun updateStatus(id: String, status: VpsServerStatus, syncedAtEpochSeconds: Long) {
+    suspend fun updateStatus(id: String, status: VpsServerStatus, syncedAtEpochSeconds: Long) = mutate {
         dataStore.edit { preferences ->
-            val servers = decodeServers(preferences[SERVERS].orEmpty()).map { server ->
+            val servers = decodeServersForMutation(preferences[SERVERS].orEmpty()).map { server ->
                 if (server.id != id) {
                     server
                 } else {
@@ -75,6 +130,133 @@ class VpsServerStore(private val dataStore: DataStore<Preferences>) {
             }
             preferences[SERVERS] = encodeServers(servers)
         }
+        Unit
+    }
+
+    suspend fun saveCredential(server: StoredVpsServer, fingerprint: String, credential: VpsCredential) = mutate {
+        JschRemoteShellClientFactory.decodeHostFingerprint(fingerprint)
+        requireCurrent(server)
+        withCredentials { records ->
+            records[server.id]?.let { if (!it.matches(server)) throw CredentialConflictException() }
+            val saved = SavedVpsCredential(
+                VpsEndpoint(server.host, server.sshPort, server.sshUser),
+                fingerprint,
+                when (credential) {
+                    is VpsCredential.Password -> VpsCredential.Password(credential.value.copyOf())
+                    is VpsCredential.PrivateKey -> credential.copy()
+                },
+            )
+            val previous = records.put(server.id, saved)
+            (previous?.credential as? VpsCredential.Password)?.clear()
+            writeCredentials(records)
+        }
+    }
+
+    // Cancellation can reject a decrypted result after the admitted read finishes.
+    suspend fun loadConnection(server: StoredVpsServer): VpsConnection? {
+        var loaded: VpsConnection? = null
+        var published = false
+        try {
+            val result = mutate {
+                requireCurrent(server)
+                withCredentials { records ->
+                    records[server.id]?.let { saved ->
+                        if (!saved.matches(server)) throw CredentialConflictException()
+                        saved.connection().also { loaded = it }
+                    }
+                }
+            }
+            published = true
+            return result
+        } finally {
+            if (!published) (loaded?.credential as? VpsCredential.Password)?.clear()
+        }
+    }
+
+    suspend fun clearCredential(id: String) = mutate {
+        withCredentials { records ->
+            val removed = records.remove(id)
+            try {
+                if (removed != null) writeCredentials(records)
+            } finally {
+                (removed?.credential as? VpsCredential.Password)?.clear()
+            }
+        }
+    }
+
+    internal suspend fun <T> withImportAdmission(incoming: List<StoredVpsServer>, block: suspend () -> T): T = mutate {
+        val currentIds = currentServers().mapTo(mutableSetOf()) { it.id }
+        val newIds = incoming.map { it.id }.filterNot { it in currentIds }
+        if (newIds.isNotEmpty()) {
+            withCredentials { records ->
+                if (newIds.any { it in records }) throw CredentialConflictException()
+            }
+        }
+        block()
+    }
+
+    private suspend fun requireCurrent(server: StoredVpsServer) {
+        val current = currentServers().singleOrNull { it.id == server.id }
+        if (current == null || !sameSshEndpoint(current, server)) throw CredentialConflictException()
+    }
+
+    private fun sameSshEndpoint(first: StoredVpsServer, second: StoredVpsServer): Boolean =
+        first.host == second.host && first.sshPort == second.sshPort && first.sshUser == second.sshUser
+
+    private suspend fun currentServers(): List<StoredVpsServer> =
+        decodeServersForMutation(dataStore.data.first()[SERVERS].orEmpty())
+
+    private suspend fun <T> withCredentials(block: suspend (MutableMap<String, SavedVpsCredential>) -> T): T {
+        val records = withContext(Dispatchers.IO) {
+            credentialFile.read()?.let { bytes ->
+                try { VpsCredentialRecords.decode(bytes) } finally { bytes.fill(0) }
+            } ?: linkedMapOf()
+        }
+        return try { block(records) } finally { VpsCredentialRecords.clear(records) }
+    }
+
+    private suspend fun writeCredentials(records: Map<String, SavedVpsCredential>) = withContext(Dispatchers.IO) {
+        val bytes = VpsCredentialRecords.encode(records)
+        try { credentialFile.write(bytes) } finally { bytes.fill(0) }
+    }
+
+    private suspend fun <T> mutate(block: suspend () -> T): T = mutationMutex.withLock {
+        currentCoroutineContext().ensureActive()
+        // Once admitted, commit or recover both owners before honouring cancellation.
+        val result = withContext(NonCancellable) { block() }
+        currentCoroutineContext().ensureActive()
+        result
+    }
+
+    private fun decodeServersForMutation(value: String): List<StoredVpsServer> {
+        if (value.isEmpty()) return emptyList()
+        try {
+            val tokener = JSONTokener(value)
+            val array = tokener.nextValue() as? JSONArray ?: invalidTransferServers()
+            if (tokener.nextClean() != '\u0000') invalidTransferServers()
+            val ids = mutableSetOf<String>()
+            for (index in 0 until array.length()) {
+                val json = array.get(index) as? JSONObject ?: invalidTransferServers()
+                if (json.keys().asSequence().any { it !in SERVER_FIELDS }) invalidTransferServers()
+                val id = json.get("id") as? String ?: invalidTransferServers()
+                val host = json.get("host") as? String ?: invalidTransferServers()
+                val user = if (json.has("sshUser")) {
+                    json.get("sshUser") as? String ?: invalidTransferServers()
+                } else {
+                    "root"
+                }
+                val port = if (json.has("sshPort")) {
+                    json.get("sshPort") as? Int ?: invalidTransferServers()
+                } else {
+                    DEFAULT_SSH_PORT
+                }
+                if (id.isBlank() || host.isBlank() || user.isBlank() || port !in 1..MAX_PORT_NUMBER || !ids.add(id))
+                    invalidTransferServers()
+            }
+        } catch (_: JSONException) {
+            invalidTransferServers()
+        }
+        return decodeServers(value)
     }
 
     private fun decodeServers(value: String): List<StoredVpsServer> {
@@ -116,6 +298,10 @@ class VpsServerStore(private val dataStore: DataStore<Preferences>) {
         private const val DEFAULT_SSH_PORT = 22
         private const val MAX_PORT_NUMBER = 65_535
         private const val TRANSFER_FIELD_COUNT = 16
+        private val SERVER_FIELDS = setOf(
+            "id", "name", "host", "sshPort", "sshUser", "endpoint", "listenPort", "cidr", "dns",
+            "os", "version", "provider", "region", "engine", "lastSyncEpochSeconds", "running",
+        )
         private const val TAG = "vpn0wn/VpsServerStore"
         internal val SERVERS = stringPreferencesKey("vps_servers")
 

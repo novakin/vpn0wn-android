@@ -7,6 +7,7 @@ package com.vpn0wn.android.provisioning
 import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 
 class Vpn0wnProvisioningClient(
@@ -53,19 +54,46 @@ class Vpn0wnProvisioningClient(
         ProvisioningJson.parseUninstall(run(client, remoteDir, "uninstall.sh", args).stdout)
     }
 
+    // Cleanup reports failure only without an original cancellation or defect to preserve.
+    @Suppress("TooGenericExceptionCaught", "ThrowingExceptionFromFinally")
     private suspend fun <T> withClient(connection: VpsConnection, block: suspend (RemoteShellClient, String) -> T): T = withContext(Dispatchers.IO) {
         val client = remoteShellClientFactory.create(connection)
-        val remoteDir = client.execute("mktemp -d /tmp/vpn0wn-provisioning.XXXXXX").requireSuccess().stdout.trim()
-        if (remoteDir.isBlank())
-            throw ProvisioningException("Remote temp directory creation returned no path")
+        var failure: Throwable? = null
         try {
-            ProvisioningScriptBundle.load(context).uploadTo(client, remoteDir)
-            block(client, remoteDir)
-        } finally {
+            val remoteDir = client.execute("mktemp -d /tmp/vpn0wn-provisioning.XXXXXX").requireSuccess().stdout.trimEnd('\r', '\n')
+            if (!REMOTE_DIRECTORY.matches(remoteDir))
+                throw ProvisioningException(
+                    "Remote temp directory creation returned an invalid path",
+                    category = ProvisioningFailureCategory.INVALID_RESPONSE,
+                )
+            var operationFailure: Throwable? = null
             try {
-                client.execute("rm -rf ${remoteDir.shellQuote()}").requireSuccess()
-            } catch (_: ProvisioningException) {
-                Log.d(TAG, "Remote cleanup failed for provisioning temp dir")
+                ProvisioningScriptBundle.load(context).uploadTo(client, remoteDir)
+                block(client, remoteDir)
+            } catch (problem: Throwable) {
+                operationFailure = problem
+                throw problem
+            } finally {
+                try {
+                    client.execute("rm -rf ${remoteDir.shellQuote()}").requireSuccess()
+                } catch (_: ProvisioningException) {
+                    Log.d(TAG, "Remote cleanup failed for provisioning temp dir")
+                } catch (cleanup: Throwable) {
+                    if (operationFailure == null) throw cleanup
+                    if (cleanup !== operationFailure) operationFailure.addSuppressed(cleanup)
+                }
+            }
+        } catch (problem: Throwable) {
+            failure = problem
+            throw problem
+        } finally {
+            withContext(NonCancellable) {
+                try {
+                    client.close()
+                } catch (cleanup: Throwable) {
+                    if (failure == null) throw cleanup
+                    if (cleanup !== failure) failure.addSuppressed(cleanup)
+                }
             }
         }
     }
@@ -107,6 +135,7 @@ class Vpn0wnProvisioningClient(
 
     companion object {
         private const val TAG = "vpn0wn/Provisioning"
+        private val REMOTE_DIRECTORY = Regex("/tmp/vpn0wn-provisioning\\.[A-Za-z0-9]{6}")
     }
 }
 

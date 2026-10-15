@@ -76,8 +76,9 @@ class ProvisioningLoggingTest {
     fun cleanupFailureDoesNotLogExceptionPayloadOrHideCompletedResult() = runBlocking {
         val secret = "synthetic-cleanup-secret"
         val remote = object : RemoteShellClient {
+            override suspend fun close() = Unit
             override suspend fun execute(command: String): ProvisioningCommandOutput = when {
-                command.startsWith("mktemp ") -> ProvisioningCommandOutput(0, "/tmp/vpn0wn-provisioning.test", "")
+                command.startsWith("mktemp ") -> ProvisioningCommandOutput(0, "/tmp/vpn0wn-provisioning.test01", "")
                 command.startsWith("rm -rf ") -> throw ProvisioningException(secret)
                 else -> ProvisioningCommandOutput(0, """{"ok":true,"os":"debian","version":"12","supported":true,"packageManager":"apt","firewall":"iptables","wireGuardInstalled":true,"configExists":true,"interface":"wg0","endpoint":"vpn.example","listenPort":"51820","cidr":"10.8.0.0/24","ipv4Forwarding":"1"}""", "")
             }
@@ -121,7 +122,7 @@ class ProvisioningLoggingTest {
         val dataStore = PreferenceDataStoreFactory.create(scope = scope) { file }
         try {
             dataStore.edit { it[stringPreferencesKey("vps_servers")] = """[{"secret":"$secret""" }
-            assertEquals(emptyList<StoredVpsServer>(), VpsServerStore(dataStore).servers.first())
+            assertEquals(emptyList<StoredVpsServer>(), VpsServerStore(dataStore, credentialFileForTest(File(file.parentFile, file.name + ".credentials"))).servers.first())
             assertFalse(logs().contains(secret))
         } finally {
             scope.cancel()

@@ -27,6 +27,7 @@ import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.android.controller.ActivityController
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
@@ -36,10 +37,12 @@ class DetailPublicKeyCopyTest {
 
     @Test fun interfaceCopyUsesCurrentFullPublicKeyAfterConfigAndViewReplacement() = runTest {
         val environment = TunnelTestEnvironment(folder.root, backgroundScope)
-        val controller = Robolectric.buildActivity(AppCompatActivity::class.java)
-        val activity = controller.get().apply { setTheme(R.style.AppTheme) }
+        var controller: ActivityController<AppCompatActivity>? = null
         try {
-            controller.setup()
+            val hostController = Robolectric.buildActivity(AppCompatActivity::class.java)
+            controller = hostController
+            val activity = hostController.get().apply { setTheme(R.style.AppTheme) }
+            hostController.setup()
             var binding = TunnelDetailFragmentBinding.inflate(activity.layoutInflater)
             activity.setContentView(binding.root)
             val typeface = binding.publicKeyText.typeface
@@ -65,7 +68,7 @@ class DetailPublicKeyCopyTest {
             assertEquals(0, binding.peersLayout.childCount)
         } finally {
             try {
-                controller.pause().stop().destroy()
+                controller?.pause()?.stop()?.destroy()
                 shadowOf(Looper.getMainLooper()).idle()
             } finally {
                 environment.close()
@@ -75,10 +78,12 @@ class DetailPublicKeyCopyTest {
 
     @Test fun peerCopyRebindsFullKeyAndRetainsPlatformFeedback() = runTest {
         val environment = TunnelTestEnvironment(folder.root, backgroundScope)
-        val controller = Robolectric.buildActivity(AppCompatActivity::class.java)
-        val activity = controller.get().apply { setTheme(R.style.AppTheme) }
+        var controller: ActivityController<AppCompatActivity>? = null
         try {
-            controller.setup()
+            val hostController = Robolectric.buildActivity(AppCompatActivity::class.java)
+            controller = hostController
+            val activity = hostController.get().apply { setTheme(R.style.AppTheme) }
+            hostController.setup()
             val binding = TunnelDetailPeerBinding.inflate(activity.layoutInflater)
             activity.setContentView(binding.root)
             val typeface = binding.publicKeyText.typeface
@@ -99,7 +104,7 @@ class DetailPublicKeyCopyTest {
             }
         } finally {
             try {
-                controller.pause().stop().destroy()
+                controller?.pause()?.stop()?.destroy()
                 shadowOf(Looper.getMainLooper()).idle()
             } finally {
                 environment.close()

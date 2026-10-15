@@ -1,6 +1,6 @@
 # Architecture and maintenance boundaries
 
-Last updated: 2026-10-14 (Europe/Paris).
+Last updated: 2026-10-15 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -19,8 +19,8 @@ Preserve the existing Android DataBinding/Fragment foundation and upstream WireG
 | [Native tunnel handles](../tunnel/tools/libwg-go/tunnelhandles.go), [Android bind lifetime](../tunnel/tools/libwg-go/androidbind/bind.go), [UAPI server](../tunnel/tools/libwg-go/uapiserver/server.go) | Lookup admission and device/socket/client ownership; cancel owned I/O before draining queries and releasing the device/JNI context. |
 | [RootShell](../tunnel/src/main/java/com/vpn0wn/android/util/RootShell.java) and native tools | Root command protocol and existing WireGuard tool execution. |
 | [Provisioning client](../ui/src/main/java/com/vpn0wn/android/provisioning/Vpn0wnProvisioningClient.kt), models and script bundle | Remote orchestration, argument construction, packaged script upload and typed result parsing. |
-| [Remote-shell boundary](../ui/src/main/java/com/vpn0wn/android/provisioning/RemoteShellClient.kt) | Transport factory and guarded execute/upload; concrete SSH/session implementation is still missing. |
-| [VPS store](../ui/src/main/java/com/vpn0wn/android/provisioning/VpsServerStore.kt), [mapper](../ui/src/main/java/com/vpn0wn/android/provisioning/VpsDeployMapper.kt) | Transactional non-secret fleet records and projection into UI models. |
+| [Remote-shell boundary](../ui/src/main/java/com/vpn0wn/android/provisioning/RemoteShellClient.kt), [JSch transport](../ui/src/main/java/com/vpn0wn/android/provisioning/JschRemoteShellClientFactory.kt) | Guarded execute/upload and flow-owned SSH socket, channels, session and local close. |
+| [VPS store](../ui/src/main/java/com/vpn0wn/android/provisioning/VpsServerStore.kt), [mapper](../ui/src/main/java/com/vpn0wn/android/provisioning/VpsDeployMapper.kt) | Shared fleet/credential mutation admission, non-secret records and projection into UI models; the separate credential file owns encryption and atomic ciphertext replacement. |
 | [FileConfigStore](../ui/src/main/java/com/vpn0wn/android/configStore/FileConfigStore.kt) | Serialized local profile operations; private staged writes, file sync and native atomic rename preserve prior valid configs on failed updates. |
 | [TunnelImporter](../ui/src/main/java/com/vpn0wn/android/util/TunnelImporter.kt), [QR scanner](../ui/src/main/java/com/vpn0wn/android/util/QrCodeFromFileScanner.kt), [ZIP exporter](../ui/src/main/java/com/vpn0wn/android/preference/ZipExporterPreference.kt) | Import result delivery, image retry/resource ownership and export children/output cleanup; models/stores retain profile ownership. |
 | [Log viewer](../ui/src/main/java/com/vpn0wn/android/activity/LogViewerActivity.kt), [stream](../ui/src/main/java/com/vpn0wn/android/util/LogcatStream.kt), [buffer](../ui/src/main/java/com/vpn0wn/android/util/LogBuffer.kt) and [parser](../ui/src/main/java/com/vpn0wn/android/util/LogLineParser.kt) | Activity owns lifecycle/generation, adapter notifications and temporary shares; stream owns the process/reader and timed batches; Main owns bounded retention, continuations and filtered indices. |
@@ -57,14 +57,14 @@ The [G2 performance investigation](reviews/2026-10-07-performance-source-investi
 flowchart LR
     Client[Vpn0wnProvisioningClient] --> Bundle[Packaged vpn0wn scripts]
     Client --> Boundary[RemoteShellClient]
-    Boundary -. missing transport .-> SSH[Concrete SSH session]
-    SSH -. future execution .-> Server[Server scripts]
+    Boundary --> SSH[JSch SSH session]
+    SSH --> Server[Server scripts]
     Client --> Results[Typed results]
     Results -. future live wiring .-> Fleet[VpsServerStore and mapper]
     Fleet --> Screen[Fleet UI]
 ```
 
-The provisioning client and scripts exist, while concrete SSH, protected credential persistence and live action/result wiring remain planned. Persisted fleet records already render. The dotted flow is not a claim of working deployment, user management or generated-profile QR.
+The provisioning client, scripts, concrete transport and protected credential-storage backend exist. Wizard credential capture/reuse and live action/result wiring remain planned; persisted fleet records already render. The transport is exercised with a synthetic loopback peer. This flow establishes no Android runtime, live deployment, user management or generated-profile QR acceptance.
 
 ## Boundaries and invariants
 
@@ -215,15 +215,33 @@ Alternatives include Compose/MVVM or a general controller/DI rewrite. Current re
 
 ### Keep provisioning behind explicit transport and script contracts
 
-Status: boundary implemented; concrete SSH integration pending. Existing client/factory separation supports injected remote responses and preserves non-interactive packaged scripts.
+Status: boundary, bounded concrete transport and protected storage backend implemented; credential capture, Android proof and UI integration remain open under [#143](https://github.com/novakin/vpn0wn-android/issues/143). Existing client/factory separation supports injected remote responses and preserves non-interactive packaged scripts.
 
-Alternatives include embedding all server management in Android or invoking the upstream interactive installer. Neither fits the current machine-readable flow. Before choosing an SSH dependency, record maintenance/Android fit, alternatives, host-key/auth behavior, deadlines, session cleanup and credential exposure. Real library verification remains required; no library choice is claimed here.
+Alternatives include embedding all server management in Android or invoking the upstream interactive installer. Neither fits the current machine-readable flow.
+
+### Bounded JSch transport — 2026-10-15
+
+**Problem/decision:** the provisioning boundary lacked a concrete SSH owner. Select maintained [mwiede JSch 2.28.8](https://github.com/mwiede/jsch/releases/tag/jsch-2.28.8), whose [published POM](https://repo.maven.apache.org/maven2/com/github/mwiede/jsch/2.28.8/jsch-2.28.8.pom) declares no required transitive dependencies. [SSHJ 0.41.2](https://github.com/hierynomus/sshj/releases/tag/v0.41.2) also remains maintained, but adds SLF4J, Bouncy Castle and ASN.1 dependencies. JSch supplies the required exec/SFTP/auth/socket hooks without those additional runtime owners. This source slice retains the existing factory, guard and orchestration rather than adding another transport layer.
+
+**Consequences/limits:** require a canonical out-of-band SHA256 host-key pin and numeric IPv4/IPv6 address before networking; the legacy trust Boolean never bypasses verification. Use ordinary VPN routing. Support password and bounded traditional RSA/ECDSA PEM credentials, with RSA-SHA2/ECDSA host/auth algorithms, SHA2 key exchanges/MACs and AES ciphers. No Ed25519/provider dependency, OpenSSH/PKCS8 key format, hostname resolution, fingerprint enrollment or credential persistence is added. Expected library failures expose fixed messages without raw causes; private-key stringification is redacted. The [transport contract](backend-contracts.md#concrete-ssh-transport--c11) owns exact limits and teardown.
+
+**Verification/migration impact:** Apache MINA SSHD 2.20.0 is test-only, providing a synthetic authenticated loopback SSH/SFTP peer within existing JUnit/Robolectric infrastructure. Controlled blocking sockets additionally exercise cancellation before socket connect returns, banner IO and channel-open waits. JSch declares Java 8; desktop/Robolectric checks do not certify Android API 24 crypto, desugaring or networking. API-24 runtime, credential storage, wired workflow and live-server acceptance remain open under #143. No persisted contract or live server is migrated. [Offline attribution](license-attribution.md#jsch-transport-notices) retains JSch, JZlib and jBCrypt notices.
+
+### Keystore-backed saved SSH credentials — 2026-10-15
+
+**Problem and selection:** C11 needs reusable credentials without placing passwords, PEM keys or passphrases in non-secret fleet preferences or transfer archives. The maintainer selected encrypted saved passwords on 2026-10-15 (Europe/Paris), superseding the prototype's bootstrap-only password policy. The current wizard still previews setup; backend storage does not establish connected capture or remote actions.
+
+**Decision/status:** use native AndroidKeyStore AES-GCM and one authenticated ciphertext snapshot under `noBackupFilesDir`, with checked private staging, sync/close and atomic rename. Keep record serialization separate from encryption/file ownership. One Application-owned `VpsServerStore` coordinates fleet and credential admission, including import's existing tunnel-owned mutation. A private gate spans complete DataStore commits and any recovery; putting it only inside the edit lambda would release recovery ownership too soon. [The credential contract](backend-contracts.md#saved-ssh-credentials--c11) owns exact binding, missing/corrupt behavior and cancellation rules.
+
+**Alternatives/consequences:** an extra encrypted-preferences library or general vault/provider framework adds no required capability. Per-use biometric authorization would change reconnect/session behavior and is not introduced. Atomicity across the existing settings file and the new ciphertext is not claimed. Vault-first deletion, positively checked recovery and rejection of new-ID orphan collisions prevent automatic credential reassociation without adding a second persisted binding-token schema. Corrupt/key-lost protection remains observable and is never replaced automatically. Unrelated settings/profile exports and safe status/display updates do not require credential decryption.
+
+**Verification and migration limits:** tests use real JVM AES-GCM with injected keys/commit failures and existing DataStore/transfer controls. These do not establish Android Keystore lifecycle, API-24 crypto, backup/OEM behavior or power-loss durability. There is no prior credential file to migrate; stored fleet and transfer schemas remain unchanged. C12 capture, fingerprint input, actual credential reuse/removal UI and runtime/live acceptance keep #143 open. Revisit the policy before adding another process that writes fleet/credential state or changing recovery behavior.
 
 ### Full transfer uses existing profile and metadata owners — 2026-10-09
 
 **Problem:** the selected vpn0wn application ID has a separate sandbox, while the existing ZIP path transfers profiles only. Independent per-profile creates and fire-and-forget settings writes cannot preserve batch admission or report metadata failure safely. A stale destination restore marker can also match a newly imported profile.
 
-**Decision/status:** the maintainer selected settings and saved VPS transfer in [#71](https://github.com/novakin/vpn0wn-android/issues/71#issuecomment-6086430555). This source slice adds a bounded versioned archive under the legacy ID, through existing Settings/biometric/Downloads/document-picker patterns. AppDataTransfer owns schema parsing; TunnelManager owns admission, config-file recovery and publication; the existing settings DataStore owns the combined settings/fleet commit. Lock order remains manager then DataStore. An optional preparatory edit validates fleet conflicts and durably clears stale restore markers matching absent profiles being imported before file creation; that invalid-intent cleanup is retained after later failure, preventing rollback survivors from boot activation. Strict archive fleet decoding is confined to transfer, with the original local-store shape's missing running observation normalized to unknown; normal legacy reads retain their current behavior. Pending last-used writes form an ordered chain, and transfer waits for that chain before reading or committing metadata. Restoration also captures current identities before asynchronous saved-state reads.
+**Decision/status:** the maintainer selected settings and saved VPS transfer in [#71](https://github.com/novakin/vpn0wn-android/issues/71#issuecomment-6086430555). This source slice adds a bounded versioned archive under the legacy ID, through existing Settings/biometric/Downloads/document-picker patterns. AppDataTransfer owns schema parsing; TunnelManager owns admission, config-file recovery and publication; the existing settings DataStore owns the combined settings/fleet commit. The original lock order was manager then DataStore; the [2026-10-15 credential-storage decision](#keystore-backed-saved-ssh-credentials--2026-10-15) adds shared fleet admission between them for imports. An optional preparatory edit validates fleet conflicts and durably clears stale restore markers matching absent profiles being imported before file creation; that invalid-intent cleanup is retained after later failure, preventing rollback survivors from boot activation. Strict archive fleet decoding is confined to transfer, with the original local-store shape's missing running observation normalized to unknown; normal legacy reads retain their current behavior. Pending last-used writes form an ordered chain, and transfer waits for that chain before reading or committing metadata. Restoration also captures current identities before asynchronous saved-state reads.
 
 **Alternatives/consequences:** private sandbox copying is unavailable across independent app IDs and would bypass native permissions. Reusing ordinary ZIP creation would allow profiles-only partial migration. A new migration service or database would duplicate current ownership without making filesystem/DataStore commits globally atomic. The chosen batch skips identical data, rejects conflicting identities and rolls back only newly created files before metadata commit; failed rollback leaves owned survivors visible and reports the limit. Existing active tunnels and kernel selection are preserved. Historical server health remains an observation. The archive is unencrypted and must be handled privately.
 

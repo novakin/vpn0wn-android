@@ -46,7 +46,6 @@ import com.vpn0wn.android.provisioning.VpsDeployServerStatus
 import com.vpn0wn.android.provisioning.VpsDeployUser
 import com.vpn0wn.android.provisioning.VpsDeployUserStatus
 import com.vpn0wn.android.provisioning.VpsDeployMapper
-import com.vpn0wn.android.provisioning.VpsServerStore
 import com.vpn0wn.android.util.vpn0wnStyle
 import com.vpn0wn.android.widget.VpsQrCodeView
 import com.vpn0wn.android.widget.VpsCornerLayout
@@ -74,7 +73,7 @@ class VpsProvisioningFragment : BaseFragment() {
     private var storeJob: Job? = null
     private var provisionForm = ProvisionForm()
     private val servers = mutableListOf<VpsDeployServer>()
-    private val serverStore by lazy { VpsServerStore(Application.getPreferencesDataStore()) }
+    private val serverStore by lazy { Application.getVpsServerStore() }
     private val cachedMonoTypeface by lazy {
         ResourcesCompat.getFont(requireContext(), R.font.jetbrains_mono_regular) ?: Typeface.MONOSPACE
     }

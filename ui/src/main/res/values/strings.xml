@@ -1,4 +1,6 @@
-<?xml version="1.0" encoding="utf-8"?><!--
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Modified for vpn0wn. -->
+<!--
   ~ Copyright © 2017-2025 WireGuard LLC. All Rights Reserved.
   ~ SPDX-License-Identifier: Apache-2.0
   ~ Modified for vpn0wn.
@@ -387,12 +389,12 @@
     <string name="vpn0wn_auth_ssh_key">SSH KEY</string>
     <string name="vpn0wn_auth_password">PASSWORD</string>
     <string name="vpn0wn_label_private_key">PRIVATE KEY</string>
-    <string name="vpn0wn_private_key_placeholder">-----BEGIN OPENSSH PRIVATE KEY-----</string>
-    <string name="vpn0wn_private_key_keystore_note">Paste PEM key or pick a file. Stored in Android Keystore — never leaves the device.</string>
+    <string name="vpn0wn_private_key_placeholder">-----BEGIN RSA PRIVATE KEY-----</string>
+    <string name="vpn0wn_private_key_keystore_note">Setup preview only. This key is not saved.</string>
     <string name="vpn0wn_pick_key_file">↑ pick key file</string>
     <string name="vpn0wn_key_file_picker_pending">Key file picker pending</string>
-    <string name="vpn0wn_password_placeholder">one-time bootstrap</string>
-    <string name="vpn0wn_password_ephemeral_note">Used once for bootstrap. Not persisted after session closes.</string>
+    <string name="vpn0wn_password_placeholder">SSH password</string>
+    <string name="vpn0wn_password_ephemeral_note">Setup preview only. This password is not saved.</string>
     <string name="vpn0wn_trust_server_key">Trust server key</string>
     <string name="vpn0wn_trust_server_key_desc">Save host fingerprint · SSH firewall rules unchanged</string>
     <string name="vpn0wn_hint_dry_run">DRY RUN</string>

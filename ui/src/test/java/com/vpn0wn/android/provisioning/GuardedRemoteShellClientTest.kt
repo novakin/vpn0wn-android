@@ -7,10 +7,13 @@ package com.vpn0wn.android.provisioning
 import java.io.IOException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -18,9 +21,139 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class GuardedRemoteShellClientTest {
     @Test
+    fun executePreservesEnclosingTimeoutCancellation() = runTest {
+        var settled = false
+        val client = GuardedRemoteShellClient(
+            object : RemoteShellClient {
+                override suspend fun close() = Unit
+                override suspend fun execute(command: String): ProvisioningCommandOutput {
+                    try {
+                        delay(Long.MAX_VALUE)
+                        error("unreachable")
+                    } finally {
+                        settled = true
+                    }
+                }
+
+                override suspend fun upload(path: String, content: String, mode: String) = success()
+            },
+            timeoutMillis = 60_000L,
+        )
+
+        val result = runCatching { withTimeout(1_000L) { client.execute("detect") } }
+
+        assertTrue("Expected caller timeout, got ${result.exceptionOrNull()?.javaClass?.simpleName}",
+            result.exceptionOrNull() is TimeoutCancellationException)
+        assertTrue(settled)
+        assertEquals(1_000L, testScheduler.currentTime)
+    }
+
+    @Test
+    fun uploadPreservesEnclosingTimeoutCancellation() = runTest {
+        var settled = false
+        val client = GuardedRemoteShellClient(
+            object : RemoteShellClient {
+                override suspend fun close() = Unit
+                override suspend fun execute(command: String) = success()
+
+                override suspend fun upload(path: String, content: String, mode: String): ProvisioningCommandOutput {
+                    try {
+                        delay(Long.MAX_VALUE)
+                        error("unreachable")
+                    } finally {
+                        settled = true
+                    }
+                }
+            },
+            timeoutMillis = 60_000L,
+        )
+
+        val result = runCatching { withTimeout(1_000L) { client.upload("/tmp/fixture.sh", "synthetic script") } }
+
+        assertTrue("Expected caller timeout, got ${result.exceptionOrNull()?.javaClass?.simpleName}",
+            result.exceptionOrNull() is TimeoutCancellationException)
+        assertTrue(settled)
+        assertEquals(1_000L, testScheduler.currentTime)
+    }
+
+    @Test
+    fun uploadTimesOutHungTransferAndSettlesDelegate() = runTest {
+        var settled = false
+        val client = GuardedRemoteShellClient(
+            object : RemoteShellClient {
+                override suspend fun close() = Unit
+                override suspend fun execute(command: String) = success()
+
+                override suspend fun upload(path: String, content: String, mode: String): ProvisioningCommandOutput {
+                    try {
+                        delay(Long.MAX_VALUE)
+                        error("unreachable")
+                    } finally {
+                        settled = true
+                    }
+                }
+            },
+            timeoutMillis = 1_000L,
+        )
+
+        val result = runCatching { client.upload("/tmp/fixture.sh", "synthetic script") }
+
+        assertTrue(result.exceptionOrNull() is ProvisioningException)
+        assertEquals("Remote upload timed out", result.exceptionOrNull()?.message)
+        assertTrue(settled)
+        assertEquals(1_000L, testScheduler.currentTime)
+    }
+
+    @Test
+    fun successfulExecuteAndUploadKeepArgumentsAndOutput() = runTest {
+        val commandOutput = ProvisioningCommandOutput(0, "command output", "command stderr")
+        val uploadOutput = ProvisioningCommandOutput(0, "upload output", "upload stderr")
+        val client = GuardedRemoteShellClient(
+            object : RemoteShellClient {
+                override suspend fun close() = Unit
+                override suspend fun execute(command: String): ProvisioningCommandOutput {
+                    assertEquals("detect", command)
+                    return commandOutput
+                }
+
+                override suspend fun upload(path: String, content: String, mode: String): ProvisioningCommandOutput {
+                    assertEquals("/tmp/fixture.sh", path)
+                    assertEquals("synthetic script", content)
+                    assertEquals("0700", mode)
+                    return uploadOutput
+                }
+            },
+            timeoutMillis = 1_000L,
+        )
+
+        assertSame(commandOutput, client.execute("detect"))
+        assertSame(uploadOutput, client.upload("/tmp/fixture.sh", "synthetic script"))
+    }
+
+    @Test
+    fun uploadIoFailureKeepsExistingMessageAndCause() = runTest {
+        val failure = IOException("network is unreachable")
+        val client = GuardedRemoteShellClient(
+            object : RemoteShellClient {
+                override suspend fun close() = Unit
+                override suspend fun execute(command: String) = success()
+                override suspend fun upload(path: String, content: String, mode: String): ProvisioningCommandOutput = throw failure
+            },
+        )
+
+        val result = runCatching { client.upload("/tmp/fixture.sh", "synthetic script") }
+
+        assertTrue(result.exceptionOrNull() is ProvisioningException)
+        assertEquals("Remote upload failed: network is unreachable", result.exceptionOrNull()?.message)
+        assertEquals(failure.javaClass, result.exceptionOrNull()?.cause?.javaClass)
+        assertEquals(failure.message, result.exceptionOrNull()?.cause?.message)
+    }
+
+    @Test
     fun executeTimesOutHungCommand() = runTest {
         val client = GuardedRemoteShellClient(
             object : RemoteShellClient {
+                override suspend fun close() = Unit
                 override suspend fun execute(command: String): ProvisioningCommandOutput {
                     delay(Long.MAX_VALUE)
                     error("unreachable")
@@ -41,6 +174,7 @@ class GuardedRemoteShellClientTest {
     fun unreachableServerMapsToProvisioningException() = runTest {
         val client = GuardedRemoteShellClient(
             object : RemoteShellClient {
+                override suspend fun close() = Unit
                 override suspend fun execute(command: String): ProvisioningCommandOutput {
                     throw IOException("network is unreachable")
                 }
@@ -59,6 +193,7 @@ class GuardedRemoteShellClientTest {
     fun coroutineCancellationIsNotConvertedToGenericFailure() = runTest {
         val client = GuardedRemoteShellClient(
             object : RemoteShellClient {
+                override suspend fun close() = Unit
                 override suspend fun execute(command: String): ProvisioningCommandOutput {
                     delay(Long.MAX_VALUE)
                     error("unreachable")
@@ -130,6 +265,7 @@ class GuardedRemoteShellClientTest {
     )
 
     private fun fakeClient() = object : RemoteShellClient {
+        override suspend fun close() = Unit
         override suspend fun execute(command: String) = success()
         override suspend fun upload(path: String, content: String, mode: String) = success()
     }

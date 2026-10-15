@@ -2,12 +2,16 @@ package com.vpn0wn.android.model
 
 import android.content.Context
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.test.core.app.ApplicationProvider
 import com.vpn0wn.android.Application
 import com.vpn0wn.android.backend.Backend
 import com.vpn0wn.android.backend.Statistics
 import com.vpn0wn.android.backend.Tunnel
 import com.vpn0wn.android.configStore.ConfigStore
+import com.vpn0wn.android.provisioning.VpsServerStore
+import com.vpn0wn.android.provisioning.credentialFileForTest
 import com.vpn0wn.config.Config
 import java.io.File
 import java.io.IOException
@@ -38,6 +42,9 @@ internal class TunnelTestEnvironment(directory: File, scope: CoroutineScope) {
         setField("preferencesDataStore", PreferenceDataStoreFactory.create(
             scope = CoroutineScope(applicationScope.coroutineContext + Dispatchers.IO)
         ) { File(directory, "settings.preferences_pb") })
+        setField("vpsServerStore", VpsServerStore(
+            Application.getPreferencesDataStore(), credentialFileForTest(File(directory, "credentials")),
+        ))
         @Suppress("UNCHECKED_CAST")
         val future = Application::class.java.getDeclaredField("futureBackend").apply { isAccessible = true }
             .get(application) as CompletableDeferred<Backend>
@@ -52,6 +59,12 @@ internal class TunnelTestEnvironment(directory: File, scope: CoroutineScope) {
 
     fun replaceBackend(backend: Backend) {
         setField("futureBackend", CompletableDeferred(backend))
+    }
+
+    fun replacePreferences(dataStore: DataStore<Preferences>) {
+        setField("preferencesDataStore", dataStore)
+        val fleet = Application::class.java.getDeclaredField("vpsServerStore").apply { isAccessible = true }.get(application)
+        VpsServerStore::class.java.getDeclaredField("dataStore").apply { isAccessible = true }.set(fleet, dataStore)
     }
 
     suspend fun close() = withContext(NonCancellable) {

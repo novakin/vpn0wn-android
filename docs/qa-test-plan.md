@@ -1,6 +1,6 @@
 # vpn0wn QA Test Plan
 
-Last updated: 2026-10-14 (Europe/Paris).
+Last updated: 2026-10-15 (Europe/Paris).
 
 This document tracks the automated and manual QA coverage required for the vpn0wn Android redesign.
 
@@ -154,6 +154,10 @@ For separately authorized Android clipboard/paste proof, use only synthetic inte
 
 Use for Android resources, data binding, programmatic fragment UI, and lightweight view behavior.
 
+- `InputFilterReplacementTest` — #188 / C8: API 28 Robolectric Android Editable operations exercise full-length name/key single-character and select-all replacement, retained destination length, filtered-character position, selected source ranges, final padding, overflow, deletion and source-span preservation. These controls preserve existing character/save/parser rules; they do not establish physical keyboard interaction, rendered editor output or spoken accessibility.
+
+- `ConfigNamingDialogFragmentTest` — #186 / C8: actual Material dialog positive-button clicks under API 28 Robolectric preserve editable invalid/duplicate-name failures, retain the scanned profile for corrected-name and failed-write retries, admit one pending submission, and prevent stale failure publication after dismissal. Cancel without submission creates nothing. A blocked save completing after screen-state saving dismisses on resume without repeating creation; failed completion while stopped restores editable retry controls on resume. Admitted manager mutations retain their reconciliation contract; these controls do not establish physical QR decoding, rendered device output or spoken accessibility.
+
 - `AddPeerPresentationTest`: real QR/file/manual row clicks and one result after dismissal, native button semantics, camera-feature absence, cancellation/collapse and recreation/reopen. Nullable peer snapshots exercise independent RX/TX totals, localized units, actual value copying with named clipboard metadata, missing/zero clearing and independent handshake visibility. Native content previews cover small portrait in both night configurations, landscape at normal/2× text in night mode and 2× Arabic RTL in both configurations, with actual inherited direction, measured 48dp targets and a positive scroll range/reachable final action. These fixtures do not open camera/pickers, exercise real permission/error callbacks or prove keyboard/system-bar/TalkBack/VPN behavior. See [Add/peer evidence](development.md#add-sheet-and-peer-presentation-recovery--2026-10-06).
 
 - `QrScannerPermissionTest`: real Home/Add QR launch configures the existing ZXing capture activity, unlocked orientation, silent scanning, prompt and app-owned missing-permission message. Injected API 28 permission-denial callbacks check accurate dialog text, cancelled/missing-permission results, exit/reopen and preserved stored profiles; ordinary cancellation skips import and a valid synthetic result retains the naming dialog. French message selection and the separate genuine camera-error callback are controlled without opening a camera. These fixtures do not establish native Android permission prompts, granting/retry, lens decoding or rendered device behavior. Separate [repaired-APK API 36 AVD checks](reviews/2026-10-09-g4-private-native-acceptance.md#camera-repair-acceptance--2026-10-09) prove native denial/exit/grant/retry and scoped advice rendering for #84; physical decoding and broader #35/#52 acceptance retain their own gates.
@@ -280,7 +284,7 @@ Editor mask controls also require a real `PasswordTransformationMethod` and tran
 - Passwords are not included in snackbars, logs, exceptions, or copied text.
 - Generic copy handlers do not accidentally expose private keys; deliberate authorized profile export/import retains the full required credentials.
 - Password/session secret is cleared on cancel and view destruction.
-- `trustHost=false` does not persist fingerprints.
+- Concrete transport always requires the out-of-band pin; trust flags cannot bypass it. Fingerprint persistence remains pending.
 - Uninstall, revoke, remove peer, and delete tunnel require confirmation.
 
 ### Manual Smoke Tests
@@ -481,6 +485,22 @@ The separate [Bash provisioning safety suite](../scripts/tests/provisioning_safe
 - `ConfigCompatibilityTest` — domain-only/mixed/address-only/empty DNS round trips, valid/omitted IPv4/IPv6 masks and typed rejected masks through both config fields.
 - `ConfigTest` and `BadConfigExceptionTest` — configuration/parser fixtures and error descriptions.
 
+## Concrete SSH transport controls — C11
+
+`JschRemoteShellClientTest` drives mwiede JSch 2.28.8 against test-only Apache MINA SSHD 2.20.0 with synthetic password/keys and a temporary virtual SFTP filesystem. The peer executes fixture responses without a host shell. Coverage includes lazy creation, numeric endpoints and required canonical pins before socket allocation, changed-key denial before authentication, password and traditional encrypted/unencrypted RSA/ECDSA PEM auth, RSA/ECDSA host keys, refusal of SHA1-only host-key and forced-CTR MAC peers, independent stdout/stderr caps, nonzero/missing status and real SFTP bytes/chmod denial. IPv6 loopback has an explicit unavailable-bind skip rather than a hostname fallback.
+
+Controlled sockets and entered real channels cover cancellation/guard timeout before connect returns, blocked banner reads/writes, withheld channel-open confirmation, hung exec/SFTP and concurrent close. Assertions bound wall-clock completion, require closed raw sockets and drained JSch session threads, preserve caller cancellation and unexpected Error identity through coroutine stack recovery, and forbid reconnect after terminal close. Real-reader Error controls cover channel-open waits, entered-command polling, entered SFTP WRITE acknowledgments and an idle reader followed only by close; raw close defects cannot replace original failures or self-suppress. Refused loopback and secret-bearing injected IO/key inputs check fixed cause-free driver failures. `GuardedRemoteShellClientTest` separately proves wrapper timeout ownership. `VpsProvisioningRequestTest` accepts the current mktemp path with terminal newlines and rejects blank, unrelated, malformed, whitespace, traversal and multiline replies before any mkdir/upload/deletion. Its shell fixture maps the valid virtual remote path into an owned local temporary directory, retaining hostile-argument and root/sudo quoting controls without privileged filesystem writes. The suite proves local close after successful/failed/invalid temp creation and original cancellation/Errors surviving distinct or same-instance remote/local cleanup failures. A nested coroutine control checks primary Error preservation and local close, without promising copied secondary metadata. Existing logging tests keep raw response/cleanup payloads out of logs.
+
+These checks use JDK 21/Robolectric SDK 28, not Android native crypto/network execution. API-24 desugaring and RSA/ECDSA/key-loading/exec/SFTP/cancellation proof, ordinary VPN/lockdown routing, credential capture/reuse and native protection, wired UI/progress, generated profiles and actual disposable-server postconditions remain under open [#143](https://github.com/novakin/vpn0wn-android/issues/143). No APK, ADB, external SSH or privileged server mutation belongs to these JVM checks. `LicensesActivityTest` retains complete per-notice accessibility text for the three source-pinned JSch notices; no new device or distributed-artifact license acceptance follows.
+
+### Protected SSH credential controls — C11
+
+The 2026-10-15 temporary native Robolectric preview renderer retained 64 EN/FR, portrait/short-landscape, day/night, 1×/2× text captures. Normal-text notes and controls had no measured fit/reachability findings; inspected note captures show the truthful preview-only copy. The full renderer failed with 60 repeated enlarged-text findings: unchanged 38dp authentication tabs clip their 32px text in 22px content, and the 640×320dp form viewport collapses beneath the unchanged header/tracker/footer. These remain [C12 layout limits](ui-redesign-roadmap.md#fidelity-gaps--remaining), not a passing whole-screen or device acceptance. The temporary runner and images remain ignored evidence, outside default checks. A fresh ADB inventory found no phone/emulator; no native Keystore run or APK build followed from this slice.
+
+`VpsCredentialFileTest` uses the real JVM AES-GCM implementation with synthetic keys and owned temporary files, independently decrypts the authenticated header format and exercises fresh IVs, missing/unavailable keys, tampering/version mismatch, read denial and staged write/sync/close/rename failures. It checks ciphertext-only persistence and prior-file preservation. `VpsServerCredentialTest` covers password/private-key/passphrase/pin round trips, strict current identity, unrelated records, corrupt/key-lost storage, metadata/credential rollback, orphan re-addition and admitted/waiting cancellation. Existing store, transfer, logging and concrete transport suites remain affected controls.
+
+Manager transfer controls must prove that new-ID orphan conflicts precede restoration-marker/profile writes, identical fleet imports retain current credentials, ordinary ZIP bytes contain no SSH password/key/passphrase/pin, and export remains usable when the vault cannot be read. Preserve existing commit/rollback and cancellation meaning under tunnel → fleet → DataStore admission. Neither source tests nor absence from an explicitly enumerated ZIP proves Android backup/device-transfer behavior. Native API-24 Keystore, filesystem, actual capture/reuse/removal UI and live-server gates remain under #143; no new APK, device or real-server proof follows from these source controls.
+
 ## Next Implementation Roadmap
 
 This roadmap covers the whole app, not only the VPS fleet. Do not move items from this section into active coverage until the tests exist and run in the expected test layer.
@@ -494,9 +514,8 @@ This roadmap covers the whole app, not only the VPS fleet. Do not move items fro
 
 ### Phase 2 — Complete Missing Automated Coverage
 
-- Extend fake-wrapper proof to upload/deadline cases as needed; test hung execute/upload against the actual SSH library when C11 lands.
-- Prove entered-command cancellation closes owned real channels/sessions; the immediate-cancel fake test proves propagation only.
-- Test real unreachable-server mapping and the wired UI error state; fake execute I/O coverage proves neither.
+- Retain real-library deadline/cancellation controls below; extend them when supported auth, crypto or channel behavior changes.
+- Add Android/API-24 transport proof and wired unreachable-server UI error state; synthetic-peer JVM checks do not establish either.
 - Add broader `VpsServerStore` stress tests if future fields introduce multi-record invariants; current transaction coverage includes racing `upsert`, `remove`, and `updateStatus` operations.
 - Add empty peer-list coverage for server detail before any VPN users are added.
 - Add Robolectric coverage for VPS wizard state, password masking, back/apply behavior, lifecycle cancellation, and revoked-user actions.
@@ -594,8 +613,7 @@ Security rules:
 - Add data-binding view tests for tunnel rows and peer cards.
 - Choose screenshot test framework and add baseline fixtures.
 - Add Espresso smoke suite for navigation.
-- Add remote shell timeout/cancellation tests when the concrete SSH transport lands.
-- Add real-library SSH tests; `GuardedRemoteShellClientTest` covers fake-wrapper execute timeout/I/O/cancellation propagation only.
+- Retain concrete SSH transport controls below; the fake guard suite proves wrapper deadline ownership separately.
 - Add unreachable-server UI error tests when provisioning errors are wired to screen state.
 - Add additional concurrent `VpsServerStore` mutation tests only when new persisted fields or cross-record invariants are introduced.
 - Add dark-mode and RTL screenshot goldens.
@@ -605,8 +623,7 @@ Security rules:
 
 These are required regression tests, but they must not be counted as active coverage until the underlying feature is implemented.
 
-- Host fingerprint mismatch blocks connection after SSH transport and fingerprint persistence exist.
-- `trustHost=false` avoids fingerprint persistence after host-key storage exists.
+- Fingerprint input/persistence preserves explicit out-of-band verification and cannot make the legacy trust Boolean a bypass.
 - Password/session secret is cleared by the real credential store after Keystore-backed storage exists.
 - Rotation preserves VPS wizard step and form state after saved-state support is implemented.
 - Generated peer config imports into the tunnel manager after add-peer import wiring exists.
