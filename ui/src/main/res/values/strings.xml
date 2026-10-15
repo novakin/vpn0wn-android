@@ -517,4 +517,8 @@
     <string name="vpn0wn_handshake_send_failed">Initiation send failed</string>
     <string name="vpn0wn_handshake_authenticated">Authentication observed</string>
     <string name="vpn0wn_handshake_exhausted">Retries exhausted</string>
+    <string name="vpn0wn_navigate_back">Back</string>
+    <string name="vpn0wn_close">Close</string>
+    <string name="vpn0wn_copy_value">Copy %1$s</string>
+    <string name="vpn0wn_more_actions">More actions</string>
 </resources>
