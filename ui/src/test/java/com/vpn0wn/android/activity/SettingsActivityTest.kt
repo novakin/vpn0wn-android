@@ -664,6 +664,11 @@ class SettingsActivityTest {
     }
 
     private fun setApplicationField(env: TunnelTestEnvironment, name: String, value: Any) {
+        if (name == "preferencesDataStore") {
+            @Suppress("UNCHECKED_CAST")
+            env.replacePreferences(value as DataStore<Preferences>)
+            return
+        }
         com.vpn0wn.android.Application::class.java.getDeclaredField(name).apply { isAccessible = true }.set(env.application, value)
     }
 

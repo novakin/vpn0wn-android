@@ -34,7 +34,7 @@ class VpsServerStoreTest {
         scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
         val file = File(System.getProperty("java.io.tmpdir"), "vps-store-${System.nanoTime()}.preferences_pb")
         val dataStore = PreferenceDataStoreFactory.create(scope = scope) { file }
-        store = VpsServerStore(dataStore)
+        store = VpsServerStore(dataStore, credentialFileForTest(File(file.parentFile, file.name + ".credentials")))
     }
 
     @After

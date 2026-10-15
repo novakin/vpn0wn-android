@@ -53,11 +53,7 @@ class JschRemoteShellClientFactory internal constructor(private val socketCreato
             throw invalidInput("SSH endpoint is invalid")
         if (connection.maxAuthAttempts < 1) throw invalidInput("SSH auth attempt limit is invalid")
         val fingerprint = connection.hostKeyFingerprint ?: throw invalidInput("SSH host fingerprint is required")
-        if (!FINGERPRINT.matches(fingerprint)) throw invalidInput("SSH host fingerprint is invalid")
-        val pin = Base64.decode(fingerprint.removePrefix("SHA256:"), Base64.NO_WRAP)
-        val canonical = Base64.encodeToString(pin, Base64.NO_WRAP or Base64.NO_PADDING)
-        if (pin.size != SHA256_BYTES || fingerprint != "SHA256:$canonical")
-            throw invalidInput("SSH host fingerprint is invalid")
+        val pin = decodeHostFingerprint(fingerprint)
         return GuardedRemoteShellClient(JschRemoteShellClient(connection, address, pin, socketCreator))
     }
 
@@ -68,6 +64,15 @@ class JschRemoteShellClientFactory internal constructor(private val socketCreato
         private const val MIN_PORT = 1
         private const val MAX_PORT = 65_535
         private val FINGERPRINT = Regex("^SHA256:[A-Za-z0-9+/]{43}$")
+
+        internal fun decodeHostFingerprint(fingerprint: String): ByteArray {
+            if (!FINGERPRINT.matches(fingerprint)) throw invalidInput("SSH host fingerprint is invalid")
+            val pin = Base64.decode(fingerprint.removePrefix("SHA256:"), Base64.NO_WRAP)
+            val canonical = Base64.encodeToString(pin, Base64.NO_WRAP or Base64.NO_PADDING)
+            if (pin.size != SHA256_BYTES || fingerprint != "SHA256:$canonical")
+                throw invalidInput("SSH host fingerprint is invalid")
+            return pin
+        }
 
         private fun invalidInput(message: String) = ProvisioningException(message, category = ProvisioningFailureCategory.INVALID_INPUT)
     }

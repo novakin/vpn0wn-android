@@ -5,6 +5,8 @@
  */
 package com.vpn0wn.android.model
 
+import com.vpn0wn.android.Application
+
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -199,44 +201,46 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         if (selection != null && selection !in archive.profiles && !tunnelMap.containsKey(selection)) {
             throw AppDataTransfer.InvalidArchiveException()
         }
-        val preferencesStore = getPreferencesDataStore()
-        val restoreNames = preferencesStore.data.first()[UserKnobs.RUNNING_TUNNELS].orEmpty()
-        if (restoreNames.any { it in newProfiles }) {
-            // Commit stale-intent removal before files can survive a failed metadata commit and rollback.
-            preferencesStore.edit { preferences ->
-                AppDataTransfer.validateMetadata(archive, preferences)
-                AppDataTransfer.clearRestoreMarkers(preferences, newProfiles.keys)
-            }
-        }
-        val created = linkedMapOf<String, Config>()
-        try {
-            preferencesStore.edit { preferences ->
-                val servers = AppDataTransfer.validateMetadata(archive, preferences)
-                for ((name, config) in newProfiles) {
-                    created[name] = withContext(Dispatchers.IO) { configStore.create(name, config) }
-                }
-                AppDataTransfer.applyMetadata(archive, preferences, servers, created.keys)
-            }
-        } catch (failure: Throwable) {
-            var incomplete = false
-            for ((name, config) in created) {
-                try {
-                    withContext(Dispatchers.IO) { configStore.delete(name) }
-                } catch (recovery: Throwable) {
-                    incomplete = true
-                    failure.addSuppressed(recovery)
-                    // Coroutine stack recovery may unwrap a same-class copy at the next suspension boundary.
-                    val cause = failure.cause
-                    if (cause != null && cause.javaClass == failure.javaClass && cause !== recovery) cause.addSuppressed(recovery)
-                    addToList(name, config, Tunnel.State.DOWN)
+        Application.getVpsServerStore().withImportAdmission(archive.servers) {
+            val preferencesStore = getPreferencesDataStore()
+            val restoreNames = preferencesStore.data.first()[UserKnobs.RUNNING_TUNNELS].orEmpty()
+            if (restoreNames.any { it in newProfiles }) {
+                // Commit stale-intent removal before files can survive a failed metadata commit and rollback.
+                preferencesStore.edit { preferences ->
+                    AppDataTransfer.validateMetadata(archive, preferences)
+                    AppDataTransfer.clearRestoreMarkers(preferences, newProfiles.keys)
                 }
             }
-            if (incomplete) throwIncompleteTransferRecovery(failure)
-            throw failure
+            val created = linkedMapOf<String, Config>()
+            try {
+                preferencesStore.edit { preferences ->
+                    val servers = AppDataTransfer.validateMetadata(archive, preferences)
+                    for ((name, config) in newProfiles) {
+                        created[name] = withContext(Dispatchers.IO) { configStore.create(name, config) }
+                    }
+                    AppDataTransfer.applyMetadata(archive, preferences, servers, created.keys)
+                }
+            } catch (failure: Throwable) {
+                var incomplete = false
+                for ((name, config) in created) {
+                    try {
+                        withContext(Dispatchers.IO) { configStore.delete(name) }
+                    } catch (recovery: Throwable) {
+                        incomplete = true
+                        failure.addSuppressed(recovery)
+                        // Coroutine stack recovery may unwrap a same-class copy at the next suspension boundary.
+                        val cause = failure.cause
+                        if (cause != null && cause.javaClass == failure.javaClass && cause !== recovery) cause.addSuppressed(recovery)
+                        addToList(name, config, Tunnel.State.DOWN)
+                    }
+                }
+                if (incomplete) throwIncompleteTransferRecovery(failure)
+                throw failure
+            }
+            for ((name, config) in created) addToList(name, config, Tunnel.State.DOWN)
+            if (selection != null) publishLastUsedTunnel(tunnelMap[selection])
+            created.size
         }
-        for ((name, config) in created) addToList(name, config, Tunnel.State.DOWN)
-        if (selection != null) publishLastUsedTunnel(tunnelMap[selection])
-        created.size
     }
 
     private fun throwIncompleteTransferRecovery(failure: Throwable): Nothing {
