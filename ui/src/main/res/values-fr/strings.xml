@@ -485,4 +485,8 @@
     <string name="vpn0wn_handshake_send_failed">Échec de l’envoi de l’initiation</string>
     <string name="vpn0wn_handshake_authenticated">Authentification observée</string>
     <string name="vpn0wn_handshake_exhausted">Tentatives épuisées</string>
+    <string name="vpn0wn_navigate_back">Retour</string>
+    <string name="vpn0wn_close">Fermer</string>
+    <string name="vpn0wn_copy_value">Copier %1$s</string>
+    <string name="vpn0wn_more_actions">Autres actions</string>
 </resources>
