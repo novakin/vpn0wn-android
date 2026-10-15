@@ -493,7 +493,7 @@ The 2026-10-15 temporary native Robolectric preview renderer retained 64 EN/FR, 
 
 `VpsCredentialFileTest` uses the real JVM AES-GCM implementation with synthetic keys and owned temporary files, independently decrypts the authenticated header format and exercises fresh IVs, missing/unavailable keys, tampering/version mismatch, read denial and staged write/sync/close/rename failures. It checks ciphertext-only persistence and prior-file preservation. `VpsServerCredentialTest` covers password/private-key/passphrase/pin round trips, strict current identity, unrelated records, corrupt/key-lost storage, metadata/credential rollback, orphan re-addition and admitted/waiting cancellation. Existing store, transfer, logging and concrete transport suites remain affected controls.
 
-Manager transfer controls must prove that new-ID orphan conflicts precede restoration-marker/profile writes, identical fleet imports retain current credentials, ordinary ZIP bytes contain no SSH password/key/passphrase/pin, and export remains usable when the vault cannot be read. Preserve existing commit/rollback and cancellation meaning under tunnel → fleet → DataStore admission. Neither source tests nor absence from an explicitly enumerated ZIP proves Android backup/device-transfer behavior. Native API-24 Keystore, filesystem, physical capture/reuse/removal UI and live-server gates remain under #143; no new APK, device or real-server proof follows from these source controls.
+Manager transfer controls must prove that new-ID orphan conflicts precede restoration-marker/profile writes, identical fleet imports retain current credentials, ordinary ZIP bytes contain no SSH password/key/passphrase/pin, and export remains usable when the vault cannot be read. Preserve existing commit/rollback and cancellation meaning under tunnel → fleet → DataStore admission. Neither source tests nor absence from an explicitly enumerated ZIP proves Android backup/device-transfer behavior. The separate [native API-24/28 storage record](reviews/2026-10-15-native-ssh-credential-storage-acceptance.md) verifies seven controls on the same isolated acceptance APK: fresh storage, Keystore roundtrip, private ciphertext, normal atomic replacement, unrelated-record preservation, tamper refusal and lost-key refusal. Native capture/reuse/removal UI acceptance, Android transport, broader Keystore lifecycle, backup/crash/physical and live-server gates remain under #143. These source controls themselves establish no APK/device or real-server result; native admission, execution and cleanup retain their separate recorded scope.
 
 ### Read-only Detect/Plan wizard controls — #143
 
@@ -533,10 +533,10 @@ This roadmap covers the whole app, not only the VPS fleet. Do not move items fro
 ### Phase 2 — Complete Missing Automated Coverage
 
 - Retain real-library deadline/cancellation controls below; extend them when supported auth, crypto or channel behavior changes.
-- Add Android/API-24 transport proof and wired unreachable-server UI error state; synthetic-peer JVM checks do not establish either.
+- Add Android/API-24 transport and native unreachable-server UI proof; injected failure presentation already has local controls but does not establish those runtime boundaries.
 - Add broader `VpsServerStore` stress tests if future fields introduce multi-record invariants; current transaction coverage includes racing `upsert`, `remove`, and `updateStatus` operations.
 - Add empty peer-list coverage for server detail before any VPN users are added.
-- Add Robolectric coverage for VPS wizard state, password masking, back/apply behavior, lifecycle cancellation, and revoked-user actions.
+- Retain the [read-only wizard controls](#read-only-detectplan-wizard-controls--143) for state, Back/disabled Apply and lifecycle cancellation; add the remaining password-masking and revoked-user action controls.
 - Reuse `VpsDeployFixtureData` for deterministic VPS fleet/detail/user test states: online, provisioning, attention, empty peers, active peer, idle peer, and revoked-user action disabling.
 
 ### Phase 3 — Add Visual And Smoke Coverage
@@ -627,23 +627,20 @@ Security rules:
 
 ## Remaining Automation Work
 
-- Add Robolectric fragment tests for `VpsProvisioningFragment`.
+- Extend existing `VpsProvisioningFragment` suites for the remaining [automated gaps](#phase-2--complete-missing-automated-coverage); retained-state, input/error, navigation and read-only workflow controls are already active.
 - Add data-binding view tests for tunnel rows and peer cards.
 - Choose screenshot test framework and add baseline fixtures.
 - Add Espresso smoke suite for navigation.
 - Retain concrete SSH transport controls below; the fake guard suite proves wrapper deadline ownership separately.
-- Add unreachable-server UI error tests when provisioning errors are wired to screen state.
+- Add native unreachable-server UI proof; typed error presentation is already wired and covered through injected failures.
 - Add additional concurrent `VpsServerStore` mutation tests only when new persisted fields or cross-record invariants are introduced.
 - Add dark-mode and RTL screenshot goldens.
 - Run `vpsIntegrationTest` against a disposable VPS after provisioning script changes.
 
 ## Pending Until Feature Work Exists
 
-These are required regression tests, but they must not be counted as active coverage until the underlying feature is implemented.
+Fingerprint input/persistence, operation-owned password clearing after client drain and retained rotation state now have [active read-only controls](#read-only-detectplan-wizard-controls--143). Their source/JVM scope does not establish native wizard/transport behavior, process-restart Keystore lifecycle or complete memory erasure; those limits remain in the [credential contract](backend-contracts.md#saved-ssh-credentials--c11). The remaining generated-profile gate depends on its feature wiring:
 
-- Fingerprint input/persistence preserves explicit out-of-band verification and cannot make the legacy trust Boolean a bypass.
-- Password/session secret is cleared by the real credential store after Keystore-backed storage exists.
-- Rotation preserves VPS wizard step and form state after saved-state support is implemented.
 - Generated peer config imports into the tunnel manager after add-peer import wiring exists.
 
 ## Scoped physical empty-Home centering — #80
