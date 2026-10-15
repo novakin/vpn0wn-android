@@ -660,7 +660,7 @@ This is a historical implementation ledger, not newly executed build/device proo
 
 ### Fidelity Gaps — Remaining
 
-- **VPS SSH preview at enlarged text — #143 (2026-10-15):** temporary native Robolectric rendering of the credential-storage slice found clipping in its existing 38dp authentication tabs and a collapsed form viewport at 640×320dp with 2× text. The scalable-layout source repair above addresses those owners; rendered-output and complete preview accessibility acceptance remain pending. C12 must also reconcile actual credential capture/reuse.
+- **VPS SSH preview acceptance — #143 (2026-10-15):** earlier native Robolectric rendering found clipping in the existing 38dp authentication tabs and a collapsed form viewport at 640×320dp with 2× text. The scalable-layout repair addresses those owners, with [scoped native JVM output now verified](reviews/2026-10-15-uiux-review.md). Complete preview accessibility, device and combined C12 acceptance remain pending. C12 must also reconcile actual credential capture/reuse.
 
 - [~] **Remaining identity acceptance — #71:** Current app/native helpers, tests/selectors, localized keys, style/theme and private visual-resource keys/basenames, first-party log tags/startup header, export metadata/subjects and disposable VPS harness naming identify vpn0wn. Root-tools, complete renamed artifact/device, two-installation migration and distribution acceptance remain separate gates. Retained WireGuard protocol/legal and persisted provisioning compatibility names have distinct reasons in [the identity contract](backend-contracts.md#application-and-source-identity--71); the host-verified harness rename adds no live-server or UI output proof.
 
