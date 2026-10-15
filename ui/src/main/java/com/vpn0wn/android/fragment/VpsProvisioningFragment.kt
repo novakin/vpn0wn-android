@@ -15,6 +15,7 @@ import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.widget.EditText
 import android.widget.FrameLayout
@@ -290,7 +291,9 @@ class VpsProvisioningFragment : BaseFragment() {
     private fun provisionScreen(): View {
         val steps = listOf(str(R.string.vpn0wn_step_ssh), str(R.string.vpn0wn_step_detect), str(R.string.vpn0wn_step_plan), str(R.string.vpn0wn_step_apply), str(R.string.vpn0wn_step_import))
         val container = vertical()
-        container.addView(topBar(title = str(R.string.vpn0wn_deploy_server_title), sub = str(R.string.vpn0wn_deploy_step_summary, provisionStep + 1, steps[provisionStep]), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = {
+        val scrollView = ScrollView(requireContext())
+        val page = vertical()
+        page.addView(topBar(title = str(R.string.vpn0wn_deploy_server_title), sub = str(R.string.vpn0wn_deploy_step_summary, provisionStep + 1, steps[provisionStep]), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = {
             if (provisionStep == 0) {
                 resetProvisionSession()
                 screen = Screen.Fleet
@@ -299,9 +302,9 @@ class VpsProvisioningFragment : BaseFragment() {
             }
             render()
         }))
-        container.addView(progressStrip(steps.size, provisionStep))
-        container.addView(stepTracker(steps))
-        val (scrollView, scroll) = scrollContent()
+        page.addView(progressStrip(steps.size, provisionStep))
+        page.addView(stepTracker(steps))
+        val scroll = vertical().apply { setPadding(dp(14), 0, dp(14), dp(24)) }
         when (provisionStep) {
             SSH_STEP -> sshStep(scroll)
             DETECT_STEP -> detectStep(scroll)
@@ -309,6 +312,8 @@ class VpsProvisioningFragment : BaseFragment() {
             APPLY_STEP -> applyStep(scroll)
             else -> importStep(scroll)
         }
+        page.addView(scroll)
+        scrollView.addView(page)
         container.addView(scrollView, LinearLayout.LayoutParams(-1, 0, 1f))
         container.addView(bottomAction())
         return container
@@ -802,13 +807,14 @@ class VpsProvisioningFragment : BaseFragment() {
                 addView(TextView(requireContext()).apply {
                     this.text = text
                     gravity = Gravity.CENTER
+                    minHeight = dp(48)
                     typeface = monoTypeface()
                     textSize = 10f
                     setTextColor(color(if (key == selected) R.color.vpn0wn_paper else R.color.vpn0wn_ink_3))
                     background = if (key == selected) rounded(R.color.vpn0wn_ink, R.color.vpn0wn_ink, dp(6)) else null
                     setPadding(dp(8))
                     setOnClickListener { onSelect(key) }
-                }, LinearLayout.LayoutParams(0, dp(38), 1f))
+                }, LinearLayout.LayoutParams(0, MATCH_PARENT, 1f))
             }
         }
     }

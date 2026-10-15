@@ -499,6 +499,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
+- [x] **SSH setup preview scalable layout source repair — #143, 2026-10-15:** `VpsProvisioningFragment.provisionScreen` puts the header, progress tracker and form in one vertical scroll region while keeping Continue fixed. This preserves usable form space on short screens with enlarged text; the header/tracker can scroll away. Authentication tabs grow with their labels and retain a 48dp Android minimum target. Existing text sizes, fonts, palette, action semantics and credential policy remain. `VpsProvisioningLayoutTest` exercises actual Add/tab/Continue controls, retained host input, text bounds and scroll reachability at 320×640dp and 640×320dp, normal/2× text, English/French and both system modes; execution and rendered-output acceptance must be recorded separately.
+
 - [x] **SSH setup preview copy — #143, 2026-10-15:** English/French key/password notes state that the current preview does not save input. The private-key hint uses the supported traditional RSA PEM header, and the password hint no longer promises bootstrap-only retention. Existing fonts, colors, spacing and controls remain. The selected encrypted saved-password backend policy is documented separately; capture/reuse and Android runtime acceptance remain pending.
 
 - [x] **Selected name/key replacement source repair — #188, 2026-10-15:** `NameInputFilter`/`KeyInputFilter` permit replacement in full-length fields and retain accepted-character positions after filtering. Existing character/padding rules, limits, deletion, source spans and all layout/type/palette roles remain. Android Editable regression controls cover the source behavior; physical editor/accessibility acceptance remains separate.
@@ -652,7 +654,7 @@ This is a historical implementation ledger, not newly executed build/device proo
 
 ### Fidelity Gaps — Remaining
 
-- **VPS SSH preview at enlarged text — #143 (2026-10-15):** temporary native Robolectric rendering at 2× text finds clipping in the existing 38dp authentication tabs and a collapsed form viewport at 640×320dp. The fixed header/tracker/footer and tab sizing are unchanged by the credential-storage slice. Corrected preview notes fit at normal text size in EN/FR portrait/landscape and both system modes; this does not establish complete preview accessibility. C12 must reconcile this layout with actual credential capture/reuse.
+- **VPS SSH preview at enlarged text — #143 (2026-10-15):** temporary native Robolectric rendering of the credential-storage slice found clipping in its existing 38dp authentication tabs and a collapsed form viewport at 640×320dp with 2× text. The scalable-layout source repair above addresses those owners; rendered-output and complete preview accessibility acceptance remain pending. C12 must also reconcile actual credential capture/reuse.
 
 - [~] **Remaining identity acceptance — #71:** Current app/native helpers, tests/selectors, localized keys, style/theme and private visual-resource keys/basenames, first-party log tags/startup header, export metadata/subjects and disposable VPS harness naming identify vpn0wn. Root-tools, complete renamed artifact/device, two-installation migration and distribution acceptance remain separate gates. Retained WireGuard protocol/legal and persisted provisioning compatibility names have distinct reasons in [the identity contract](backend-contracts.md#application-and-source-identity--71); the host-verified harness rename adds no live-server or UI output proof.
 
