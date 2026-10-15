@@ -122,7 +122,7 @@ class ProvisioningLoggingTest {
         val dataStore = PreferenceDataStoreFactory.create(scope = scope) { file }
         try {
             dataStore.edit { it[stringPreferencesKey("vps_servers")] = """[{"secret":"$secret""" }
-            assertEquals(emptyList<StoredVpsServer>(), VpsServerStore(dataStore).servers.first())
+            assertEquals(emptyList<StoredVpsServer>(), VpsServerStore(dataStore, credentialFileForTest(File(file.parentFile, file.name + ".credentials"))).servers.first())
             assertFalse(logs().contains(secret))
         } finally {
             scope.cancel()

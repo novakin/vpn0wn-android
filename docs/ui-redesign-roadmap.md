@@ -499,6 +499,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
+- [x] **SSH setup preview copy — #143, 2026-10-15:** English/French key/password notes state that the current preview does not save input. The private-key hint uses the supported traditional RSA PEM header, and the password hint no longer promises bootstrap-only retention. Existing fonts, colors, spacing and controls remain. The selected encrypted saved-password backend policy is documented separately; capture/reuse and Android runtime acceptance remain pending.
+
 - [x] **Selected name/key replacement source repair — #188, 2026-10-15:** `NameInputFilter`/`KeyInputFilter` permit replacement in full-length fields and retain accepted-character positions after filtering. Existing character/padding rules, limits, deletion, source spans and all layout/type/palette roles remain. Android Editable regression controls cover the source behavior; physical editor/accessibility acceptance remains separate.
 
 - [x] **QR naming retry behavior — #186, 2026-10-15:** `ConfigNamingDialogFragment` preserves its current profile and editable error after failed creation, admits one submission at a time and closes only after success. Existing dialog layout, palette and type remain unchanged. Material-dialog Robolectric controls verify the behavior; physical lens decoding, accessibility and broader #35 acceptance remain separate.
@@ -650,6 +652,8 @@ This is a historical implementation ledger, not newly executed build/device proo
 
 ### Fidelity Gaps — Remaining
 
+- **VPS SSH preview at enlarged text — #143 (2026-10-15):** temporary native Robolectric rendering at 2× text finds clipping in the existing 38dp authentication tabs and a collapsed form viewport at 640×320dp. The fixed header/tracker/footer and tab sizing are unchanged by the credential-storage slice. Corrected preview notes fit at normal text size in EN/FR portrait/landscape and both system modes; this does not establish complete preview accessibility. C12 must reconcile this layout with actual credential capture/reuse.
+
 - [~] **Remaining identity acceptance — #71:** Current app/native helpers, tests/selectors, localized keys, style/theme and private visual-resource keys/basenames, first-party log tags/startup header, export metadata/subjects and disposable VPS harness naming identify vpn0wn. Root-tools, complete renamed artifact/device, two-installation migration and distribution acceptance remain separate gates. Retained WireGuard protocol/legal and persisted provisioning compatibility names have distinct reasons in [the identity contract](backend-contracts.md#application-and-source-identity--71); the host-verified harness rename adds no live-server or UI output proof.
 
 - [~] **Full app-data transfer actions — 2026-10-09:** Settings reuses its existing Data action-row layout/tokens and native biometric, document-picker and Material confirmation patterns. [Scoped authorized AVD proof](reviews/2026-10-09-app-data-transfer-acceptance.md) covers the inspected themes, sizes, large text, real RTL and native Downloads/PIN paths. Broader physical biometric/provider failures, TalkBack, translation and old/new-installation acceptance remain [#71 gates](qa-test-plan.md#full-app-data-transfer-acceptance).
@@ -781,8 +785,8 @@ HomeScreen (index-selection.html)
 - `§01 SSH ACCESS · NO CLOUD RELAY`
 - `EditField` rows: HOST (placeholder `192.0.2.1`), PORT (inline 50% split) + USER (inline 50% split)
 - `AUTHENTICATION` section with `Segmented` control: SSH KEY / PASSWORD
-- **SSH KEY mode:** `PRIVATE KEY` label + 5-row `<textarea>` (mono 10px, paper-3 bg, signal-deep focus ring) + `↑ pick key file` button. Footer note: "Stored in Android Keystore — never leaves the device."
-- **PASSWORD mode:** `<input type="password">` (14px mono, paper-3 bg, signal-deep focus) + amber warning: "Used once for bootstrap. Not persisted after session closes."
+- **SSH KEY mode:** `PRIVATE KEY` label + 5-row `<textarea>` (mono 10px, paper-3 bg, signal-deep focus ring) + `↑ pick key file` button. The prototype's Keystore footer is historical intent; the [saved-credential decision](architecture.md#keystore-backed-saved-ssh-credentials--2026-10-15) distinguishes the encryption key from credential ciphertext. Current setup preview does not save keys.
+- **PASSWORD mode:** `<input type="password">` (14px mono, paper-3 bg, signal-deep focus). The 2026-10-15 selected policy permits encrypted saved passwords and supersedes prototype bootstrap-only retention. Current setup preview still does not save passwords; capture/reuse remains C11/C12 work.
 - `ToggleLine`: Trust server key
 
 #### Step 2 — DETECT SERVER
@@ -872,8 +876,8 @@ Full-screen modal within `VpnUserScreen` container.
 These are requirements to implement and verify under C11–C12. UI text alone does not prove credential protection, fingerprint persistence or mandatory live plan/apply behavior.
 
 - Keep private-key material local and protect persisted credentials with Keystore-backed storage. Password authentication sends the password only through the authenticated encrypted SSH channel; exclude credentials from logs, uploaded scripts/arguments, terminal previews and copied UI.
-- Password mode: one-session bootstrap only, not persisted
+- Password retention: encrypted saved credentials selected on 2026-10-15; the current preview does not yet save them. [Storage policy and limits](backend-contracts.md#saved-ssh-credentials--c11) own the backend behavior.
 - SSH firewall rules on the server are **never touched** (explicitly called out in dry-run output: `keep: existing ssh rules unchanged`)
-- Host fingerprint saved only if "Trust server key" toggle is on
+- The prototype's "Trust server key" toggle remains an unwired preview; its enrollment/retention behavior requires reconciliation with the [mandatory-pin contract](backend-contracts.md#saved-ssh-credentials--c11). The backend saves a required out-of-band pin with every saved credential, and the transport's trust flag never bypasses verification.
 - Public key fingerprint is shown before each privileged action
 - Dry-run plan step is mandatory before apply — user must see what will change

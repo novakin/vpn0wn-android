@@ -44,6 +44,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.lang.ref.WeakReference
 import java.util.Locale
+import com.vpn0wn.android.provisioning.VpsCredentialFile
+import com.vpn0wn.android.provisioning.VpsServerStore
 
 class Application : android.app.Application() {
     private val futureBackend = CompletableDeferred<Backend>()
@@ -53,6 +55,7 @@ class Application : android.app.Application() {
     private lateinit var preferencesDataStore: DataStore<Preferences>
     private lateinit var toolsInstaller: ToolsInstaller
     private lateinit var tunnelManager: TunnelManager
+    private lateinit var vpsServerStore: VpsServerStore
 
     override fun attachBaseContext(context: Context) {
         super.attachBaseContext(context)
@@ -101,6 +104,7 @@ class Application : android.app.Application() {
         rootShell = RootShell(applicationContext)
         toolsInstaller = ToolsInstaller(applicationContext, rootShell)
         preferencesDataStore = PreferenceDataStoreFactory.create { applicationContext.preferencesDataStoreFile("settings") }
+        vpsServerStore = VpsServerStore(preferencesDataStore, VpsCredentialFile(applicationContext))
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             runBlocking {
                 AppCompatDelegate.setDefaultNightMode(if (UserKnobs.darkTheme.first()) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO)
@@ -166,6 +170,8 @@ class Application : android.app.Application() {
         fun getToolsInstaller() = get().toolsInstaller
 
         fun getTunnelManager() = get().tunnelManager
+
+        fun getVpsServerStore() = get().vpsServerStore
 
         fun getCoroutineScope() = get().coroutineScope
     }

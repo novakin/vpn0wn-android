@@ -360,12 +360,12 @@
     <string name="vpn0wn_auth_ssh_key">CLÉ SSH</string>
     <string name="vpn0wn_auth_password">MOT DE PASSE</string>
     <string name="vpn0wn_label_private_key">CLÉ PRIVÉE</string>
-    <string name="vpn0wn_private_key_placeholder">-----BEGIN OPENSSH PRIVATE KEY-----</string>
-    <string name="vpn0wn_private_key_keystore_note">Collez la clé PEM ou choisissez un fichier. Stockée dans Android Keystore — ne quitte jamais l’appareil.</string>
+    <string name="vpn0wn_private_key_placeholder">-----BEGIN RSA PRIVATE KEY-----</string>
+    <string name="vpn0wn_private_key_keystore_note">Aperçu uniquement. Cette clé n’est pas enregistrée.</string>
     <string name="vpn0wn_pick_key_file">↑ choisir fichier clé</string>
     <string name="vpn0wn_key_file_picker_pending">Sélecteur de fichier clé à venir</string>
-    <string name="vpn0wn_password_placeholder">bootstrap à usage unique</string>
-    <string name="vpn0wn_password_ephemeral_note">Utilisé une seule fois pour le bootstrap. Non conservé après la session.</string>
+    <string name="vpn0wn_password_placeholder">Mot de passe SSH</string>
+    <string name="vpn0wn_password_ephemeral_note">Aperçu uniquement. Ce mot de passe n’est pas enregistré.</string>
     <string name="vpn0wn_trust_server_key">Faire confiance à la clé serveur</string>
     <string name="vpn0wn_trust_server_key_desc">Enregistrer l’empreinte hôte · règles SSH inchangées</string>
     <string name="vpn0wn_hint_dry_run">DRY RUN</string>
