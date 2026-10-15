@@ -35,6 +35,7 @@ import com.vpn0wn.android.Application
 import com.vpn0wn.android.BR
 import com.vpn0wn.android.R
 import com.vpn0wn.android.activity.LogViewerActivity
+import com.vpn0wn.android.activity.MainActivity
 import com.vpn0wn.android.activity.SettingsActivity
 import com.vpn0wn.android.backend.Tunnel
 import com.vpn0wn.android.activity.TunnelCreatorActivity
@@ -259,7 +260,11 @@ class TunnelListFragment : BaseFragment() {
                 binding.selected = item in selectedTunnels
                 binding.root.setOnClickListener {
                     if (!selectionMode) {
-                        selectedTunnel = item
+                        val mainActivity = activity as? MainActivity
+                        if (mainActivity != null)
+                            mainActivity.selectTunnel(item)
+                        else
+                            selectedTunnel = item
                     } else {
                         toggleItemSelection(item)
                     }
@@ -381,6 +386,10 @@ class TunnelListFragment : BaseFragment() {
 
     fun onOpenSettings(@Suppress("UNUSED_PARAMETER") view: View) {
         startActivity(Intent(requireContext(), SettingsActivity::class.java))
+    }
+
+    fun onOpenServers(@Suppress("UNUSED_PARAMETER") view: View) {
+        (requireActivity() as MainActivity).openServers()
     }
 
     private fun viewForTunnel(tunnel: ObservableTunnel, tunnels: List<*>): MultiselectableRelativeLayout? {

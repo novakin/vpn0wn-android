@@ -8,4 +8,19 @@
     <item name="vpn0wn_home_empty_offset_listener" type="id" />
     <item name="vpn0wn_dot_drawable" type="id" />
     <item name="vpn0wn_rail_drawable" type="id" />
+    <item name="vpn0wn_vps_ssh_host" type="id" />
+    <item name="vpn0wn_vps_ssh_port" type="id" />
+    <item name="vpn0wn_vps_ssh_user" type="id" />
+    <item name="vpn0wn_vps_ssh_fingerprint" type="id" />
+    <item name="vpn0wn_vps_ssh_private_key" type="id" />
+    <item name="vpn0wn_vps_ssh_passphrase" type="id" />
+    <item name="vpn0wn_vps_ssh_password" type="id" />
+    <item name="vpn0wn_vps_vpn_endpoint" type="id" />
+    <item name="vpn0wn_vps_listen_port" type="id" />
+    <item name="vpn0wn_vps_cidr" type="id" />
+    <item name="vpn0wn_vps_dns" type="id" />
+    <item name="vpn0wn_vps_ssh_credentials" type="id" />
+    <item name="vpn0wn_vps_operation_status" type="id" />
+    <item name="vpn0wn_vps_operation_problem" type="id" />
+    <item name="vpn0wn_vps_bottom_action" type="id" />
 </resources>
