@@ -16,6 +16,7 @@ import android.widget.TextView
 import android.widget.ScrollView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.res.ResourcesCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.ViewModel
@@ -69,6 +70,26 @@ class VpsProvisioningWorkflowTest {
     @get:Rule val folder = TemporaryFolder()
 
     @After fun tearDown() { Dispatchers.resetMain() }
+
+    @Test
+    @Config(sdk = [24, 28])
+    fun technicalLabelsUseBundledRegularFontAcrossSupportedApis() = runTest {
+        val fixture = fixture()
+        try {
+            val title = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_servers_title).lowercase(java.util.Locale.ROOT))
+            assertFalse("Existing title omits extra font padding", title.includeFontPadding)
+            val add = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_add_server).removePrefix("+ ").trim())
+            assertTrue(clickableAncestor(add).performClick())
+            settle()
+            val label = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_label_host).uppercase(java.util.Locale.ROOT))
+            assertEquals("Bundled regular face", ResourcesCompat.getFont(fixture.activity, R.font.jetbrains_mono_regular), label.typeface)
+            assertEquals("Shared mono features", "ss01, zero, tnum", label.fontFeatureSettings)
+            assertFalse("Existing label omits extra font padding", label.includeFontPadding)
+            assertTrue(fixture.peer.connections.isEmpty())
+        } finally {
+            fixture.close()
+        }
+    }
 
     @Test fun actualActionsRequireExplicitConfirmationBeforeInstallation() = runTest {
         val fixture = fixture()
@@ -470,7 +491,8 @@ class VpsProvisioningWorkflowTest {
 
     private fun assertButtonAction(view: View) {
         assertTrue(view.isFocusable)
-        assertTrue(view.foreground != null && view.foreground.isStateful)
+        assertTrue(view.background != null && view.background.isStateful)
+        assertNull(view.foreground)
         val node = view.createAccessibilityNodeInfo()
         try {
             assertEquals(Button::class.java.name, node.className.toString())
