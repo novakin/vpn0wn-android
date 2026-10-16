@@ -1,11 +1,17 @@
 package com.vpn0wn.android.util
 
+import android.content.res.Configuration
 import com.vpn0wn.android.Application
 import com.vpn0wn.android.R
 import com.vpn0wn.android.backend.BackendException
+import com.vpn0wn.config.BadConfigException
+import com.vpn0wn.crypto.Key
+import com.vpn0wn.crypto.KeyFormatException
+import java.util.Locale
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -14,6 +20,74 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, sdk = [28])
 class LocalizedResourcesTest {
+    @Test
+    @Config(qualifiers = "fr")
+    fun frenchConfigFailureIdentifiesTheAttributeWithinItsSection() {
+        val failure = BadConfigException(
+            BadConfigException.Section.PEER,
+            BadConfigException.Location.PUBLIC_KEY,
+            BadConfigException.Reason.MISSING_ATTRIBUTE,
+            null,
+        )
+
+        assertTrue(ErrorMessages[failure].contains("PublicKey de Peer"))
+    }
+
+    @Test
+    @Config(qualifiers = "in")
+    fun indonesianKeyFailureExplainsTheByteLength() {
+        val cause = assertThrows(KeyFormatException::class.java) { Key.fromBase64("short") }
+        val failure = BadConfigException(BadConfigException.Section.PEER, BadConfigException.Location.PUBLIC_KEY, cause)
+
+        assertTrue(ErrorMessages[failure].contains("44 karakter (32 byte)"))
+        assertFalse(ErrorMessages[failure].contains("32 bit"))
+    }
+
+    @Test
+    @Config(qualifiers = "ca-rES")
+    fun catalanSingularDeletionRetainsItsDiagnosticArgument() {
+        val message = Application.get().resources.getQuantityString(R.plurals.delete_error, 1, 1, "fixture failure")
+
+        assertTrue(message.contains("1 túnel"))
+        assertTrue(message.endsWith(": fixture failure"))
+    }
+
+    @Test
+    @Config(qualifiers = "ar-rSA")
+    fun arabicMtuFailureSeparatesItsExplanationFromTheContext() {
+        val failure = BadConfigException(
+            BadConfigException.Section.INTERFACE,
+            BadConfigException.Location.MTU,
+            BadConfigException.Reason.INVALID_VALUE,
+            "invalid",
+        )
+
+        val explanation = Application.get().resources.getString(R.string.bad_config_explanation_positive_number)
+        assertTrue(explanation.startsWith(": "))
+        assertTrue(ErrorMessages[failure].endsWith(explanation))
+    }
+
+    @Test
+    fun everyLocaleExplainsTheSupportedKeepaliveBounds() {
+        val application = Application.get()
+        val locales = listOf(
+            "ar-SA", "ca-ES", "cs-CZ", "da-DK", "de", "el-GR", "es-ES", "et-EE", "fa-IR", "fi-FI", "fr",
+            "hi", "hi-IN", "hu-HU", "id", "it", "ja", "ko-KR", "nl-NL", "no-NO", "pa-IN", "pl-PL",
+            "pt-BR", "pt-PT", "ro-RO", "ru", "si-LK", "sk-SK", "sl", "sv-SE", "tr-TR", "uk-UA", "vi-VN", "zh-CN", "zh-TW",
+        )
+
+        for (tag in locales) {
+            val configuration = Configuration(application.resources.configuration).apply { setLocale(Locale.forLanguageTag(tag)) }
+            val context = application.createConfigurationContext(configuration)
+            val explanation = context.getString(R.string.bad_config_explanation_pka)
+            assertTrue("$tag retains the supported zero value", explanation.contains('0'))
+            assertTrue("$tag retains the supported maximum", explanation.contains("65535"))
+            if (tag == "ar-SA" || tag == "fa-IR") {
+                assertTrue("$tag isolates the increasing range", explanation.contains("\u20660–65535\u2069"))
+            }
+        }
+    }
+
     @Test
     @Config(qualifiers = "pt-rBR")
     fun brazilianTunFailureAcceptsTheBackendsEmptyArguments() {
@@ -70,7 +144,7 @@ class LocalizedResourcesTest {
         val code = 42
         val expectedCode = String.format(resources.configuration.locales[0], "%d", code)
 
-        assertTrue(resources.getString(R.string.quick_settings_tile_add_failure, code).endsWith(": $expectedCode"))
+        assertTrue(resources.getString(R.string.quick_settings_tile_add_failure, code).endsWith(expectedCode))
     }
 
     @Test

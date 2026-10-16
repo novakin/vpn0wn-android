@@ -2,7 +2,7 @@
 <!-- Modified for vpn0wn. -->
 <resources>
     <plurals name="delete_error">
-        <item quantity="one">No s\'han pogut esborrar els túnels:</item>
+        <item quantity="one">No s\'ha pogut esborrar %d túnel: %s</item>
         <item quantity="other">No s\'han pogut esborrar %d túnels: %s</item>
     </plurals>
     <plurals name="delete_success">
@@ -64,10 +64,10 @@
     <string name="allow_remote_control_intents_summary_on">Aplicacions externes poden cambiar túnels (avançat)</string>
     <string name="allow_remote_control_intents_title">Permet aplicacions de control remot</string>
     <string name="allowed_ips">IPs permeses</string>
-    <string name="bad_config_context">%1$s de %2$s</string>
+    <string name="bad_config_context">%2$s de %1$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%1$s en %2$s</string>
-    <string name="bad_config_explanation_pka">: Ha de ser positiu i no superior a 65535</string>
+    <string name="bad_config_explanation_pka">: 0–65535</string>
     <string name="bad_config_explanation_positive_number">: Ha de ser positiu</string>
     <string name="bad_config_explanation_udp_port">: Ha de ser un nombre vàlid de port UDP</string>
     <string name="bad_config_reason_invalid_key">Clau no vàlida</string>
@@ -226,7 +226,7 @@
     <string name="tunnel_dns_failure">Impossible resoldre el nom del domini \"%s\"</string>
     <string name="tunnel_rename_error">No s\'ha pogut renombrar el túnel: %s</string>
     <string name="tunnel_rename_success">El nom del túnel s\'ha canviat correctament a \"%s\"</string>
-    <string name="type_name_go_userspace">Anar a l\'espai d\'usuari</string>
+    <string name="type_name_go_userspace">Espai d’usuari Go</string>
     <string name="type_name_kernel_module">Mòdul del kernel</string>
     <string name="unknown_error">Error desconegut</string>
     <string name="version_summary">%1$s backend %2$s</string>

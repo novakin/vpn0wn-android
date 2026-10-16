@@ -90,10 +90,10 @@
     <string name="allow_remote_control_intents_summary_on">Zewnętrzne aplikacje mogą przełączać tunele (zaawansowane)</string>
     <string name="allow_remote_control_intents_title">Zezwól na kontrolowanie przez zewnętrzne aplikacje</string>
     <string name="allowed_ips">Dozwolone adresy IP</string>
-    <string name="bad_config_context">%1$s dla %2$s</string>
+    <string name="bad_config_context">%2$s w %1$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%1$s w %2$s</string>
-    <string name="bad_config_explanation_pka">: Musi być dodatni i nie większy niż 65535</string>
+    <string name="bad_config_explanation_pka">: 0–65535</string>
     <string name="bad_config_explanation_positive_number">: Musi być dodatni</string>
     <string name="bad_config_explanation_udp_port">: Musi być prawidłowym numerem portu UDP</string>
     <string name="bad_config_reason_invalid_key">Nieprawidłowy klucz</string>

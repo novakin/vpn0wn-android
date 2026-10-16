@@ -64,10 +64,10 @@
     <string name="allow_remote_control_intents_summary_on">Las aplicaciones externas pueden cambiar el estado de los túneles (avanzado)</string>
     <string name="allow_remote_control_intents_title">Permitir aplicaciones de control remoto</string>
     <string name="allowed_ips">IPs permitidas</string>
-    <string name="bad_config_context">%1$s de %2$s</string>
+    <string name="bad_config_context">%2$s de %1$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%1$s en %2$s</string>
-    <string name="bad_config_explanation_pka">: Debe ser positivo y no más de 65535</string>
+    <string name="bad_config_explanation_pka">: 0–65535</string>
     <string name="bad_config_explanation_positive_number">: Debe ser positivo</string>
     <string name="bad_config_explanation_udp_port">: Debe ser un número válido de puerto UDP</string>
     <string name="bad_config_reason_invalid_key">Clave inválida</string>
@@ -136,7 +136,7 @@
     <string name="key_length_error">Longitud de clave incorrecta</string>
     <string name="key_length_explanation_base64">Las claves base64 de WireGuard deben tener 44 caracteres (32 bytes)</string>
     <string name="key_length_explanation_binary">: Las claves WireGuard deben tener 32 bytes</string>
-    <string name="key_length_explanation_hex">: Las claves hexadecimales de Wirex deben tener 64 caracteres (32 bytes)</string>
+    <string name="key_length_explanation_hex">: Las claves hexadecimales de WireGuard deben tener 64 caracteres (32 bytes)</string>
     <string name="latest_handshake">Última comunicación</string>
     <string name="listen_port">Puerto de escucha</string>
     <string name="log_export_error">No se pudo exportar el registro: %s</string>
@@ -185,8 +185,8 @@
     <string name="quick_settings_tile_add_summary">El acceso directo de mosaico alterna al túnel más reciente</string>
     <string name="quick_settings_tile_add_failure">No se puede agregar el título del acceso directo: error %d</string>
     <string name="quick_settings_tile_action">Alternar túnel</string>
-    <string name="restore_on_boot_summary_off">No mostrará túneles habilitados al arrancar</string>
-    <string name="restore_on_boot_summary_on">Mostrará túneles habilitados al arrancar</string>
+    <string name="restore_on_boot_summary_off">Los túneles previamente activos no se activarán al arrancar.</string>
+    <string name="restore_on_boot_summary_on">Los túneles previamente activos se activarán al arrancar.</string>
     <string name="restore_on_boot_title">Restaurar al arrancar</string>
     <string name="save">Guardar</string>
     <string name="select_all">Seleccionar todo</string>
@@ -226,7 +226,7 @@
     <string name="tunnel_dns_failure">No se puede resolver el nombre de host DNS: “%s”</string>
     <string name="tunnel_rename_error">No se puede renombrar túnel: %s</string>
     <string name="tunnel_rename_success">Túnel renombrado con éxito a “%s”</string>
-    <string name="type_name_go_userspace">Ir al espacio de usuario</string>
+    <string name="type_name_go_userspace">Espacio de usuario Go</string>
     <string name="type_name_kernel_module">Módulo Kernel</string>
     <string name="unknown_error">Error desconocido</string>
     <string name="version_summary">%1$s backend %2$s</string>

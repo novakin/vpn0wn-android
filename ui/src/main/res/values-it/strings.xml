@@ -67,7 +67,7 @@
     <string name="bad_config_context">%2$s di %1$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%1$s in %2$s</string>
-    <string name="bad_config_explanation_pka">: deve essere positivo e non maggiore di 65535</string>
+    <string name="bad_config_explanation_pka">: 0–65535</string>
     <string name="bad_config_explanation_positive_number">: deve essere positivo</string>
     <string name="bad_config_explanation_udp_port">: deve essere un numero di porta UDP valido</string>
     <string name="bad_config_reason_invalid_key">Chiave non valida</string>
@@ -185,8 +185,8 @@
     <string name="quick_settings_tile_add_summary">La scorciatoia attiva/disattiva il tunnel più recente</string>
     <string name="quick_settings_tile_add_failure">Impossibile aggiungere la scorciatoia: errore %d</string>
     <string name="quick_settings_tile_action">Attiva/disattiva tunnel</string>
-    <string name="restore_on_boot_summary_off">Non attiverà i tunnel configurati all\'avvio</string>
-    <string name="restore_on_boot_summary_on">Attiverà i tunnel configurati all\'avvio</string>
+    <string name="restore_on_boot_summary_off">I tunnel precedentemente attivi non saranno riattivati all’avvio.</string>
+    <string name="restore_on_boot_summary_on">I tunnel precedentemente attivi saranno riattivati all’avvio.</string>
     <string name="restore_on_boot_title">Ripristina all\'avvio</string>
     <string name="save">Salva</string>
     <string name="select_all">Seleziona tutto</string>

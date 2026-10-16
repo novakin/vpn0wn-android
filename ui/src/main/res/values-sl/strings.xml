@@ -93,7 +93,7 @@
     <string name="bad_config_context">%1$s-ov %2$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%1$s v %2$s</string>
-    <string name="bad_config_explanation_pka">: Mora biti pozitivno in ne večje od 65535</string>
+    <string name="bad_config_explanation_pka">: 0–65535</string>
     <string name="bad_config_explanation_positive_number">: Mora biti pozitivno</string>
     <string name="bad_config_explanation_udp_port">: Mora biti veljavna številka vrat UDP</string>
     <string name="bad_config_reason_invalid_key">Neveljaven ključ</string>
@@ -263,7 +263,7 @@
     <string name="vpn_start_error">Storitve Android VPN ni bilo mogoče zagnati</string>
     <string name="zip_export_error">Tunelov ni bilo mogoče izvoziti: %s</string>
     <string name="zip_export_success">Shranjeno v „%s“</string>
-    <string name="zip_export_summary">Datoteka zip je bila shranjena v mapo Prenosi</string>
+    <string name="zip_export_summary">Datoteka zip bo shranjena v mapo Prenosi</string>
     <string name="zip_export_title">Izvozi tunele v datoteko zip</string>
     <string name="biometric_prompt_zip_exporter_title">Za izvoz tunelov se prijavite</string>
     <string name="biometric_prompt_private_key_title">Za ogled zasebnega ključa se prijavite</string>

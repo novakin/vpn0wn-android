@@ -19,7 +19,7 @@
     <string name="applications">Sovellukset</string>
     <string name="allowed_ips">Sallitut IP-osoitteet</string>
     <string name="bad_config_context_top_level">%s</string>
-    <string name="bad_config_explanation_pka">: Oltava positiivinen ja enintään 65535</string>
+    <string name="bad_config_explanation_pka">: 0–65535</string>
     <string name="bad_config_explanation_positive_number">: Oltava positiivinen</string>
     <string name="bad_config_explanation_udp_port">: Oltava kelvollinen UDP portin numero</string>
     <string name="bad_config_reason_invalid_key">Virheellinen avain</string>
@@ -59,9 +59,9 @@
     <string name="import_success">Tuotu ”%s”</string>
     <string name="key_contents_error">Virheellinen merkki avaimessa</string>
     <string name="key_length_error">Virheellinen avaimen pituus</string>
-    <string name="key_length_explanation_base64">: WireGuardin base64-avainten pituus on oltava 44 merkkiä (32 tavua)</string>
+    <string name="key_length_explanation_base64">: WireGuardin base64-avainten pituuden on oltava 44 merkkiä (32 tavua)</string>
     <string name="key_length_explanation_binary">: WireGuard-avainten on oltava 32 tavua</string>
-    <string name="key_length_explanation_hex">: WireGuardin base64-avainten pituus on oltava 64 merkkiä (32 tavua)</string>
+    <string name="key_length_explanation_hex">: WireGuardin heksadesimaaliavainten pituuden on oltava 64 merkkiä (32 tavua)</string>
     <string name="listen_port">Kuuntele porttia</string>
     <string name="log_viewer_title">Loki</string>
     <string name="module_installer_error">Jokin meni pieleen. Yritä uudelleen</string>

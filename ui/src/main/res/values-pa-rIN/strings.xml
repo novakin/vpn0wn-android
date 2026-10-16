@@ -67,14 +67,14 @@
     <string name="bad_config_context">%1$s ਦੇ %2$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%2$s ਵਿੱਚ %1$s</string>
-    <string name="bad_config_explanation_pka">: ਧਨਾਤਮਕ ਅਤੇ 65535 ਤੋਂ ਘੱਟ ਹੋਣਾ ਚਾਹੀਦਾ ਹੈ</string>
+    <string name="bad_config_explanation_pka">: 0–65535</string>
     <string name="bad_config_explanation_positive_number">: ਧਨਾਤਮਕ ਹੋਣਾ ਚਾਹੀਦਾ ਹੈ</string>
     <string name="bad_config_explanation_udp_port">: ਢੁੱਕਵਾਂ UDP ਪੋਰਟ ਨੰਬਰ ਹੋਣਾ ਚਾਹੀਦਾ ਹੈ</string>
     <string name="bad_config_reason_invalid_key">ਗ਼ੈਰਵਾਜਬ ਕੁੰਜੀ</string>
     <string name="bad_config_reason_invalid_number">ਗ਼ੈਰਵਾਜਬ ਨੰਬਰ</string>
     <string name="bad_config_reason_invalid_value">ਗ਼ੈਰਵਾਜਬ ਮੁੱਲ</string>
     <string name="bad_config_reason_missing_attribute">ਨਾ-ਮੌਜੂਦ ਗੁਣ</string>
-    <string name="bad_config_reason_missing_section">ਨਾ-ਮੌਜੂਦ ਚੋਣ</string>
+    <string name="bad_config_reason_missing_section">ਨਾ-ਮੌਜੂਦ ਭਾਗ</string>
     <string name="bad_config_reason_syntax_error">ਸੰਟੈਕਸ ਗ਼ਲਤੀ</string>
     <string name="bad_config_reason_unknown_attribute">ਅਣਪਛਾਤਾ ਗੁਣ</string>
     <string name="bad_config_reason_unknown_section">ਅਣਪਛਾਤਾ ਭਾਗ</string>
@@ -226,7 +226,7 @@
     <string name="tunnel_dns_failure">DNS ਹੋਸਟ-ਨਾਂ ਹੱਲ ਕਰਨ ਲਈ ਅਸਮਰੱਥ: “%s”</string>
     <string name="tunnel_rename_error">ਟਨਲ ਨਾਂ-ਬਦਲਣ ਲਈ ਅਸਮਰੱਥ: %s</string>
     <string name="tunnel_rename_success">ਟਨਲ ਦਾ ਨਾਂ \"%s\" ਵਜੋਂ ਕਾਮਯਾਬੀ ਨਾਲ ਬਦਲਿਆ ਗਿਆ</string>
-    <string name="type_name_go_userspace">ਵਰਤੋਂ-ਸਪੇਸ ਤੇ ਜਾਓ</string>
+    <string name="type_name_go_userspace">Go userspace</string>
     <string name="type_name_kernel_module">ਕਰਨਲ ਮੋਡੀਊਲ</string>
     <string name="unknown_error">ਅਣਪਛਾਤੀ ਗਲਤੀ</string>
     <string name="version_summary">%1$s ਬੈਕਐਂਡ %2$s</string>
