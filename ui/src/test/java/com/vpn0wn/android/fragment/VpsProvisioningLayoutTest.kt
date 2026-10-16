@@ -267,7 +267,9 @@ class VpsProvisioningLayoutTest {
         val density = view.resources.displayMetrics.density
         assertTrue("Android action target", view.width >= 48 * density && view.height >= 48 * density)
         assertTrue("Keyboard focusable action", view.isFocusable)
-        assertTrue("Native pressed/focus feedback", view.foreground != null && view.foreground.isStateful)
+        assertTrue("Native pressed/focus feedback behind content", view.background != null && view.background.isStateful)
+        assertEquals("Feedback cannot cover content", null, view.foreground)
+        if (view is TextView) assertEquals("Shared mono font features", "ss01, zero, tnum", view.fontFeatureSettings)
         val node = view.createAccessibilityNodeInfo()
         try {
             assertEquals("Native action role", role, node.className.toString())

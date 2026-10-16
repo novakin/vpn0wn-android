@@ -10,6 +10,7 @@ import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
@@ -50,7 +51,6 @@ import com.google.android.material.snackbar.Snackbar
 import com.vpn0wn.android.R
 import com.vpn0wn.android.model.ObservableTunnel
 import com.vpn0wn.android.provisioning.VpsDeployAction
-import com.vpn0wn.android.provisioning.VpsDeployHealthCheck
 import com.vpn0wn.android.provisioning.VpsDeployServer
 import com.vpn0wn.android.provisioning.VpsDeployServerStatus
 import com.vpn0wn.android.provisioning.VpsDeployUser
@@ -65,6 +65,7 @@ import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.State
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Step
 import com.vpn0wn.android.util.vpn0wnStyle
 import com.vpn0wn.android.widget.VpsSectionHeaderLayout
+import com.vpn0wn.android.widget.VpsHealthChecksLayout
 import com.vpn0wn.android.widget.VpsCornerLayout
 import com.vpn0wn.android.widget.VpsTerminalStreamView
 import com.vpn0wn.android.widget.VpsTopologyView
@@ -90,8 +91,8 @@ class VpsProvisioningFragment : BaseFragment() {
     private val cachedMonoTypeface by lazy {
         ResourcesCompat.getFont(requireContext(), R.font.jetbrains_mono_regular) ?: Typeface.MONOSPACE
     }
-    private val cachedBoldMonoTypeface by lazy {
-        Typeface.create(cachedMonoTypeface, Typeface.BOLD)
+    private val cachedMediumMonoTypeface by lazy {
+        ResourcesCompat.getFont(requireContext(), R.font.jetbrains_mono_medium) ?: cachedMonoTypeface
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -262,6 +263,7 @@ class VpsProvisioningFragment : BaseFragment() {
             else -> R.color.vpn0wn_rule
         }
         val card = card(stroke).apply {
+            actionAccessibility(Button::class.java.name)
             setOnClickListener {
                 screen = Screen.Detail(server.id)
                 render()
@@ -274,10 +276,10 @@ class VpsProvisioningFragment : BaseFragment() {
             addView(label(str(meta.labelRes), meta.colorRes), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             addView(label("${server.provider.uppercase(Locale.ROOT)} · ${server.region.uppercase(Locale.ROOT)}"))
         })
-        body.addView(mono(server.name, 16, R.color.vpn0wn_ink, Typeface.BOLD).apply { setPadding(0, dp(8), 0, 0) })
+        body.addView(mono(server.name, 16, R.color.vpn0wn_ink).apply { setPadding(0, dp(8), 0, 0) })
         body.addView(mono(if (server.usersKnown) str(R.string.vpn0wn_server_card_summary, "${server.endpoint}:${server.port}", server.users.size, server.engine) else str(R.string.vpn0wn_server_card_summary_unknown, "${server.endpoint}:${server.port}", server.engine), 10, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(4), 0, dp(10)) })
         body.addView(metricRow(listOf(str(R.string.vpn0wn_metric_cidr) to server.cidr, str(R.string.vpn0wn_metric_uptime) to server.uptime, str(R.string.vpn0wn_metric_sync) to server.lastSync)))
-        body.addView(horizontalWrap(server.health.map { healthBadge(it) }).apply { setPadding(0, dp(10), 0, 0) })
+        body.addView(VpsHealthChecksLayout(requireContext(), server.health).apply { setPadding(0, dp(10), 0, 0) })
         railRow.addView(body, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
         card.addView(railRow)
         return card.withMargins(bottom = 10)
@@ -302,7 +304,7 @@ class VpsProvisioningFragment : BaseFragment() {
             configLine(str(R.string.vpn0wn_label_uptime), server.uptime)
             configLine(str(R.string.vpn0wn_label_last_sync), server.lastSync)
             addView(label(str(R.string.vpn0wn_checks)).apply { setPadding(dp(14), dp(10), dp(14), dp(6)) })
-            addView(horizontalWrap(server.health.map { healthBadge(it) }).apply { setPadding(dp(14), 0, dp(14), dp(10)) })
+            addView(VpsHealthChecksLayout(requireContext(), server.health).apply { setPadding(dp(14), 0, dp(14), dp(10)) })
         })
         scroll.addView(sectionHeader(2, str(R.string.vpn0wn_section_vpn_users), if (server.usersKnown) str(R.string.vpn0wn_peers_count, server.users.size) else str(R.string.vpn0wn_pending_live_data)))
         scroll.addView(panel {
@@ -511,7 +513,7 @@ class VpsProvisioningFragment : BaseFragment() {
         scroll.addView(card(user.status.colorRes).apply {
             setPadding(dp(14), dp(14), dp(14), dp(10))
             addView(label(str(user.status.labelRes), user.status.colorRes))
-            addView(mono(user.ip, 22, R.color.vpn0wn_ink, Typeface.BOLD).apply { setPadding(0, dp(8), 0, 0) })
+            addView(mono(user.ip, 22, R.color.vpn0wn_ink, medium = true).apply { setPadding(0, dp(8), 0, 0) })
             addView(mono("${user.device} · created ${user.created}", 11, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(4), 0, dp(10)) })
             addView(metricRow(listOf(str(R.string.vpn0wn_label_rx) to user.rx, str(R.string.vpn0wn_label_tx) to user.tx, str(R.string.vpn0wn_handshake) to user.handshake)))
         }.withMargins(bottom = 14))
@@ -550,7 +552,7 @@ class VpsProvisioningFragment : BaseFragment() {
         row.addView(label(sub).apply { setPadding(dp(8), 0, 0, 0) }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
         right.forEach { row.addView(it) }
         bar.addView(row)
-        bar.addView(mono(title, if (big) 26 else 18, R.color.vpn0wn_ink, Typeface.BOLD).apply { setPadding(0, dp(8), 0, 0) })
+        bar.addView(mono(title, if (big) 26 else 18, R.color.vpn0wn_ink, medium = true).apply { setPadding(0, dp(8), 0, 0) })
         bar.addView(View(requireContext()).apply { setBackgroundColor(color(R.color.vpn0wn_rule)) }, LinearLayout.LayoutParams(-1, dp(1)).apply { topMargin = dp(12) })
         return bar
     }
@@ -572,6 +574,7 @@ class VpsProvisioningFragment : BaseFragment() {
             else -> false
         }
         return TextView(requireContext()).apply {
+            setTextAppearance(R.style.Vpn0wnMonoSubText)
             id = R.id.vpn0wn_vps_bottom_action
             text = label
             typeface = monoTypeface()
@@ -579,7 +582,6 @@ class VpsProvisioningFragment : BaseFragment() {
             gravity = Gravity.CENTER
             minHeight = dp(48)
             isEnabled = canAdvance
-            actionAccessibility(Button::class.java.name)
             setTextColor(color(if (canAdvance) R.color.vpn0wn_paper else R.color.vpn0wn_ink_3))
             background = rounded(
                 when {
@@ -591,6 +593,7 @@ class VpsProvisioningFragment : BaseFragment() {
                     else -> R.color.vpn0wn_ink
                 },
             )
+            actionAccessibility(Button::class.java.name)
             setPadding(dp(13))
             setOnClickListener {
                 when {
@@ -651,6 +654,8 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun userRow(server: VpsDeployServer, user: VpsDeployUser, index: Int): View {
         val row = horizontal(Gravity.CENTER_VERTICAL).apply {
+            minimumHeight = dp(48)
+            actionAccessibility(Button::class.java.name)
             setPadding(0, 0, 0, 0)
             setOnClickListener {
                 screen = Screen.User(server.id, user.id)
@@ -675,8 +680,10 @@ class VpsProvisioningFragment : BaseFragment() {
         val grid = vertical()
         actions.chunked(2).forEach { pair ->
             val row = horizontal()
-            pair.forEach { spec ->
-                row.addView(actionTile(spec), LinearLayout.LayoutParams(0, dp(104), 1f).apply { marginEnd = dp(10) })
+            pair.forEachIndexed { index, spec ->
+                row.addView(actionTile(spec), LinearLayout.LayoutParams(0, MATCH_PARENT, 1f).apply {
+                    marginEnd = if (index < pair.lastIndex) dp(10) else 0
+                })
             }
             grid.addView(row, LinearLayout.LayoutParams(-1, WRAP_CONTENT).apply { bottomMargin = dp(10) })
         }
@@ -686,9 +693,12 @@ class VpsProvisioningFragment : BaseFragment() {
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
     private fun actionTile(spec: VpsDeployAction): View {
-        return vertical().apply {
+        val border = if (spec.colorRes == R.color.vpn0wn_ink) R.color.vpn0wn_rule else spec.colorRes
+        return card(border).apply {
             alpha = if (spec.disabled) 0.45f else 1f
-            background = rounded(R.color.vpn0wn_paper_2, spec.colorRes)
+            isEnabled = !spec.disabled
+            minimumHeight = dp(104)
+            actionAccessibility(Button::class.java.name)
             setPadding(dp(12))
             if (!spec.disabled) setOnClickListener { spec.onClick() }
             addView(ImageView(requireContext()).apply {
@@ -696,7 +706,7 @@ class VpsProvisioningFragment : BaseFragment() {
                 setColorFilter(color(spec.colorRes))
             }, LinearLayout.LayoutParams(dp(20), dp(20)))
             addView(Space(requireContext()), LinearLayout.LayoutParams(1, 0, 1f))
-            addView(mono(spec.label, 12, spec.colorRes, Typeface.BOLD))
+            addView(mono(spec.label, 12, spec.colorRes, medium = true))
             addView(mono(spec.sub, 10, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(3), 0, 0) })
         }
     }
@@ -749,6 +759,7 @@ class VpsProvisioningFragment : BaseFragment() {
                             setBackgroundColor(color(if (index <= current) R.color.vpn0wn_signal_deep else R.color.vpn0wn_rule))
                         }, LinearLayout.LayoutParams(0, dp(1), 1f))
                         addView(TextView(requireContext()).apply {
+                            setTextAppearance(R.style.Vpn0wnMonoSubText)
                             text = if (done) "✓" else (index + 1).toString().padStart(2, '0')
                             gravity = Gravity.CENTER
                             typeface = monoTypeface()
@@ -793,11 +804,11 @@ class VpsProvisioningFragment : BaseFragment() {
         return VpsSectionHeaderLayout(
             requireContext(),
             label("§${index.toString().padStart(2, '0')}", R.color.vpn0wn_rule_strong),
-            mono(title, 12, R.color.vpn0wn_ink, Typeface.BOLD).apply { setPadding(dp(8), 0, dp(8), 0) },
+            mono(title, 13, R.color.vpn0wn_ink, medium = true).apply { setPadding(dp(10), 0, dp(10), 0) },
             View(requireContext()).apply { setBackgroundColor(color(R.color.vpn0wn_rule)) },
             label(hint).apply { setPaddingRelative(dp(8), 0, 0, 0) },
         ).apply {
-            setPadding(0, dp(14), 0, dp(8))
+            setPadding(0, dp(22), 0, dp(10))
         }
     }
 
@@ -851,6 +862,7 @@ class VpsProvisioningFragment : BaseFragment() {
             setPadding(dp(14), dp(12), dp(14), dp(10))
             addView(label(title).apply { labelFor = fieldId; setPadding(0, 0, 0, dp(8)) })
             addView(EditText(requireContext()).apply {
+                setTextAppearance(R.style.Vpn0wnEditorField)
                 id = fieldId
                 setText(value)
                 this.hint = hint
@@ -884,6 +896,7 @@ class VpsProvisioningFragment : BaseFragment() {
         setPadding(dp(14), dp(8), dp(14), dp(10))
         addView(label(title).apply { labelFor = fieldId })
         addView(EditText(requireContext()).apply {
+            setTextAppearance(R.style.Vpn0wnEditorField)
             id = fieldId
             setText(value)
             this.hint = hint
@@ -912,15 +925,16 @@ class VpsProvisioningFragment : BaseFragment() {
             background = rounded(R.color.vpn0wn_paper_2, R.color.vpn0wn_rule_strong, dp(6))
             options.forEach { (key, text) ->
                 addView(TextView(requireContext()).apply {
+                    setTextAppearance(R.style.Vpn0wnMonoSubText)
                     this.text = text
                     gravity = Gravity.CENTER
                     minHeight = dp(48)
                     typeface = monoTypeface()
                     textSize = 10f
                     isSelected = key == selected
-                    actionAccessibility(RadioButton::class.java.name, key == selected)
                     setTextColor(color(if (key == selected) R.color.vpn0wn_paper else R.color.vpn0wn_ink_3))
                     background = if (key == selected) rounded(R.color.vpn0wn_ink, R.color.vpn0wn_ink, dp(6)) else null
+                    actionAccessibility(RadioButton::class.java.name, key == selected)
                     setPadding(dp(8))
                     setOnClickListener { onSelect(key) }
                     isEnabled = !provisionState.busy
@@ -934,10 +948,12 @@ class VpsProvisioningFragment : BaseFragment() {
     private fun statTile(title: String, value: String, dot: String, colorRes: Int, active: Boolean, onClick: () -> Unit): View {
         return vertical().apply {
             setBackgroundColor(color(if (active) R.color.vpn0wn_paper_3 else R.color.vpn0wn_paper_2))
+            isSelected = active
+            actionAccessibility(Button::class.java.name)
             setPadding(dp(14), dp(10), dp(14), 0)
             setOnClickListener { onClick() }
             addView(label("$dot $title".trim(), if (active) colorRes else R.color.vpn0wn_ink_3).apply { textSize = 9f })
-            addView(mono(value, 20, if (active) colorRes else R.color.vpn0wn_ink, Typeface.BOLD).apply { setPadding(0, dp(1), 0, 0) })
+            addView(mono(value, 20, if (active) colorRes else R.color.vpn0wn_ink, medium = true).apply { setPadding(0, dp(1), 0, 0) })
             addView(Space(requireContext()), LinearLayout.LayoutParams(1, 0, 1f))
             addView(View(requireContext()).apply { setBackgroundColor(if (active) color(colorRes) else Color.TRANSPARENT) }, LinearLayout.LayoutParams(-1, dp(2)))
         }
@@ -959,36 +975,6 @@ class VpsProvisioningFragment : BaseFragment() {
                     })
                 }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             }
-        }
-    }
-
-    // Local layout/drawing dimensions and paint values preserve the visual specification.
-    @Suppress("MagicNumber")
-    private fun horizontalWrap(items: List<View>): View {
-        val hsv = HorizontalScrollView(requireContext()).apply { isHorizontalScrollBarEnabled = false }
-        val row = horizontal()
-        items.forEach { row.addView(it, LinearLayout.LayoutParams(WRAP_CONTENT, dp(28)).apply { marginEnd = dp(6) }) }
-        hsv.addView(row)
-        return hsv
-    }
-
-    // Local layout/drawing dimensions and paint values preserve the visual specification.
-    @Suppress("MagicNumber")
-    private fun healthBadge(check: VpsDeployHealthCheck): View {
-        val res = when (check.ok) {
-            true -> R.color.vpn0wn_signal_deep
-            false -> R.color.vpn0wn_error
-            null -> R.color.vpn0wn_warn
-        }
-        val glyph = when (check.ok) {
-            true -> "◆"
-            false -> "✕"
-            null -> "◑"
-        }
-        return label("$glyph ${check.label}", res).apply {
-            gravity = Gravity.CENTER
-            setPadding(dp(8), 0, dp(8), 0)
-            background = rounded(R.color.vpn0wn_paper_3, res, dp(999))
         }
     }
 
@@ -1019,15 +1005,16 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun smallOutlineButton(text: String, onClick: () -> Unit): View {
         return TextView(requireContext()).apply {
+            setTextAppearance(R.style.Vpn0wnMonoSubText)
             this.text = text.uppercase(Locale.ROOT)
             gravity = Gravity.CENTER
             typeface = monoTypeface()
             textSize = 10f
             minHeight = dp(48)
-            actionAccessibility(Button::class.java.name)
             letterSpacing = 0.06f
             setTextColor(color(R.color.vpn0wn_ink_2))
             background = rounded(R.color.vpn0wn_paper_2, R.color.vpn0wn_rule_strong, dp(4))
+            actionAccessibility(Button::class.java.name)
             setPadding(dp(12), dp(7), dp(12), dp(7))
             setOnClickListener { onClick() }
         }
@@ -1037,7 +1024,7 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun rowButton(text: String, icon: Int = R.drawable.ic_vpn0wn_plus, onClick: () -> Unit): View = horizontal(Gravity.CENTER_VERTICAL).apply {
         minimumHeight = dp(48)
-        actionAccessibility(Button::class.java.name, feedbackInForeground = false)
+        actionAccessibility(Button::class.java.name)
         setPadding(dp(14), dp(12), dp(14), dp(12))
         addView(ImageView(requireContext()).apply {
             setImageDrawable(AppCompatResources.getDrawable(requireContext(), icon))
@@ -1060,11 +1047,17 @@ class VpsProvisioningFragment : BaseFragment() {
         layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
     }
 
-    private fun View.actionAccessibility(role: String, checked: Boolean? = null, feedbackInForeground: Boolean = true) {
+    private fun View.actionAccessibility(role: String, checked: Boolean? = null) {
         isFocusable = true
         context.withStyledAttributes(attrs = intArrayOf(android.R.attr.selectableItemBackground)) {
             val feedback = getDrawable(0)
-            if (feedbackInForeground) foreground = feedback else background = feedback
+            val surface = background
+            foreground = null
+            background = if (surface != null && feedback != null) {
+                LayerDrawable(arrayOf(surface, feedback))
+            } else {
+                feedback ?: surface
+            }
         }
         accessibilityDelegate = object : View.AccessibilityDelegate() {
             override fun onInitializeAccessibilityNodeInfo(host: View, info: AccessibilityNodeInfo) {
@@ -1119,24 +1112,17 @@ class VpsProvisioningFragment : BaseFragment() {
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
     private fun label(text: String, colorRes: Int = R.color.vpn0wn_ink_3): TextView = TextView(requireContext()).apply {
+        setTextAppearance(R.style.Vpn0wnLabelText)
         this.text = text.uppercase(Locale.ROOT)
-        typeface = monoTypeface()
-        textSize = 10f
-        letterSpacing = 0.08f
         setTextColor(color(colorRes))
-        includeFontPadding = false
     }
 
-    private fun mono(text: String, size: Int, colorRes: Int, style: Int = Typeface.NORMAL): TextView = TextView(requireContext()).apply {
+    private fun mono(text: String, size: Int, colorRes: Int, medium: Boolean = false): TextView = TextView(requireContext()).apply {
+        setTextAppearance(R.style.Vpn0wnMonoValueText)
         this.text = text
-        typeface = when (style) {
-            Typeface.NORMAL -> monoTypeface()
-            Typeface.BOLD -> cachedBoldMonoTypeface
-            else -> Typeface.create(monoTypeface(), style)
-        }
+        typeface = if (medium) cachedMediumMonoTypeface else monoTypeface()
         textSize = size.toFloat()
         setTextColor(color(colorRes))
-        includeFontPadding = false
     }
 
     private fun View.withMargins(left: Int = 0, top: Int = 0, right: Int = 0, bottom: Int = 0): View = apply {
