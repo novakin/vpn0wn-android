@@ -170,6 +170,11 @@ class VpsProvisioningLayoutTest {
                     val add = text(root, activity.getString(R.string.vpn0wn_add_server).removePrefix("+ ").trim())
                     assertTrue("Enabled Add label has readable contrast", ColorUtils.calculateContrast(
                         add.currentTextColor, activity.getColor(R.color.vpn0wn_paper)) >= 4.5)
+                    val filterTile = clickableAncestor(text(root, activity.getString(R.string.vpn0wn_filter_all).uppercase(Locale.ROOT)))
+                    for (value in descendants(filterTile).filterIsInstance<TextView>()) {
+                        assertTextFits(value)
+                        assertInside(value, filterTile)
+                    }
                     assertEquals("Localized fleet icon names", setOf(activity.getString(R.string.vpn0wn_navigate_back),
                         activity.getString(R.string.vpn0wn_logs_title), activity.getString(R.string.settings)),
                         descendants(root).filterIsInstance<ImageButton>().map { it.contentDescription.toString() }.toSet())

@@ -243,7 +243,7 @@ class VpsProvisioningFragment : BaseFragment() {
                     filter = if (filter == status) null else status
                     render()
                 },
-                LinearLayout.LayoutParams(0, dp(62), 1f),
+                LinearLayout.LayoutParams(0, MATCH_PARENT, 1f),
             )
         }
         return vertical().apply {
@@ -951,6 +951,7 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun statTile(title: String, value: String, dot: String, colorRes: Int, active: Boolean, onClick: () -> Unit): View {
         return vertical().apply {
+            minimumHeight = dp(62)
             setBackgroundColor(color(if (active) R.color.vpn0wn_paper_3 else R.color.vpn0wn_paper_2))
             isSelected = active
             actionAccessibility(Button::class.java.name)
