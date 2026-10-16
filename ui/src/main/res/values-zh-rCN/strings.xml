@@ -54,7 +54,7 @@
     <string name="bad_config_context">%1$s 的 %2$s 字段</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">在 %2$s发生了%1$s的问题</string>
-    <string name="bad_config_explanation_pka">：必须为不超过 65535 的正整数</string>
+    <string name="bad_config_explanation_pka">: 0–65535</string>
     <string name="bad_config_explanation_positive_number">：必须为正整数</string>
     <string name="bad_config_explanation_udp_port">：必须为有效的 UDP 端口号</string>
     <string name="bad_config_reason_invalid_key">密钥无效</string>
@@ -137,7 +137,7 @@
     <string name="logcat_error">无法运行 logcat： </string>
     <string name="module_enabler_disabled_summary">内核模块（实验性）能够增强性能，启用时需谨慎</string>
     <string name="module_enabler_disabled_title">启用内核模块</string>
-    <string name="module_enabler_enabled_summary">用户空间的模块性能较弱，但稳定性更好</string>
+    <string name="module_enabler_enabled_summary">较慢的用户空间后端可能提高稳定性</string>
     <string name="module_enabler_enabled_title">停用内核模块</string>
     <string name="module_installer_error">发生错误，请重试</string>
     <string name="module_installer_initial">使用内核模块可以提升性能（实验性）</string>
@@ -182,7 +182,7 @@
     <string name="shell_marker_count_error">Shell 应获取 4 个标记，获取到 %d 个</string>
     <string name="shell_start_error">Shell 启动失败：%d</string>
     <string name="success_application_will_restart">成功，应用即将重启…</string>
-    <string name="toggle_all">全选</string>
+    <string name="toggle_all">全选/取消全选</string>
     <string name="toggle_error">切换隧道状态时出错：%s</string>
     <string name="tools_installer_already">wg 与 wg-quick 已安装</string>
     <string name="tools_installer_failure">无法安装命令行工具（尚未获取 root 权限？）</string>

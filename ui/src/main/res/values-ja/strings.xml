@@ -54,7 +54,7 @@
     <string name="bad_config_context">%1$s の %2$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%2$s 中の %1$s</string>
-    <string name="bad_config_explanation_pka">: 65535未満の正の整数を指定してください</string>
+    <string name="bad_config_explanation_pka">: 0 以上 65535 以下の整数を指定してください (0 はキープアライブを無効化)</string>
     <string name="bad_config_explanation_positive_number">: 正の整数を指定してください</string>
     <string name="bad_config_explanation_udp_port">: 有効な UDP ポート番号を指定してください</string>
     <string name="bad_config_reason_invalid_key">無効な鍵</string>
@@ -137,7 +137,7 @@
     <string name="logcat_error">logcat を実行できません: </string>
     <string name="module_enabler_disabled_summary">カーネルモジュールは実験的ですがパフォーマンスが向上する可能性があります。</string>
     <string name="module_enabler_disabled_title">カーネルモジュールバックエンドの有効化</string>
-    <string name="module_enabler_enabled_summary">ユーザースペースバックエンドは低速ですが安定しています。</string>
+    <string name="module_enabler_enabled_summary">低速なユーザースペースバックエンドにより安定性が向上する可能性があります。</string>
     <string name="module_enabler_enabled_title">カーネルモジュールバックエンドの無効化</string>
     <string name="module_installer_error">失敗しました. 再度実行してみてください</string>
     <string name="module_installer_initial">実験的カーネルモジュールはパフォーマンスが向上する場合があります</string>

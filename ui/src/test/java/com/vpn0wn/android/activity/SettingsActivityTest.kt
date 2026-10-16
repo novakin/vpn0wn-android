@@ -5,6 +5,7 @@ import android.app.assist.AssistStructure
 import android.content.Context
 import android.content.ComponentName
 import android.content.RestrictionsManager
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.Icon
@@ -14,6 +15,7 @@ import android.view.View
 import android.view.ViewStructure
 import android.widget.TextView
 import android.widget.ImageView
+import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -350,7 +352,6 @@ class SettingsActivityTest {
     @Test @Config(sdk = [33]) fun loadingMembershipDoesNotExposeSetupUntilItsFirstValue() = runTest {
         val env = environment()
         UserKnobs.setQuickTileAdded(true)
-        val activity = openSettings()
         val dataStore = com.vpn0wn.android.Application.getPreferencesDataStore()
         val loaded = CompletableDeferred<Unit>()
         val delayedStore = object : DataStore<Preferences> by dataStore {
@@ -359,7 +360,7 @@ class SettingsActivityTest {
                 emitAll(dataStore.data)
             }
         }
-        setApplicationField(env, "preferencesDataStore", delayedStore)
+        val activity = openSettings { setApplicationField(env, "preferencesDataStore", delayedStore) }
         runCurrent()
         assertFalse(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
         loaded.complete(Unit)
@@ -370,12 +371,11 @@ class SettingsActivityTest {
 
     @Test @Config(sdk = [33]) fun unavailableMembershipKeepsSetupHiddenWithoutWritingAbsence() = runTest {
         val env = environment()
-        val activity = openSettings()
         val dataStore = com.vpn0wn.android.Application.getPreferencesDataStore()
         val unavailableStore = object : DataStore<Preferences> by dataStore {
             override val data = flow<Preferences> { throw IOException("fixture unavailable") }
         }
-        setApplicationField(env, "preferencesDataStore", unavailableStore)
+        val activity = openSettings { setApplicationField(env, "preferencesDataStore", unavailableStore) }
         settle(activity)
         assertFalse(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
         setApplicationField(env, "preferencesDataStore", dataStore)
@@ -385,7 +385,6 @@ class SettingsActivityTest {
     @Test @Config(sdk = [33]) fun membershipReadFailureAfterLoadedRemovalHidesTheAvailableRow() = runTest {
         val env = environment()
         UserKnobs.setQuickTileAdded(false)
-        val activity = openSettings()
         val dataStore = com.vpn0wn.android.Application.getPreferencesDataStore()
         val failRead = CompletableDeferred<Unit>()
         val failingStore = object : DataStore<Preferences> by dataStore {
@@ -395,7 +394,7 @@ class SettingsActivityTest {
                 throw IOException("fixture unavailable")
             }
         }
-        setApplicationField(env, "preferencesDataStore", failingStore)
+        val activity = openSettings { setApplicationField(env, "preferencesDataStore", failingStore) }
         settle(activity)
         val tile = fragment(activity).findPreference<Preference>("quick_tile")!!
         assertTrue(tile.isVisible)
@@ -542,6 +541,35 @@ class SettingsActivityTest {
     }
 
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun inflatedPreferenceAndHeaderPreserveTheirFontRolesInBothSystemModes() = runTest {
+        environment()
+        for (mode in listOf("notnight", "night")) {
+            RuntimeEnvironment.setQualifiers("en-$mode")
+            val activity = openSettings()
+            settle(activity)
+            val expectedMode = if (mode == "night") Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO
+            assertEquals("$mode effective activity mode", expectedMode,
+                activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)
+            val preference = fragment(activity).findPreference<Preference>("system_vpn_settings")!!
+            val row = activity.layoutInflater.inflate(R.layout.vpn0wn_preference_item, fragment(activity).listView, false)
+            preference.onBindViewHolder(PreferenceViewHolder.createInstanceForTests(row))
+            val title = row.findViewById<TextView>(android.R.id.title)
+            val summary = row.findViewById<TextView>(android.R.id.summary)
+            val header = textViews(activity.findViewById(R.id.settings_root)).single {
+                it.text == activity.getString(R.string.vpn0wn_settings_title)
+            }
+
+            assertTrue(title.text.isNotEmpty())
+            assertTrue(summary.text.isNotEmpty())
+            assertEquals("$mode preference title", requireNotNull(ResourcesCompat.getFont(activity, R.font.inter_tight)), title.typeface)
+            assertEquals("$mode preference summary", requireNotNull(ResourcesCompat.getFont(activity, R.font.jetbrains_mono_regular)), summary.typeface)
+            assertEquals("$mode styled header", requireNotNull(ResourcesCompat.getFont(activity, R.font.jetbrains_mono_medium)), header.typeface)
+            assertFalse(summary.paint.isFakeBoldText)
+            assertFalse(header.paint.isFakeBoldText)
+        }
+    }
+
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun renderedSmallPortraitLandscapeAndLargeFontRtlStayUsableInBothThemes() = runTest {
         environment()
         val cases = listOf(
@@ -613,18 +641,20 @@ class SettingsActivityTest {
         return testEnvironment
     }
 
-    private fun openSettings(): SettingsActivity {
+    private fun openSettings(beforeStart: () -> Unit = {}): SettingsActivity {
         val controller = Robolectric.buildActivity(SettingsActivity::class.java)
         controllers += controller
         controller.get().setTheme(R.style.AppTheme)
-        controller.setup()
+        controller.create()
+        controller.get().supportFragmentManager.executePendingTransactions()
+        beforeStart()
+        controller.start().postCreate(null).resume().visible().topActivityResumed(true)
         controller.get().supportFragmentManager.executePendingTransactions()
         return controller.get()
     }
 
     private suspend fun TestScope.openSettingsWithLoadedMembership(): SettingsActivity {
         val dataStore = com.vpn0wn.android.Application.getPreferencesDataStore()
-        val activity = openSettings()
         val membershipLoaded = CompletableDeferred<Unit>()
         val observingStore = object : DataStore<Preferences> by dataStore {
             override val data = flow {
@@ -634,7 +664,8 @@ class SettingsActivityTest {
                 }
             }
         }
-        setApplicationField(testEnvironment, "preferencesDataStore", observingStore)
+        val activity = openSettings { setApplicationField(testEnvironment, "preferencesDataStore", observingStore) }
+        runCurrent()
         settle(activity)
         membershipLoaded.await()
         runCurrent()

@@ -64,10 +64,10 @@
     <string name="allow_remote_control_intents_summary_on">Οι εξωτερικές εφαρμογές θα μπορούν να αλλάζουν την κατάσταση των tunnel (για προχωρημένους)</string>
     <string name="allow_remote_control_intents_title">Επιτρέψτε τον έλεγχο από άλλες εφαρμογές</string>
     <string name="allowed_ips">Επιτρεπόμενες IP</string>
-    <string name="bad_config_context">%1$s του %2$s</string>
+    <string name="bad_config_context">%2$s του %1$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%1$s στο %2$s</string>
-    <string name="bad_config_explanation_pka">: Πρέπει να είναι θετικό και μικρότερο από 65535</string>
+    <string name="bad_config_explanation_pka">: Πρέπει να είναι από 0 έως 65535 (το 0 απενεργοποιεί το keepalive)</string>
     <string name="bad_config_explanation_positive_number">: Πρέπει να είναι θετικό</string>
     <string name="bad_config_explanation_udp_port">: Πρέπει να είναι έγκυρος αριθμός θύρας UDP</string>
     <string name="bad_config_reason_invalid_key">Μη έγκυρο κλειδί</string>

@@ -67,7 +67,7 @@
     <string name="bad_config_context">%1$s sin %2$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%1$s i %2$s</string>
-    <string name="bad_config_explanation_pka">: Må være positiv og ikke mer enn 65535</string>
+    <string name="bad_config_explanation_pka">: 0–65535</string>
     <string name="bad_config_explanation_positive_number">: Må være positiv</string>
     <string name="bad_config_explanation_udp_port">: Må være et gyldig UDP portnummer</string>
     <string name="bad_config_reason_invalid_key">Ugyldig tegn</string>
@@ -173,7 +173,7 @@
     <string name="parse_error_integer">nummer</string>
     <string name="parse_error_reason">Kan ikke tolke %1$s “%2$s”</string>
     <string name="peer">Partner</string>
-    <string name="permission_description">kontroller WireGuard-tunneler, aktiver og deaktiver dem. Kan potensielt ta ned internett-tilgangen</string>
+    <string name="permission_description">kontrollere WireGuard-tunneler, aktivere og deaktivere dem etter ønske, og potensielt omdirigere internettrafikken feil</string>
     <string name="permission_label">kontroller WireGuard-tunneler</string>
     <string name="persistent_keepalive">Send keepalive-pakker</string>
     <string name="pre_shared_key">Forhåndsdelt nøkkel</string>
@@ -226,7 +226,7 @@
     <string name="tunnel_dns_failure">Kan ikke slå opp DNS-vertsnavn: “%s\"</string>
     <string name="tunnel_rename_error">Kan ikke endre navn på tunnel: %s</string>
     <string name="tunnel_rename_success">Endret navn på tunnelen til «%s»</string>
-    <string name="type_name_go_userspace">Bruk userspace</string>
+    <string name="type_name_go_userspace">Go userspace</string>
     <string name="type_name_kernel_module">Kjernemodul</string>
     <string name="unknown_error">Ukjent feil</string>
     <string name="version_summary">%1$s backend %2$s</string>

@@ -89,7 +89,7 @@
     <string name="bad_config_context">%1$s\'s %2$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%1$s in %2$s</string>
-    <string name="bad_config_explanation_pka">: Must be positive and no more than 65535</string>
+    <string name="bad_config_explanation_pka">: Must be between 0 and 65535 (0 disables keepalive)</string>
     <string name="bad_config_explanation_positive_number">: Must be positive</string>
     <string name="bad_config_explanation_udp_port">: Must be a valid UDP port number</string>
     <string name="bad_config_reason_invalid_key">Invalid key</string>
@@ -339,7 +339,7 @@
     <string name="vpn0wn_server_fleet">server fleet</string>
     <string name="vpn0wn_self_hosted">SELF-HOSTED</string>
     <string name="vpn0wn_no_servers">NO SERVERS</string>
-    <string name="vpn0wn_no_servers_summary">No live server records are connected yet. Add a server once SSH provisioning is wired to create the first managed VPS.</string>
+    <string name="vpn0wn_no_servers_summary">No servers match this view. Add a server to verify SSH access and review a deployment plan.</string>
     <string name="vpn0wn_no_peers_yet">NO PEERS YET</string>
     <string name="vpn0wn_filter_all">ALL</string>
     <string name="vpn0wn_metric_cidr">CIDR</string>
@@ -363,10 +363,10 @@
     <string name="vpn0wn_hint_remote">REMOTE</string>
     <string name="vpn0wn_action_repair">repair</string>
     <string name="vpn0wn_action_repair_sub">sync + restart</string>
-    <string name="vpn0wn_repair_queued">Repair command queued</string>
+    <string name="vpn0wn_repair_queued">Repair is unavailable. No repair command was queued.</string>
     <string name="vpn0wn_action_backup">backup</string>
     <string name="vpn0wn_action_backup_sub">export config</string>
-    <string name="vpn0wn_backup_exported">Backup exported</string>
+    <string name="vpn0wn_backup_exported">Server backup is unavailable. No backup was exported.</string>
     <string name="vpn0wn_action_terminal">terminal</string>
     <string name="vpn0wn_action_terminal_sub">dry-run output</string>
     <string name="vpn0wn_action_uninstall">uninstall</string>
@@ -457,7 +457,7 @@
     <string name="vpn0wn_apply_install_button">Install</string>
     <string name="vpn0wn_apply_confirmation">Install on %1$s@%2$s:%3$d?\nSSH fingerprint: %4$s\nVPN endpoint: %5$s:%6$s\nSubnet: %7$s\nDNS: %8$s\n\nThis installs WireGuard packages, enables forwarding and starts the VPN service. No existing configuration will be overwritten. Cancellation cannot undo an admitted remote operation.</string>
     <string name="vpn0wn_apply_running_note">Installing or checking actual server state. Cancellation closes this connection; a remote operation may continue and require reconciliation.</string>
-    <string name="vpn0wn_apply_verified">Installation returned successfully and the running configuration was observed. This does not prove a working client connection. User profiles are not available yet.</string>
+    <string name="vpn0wn_apply_verified">Installation returned successfully and the running configuration was observed. This does not prove a working client connection. Create a VPN user to retain a device profile.</string>
     <string name="vpn0wn_apply_observed">The configuration was observed and saved after reconciliation. The earlier installation outcome remains unverified. No installation was retried.</string>
     <string name="vpn0wn_apply_uncertain">A previous installation requires reconciliation. Do not retry. If no matching configuration can be observed, inspect the server through a trusted administrator.</string>
     <string name="vpn0wn_apply_failed">Installation failed. Check the recovery result and reconcile the server before another operation. Package or forwarding changes may remain.</string>
@@ -588,7 +588,7 @@
     <string name="vpn0wn_user_name">PEER NAME</string>
     <string name="vpn0wn_user_name_hint">phone</string>
     <string name="vpn0wn_user_name_invalid">Use 1–32 letters (a–z, A–Z), digits, underscores or hyphens, without spaces.</string>
-    <string name="vpn0wn_user_create_note">Create one peer on this server and save its private profile encrypted on this device. Review the server identity and routing before creation. QR and export remain unavailable.</string>
+    <string name="vpn0wn_user_create_note">Create one peer on this server and save its private profile encrypted on this device. Review the server identity and routing before creation. Profile access requires authentication and fresh server verification.</string>
     <string name="vpn0wn_user_review">Review VPN user</string>
     <string name="vpn0wn_user_confirm_create">Create user</string>
     <string name="vpn0wn_user_confirmation">Create %1$s on %2$s@%3$s:%4$d?\nSSH fingerprint: %5$s\nServer public key: %6$s\nAllowed routes: %7$s\nDNS: %8$s\n\nThe private profile will be retained encrypted on this device. This does not import a tunnel. Cancellation cannot undo a remote create already admitted. An uncertain attempt must be checked before another create.</string>
@@ -598,7 +598,7 @@
     <string name="vpn0wn_user_unsaved">The server returned a private profile, but encrypted retention is unconfirmed. Check this attempt again to retry local retention; do not create the user again. Closing Servers or restarting the app can lose the unsaved copy.</string>
     <string name="vpn0wn_user_add_uncertain">Creation outcome is uncertain. Check this attempt again; do not create the user again. Server status alone cannot recover a lost private profile.</string>
     <string name="vpn0wn_user_add_pending">A previous create needs reconciliation. Check that attempt before creating another user. A lost private response cannot be rebuilt from server status.</string>
-    <string name="vpn0wn_user_created">User created and private profile saved encrypted on this device. Server status confirms the peer. VPN traffic is unverified. QR and export remain unavailable.</string>
+    <string name="vpn0wn_user_created">User created and private profile saved encrypted on this device. Server status confirms the peer. VPN traffic is unverified. Open the user to access the profile after authentication and fresh server verification.</string>
     <string name="vpn0wn_user_reconcile">check previous user creation</string>
     <string name="vpn0wn_peer_mutation_unavailable">Revoke and key rotation are not connected yet.</string>
 </resources>

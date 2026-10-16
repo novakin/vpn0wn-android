@@ -68,7 +68,7 @@
     <string name="bad_config_context">%1$s\'s %2$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%1$s در %2$s</string>
-    <string name="bad_config_explanation_pka">: باید مثبت و بیشتر از ۶۵۵۳۵ نباشد</string>
+    <string name="bad_config_explanation_pka">: \u20660–65535\u2069</string>
     <string name="bad_config_explanation_positive_number">: باید مثبت باشد</string>
     <string name="bad_config_explanation_udp_port">: باید یک شماره پورت UDP معتبر باشد</string>
     <string name="bad_config_reason_invalid_key">کلید نامعتبر است</string>
@@ -108,7 +108,7 @@
     <string name="tv_delete">موارد را برای حذف انتخاب کنید</string>
     <string name="tv_select_a_storage_drive">حافظه ذخیره سازی موردنظر را انتخاب کنید</string>
     <string name="tv_no_file_picker">برای مدیریت پوشه های حافظه، یک برنامه مدیریت فایل نصب کنید</string>
-    <string name="tv_add_tunnel_get_started">یک پروفایل تونل برای شروع انتخاب کنید</string>
+    <string name="tv_add_tunnel_get_started">برای شروع یک تونل اضافه کنید</string>
     <string name="disable_config_export_title">غیرفعال سازی خروجی گرفتن از پیکربندی ها</string>
     <string name="disable_config_export_description">غیرفعال سازی خروجی گرفتن، دسترسی به کلیدهای خصوصی را کم می کند</string>
     <string name="dns_servers">سرورهای DNS</string>
@@ -182,9 +182,9 @@
     <string name="private_key">کلید خصوصی</string>
     <string name="public_key">کلید عمومی</string>
     <string name="qr_code_hint">نکته: با `qrencode -t ansiutf8 &lt; tunnel.conf` تولید کنید.</string>
-    <string name="quick_settings_tile_add_title">افزودن ایکون برنامه به نوار اطلاع رسانی گوشی</string>
-    <string name="quick_settings_tile_add_summary">ایکون برنامه در نوار اطلاع رسانی، جدید ترین تونل را فعال یا غیرفعال می‌کند</string>
-    <string name="quick_settings_tile_add_failure">خطا در اضافه کردن ایکون برنامه در نوار اطلاع رسانی</string>
+    <string name="quick_settings_tile_add_title">افزودن کاشی به پنل تنظیمات سریع</string>
+    <string name="quick_settings_tile_add_summary">کاشی میان‌بر آخرین تونل استفاده‌شده را روشن یا خاموش می‌کند</string>
+    <string name="quick_settings_tile_add_failure">افزودن کاشی میان‌بر ممکن نشد: خطای %d</string>
     <string name="quick_settings_tile_action">فعال یا غیرفعال کردن تونل</string>
     <string name="restore_on_boot_summary_off">تونل های فعال در لحظه بالا آمدن سیستم، روشن نخواهند شد</string>
     <string name="restore_on_boot_summary_on">تونل های فعال در لحظه بالا آمدن سیستم، روشن خواهند شد</string>
@@ -197,7 +197,7 @@
     <string name="shell_start_error">آغاز پوسته شکست خورد: %d</string>
     <string name="success_application_will_restart">موفقیت. برنامه اکنون دوباره راه‌اندازی خواهد شد…</string>
     <string name="toggle_all">معکوس کردن همه</string>
-    <string name="toggle_error">خطا در ضامن تونل WireGuard: %s</string>
+    <string name="toggle_error">خطا در تغییر وضعیت تونل WireGuard: %s</string>
     <string name="tools_installer_already">wg و wg-quick قبلاً نصب شده اند</string>
     <string name="tools_installer_failure">ابزارهای خط-فرمان نصب نمی‌شود (روت نیستید؟)</string>
     <string name="tools_installer_initial">ابزارهای اختیاری را برای اسکریپت نویسی نصب کنید</string>
@@ -205,7 +205,7 @@
     <string name="tools_installer_initial_system">ابزارهای اختیاری را برای اسکریپت نویسی در پارتیشن سیستم نصب کنید</string>
     <string name="tools_installer_success_magisk">wg و wg-quick به عنوان پودمان Magisk نصب شدند
 ( نیاز به راه‌اندازی دوباره)</string>
-    <string name="tools_installer_success_system">wg و wg-fast در پارتیشن سیستم نصب شده است</string>
+    <string name="tools_installer_success_system">wg و wg-quick در پارتیشن سیستم نصب شده است</string>
     <string name="tools_installer_title">ابزارهای خط فرمان را نصب کنید</string>
     <string name="tools_installer_working">در حال نصب wg و wg-quick</string>
     <string name="tools_unavailable_error">ابزارهای لازم در دسترس نیست</string>
@@ -228,7 +228,7 @@
     <string name="tunnel_dns_failure">ناتوان در یافتن DNS نام میزبان: \"%s\"</string>
     <string name="tunnel_rename_error">ناتوان در تغییر نام تونل: %s</string>
     <string name="tunnel_rename_success">نام تونل با موفقیت تغییر یافت به “%s”</string>
-    <string name="type_name_go_userspace">رفتن به فضای کاربر</string>
+    <string name="type_name_go_userspace">فضای کاربر Go</string>
     <string name="type_name_kernel_module">واحد هسته</string>
     <string name="unknown_error">خطای نامشخص</string>
     <string name="version_summary">%1$s بک اند %2$s</string>

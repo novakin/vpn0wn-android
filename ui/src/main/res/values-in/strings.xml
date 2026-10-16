@@ -35,7 +35,7 @@
         <item quantity="other">Aplikasi %d yang disertakan</item>
     </plurals>
     <plurals name="exclude_n_applications">
-        <item quantity="other">Aplikasi %d yang disertakan</item>
+        <item quantity="other">Kecualikan %d aplikasi</item>
     </plurals>
     <plurals name="persistent_keepalive_seconds_unit">
         <item quantity="other">setiap 10 detik</item>
@@ -54,7 +54,7 @@
     <string name="bad_config_context">%1$s %2$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%1$s di %2$s</string>
-    <string name="bad_config_explanation_pka">: Harus positif dan tidak lebih dari 65535</string>
+    <string name="bad_config_explanation_pka">: 0–65535</string>
     <string name="bad_config_explanation_positive_number">: Harus positif</string>
     <string name="bad_config_explanation_udp_port">: Harus nomor porta UDP yang sah</string>
     <string name="bad_config_reason_invalid_key">Kunci tidak sah</string>
@@ -121,9 +121,9 @@
     <string name="interface_title">Antarmuka</string>
     <string name="key_contents_error">Karakter buruk pada kunci</string>
     <string name="key_length_error">Panjang kunci salah</string>
-    <string name="key_length_explanation_base64">: Kunci WireGuard base64 harus terdiri dari 44 karakter (32 bit)</string>
-    <string name="key_length_explanation_binary">: Kunci WireGuard harus terdiri dari 32 bit</string>
-    <string name="key_length_explanation_hex">: Kunci hex WireGuard Harus terdiri dari 64 karakter (32 bit)</string>
+    <string name="key_length_explanation_base64">: Kunci WireGuard base64 harus terdiri dari 44 karakter (32 byte)</string>
+    <string name="key_length_explanation_binary">: Kunci WireGuard harus terdiri dari 32 byte</string>
+    <string name="key_length_explanation_hex">: Kunci hex WireGuard harus terdiri dari 64 karakter (32 byte)</string>
     <string name="latest_handshake">Handshake terakhir</string>
     <string name="listen_port">Isi port</string>
     <string name="log_export_error">Log tidak bisa diekspor: %s</string>
@@ -172,8 +172,8 @@
     <string name="quick_settings_tile_add_summary">Pintasan ubin mengalihkan ke tunel terbaru</string>
     <string name="quick_settings_tile_add_failure">Tidak dapat menambahkan pintasan: error %d</string>
     <string name="quick_settings_tile_action">Beralih tunel</string>
-    <string name="restore_on_boot_summary_off">Tunel yang diaktifkan tidak akan ditampilkan saat boot</string>
-    <string name="restore_on_boot_summary_on">Tunel yang diaktifkan akan dimunculkan saat boot</string>
+    <string name="restore_on_boot_summary_off">Tunel yang sebelumnya aktif tidak akan diaktifkan saat boot.</string>
+    <string name="restore_on_boot_summary_on">Tunel yang sebelumnya aktif akan diaktifkan saat boot.</string>
     <string name="restore_on_boot_title">Pulihkan saat boot</string>
     <string name="save">Simpan</string>
     <string name="select_all">Pilih semua</string>
@@ -182,7 +182,7 @@
     <string name="shell_marker_count_error">Shell diharapkan 4 nilai, diterima %d</string>
     <string name="shell_start_error">Gagal memulai shell: %d</string>
     <string name="success_application_will_restart">Berhasil. Sekarang aplikasi akan memulai ulang…</string>
-    <string name="toggle_all">Matikan semua</string>
+    <string name="toggle_all">Pilih/batalkan semua</string>
     <string name="toggle_error">Tunel WireGuard %s gagal dialihkan</string>
     <string name="tools_installer_already">wg and wg-quick sudah terpasang</string>
     <string name="tools_installer_failure">Tidak dapat memasang alat command-line (tidak root?)</string>
@@ -213,7 +213,7 @@
     <string name="tunnel_dns_failure">Tidak bisa mencari nama host DNS \"%s\"</string>
     <string name="tunnel_rename_error">Nama tunel %s tidak bisa diganti</string>
     <string name="tunnel_rename_success">Berhasil mengganti nama tunnel ke “%s”</string>
-    <string name="type_name_go_userspace">Ke userspace</string>
+    <string name="type_name_go_userspace">Userspace Go</string>
     <string name="type_name_kernel_module">Modul kernel</string>
     <string name="unknown_error">Eror tidak diketahui</string>
     <string name="version_summary">%1$s dengan v%2$s</string>

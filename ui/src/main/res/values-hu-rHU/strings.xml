@@ -9,7 +9,7 @@
     <string name="allowed_ips">Engedélyezett IP-k</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%1$s a %2$s-ben</string>
-    <string name="bad_config_explanation_pka">: Legyen pozitív szám és ne legyen több mint 65535</string>
+    <string name="bad_config_explanation_pka">: 0–65535</string>
     <string name="bad_config_explanation_positive_number">Pozitív számnak kell lennie</string>
     <string name="bad_config_explanation_udp_port">Létező UDP port számot kell megadni</string>
     <string name="bad_config_reason_invalid_key">Érvénytelen kulcs</string>
@@ -50,7 +50,7 @@
     <string name="tv_no_file_picker">Kérem installáljon egy fájlkezelőt az állományok használatához</string>
     <string name="tv_add_tunnel_get_started">Add hozzá az indításhoz az alagutat</string>
     <string name="disable_config_export_title">A konfiguráció exportálásának tiltása</string>
-    <string name="disable_config_export_description">Ha letiltja a konfiguráció exportját akkor a privát kulcsok nem lesznek hozzáférhetőek</string>
+    <string name="disable_config_export_description">A konfiguráció exportálásának letiltása kevésbé hozzáférhetővé teszi a privát kulcsokat.</string>
     <string name="dns_servers">DNS szerverek</string>
     <string name="dns_search_domains">Domain keresés</string>
     <string name="edit">Szerkesztés</string>

@@ -54,7 +54,7 @@
     <string name="bad_config_context">%1$s의 %2$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%2$s의 %1$s</string>
-    <string name="bad_config_explanation_pka">: 65535 이하의 양수여야 합니다</string>
+    <string name="bad_config_explanation_pka">: 0–65535</string>
     <string name="bad_config_explanation_positive_number">: 양수여야 합니다</string>
     <string name="bad_config_explanation_udp_port">: 올바른 UDP 포트가 아닙니다</string>
     <string name="bad_config_reason_invalid_key">잘못된 키</string>
@@ -137,7 +137,7 @@
     <string name="logcat_error">logcat을 실행할 수 없음: </string>
     <string name="module_enabler_disabled_summary">아직 실험중이 커널 모듈을 사용하면 성능이 향상될 수 있음</string>
     <string name="module_enabler_disabled_title">커널 모듈 백엔드 활성화하기</string>
-    <string name="module_enabler_enabled_summary">사용자공간 백엔드를 사용하면 느리지만 안정성이 좋아짐</string>
+    <string name="module_enabler_enabled_summary">더 느린 사용자 공간 백엔드는 안정성을 개선할 수 있습니다</string>
     <string name="module_enabler_enabled_title">커널 모듈 백엔드를 비활성화하기</string>
     <string name="module_installer_error">문제가 발생했습니다. 다시 시도하십시오</string>
     <string name="module_installer_initial">아직 실험중이 커널 모듈을 사용하면 성능이 향상될 수 있음</string>

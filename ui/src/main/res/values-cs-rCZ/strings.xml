@@ -93,7 +93,7 @@
     <string name="bad_config_context">%2$s položky %1$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%1$s v %2$s</string>
-    <string name="bad_config_explanation_pka">: Musí být kladný a maximálně 65535</string>
+    <string name="bad_config_explanation_pka">: 0–65535</string>
     <string name="bad_config_explanation_positive_number">: Musí být kladný</string>
     <string name="bad_config_explanation_udp_port">: Musí být platné číslo UDP portu</string>
     <string name="bad_config_reason_invalid_key">Neplatný klíč</string>
@@ -252,7 +252,7 @@
     <string name="tunnel_dns_failure">Nelze vyřešit DNS hostname: „%s“</string>
     <string name="tunnel_rename_error">Nelze přejmenovat tunel: %s</string>
     <string name="tunnel_rename_success">Tunel byl úspěšně přejmenován na „%s“</string>
-    <string name="type_name_go_userspace">Přejít do uživatelského prostoru</string>
+    <string name="type_name_go_userspace">Uživatelský prostor Go</string>
     <string name="type_name_kernel_module">Modul jádra</string>
     <string name="unknown_error">Neznámá chyba</string>
     <string name="version_summary">%1$s backend %2$s</string>
@@ -290,10 +290,14 @@
     <string name="vpn0wn_selection_status_count">%1$d Z %2$d VYBRÁNO</string>
     <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d VYBRÁNO</item>
+        <item quantity="few">%d VYBRÁNO</item>
+        <item quantity="many">%d VYBRÁNO</item>
         <item quantity="other">%d VYBRÁNO</item>
     </plurals>
     <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">smazat %d tunel?</item>
+        <item quantity="few">smazat %d tunely?</item>
+        <item quantity="many">smazat %d tunelů?</item>
         <item quantity="other">smazat %d tunelů?</item>
     </plurals>
 </resources>

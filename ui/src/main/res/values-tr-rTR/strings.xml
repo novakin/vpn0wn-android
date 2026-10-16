@@ -67,7 +67,7 @@
     <string name="bad_config_context">%1$s - %2$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%2$s içinde %1$s</string>
-    <string name="bad_config_explanation_pka">: Pozitif olmalı ve 65535\'ten fazla olmamalıdır</string>
+    <string name="bad_config_explanation_pka">: 0–65535</string>
     <string name="bad_config_explanation_positive_number">: Pozitif olmalıdır</string>
     <string name="bad_config_explanation_udp_port">: Geçerli bir UDP port numarası olmalıdır</string>
     <string name="bad_config_reason_invalid_key">Geçersiz anahtar</string>
@@ -222,7 +222,7 @@
     <string name="tunnel_error_invalid_name">Geçersiz isim</string>
     <string name="tunnel_list_placeholder">Aşağıdaki düğmeyi kullanarak tünel ekleyebilirsiniz</string>
     <string name="tunnel_name">Tünel adı</string>
-    <string name="tunnel_on_error">Tünel açılamadı (wgTornOn %d döndürdü)</string>
+    <string name="tunnel_on_error">Tünel açılamadı (wgTurnOn %d döndürdü)</string>
     <string name="tunnel_dns_failure">DNS ana makinesi çözülemedi: \"%s\"</string>
     <string name="tunnel_rename_error">Tünel yeniden adlandırılamadı: %s</string>
     <string name="tunnel_rename_success">Tünelin adı “%s” olarak değiştirildi</string>

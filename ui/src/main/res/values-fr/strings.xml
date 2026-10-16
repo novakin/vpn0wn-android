@@ -1,6 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Modified for vpn0wn. -->
 <resources>
+    <string name="app_data_transfer_export_title">Exporter les données de l’application</string>
+    <string name="app_data_transfer_export_summary">Profils, paramètres et serveurs enregistrés. Le ZIP contient des clés privées ; gardez-le confidentiel.</string>
+    <string name="app_data_transfer_export_success">ZIP de transfert privé enregistré : %1$s</string>
+    <string name="app_data_transfer_auth_title">Exporter les données privées de l’application</string>
+    <string name="app_data_transfer_import_title">Importer les données de l’application</string>
+    <string name="app_data_transfer_import_summary">Restaurer un ZIP de transfert complet sans remplacer les profils ni les serveurs existants.</string>
+    <string name="app_data_transfer_confirm_title">Importer les données de l’application ?</string>
+    <string name="app_data_transfer_confirm_message">Profils : %1$d. Serveurs enregistrés : %2$d. Les paramètres seront aussi importés. Ils peuvent activer le contrôle à distance et la restauration au démarrage. Les nouveaux profils restent désactivés. Des données différentes portant un nom de profil ou un identifiant de serveur existant seront refusées. Le choix du backend noyau et les autorisations Android restent inchangés.</string>
+    <string name="app_data_transfer_import_success">Données de l’application importées : %1$d nouveaux profils</string>
+    <string name="app_data_transfer_error">Échec du transfert des données de l’application. Vérifiez le ZIP, l’espace de stockage disponible et les données existantes. Aucun profil existant n’a été remplacé.</string>
+    <string name="app_data_transfer_recovery_error">Échec de l’importation ; certains nouveaux profils n’ont pas pu être supprimés. Vérifiez la liste des tunnels avant de réessayer ; les profils existants ont été préservés.</string>
+    <string name="app_data_transfer_use_settings">Pour ce ZIP de transfert complet, utilisez Paramètres → Importer les données de l’application.</string>
+    <plurals name="n_tunnels">
+        <item quantity="one">CONFIGURÉS : %1$d · ACTIFS : %2$d</item>
+        <item quantity="other">CONFIGURÉS : %1$d · ACTIFS : %2$d</item>
+    </plurals>
+    <string name="peers">pairs</string>
+    <plurals name="n_peers">
+        <item quantity="one">%d CONFIGURÉ</item>
+        <item quantity="other">%d CONFIGURÉS</item>
+    </plurals>
+    <string name="refresh">Actualiser</string>
+    <string name="search">Rechercher</string>
     <plurals name="delete_error">
         <item quantity="one">Impossible de supprimer %d tunnel : %s</item>
         <item quantity="other">Impossible de supprimer %d tunnels : %s</item>
@@ -50,7 +73,7 @@
     </plurals>
     <plurals name="persistent_keepalive_seconds_unit">
         <item quantity="one">chaque seconde</item>
-        <item quantity="other">tous les %d secondes</item>
+        <item quantity="other">toutes les %d secondes</item>
     </plurals>
     <plurals name="persistent_keepalive_seconds_suffix">
         <item quantity="one">seconde</item>
@@ -64,10 +87,10 @@
     <string name="allow_remote_control_intents_summary_on">Les applications externes peuvent activer les tunnels (avancés)</string>
     <string name="allow_remote_control_intents_title">Autoriser les applications de contrôle à distance</string>
     <string name="allowed_ips">Adresses IP autorisées</string>
-    <string name="bad_config_context">%1$s de %2$s</string>
+    <string name="bad_config_context">%2$s de %1$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%1$s dans %2$s</string>
-    <string name="bad_config_explanation_pka">: Doit être positif et ne pas dépasser 65535</string>
+    <string name="bad_config_explanation_pka">: Doit être compris entre 0 et 65535 (0 désactive le keepalive)</string>
     <string name="bad_config_explanation_positive_number">: Doit être positif</string>
     <string name="bad_config_explanation_udp_port">: Doit être un numéro de port UDP valide</string>
     <string name="bad_config_reason_invalid_key">Clef invalide</string>
@@ -206,8 +229,8 @@
     <string name="quick_settings_tile_add_summary">Cette bascule active le dernier tunnel utilisé</string>
     <string name="quick_settings_tile_add_failure">Impossible d\'ajouter la bascule : erreur %d</string>
     <string name="quick_settings_tile_action">Activer le tunnel</string>
-    <string name="restore_on_boot_summary_off">N\'affichera pas les tunnels activés au démarrage</string>
-    <string name="restore_on_boot_summary_on">Les tunnels activés seront affichés au démarrage</string>
+    <string name="restore_on_boot_summary_off">Les tunnels précédemment actifs ne seront pas réactivés au démarrage.</string>
+    <string name="restore_on_boot_summary_on">Les tunnels précédemment actifs seront réactivés au démarrage.</string>
     <string name="restore_on_boot_title">Restaurer au démarrage</string>
     <string name="save">Enregistrer</string>
     <string name="vpn0wn_editor_create">CRÉATION · MANUELLE</string>
@@ -233,11 +256,11 @@
     <string name="tools_unavailable_error">Outils requis indisponibles</string>
     <string name="transfer">Données transférées</string>
     <string name="transfer_bytes">%d Octets</string>
-    <string name="transfer_gibibytes">%.2f Go</string>
-    <string name="transfer_kibibytes">%.2f Ko</string>
-    <string name="transfer_mibibytes">%.2f Mo</string>
+    <string name="transfer_gibibytes">%.2f Gio</string>
+    <string name="transfer_kibibytes">%.2f Kio</string>
+    <string name="transfer_mibibytes">%.2f Mio</string>
     <string name="transfer_rx_tx">rx: %1$s, tx: %2$s</string>
-    <string name="transfer_tibibytes">%.2f To</string>
+    <string name="transfer_tibibytes">%.2f Tio</string>
     <string name="tun_create_error">Impossible de créer le périphérique tun</string>
     <string name="tunnel_config_error">Impossible de configurer le tunnel (wg-quick a retourné %d)</string>
     <string name="tunnel_create_error">Impossible de créer le tunnel : %s</string>
@@ -310,7 +333,7 @@
     <string name="vpn0wn_server_fleet">parc serveur</string>
     <string name="vpn0wn_self_hosted">AUTO-HÉBERGÉ</string>
     <string name="vpn0wn_no_servers">AUCUN SERVEUR</string>
-    <string name="vpn0wn_no_servers_summary">Aucun enregistrement serveur réel n’est connecté. Ajoutez un serveur quand le provisioning SSH sera relié pour créer le premier VPS géré.</string>
+    <string name="vpn0wn_no_servers_summary">Aucun serveur ne correspond à cette vue. Ajoutez un serveur pour vérifier l’accès SSH et consulter un plan de déploiement.</string>
     <string name="vpn0wn_no_peers_yet">AUCUN PAIR POUR L’INSTANT</string>
     <string name="vpn0wn_filter_all">TOUS</string>
     <string name="vpn0wn_metric_cidr">CIDR</string>
@@ -334,10 +357,10 @@
     <string name="vpn0wn_hint_remote">DISTANT</string>
     <string name="vpn0wn_action_repair">réparer</string>
     <string name="vpn0wn_action_repair_sub">sync + redémarrage</string>
-    <string name="vpn0wn_repair_queued">Commande de réparation ajoutée</string>
+    <string name="vpn0wn_repair_queued">Réparation indisponible. Aucune commande de réparation n’a été ajoutée.</string>
     <string name="vpn0wn_action_backup">sauvegarde</string>
     <string name="vpn0wn_action_backup_sub">exporter config</string>
-    <string name="vpn0wn_backup_exported">Sauvegarde exportée</string>
+    <string name="vpn0wn_backup_exported">Sauvegarde serveur indisponible. Aucune sauvegarde n’a été exportée.</string>
     <string name="vpn0wn_action_terminal">terminal</string>
     <string name="vpn0wn_action_terminal_sub">sortie dry-run</string>
     <string name="vpn0wn_action_uninstall">désinstaller</string>
@@ -426,9 +449,9 @@
     <string name="vpn0wn_apply_current_record_required">L’installation nécessite une fiche enregistrée pour le serveur actuel. Relancez la détection, vérifiez le résultat de l’enregistrement, puis générez un nouveau plan.</string>
     <string name="vpn0wn_close_connection">fermer la connexion</string>
     <string name="vpn0wn_apply_install_button">Installer</string>
-    <string name="vpn0wn_apply_confirmation">Installer sur %1$s@%2$s:%3$d ?\nEmpreinte SSH : %4$s\nPoint de terminaison VPN : %5$s:%6$s\nSous-réseau : %7$s\nDNS : %8$s\n\nCette opération installe les paquets WireGuard, active le transfert IP et démarre le service VPN. Aucune configuration existante ne sera remplacée. Annuler ne peut pas interrompre une opération distante déjà admise.</string>
+    <string name="vpn0wn_apply_confirmation">Installer sur %1$s@%2$s:%3$d ?\nEmpreinte SSH : %4$s\nPoint de terminaison VPN : %5$s:%6$s\nSous-réseau : %7$s\nDNS : %8$s\n\nCette opération installe les paquets WireGuard, active le transfert IP et démarre le service VPN. Aucune configuration existante ne sera remplacée. L’annulation ne peut pas annuler les effets d’une opération distante déjà admise.</string>
     <string name="vpn0wn_apply_running_note">Installation ou vérification de l’état réel du serveur. Annuler ferme cette connexion ; une opération distante peut continuer et nécessiter une vérification.</string>
-    <string name="vpn0wn_apply_verified">L’installation a réussi et la configuration active a été observée. Cela ne prouve pas la connexion d’un client. Les profils utilisateur ne sont pas encore disponibles.</string>
+    <string name="vpn0wn_apply_verified">L’installation a réussi et la configuration active a été observée. Cela ne prouve pas la connexion d’un client. Créez un utilisateur VPN pour conserver un profil sur cet appareil.</string>
     <string name="vpn0wn_apply_observed">La configuration a été observée et enregistrée après vérification. Le résultat de l’installation précédente reste inconnu. Aucune installation n’a été relancée.</string>
     <string name="vpn0wn_apply_uncertain">Une installation précédente doit être vérifiée. Ne la relancez pas. Si aucune configuration correspondante ne peut être observée, faites inspecter le serveur par un administrateur de confiance.</string>
     <string name="vpn0wn_apply_failed">L’installation a échoué. Consultez le résultat de récupération et vérifiez le serveur avant une nouvelle opération. Des modifications de paquets ou du transfert IP peuvent subsister.</string>
@@ -556,17 +579,17 @@
     <string name="vpn0wn_user_name">NOM DU PAIR</string>
     <string name="vpn0wn_user_name_hint">telephone</string>
     <string name="vpn0wn_user_name_invalid">Utilisez 1 à 32 lettres (a–z, A–Z), chiffres, tirets ou tirets bas, sans espaces.</string>
-    <string name="vpn0wn_user_create_note">Créez un pair sur ce serveur et conservez son profil privé chiffré sur cet appareil. Vérifiez l’identité du serveur et le routage avant la création. QR et export restent indisponibles.</string>
+    <string name="vpn0wn_user_create_note">Créez un pair sur ce serveur et conservez son profil privé chiffré sur cet appareil. Vérifiez l’identité du serveur et le routage avant la création. L’accès au profil nécessite une authentification et une nouvelle vérification du serveur.</string>
     <string name="vpn0wn_user_review">Vérifier l’utilisateur VPN</string>
     <string name="vpn0wn_user_confirm_create">Créer l’utilisateur</string>
-    <string name="vpn0wn_user_confirmation">Créer %1$s sur %2$s@%3$s:%4$d ?\nEmpreinte SSH : %5$s\nClé publique du serveur : %6$s\nRoutes autorisées : %7$s\nDNS : %8$s\n\nLe profil privé sera conservé chiffré sur cet appareil. Aucun tunnel ne sera importé. Annuler ne peut pas interrompre une création distante déjà admise. Une tentative incertaine doit être vérifiée avant toute nouvelle création.</string>
+    <string name="vpn0wn_user_confirmation">Créer %1$s sur %2$s@%3$s:%4$d ?\nEmpreinte SSH : %5$s\nClé publique du serveur : %6$s\nRoutes autorisées : %7$s\nDNS : %8$s\n\nLe profil privé sera conservé chiffré sur cet appareil. Aucun tunnel ne sera importé. L’annulation ne peut pas annuler les effets d’une création distante déjà admise. Une tentative incertaine doit être vérifiée avant toute nouvelle création.</string>
     <string name="vpn0wn_user_identity_required">Actualisez l’état du serveur pour confirmer son identité WireGuard avant de créer un utilisateur. Une réponse sans identité confirmée ne permet pas la création.</string>
     <string name="vpn0wn_user_creating">Création en cours. Le profil privé et l’état final du serveur ne sont pas encore confirmés.</string>
     <string name="vpn0wn_user_retained">Profil privé conservé chiffré sur cet appareil. La vérification finale du serveur reste en attente ; vérifiez à nouveau cette tentative. QR et export restent indisponibles.</string>
     <string name="vpn0wn_user_unsaved">Le serveur a renvoyé un profil privé, mais sa conservation chiffrée reste à confirmer. Vérifiez cette tentative pour réessayer la conservation locale ; ne recréez pas l’utilisateur. Fermer Serveurs ou redémarrer l’application peut faire perdre la copie non enregistrée.</string>
     <string name="vpn0wn_user_add_uncertain">Résultat de création incertain. Vérifiez cette tentative ; ne recréez pas l’utilisateur. L’état du serveur ne peut pas récupérer un profil privé perdu.</string>
     <string name="vpn0wn_user_add_pending">Une création précédente doit être vérifiée avant de créer un autre utilisateur. Une réponse privée perdue ne peut pas être reconstruite depuis l’état du serveur.</string>
-    <string name="vpn0wn_user_created">Utilisateur créé et profil privé conservé chiffré sur cet appareil. L’état du serveur confirme le pair. Le trafic VPN reste non vérifié. QR et export restent indisponibles.</string>
+    <string name="vpn0wn_user_created">Utilisateur créé et profil privé conservé chiffré sur cet appareil. L’état du serveur confirme le pair. Le trafic VPN reste non vérifié. Ouvrez l’utilisateur pour accéder au profil après authentification et nouvelle vérification du serveur.</string>
     <string name="vpn0wn_user_reconcile">vérifier la création précédente</string>
     <string name="vpn0wn_peer_mutation_unavailable">La révocation et la rotation des clés ne sont pas encore connectées.</string>
 </resources>

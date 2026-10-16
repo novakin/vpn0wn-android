@@ -67,7 +67,7 @@
     <string name="bad_config_context">%2$s da %1$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%1$s em %2$s</string>
-    <string name="bad_config_explanation_pka">: Deve ser positivo e não mais que 65535</string>
+    <string name="bad_config_explanation_pka">: 0–65535</string>
     <string name="bad_config_explanation_positive_number">: Deve ser positivo</string>
     <string name="bad_config_explanation_udp_port">: Deve ser um número de porta UDP válido</string>
     <string name="bad_config_reason_invalid_key">Chave inválida</string>
@@ -185,8 +185,8 @@
     <string name="quick_settings_tile_add_summary">A tecla de atalho alterna o túnel mais recente</string>
     <string name="quick_settings_tile_add_failure">Não foi possível adicionar o atalho de botão: erro %d</string>
     <string name="quick_settings_tile_action">Ativar/Desativar túnel</string>
-    <string name="restore_on_boot_summary_off">Não irá criar túneis habilitados na inicialização</string>
-    <string name="restore_on_boot_summary_on">Irá criar túneis habilitados na inicialização</string>
+    <string name="restore_on_boot_summary_off">Os túneis anteriormente ativos não serão ativados na inicialização.</string>
+    <string name="restore_on_boot_summary_on">Os túneis anteriormente ativos serão ativados na inicialização.</string>
     <string name="restore_on_boot_title">Restaurar na inicialização</string>
     <string name="save">Salvar</string>
     <string name="select_all">Selecionar tudo</string>
@@ -214,7 +214,7 @@
     <string name="transfer_mibibytes">%.2f MiB</string>
     <string name="transfer_rx_tx">rx: %1$s, tx: %2$s</string>
     <string name="transfer_tibibytes">%.2f TiB</string>
-    <string name="tun_create_error">Não foi possível criar o túnel: %s</string>
+    <string name="tun_create_error">Não foi possível criar o dispositivo TUN</string>
     <string name="tunnel_config_error">Não foi possível configurar o túnel (wg-quick retornou %d)</string>
     <string name="tunnel_create_error">Não foi possível criar o túnel: %s</string>
     <string name="tunnel_create_success">Túnel criado com sucesso “%s”</string>

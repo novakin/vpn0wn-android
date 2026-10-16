@@ -67,7 +67,7 @@
     <string name="bad_config_context">%1$s\'s %2$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%1$s i %2$s</string>
-    <string name="bad_config_explanation_pka">: Skal være positiv og højst 65535</string>
+    <string name="bad_config_explanation_pka">: 0–65535</string>
     <string name="bad_config_explanation_positive_number">: Skal være positiv</string>
     <string name="bad_config_explanation_udp_port">: Skal være et gyldigt UDP portnummer</string>
     <string name="bad_config_reason_invalid_key">Ugyldig nøgle</string>
@@ -151,7 +151,7 @@
     <string name="module_enabler_disabled_summary">Det eksperimentelle kerne modul kan forbedre ydeevnen</string>
     <string name="module_enabler_disabled_title">Aktiver kernemodul backend</string>
     <string name="module_enabler_enabled_summary">Det langsommere brugerområde backend kan forbedre stabiliteten</string>
-    <string name="module_enabler_enabled_title">Deaktiver Kerne Module bacnkend</string>
+    <string name="module_enabler_enabled_title">Deaktiver kernemodulets backend</string>
     <string name="module_installer_error">Noget gik galt. Forsøg venligst igen</string>
     <string name="module_installer_initial">Det eksperimentelle kerne modul kan forbedre ydeevnen</string>
     <string name="module_installer_not_found">Ingen moduler er tilgængelige for din enhed</string>
