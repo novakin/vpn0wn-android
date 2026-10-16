@@ -51,6 +51,7 @@ internal class VpsHealthChecksLayout(context: Context, checks: List<VpsDeployHea
         return TextView(context).apply {
             setTextAppearance(R.style.Vpn0wnMonoSubText)
             typeface = ResourcesCompat.getFont(context, R.font.jetbrains_mono_regular)
+            includeFontPadding = false
             text = "$glyph ${check.label}"
             letterSpacing = BADGE_LETTER_SPACING
             gravity = Gravity.CENTER

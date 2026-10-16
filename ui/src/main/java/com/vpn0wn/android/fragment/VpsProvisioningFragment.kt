@@ -1118,6 +1118,7 @@ class VpsProvisioningFragment : BaseFragment() {
     private fun label(text: String, colorRes: Int = R.color.vpn0wn_ink_3): TextView = TextView(requireContext()).apply {
         setTextAppearance(R.style.Vpn0wnLabelText)
         typeface = monoTypeface()
+        includeFontPadding = false
         this.text = text.uppercase(Locale.ROOT)
         setTextColor(color(colorRes))
     }
@@ -1126,6 +1127,7 @@ class VpsProvisioningFragment : BaseFragment() {
         setTextAppearance(R.style.Vpn0wnMonoValueText)
         this.text = text
         typeface = if (medium) cachedMediumMonoTypeface else monoTypeface()
+        includeFontPadding = false
         textSize = size.toFloat()
         setTextColor(color(colorRes))
     }

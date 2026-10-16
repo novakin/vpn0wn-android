@@ -76,12 +76,15 @@ class VpsProvisioningWorkflowTest {
     fun technicalLabelsUseBundledRegularFontAcrossSupportedApis() = runTest {
         val fixture = fixture()
         try {
+            val title = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_servers_title).lowercase(java.util.Locale.ROOT))
+            assertFalse("Existing title omits extra font padding", title.includeFontPadding)
             val add = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_add_server).removePrefix("+ ").trim())
             assertTrue(clickableAncestor(add).performClick())
             settle()
             val label = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_label_host).uppercase(java.util.Locale.ROOT))
             assertEquals("Bundled regular face", ResourcesCompat.getFont(fixture.activity, R.font.jetbrains_mono_regular), label.typeface)
             assertEquals("Shared mono features", "ss01, zero, tnum", label.fontFeatureSettings)
+            assertFalse("Existing label omits extra font padding", label.includeFontPadding)
             assertTrue(fixture.peer.connections.isEmpty())
         } finally {
             fixture.close()

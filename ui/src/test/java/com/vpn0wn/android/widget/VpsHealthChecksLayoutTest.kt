@@ -94,6 +94,7 @@ class VpsHealthChecksLayoutTest {
         assertEquals("Status palette", ContextCompat.getColor(badge.context, colorRes), badge.currentTextColor)
         assertEquals("Real regular font", ResourcesCompat.getFont(badge.context, R.font.jetbrains_mono_regular), badge.typeface)
         assertEquals("Shared mono features", "ss01, zero, tnum", badge.fontFeatureSettings)
+        assertFalse("Shared label omits extra font padding", badge.includeFontPadding)
         assertEquals("Badge tracking", 0.05f, badge.letterSpacing, 0f)
         assertFalse("Read-only check", badge.isClickable || badge.isFocusable)
         assertTrue("Inside horizontal padding", badge.left >= parent.paddingLeft && badge.right <= parent.width - parent.paddingRight)
