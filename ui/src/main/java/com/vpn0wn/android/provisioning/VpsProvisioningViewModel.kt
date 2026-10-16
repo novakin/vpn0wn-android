@@ -39,7 +39,7 @@ class VpsProvisioningViewModel internal constructor(
     enum class Problem { INVALID_INPUT, CONNECTION_FAILED, INVALID_RESPONSE, ACCESS_MISSING, CONNECTION_CHANGED, STORAGE_FAILED, STORAGE_CONFLICT, CANCELLED, INSTALL_FAILED, INSTALL_PENDING }
     enum class Installation { NONE, RUNNING, INSTALLED, OBSERVED, UNCERTAIN }
 
-    data class InstallConfirmation(val plan: VpsPlanResult, val ssh: VpsEndpoint, val fingerprint: String)
+    data class InstallConfirmation(val plan: VpsPlanResult, val ssh: VpsEndpoint, val fingerprint: String, val server: StoredVpsServer)
 
     data class Draft(
         val host: String = "",
@@ -85,6 +85,7 @@ class VpsProvisioningViewModel internal constructor(
     var draft = Draft()
         private set
     private var server: StoredVpsServer? = null
+    private var persistedDetection: StoredVpsServer? = null
     private var newServerId = UUID.randomUUID().toString()
     private var verifiedEndpoint: VpsEndpoint? = null
     private var verifiedFingerprint: String? = null
@@ -92,10 +93,15 @@ class VpsProvisioningViewModel internal constructor(
     private var operation: Job? = null
     private var installConfirmation: InstallConfirmation? = null
 
-    val canInstall: Boolean get() = !mutableState.value.busy && mutableState.value.active &&
-        mutableState.value.step == Step.APPLY && mutableState.value.detect?.configExists == false &&
-        mutableState.value.plan?.willOverwriteConfig == false && !mutableState.value.pendingInstall &&
-        mutableState.value.installation == Installation.NONE && server != null && verifiedEndpoint != null
+    val canInstall: Boolean get() {
+        val expected = persistedDetection ?: return false
+        return !mutableState.value.busy && mutableState.value.active &&
+            mutableState.value.step == Step.APPLY && mutableState.value.detect?.configExists == false &&
+            mutableState.value.plan?.willOverwriteConfig == false && !mutableState.value.pendingInstall &&
+            mutableState.value.installation == Installation.NONE && server == expected &&
+            mutableState.value.serverId == expected.id && verifiedFingerprint != null &&
+            verifiedEndpoint == VpsEndpoint(expected.host, expected.sshPort, expected.sshUser)
+    }
 
     fun retainCurrentServers(servers: List<StoredVpsServer>) {
         val current = servers.associateBy { it.id }
@@ -241,25 +247,28 @@ class VpsProvisioningViewModel internal constructor(
 
     fun requestInstallConfirmation(): InstallConfirmation? {
         if (!canInstall) return null
-        return InstallConfirmation(requireNotNull(mutableState.value.plan), requireNotNull(verifiedEndpoint), requireNotNull(verifiedFingerprint))
+        return InstallConfirmation(requireNotNull(mutableState.value.plan), requireNotNull(verifiedEndpoint),
+            requireNotNull(verifiedFingerprint), requireNotNull(persistedDetection))
             .also { installConfirmation = it }
     }
 
     fun confirmInstall(confirmation: InstallConfirmation): Job? {
-        if (!canInstall || installConfirmation !== confirmation || mutableState.value.plan !== confirmation.plan) return null
+        if (!canInstall || installConfirmation !== confirmation || mutableState.value.plan !== confirmation.plan ||
+            server != confirmation.server || persistedDetection != confirmation.server) return null
         installConfirmation = null
         return operate {
-            val expected = requireNotNull(server)
+            val expected = confirmation.server
             val connection = connection() ?: return@operate
             try {
-                if (connection.endpoint != confirmation.ssh || connection.hostKeyFingerprint != confirmation.fingerprint)
-                    throw VpsServerStore.ServerChangedException()
+                requireInstallTarget(confirmation, connection)
                 val request = installRequest()
                 if (!matches(confirmation.plan, request)) throw invalidInput()
                 val result = client.install(connection, request) {
+                    currentCoroutineContext().ensureActive()
+                    requireInstallTarget(confirmation, connection)
                     // Persist admission before the remote command; cancellation cannot erase an uncertain mutation.
                     withContext(NonCancellable) {
-                        admitInstall(expected, request)
+                        admitInstall(expected, connection.endpoint, request)
                         mutableState.value = mutableState.value.copy(pendingInstall = true, installation = Installation.RUNNING, recovery = null)
                     }
                     currentCoroutineContext().ensureActive()
@@ -281,9 +290,18 @@ class VpsProvisioningViewModel internal constructor(
         }
     }
 
-    private suspend fun admitInstall(expected: StoredVpsServer, request: VpsInstallRequest) {
+    private fun requireInstallTarget(confirmation: InstallConfirmation, connection: VpsConnection) {
+        val expected = confirmation.server
+        val endpoint = VpsEndpoint(expected.host, expected.sshPort, expected.sshUser)
+        if (server != expected || persistedDetection != expected || mutableState.value.plan !== confirmation.plan ||
+            connection.endpoint != endpoint || connection.endpoint != confirmation.ssh || connection.endpoint != verifiedEndpoint ||
+            connection.hostKeyFingerprint != confirmation.fingerprint || connection.hostKeyFingerprint != verifiedFingerprint)
+            throw VpsServerStore.ServerChangedException()
+    }
+
+    private suspend fun admitInstall(expected: StoredVpsServer, target: VpsEndpoint, request: VpsInstallRequest) {
         try {
-            store.admitInstall(expected, request)
+            store.admitInstall(expected, target, request)
         } catch (failure: IOException) {
             mutableState.value = mutableState.value.copy(pendingInstall = true, installation = Installation.UNCERTAIN)
             throw failure
@@ -514,6 +532,7 @@ class VpsProvisioningViewModel internal constructor(
             try {
                 store.upsert(record)
                 server = record
+                persistedDetection = record
                 mutableState.value = mutableState.value.copy(savedAccess = SavedAccess.METADATA_ONLY)
                 if (!reuseSavedAccess)
                     store.saveCredential(record, requireNotNull(connection.hostKeyFingerprint), connection.credential)
@@ -532,6 +551,7 @@ class VpsProvisioningViewModel internal constructor(
 
     private fun invalidateVerification() {
         installConfirmation = null
+        persistedDetection = null
         verifiedEndpoint = null
         verifiedFingerprint = null
     }

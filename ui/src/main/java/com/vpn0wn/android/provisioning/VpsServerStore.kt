@@ -115,13 +115,16 @@ class VpsServerStore internal constructor(
     }
 
     suspend fun pendingInstall(expected: StoredVpsServer): PendingVpsInstall? = mutate {
-        requireCurrent(expected)
-        PendingVpsInstall.decode(dataStore.data.first()[PENDING_INSTALLS].orEmpty()).firstOrNull { it.matches(expected) }
+        val preferences = dataStore.data.first()
+        val servers = decodeServersForMutation(preferences[SERVERS].orEmpty())
+        if (servers.singleOrNull { it.id == expected.id } != expected) throw ServerChangedException()
+        PendingVpsInstall.decode(preferences[PENDING_INSTALLS].orEmpty()).firstOrNull { it.matches(expected) }
     }
 
-    suspend fun admitInstall(expected: StoredVpsServer, request: VpsInstallRequest): PendingVpsInstall = mutate {
+    suspend fun admitInstall(expected: StoredVpsServer, target: VpsEndpoint, request: VpsInstallRequest): PendingVpsInstall = mutate {
         require(!request.force)
-        val attempt = PendingVpsInstall(expected.id, VpsEndpoint(expected.host, expected.sshPort, expected.sshUser), request)
+        if (target != VpsEndpoint(expected.host, expected.sshPort, expected.sshUser)) throw ServerChangedException()
+        val attempt = PendingVpsInstall(expected.id, target, request)
         dataStore.edit { preferences ->
             val servers = decodeServersForMutation(preferences[SERVERS].orEmpty())
             if (servers.singleOrNull { it.id == expected.id } != expected) throw ServerChangedException()

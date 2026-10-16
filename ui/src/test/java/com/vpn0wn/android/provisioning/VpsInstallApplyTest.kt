@@ -330,6 +330,171 @@ class VpsInstallApplyTest {
         assertNotNull(store.pendingInstall(store.servers.first().single()))
     }
 
+    @Test fun failedSaveOfChangedSshTargetPreservesReadOnlyResultsButCannotAdmitAnotherServer() = runTest {
+        val model = planned()
+        val original = store.servers.first().single()
+        model.edit(model.draft.copy(host = "203.0.113.9", fingerprint = replacementPin()))
+        requireNotNull(model.detect()).join()
+        assertNotNull(model.state.value.detect)
+        assertEquals(Problem.STORAGE_CONFLICT, model.state.value.problem)
+        assertEquals("203.0.113.9", model.draft.endpoint)
+        assertEquals(original, store.servers.first().single())
+        peer.planRequest = peer.planRequest.copy(endpoint = "203.0.113.9")
+        requireNotNull(model.plan()).join()
+        model.reviewApply()
+        assertEquals("203.0.113.9", model.state.value.plan?.endpoint)
+        assertFalse(model.canInstall)
+        assertNull(model.requestInstallConfirmation())
+        assertFalse(peer.commands.any(::isInstall))
+        assertTrue(pendingAttempts().isEmpty())
+    }
+
+    @Test fun failedMetadataSaveOnAnExistingTargetCannotReuseItsPreviousAdmissionEligibility() = runTest {
+        var rejectWrites = false
+        val failingPreferences = object : DataStore<Preferences> {
+            override val data = preferences.data
+            override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences {
+                if (rejectWrites) throw IOException("synthetic-save-failure")
+                return preferences.updateData(transform)
+            }
+        }
+        val failingStore = VpsServerStore(failingPreferences, credentialFileForTest(File(folder.root, "metadata-failure-credentials")))
+        val model = planned(failingStore)
+        val original = failingStore.servers.first().single()
+        rejectWrites = true
+        requireNotNull(model.detect()).join()
+        assertEquals(Problem.STORAGE_FAILED, model.state.value.problem)
+        assertNotNull(model.state.value.detect)
+        requireNotNull(model.plan()).join()
+        model.reviewApply()
+        assertNotNull(model.state.value.plan)
+        assertFalse(model.canInstall)
+        assertNull(model.requestInstallConfirmation())
+        assertEquals(original, failingStore.servers.first().single())
+        assertFalse(peer.commands.any(::isInstall))
+        assertTrue(pendingAttempts().isEmpty())
+    }
+
+    @Test fun storeAdmissionRejectsAnActualSshTargetDifferentFromItsExpectedRecord() = runTest {
+        planned()
+        val original = store.servers.first().single()
+        var rejected = false
+        try {
+            store.admitInstall(original, VpsEndpoint("203.0.113.9", original.sshPort, original.sshUser), peer.planRequest)
+        } catch (_: VpsServerStore.ServerChangedException) {
+            rejected = true
+        }
+        assertTrue(rejected)
+        assertTrue(pendingAttempts().isEmpty())
+        assertEquals(original, store.servers.first().single())
+    }
+
+    @Test fun successfulAdmissionBindsConfirmedRecordLiveSshPinAndRequestToOneTarget() = runTest {
+        val model = planned()
+        val confirmation = requireNotNull(model.requestInstallConfirmation())
+        peer.blockInstall = CompletableDeferred()
+        val operation = requireNotNull(model.confirmInstall(confirmation))
+        peer.installEntered.await()
+        val pending = pendingAttempts().single()
+        val live = peer.connections.last()
+        assertEquals(confirmation.server.id, pending.serverId)
+        assertEquals(VpsEndpoint(confirmation.server.host, confirmation.server.sshPort, confirmation.server.sshUser), pending.ssh)
+        assertEquals(confirmation.ssh, pending.ssh)
+        assertEquals(live.endpoint, pending.ssh)
+        assertEquals(confirmation.fingerprint, live.hostKeyFingerprint)
+        assertEquals(peer.planRequest, pending.request)
+        peer.blockInstall!!.complete(Unit)
+        operation.join()
+        assertEquals(Installation.INSTALLED, model.state.value.installation)
+        assertEquals(confirmation.server.host, store.servers.first().single().host)
+        assertTrue(pendingAttempts().isEmpty())
+    }
+
+    @Test fun removedRecordDuringInstallStatusSettlesAsConnectionChanged() = runTest {
+        changeRecordDuringStatus(remove = true, reconcile = false)
+    }
+
+    @Test fun replacedSshRecordDuringInstallStatusSettlesAsConnectionChanged() = runTest {
+        changeRecordDuringStatus(remove = false, reconcile = false)
+    }
+
+    @Test fun removedRecordDuringReconciliationStatusSettlesAsConnectionChanged() = runTest {
+        changeRecordDuringStatus(remove = true, reconcile = true)
+    }
+
+    @Test fun replacedSshRecordDuringReconciliationStatusSettlesAsConnectionChanged() = runTest {
+        changeRecordDuringStatus(remove = false, reconcile = true)
+    }
+
+    @Test fun removedRecordBeforeReconciliationLookupDoesNotEscapeOrContactTheServer() = runTest {
+        staleReconciliationLookup(remove = true)
+    }
+
+    @Test fun replacedRecordBeforeReconciliationLookupDoesNotEscapeOrContactTheServer() = runTest {
+        staleReconciliationLookup(remove = false)
+    }
+
+    private suspend fun changeRecordDuringStatus(remove: Boolean, reconcile: Boolean) {
+        val model = planned()
+        val original = store.servers.first().single()
+        val operation = if (reconcile) {
+            peer.installFailure = ProvisioningException("lost reply")
+            apply(model).join()
+            peer.installFailure = null
+            peer.blockStatus = CompletableDeferred()
+            requireNotNull(model.reconcileInstall())
+        } else {
+            peer.blockStatus = CompletableDeferred()
+            apply(model)
+        }
+        peer.statusEntered.await()
+        changeRecord(original, remove)
+        peer.blockStatus!!.complete(Unit)
+        operation.join()
+        assertChangedInstallation(model, original, remove)
+        assertEquals(4, peer.closes.get())
+        assertTrue((peer.connections.last().credential as VpsCredential.Password).value.all { it == '\u0000' })
+    }
+
+    private suspend fun staleReconciliationLookup(remove: Boolean) {
+        val model = planned()
+        val original = store.servers.first().single()
+        peer.installFailure = ProvisioningException("lost reply")
+        apply(model).join()
+        changeRecord(original, remove)
+        val connections = peer.connections.size
+        requireNotNull(model.reconcileInstall()).join()
+        assertChangedInstallation(model, original, remove)
+        assertEquals(connections, peer.connections.size)
+    }
+
+    private suspend fun changeRecord(original: StoredVpsServer, remove: Boolean) {
+        if (remove) {
+            store.remove(original.id)
+        } else {
+            store.clearCredential(original.id)
+            store.upsert(original.copy(host = "203.0.113.9"))
+        }
+    }
+
+    private suspend fun assertChangedInstallation(model: VpsProvisioningViewModel, original: StoredVpsServer, removed: Boolean) {
+        assertEquals(Problem.CONNECTION_CHANGED, model.state.value.problem)
+        assertEquals(Installation.UNCERTAIN, model.state.value.installation)
+        assertFalse(model.state.value.busy)
+        assertTrue(model.state.value.pendingInstall)
+        assertTrue(model.state.value.statusSnapshots.isEmpty())
+        val pending = pendingAttempts().single()
+        assertEquals(original.id, pending.serverId)
+        assertEquals(original.host, pending.ssh.host)
+        if (removed) assertTrue(store.servers.first().isEmpty())
+        else assertEquals(original.copy(host = "203.0.113.9"), store.servers.first().single())
+    }
+
+    private suspend fun pendingAttempts(): List<PendingVpsInstall> =
+        PendingVpsInstall.decode(preferences.data.first()[stringPreferencesKey("vps_pending_installs")].orEmpty())
+
+    private fun replacementPin(): String = "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(ByteArray(32) { (it + 1).toByte() })
+
     private fun model(serverStore: VpsServerStore = store): VpsProvisioningViewModel = VpsProvisioningViewModel(
         ApplicationProvider.getApplicationContext(), serverStore, peer, { OBSERVED_AT },
     ).also { model ->
