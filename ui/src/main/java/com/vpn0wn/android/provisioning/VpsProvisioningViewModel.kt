@@ -31,16 +31,21 @@ class VpsProvisioningViewModel internal constructor(
     private val store: VpsServerStore,
     factory: RemoteShellClientFactory,
     private val nowEpochSeconds: () -> Long = { TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()) },
+    private val profiles: VpsUserProfileStore = VpsUserProfileStore(application),
 ) : AndroidViewModel(application) {
-    constructor(application: Application) : this(application, Vpn0wnApplication.getVpsServerStore(), JschRemoteShellClientFactory())
+    constructor(application: Application) : this(application, Vpn0wnApplication.getVpsServerStore(), JschRemoteShellClientFactory(),
+        profiles = Vpn0wnApplication.getVpsUserProfileStore())
 
     enum class Step { SSH, DETECT, PLAN, APPLY }
     enum class AuthMode { KEY, PASSWORD }
     enum class SavedAccess { NONE, SAVED, METADATA_ONLY, UNKNOWN, CLEARED }
-    enum class Problem { INVALID_INPUT, CONNECTION_FAILED, INVALID_RESPONSE, ACCESS_MISSING, CONNECTION_CHANGED, STORAGE_FAILED, STORAGE_CONFLICT, CANCELLED, INSTALL_FAILED, INSTALL_PENDING }
+    enum class Problem { INVALID_INPUT, CONNECTION_FAILED, INVALID_RESPONSE, ACCESS_MISSING, CONNECTION_CHANGED, STORAGE_FAILED, STORAGE_CONFLICT, CANCELLED, INSTALL_FAILED, INSTALL_PENDING, ADD_PENDING, IDENTITY_UNAVAILABLE }
     enum class Installation { NONE, RUNNING, INSTALLED, OBSERVED, UNCERTAIN }
+    enum class UserCreation { NONE, RUNNING, RETAINED, UNSAVED, UNCERTAIN, CREATED }
 
     data class InstallConfirmation(val plan: VpsPlanResult, val ssh: VpsEndpoint, val fingerprint: String, val server: StoredVpsServer)
+    data class AddUserConfirmation(val server: StoredVpsServer, val ssh: VpsEndpoint, val fingerprint: String,
+        val serverPublicKey: String, val request: VpsAddPeerRequest)
 
     data class Draft(
         val host: String = "",
@@ -74,6 +79,10 @@ class VpsProvisioningViewModel internal constructor(
         val pendingInstall: Boolean = false,
         val recovery: ProvisioningRecovery? = null,
         val cleanupRequired: Boolean = false,
+        val addConfirmation: AddUserConfirmation? = null,
+        val creation: UserCreation = UserCreation.NONE,
+        val pendingAdd: Boolean = false,
+        val creationOwner: StoredVpsServer? = null,
     )
 
     data class StatusSnapshot(val server: StoredVpsServer, val status: VpsServerStatus, val observedAtEpochSeconds: Long) {
@@ -93,6 +102,12 @@ class VpsProvisioningViewModel internal constructor(
     private var endpointOverridden = false
     private var operation: Job? = null
     private var installConfirmation: InstallConfirmation? = null
+    private var receivedUser: ReceivedUser? = null
+
+    private data class ReceivedUser(val confirmation: AddUserConfirmation, val attempt: PendingVpsAdd,
+        val result: VpsAddPeerResult, val profile: VpsUserProfile) {
+        override fun toString(): String = "ReceivedUser(redacted)"
+    }
 
     val canInstall: Boolean get() {
         val expected = persistedDetection ?: return false
@@ -112,7 +127,11 @@ class VpsProvisioningViewModel internal constructor(
     }
 
     fun syncStatus(savedServer: StoredVpsServer): Job? = operate(requireActive = false) {
-        mutableState.value = mutableState.value.copy(serverId = savedServer.id, savedAccess = SavedAccess.NONE)
+        mutableState.value = mutableState.value.copy(serverId = savedServer.id, savedAccess = SavedAccess.NONE,
+            pendingAdd = false, creation = UserCreation.NONE, addConfirmation = null, creationOwner = savedServer)
+        val pending = store.pendingAdd(savedServer)
+        mutableState.value = mutableState.value.copy(pendingAdd = pending != null,
+            creation = if (pending == null) UserCreation.NONE else UserCreation.UNCERTAIN)
         val connection = try {
             store.loadConnection(savedServer) ?: run {
                 mutableState.value = mutableState.value.copy(problem = Problem.ACCESS_MISSING)
@@ -129,11 +148,227 @@ class VpsProvisioningViewModel internal constructor(
             val committed = store.updateStatus(savedServer, status, observedAt)
             mutableState.value = mutableState.value.copy(
                 statusSnapshots = mutableState.value.statusSnapshots + (savedServer.id to StatusSnapshot(committed, status, observedAt)),
+                creationOwner = committed,
             )
         } finally {
             (connection.credential as? VpsCredential.Password)?.clear()
         }
     }
+
+    // Input, pending owners and stale observations have distinct admission failures.
+    @Suppress("ThrowsCount")
+    fun requestAddUserConfirmation(savedServer: StoredVpsServer, name: String): Job? = operate(requireActive = false) {
+        receivedUser?.let { retainReceivedUser(it) }
+        mutableState.value = mutableState.value.copy(serverId = savedServer.id, addConfirmation = null,
+            pendingAdd = false, creation = UserCreation.NONE, creationOwner = savedServer)
+        if (!PendingVpsAdd.NAME.matches(name) || savedServer.dns.isBlank()) throw invalidInput()
+        val snapshot = mutableState.value.statusSnapshots[savedServer.id]
+        val serverKey = snapshot?.takeIf { it.matches(savedServer) }?.status?.serverPublicKey
+        if (snapshot == null || serverKey == null) {
+            mutableState.value = mutableState.value.copy(problem = Problem.IDENTITY_UNAVAILABLE)
+            return@operate
+        }
+        if (snapshot.status.peers.any { it.name == name }) throw invalidInput()
+        if (store.pendingAdd(savedServer) != null) throw VpsServerStore.AddPendingException()
+        if (store.pendingInstall(savedServer) != null) throw VpsServerStore.InstallPendingException()
+        val connection = store.loadConnection(savedServer) ?: run {
+            mutableState.value = mutableState.value.copy(problem = Problem.ACCESS_MISSING)
+            return@operate
+        }
+        try {
+            currentCoroutineContext().ensureActive()
+            if (mutableState.value.statusSnapshots[savedServer.id] !== snapshot) throw VpsServerStore.ServerChangedException()
+            mutableState.value = mutableState.value.copy(addConfirmation = AddUserConfirmation(
+                savedServer, connection.endpoint, requireNotNull(connection.hostKeyFingerprint), serverKey,
+                VpsAddPeerRequest(name, PendingVpsAdd.DEFAULT_ROUTES, savedServer.dns),
+            ))
+        } finally {
+            (connection.credential as? VpsCredential.Password)?.clear()
+        }
+    }
+
+    fun dismissAddUserConfirmation() {
+        mutableState.value = mutableState.value.copy(addConfirmation = null)
+    }
+
+    fun confirmAddUser(confirmation: AddUserConfirmation): Job? {
+        if (mutableState.value.busy || mutableState.value.addConfirmation !== confirmation) return null
+        mutableState.value = mutableState.value.copy(addConfirmation = null)
+        return operate(requireActive = false) {
+            requireAddSnapshot(confirmation)
+            val connection = store.loadConnection(confirmation.server) ?: run {
+                mutableState.value = mutableState.value.copy(problem = Problem.ACCESS_MISSING)
+                return@operate
+            }
+            var attempt: PendingVpsAdd? = null
+            var retainedProfile: VpsUserProfile? = null
+            try {
+                requireAddConnection(confirmation, connection)
+                val result = client.addPeer(connection, confirmation.request, confirmation.serverPublicKey,
+                    onAdmitted = {
+                        withContext(Dispatchers.Main.immediate) {
+                            currentCoroutineContext().ensureActive()
+                            requireAddSnapshot(confirmation)
+                            requireAddConnection(confirmation, connection)
+                            withContext(NonCancellable) {
+                                attempt = store.admitAdd(confirmation.server, confirmation.fingerprint,
+                                    confirmation.serverPublicKey, confirmation.request)
+                                mutableState.value = mutableState.value.copy(pendingAdd = true, creation = UserCreation.RUNNING,
+                                    creationOwner = confirmation.server)
+                            }
+                            currentCoroutineContext().ensureActive()
+                        }
+                    },
+                    onReceived = { receipt ->
+                        val profile = try {
+                            VpsUserProfile.generated(confirmation.server, confirmation.serverPublicKey, confirmation.request, receipt)
+                        } catch (_: VpsUserProfileException) {
+                            throw invalidAddResponse()
+                        }
+                        retainedProfile = profile
+                        val received = ReceivedUser(confirmation, requireNotNull(attempt), receipt, profile)
+                        withContext(Dispatchers.Main.immediate) {
+                            receivedUser = received
+                            mutableState.value = mutableState.value.copy(creation = UserCreation.UNSAVED,
+                                cleanupRequired = receipt.cleanupPath.isNotEmpty(), creationOwner = null)
+                        }
+                        val owner = currentAddOwner(confirmation)
+                        withContext(Dispatchers.Main.immediate) {
+                            mutableState.value = mutableState.value.copy(creationOwner = owner)
+                        }
+                        attempt = retainReceivedUser(received)
+                    },
+                )
+                mutableState.value = mutableState.value.copy(cleanupRequired = result.cleanupPath.isNotEmpty())
+                val retained = requireNotNull(retainedProfile)
+                store.checkAddOwner(confirmation.server, confirmation.fingerprint)
+                val status = client.syncStatus(connection)
+                validateCreatedUser(requireNotNull(attempt), retained, status)
+                publishCreatedUser(confirmation.server, requireNotNull(attempt), status)
+            } catch (failure: ProvisioningException) {
+                val admitted = attempt
+                if (admitted != null && retainedProfile == null &&
+                    failure.remoteCode in REJECTED_ADD_CODES) {
+                    withContext(NonCancellable) {
+                        store.clearRejectedAdd(confirmation.server, admitted)
+                        mutableState.value = mutableState.value.copy(pendingAdd = false, creation = UserCreation.NONE)
+                    }
+                }
+                throw failure
+            } finally {
+                if (mutableState.value.pendingAdd && mutableState.value.creation == UserCreation.RUNNING)
+                    mutableState.value = mutableState.value.copy(creation = UserCreation.UNCERTAIN)
+                (connection.credential as? VpsCredential.Password)?.clear()
+            }
+        }
+    }
+
+    // A missing intent, changed access and a different observed key cannot share a retry path.
+    @Suppress("ThrowsCount")
+    fun reconcileAddUser(savedServer: StoredVpsServer): Job? = operate(requireActive = false) {
+        mutableState.value = mutableState.value.copy(serverId = savedServer.id, addConfirmation = null, creationOwner = savedServer)
+        var attempt = store.pendingAdd(savedServer) ?: throw VpsServerStore.AddPendingException()
+        mutableState.value = mutableState.value.copy(pendingAdd = true, creation = UserCreation.UNCERTAIN)
+        val receipt = receivedUser?.takeIf { it.confirmation.server.id == attempt.serverId &&
+            it.confirmation.ssh == attempt.ssh && it.confirmation.fingerprint == attempt.fingerprint &&
+            it.confirmation.serverPublicKey == attempt.serverPublicKey && it.confirmation.request == attempt.request }
+        if (receipt != null) {
+            attempt = retainReceivedUser(receipt)
+        }
+        val connection = store.loadConnection(savedServer) ?: run {
+            mutableState.value = mutableState.value.copy(problem = Problem.ACCESS_MISSING)
+            return@operate
+        }
+        try {
+            if (connection.endpoint != attempt.ssh || connection.hostKeyFingerprint != attempt.fingerprint ||
+                savedServer.id != attempt.serverId) throw VpsServerStore.CredentialConflictException()
+            store.checkAddOwner(savedServer, attempt.fingerprint)
+            val status = client.syncStatus(connection)
+            if (status.serverPublicKey != attempt.serverPublicKey) throw invalidAddResponse()
+            val peer = status.peers.singleOrNull { it.name == attempt.request.name }
+            val clientKey = attempt.clientPublicKey ?: peer?.publicKey
+            val profile = clientKey?.let { profiles.load(savedServer, attempt.serverPublicKey, it) }
+            if (profile == null || profile.name != attempt.request.name) {
+                mutableState.value = mutableState.value.copy(problem = Problem.ADD_PENDING, creation = UserCreation.UNCERTAIN)
+                return@operate
+            }
+            validateCreatedUser(attempt.copy(clientPublicKey = clientKey), profile, status)
+            withContext(NonCancellable) { attempt = store.recordAddReceipt(attempt, requireNotNull(clientKey)) }
+            publishCreatedUser(savedServer, attempt, status)
+        } finally {
+            (connection.credential as? VpsCredential.Password)?.clear()
+        }
+    }
+
+    private fun requireAddSnapshot(confirmation: AddUserConfirmation) {
+        val snapshot = mutableState.value.statusSnapshots[confirmation.server.id] ?: throw VpsServerStore.ServerChangedException()
+        if (mutableState.value.serverId != confirmation.server.id || !snapshot.matches(confirmation.server) ||
+            snapshot.status.serverPublicKey != confirmation.serverPublicKey ||
+            snapshot.status.peers.any { it.name == confirmation.request.name }) throw VpsServerStore.ServerChangedException()
+    }
+
+    private suspend fun retainReceivedUser(receipt: ReceivedUser): PendingVpsAdd = withContext(NonCancellable) {
+        val confirmation = receipt.confirmation
+        profiles.saveGenerated(confirmation.server, confirmation.serverPublicKey, confirmation.request, receipt.result)
+        withContext(Dispatchers.Main.immediate) {
+            if (receivedUser === receipt) receivedUser = null
+            mutableState.value = mutableState.value.copy(creation = UserCreation.RETAINED, creationOwner = null)
+        }
+        val retained = store.recordAddReceipt(receipt.attempt, receipt.profile.identity.clientPublicKey)
+        val owner = currentAddOwner(confirmation)
+        withContext(Dispatchers.Main.immediate) {
+            mutableState.value = mutableState.value.copy(creationOwner = owner)
+        }
+        retained
+    }
+
+    // Unverified access suppresses presentation without discarding a received private profile.
+    private suspend fun currentAddOwner(confirmation: AddUserConfirmation): StoredVpsServer? = try {
+        store.checkAddOwner(confirmation.server, confirmation.fingerprint)
+        confirmation.server
+    } catch (_: VpsServerStore.ServerChangedException) {
+        null
+    } catch (_: VpsServerStore.CredentialConflictException) {
+        null
+    } catch (_: VpsServerStore.InvalidTransferMetadataException) {
+        null
+    } catch (_: IOException) {
+        null
+    } catch (_: SecurityException) {
+        null
+    }
+
+    private fun requireAddConnection(confirmation: AddUserConfirmation, connection: VpsConnection) {
+        if (connection.endpoint != confirmation.ssh || connection.hostKeyFingerprint != confirmation.fingerprint)
+            throw VpsServerStore.CredentialConflictException()
+    }
+
+    private fun validateCreatedUser(attempt: PendingVpsAdd, profile: VpsUserProfile, status: VpsServerStatus) {
+        val peer = status.peers.singleOrNull { it.name == attempt.request.name }
+        val address = profile.config.`interface`.addresses.singleOrNull()?.toString()
+        val endpoint = profile.config.peers.single().endpoint.get().toString()
+        if (status.serverPublicKey != attempt.serverPublicKey || status.running == null ||
+            profile.identity.clientPublicKey != attempt.clientPublicKey || profile.name != attempt.request.name ||
+            peer == null || peer.publicKey != profile.identity.clientPublicKey || peer.allowedIps != address ||
+            endpoint != "${status.endpoint}:${status.listenPort}" || status.dns != attempt.request.dns)
+            throw invalidAddResponse()
+    }
+
+    private suspend fun publishCreatedUser(expected: StoredVpsServer, attempt: PendingVpsAdd, status: VpsServerStatus) {
+        val observedAt = nowEpochSeconds()
+        currentCoroutineContext().ensureActive()
+        withContext(NonCancellable) {
+            val committed = store.settleAdd(expected, attempt, status, observedAt)
+            mutableState.value = mutableState.value.copy(pendingAdd = false, creation = UserCreation.CREATED, problem = null,
+                statusSnapshots = mutableState.value.statusSnapshots + (expected.id to StatusSnapshot(committed, status, observedAt)),
+                creationOwner = committed)
+            receivedUser = null
+        }
+    }
+
+    private fun invalidAddResponse() = ProvisioningException(
+        "Created user could not be verified", category = ProvisioningFailureCategory.INVALID_RESPONSE,
+    )
 
     fun begin() {
         if (mutableState.value.busy) return
@@ -412,7 +647,7 @@ class VpsProvisioningViewModel internal constructor(
         operation?.cancel()
         clearDraft()
         invalidateVerification()
-        mutableState.value = mutableState.value.copy(active = false, detect = null, plan = null, usingSavedAccess = false)
+        mutableState.value = mutableState.value.copy(active = false, detect = null, plan = null, usingSavedAccess = false, addConfirmation = null)
     }
 
     fun cancelOperation() { operation?.cancel() }
@@ -454,9 +689,13 @@ class VpsProvisioningViewModel internal constructor(
                 }
                 mutableState.value = mutableState.value.copy(problem = problem)
             } catch (_: VpsServerStore.ServerChangedException) {
-                mutableState.value = mutableState.value.copy(problem = Problem.CONNECTION_CHANGED)
+                mutableState.value = mutableState.value.copy(problem = Problem.CONNECTION_CHANGED, creationOwner = null)
             } catch (_: VpsServerStore.InstallPendingException) {
                 mutableState.value = mutableState.value.copy(problem = Problem.INSTALL_PENDING, pendingInstall = true, installation = Installation.UNCERTAIN)
+            } catch (_: VpsServerStore.AddPendingException) {
+                mutableState.value = mutableState.value.copy(problem = Problem.ADD_PENDING, pendingAdd = true, creation = UserCreation.UNCERTAIN)
+            } catch (_: VpsServerStore.CredentialConflictException) {
+                mutableState.value = mutableState.value.copy(problem = Problem.CONNECTION_CHANGED, creationOwner = null)
             } catch (_: VpsServerStore.InvalidTransferMetadataException) {
                 mutableState.value = mutableState.value.copy(problem = Problem.STORAGE_FAILED)
             } catch (_: IOException) {
@@ -579,5 +818,6 @@ class VpsProvisioningViewModel internal constructor(
     private companion object {
         const val MAX_PORT = 65_535
         const val DEFAULT_INTERFACE = "wg0"
+        val REJECTED_ADD_CODES = setOf("peer_exists", "server_identity_mismatch")
     }
 }

@@ -20,6 +20,24 @@ if observe_runtime; then
   running=$RUNTIME_RUNNING
 fi
 
+server_public_key=""
+server_private_key=$(awk '$1 == "PrivateKey" {print $3; exit}' "$WG_CONF")
+if [[ -n "$server_private_key" ]] && configured_public_key=$(wg_public_key_from_private "$server_private_key" 2>/dev/null) &&
+    [[ "$configured_public_key" =~ ^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$ ]]; then
+  if [[ "$running" == false ]]; then
+    server_public_key=$configured_public_key
+  elif [[ "$running" == true ]]; then
+    live_public_key=$(wg show "$WG_IFACE" public-key 2>/dev/null) || live_public_key=""
+    if [[ "$live_public_key" == "$configured_public_key" ]]; then
+      server_public_key=$configured_public_key
+    fi
+  fi
+fi
+server_public_key_json=null
+if [[ -n "$server_public_key" ]]; then
+  server_public_key_json=$(json_string "$server_public_key")
+fi
+
 dump=""
 if [[ "$running" == true ]]; then
   dump=$(wg show "$WG_IFACE" dump 2>/dev/null) || dump=""
@@ -35,13 +53,14 @@ json_counter() {
   fi
 }
 
-printf '{"ok":true,"interface":%s,"running":%s,"endpoint":%s,"listenPort":%s,"cidr":%s,"dns":%s,"peers":[' \
+printf '{"ok":true,"interface":%s,"running":%s,"endpoint":%s,"listenPort":%s,"cidr":%s,"dns":%s,"serverPublicKey":%s,"peers":[' \
   "$(json_string "$WG_IFACE")" \
   "$running" \
   "$(json_string "$endpoint")" \
   "$(json_string "$listen_port")" \
   "$(json_string "$cidr")" \
-  "$(json_string "$dns")"
+  "$(json_string "$dns")" \
+  "$server_public_key_json"
 
 first=true
 awk '

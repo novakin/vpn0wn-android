@@ -33,9 +33,32 @@ class Vpn0wnProvisioningClient(
         ProvisioningJson.parseStatus(run(client, remoteDir, "sync-status.sh").stdout)
     }
 
-    suspend fun addPeer(connection: VpsConnection, request: VpsAddPeerRequest): VpsAddPeerResult = withClient(connection) { client, remoteDir ->
-        ProvisioningJson.parseAddPeer(run(client, remoteDir, "add-peer.sh", request.args()).stdout)
+    suspend fun addPeer(
+        connection: VpsConnection,
+        request: VpsAddPeerRequest,
+        expectedServerPublicKey: String,
+        onAdmitted: suspend () -> Unit = {},
+        onReceived: suspend (VpsAddPeerResult) -> Unit = {},
+    ): VpsAddPeerResult {
+        try {
+            if (Key.fromBase64(expectedServerPublicKey).toBase64() != expectedServerPublicKey) throw invalidPeerInput()
+        } catch (_: KeyFormatException) {
+            throw invalidPeerInput()
+        }
+        return withClient(connection) { client, remoteDir ->
+            onAdmitted()
+            val result = ProvisioningJson.parseAddPeer(
+                run(client, remoteDir, "add-peer.sh", request.args() + listOf("--expected-server-public-key", expectedServerPublicKey)).stdout,
+            )
+            // Persist the only private receipt before dispatcher-return cancellation can discard it.
+            withContext(NonCancellable) { onReceived(result) }
+            result
+        }
     }
+
+    private fun invalidPeerInput() = ProvisioningException(
+        ProvisioningFailureCategory.INVALID_INPUT.safeMessage, category = ProvisioningFailureCategory.INVALID_INPUT,
+    )
 
     suspend fun removePeer(connection: VpsConnection, name: String, expectedPublicKey: String): VpsPeerMutationResult {
         val args = peerMutationArgs(name, expectedPublicKey)

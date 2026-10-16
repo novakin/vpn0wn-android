@@ -110,7 +110,7 @@ class VpsProvisioningRequestTest {
             val install = VpsInstallRequest(hostileValue, "10.8.0.0/24", "1.1.1.1, example.internal", force = true)
             client.plan(connection, install)
             client.install(connection, install)
-            client.addPeer(connection, VpsAddPeerRequest(hostileValue, "0.0.0.0/0, ::/0", "1.1.1.1"))
+            client.addPeer(connection, VpsAddPeerRequest(hostileValue, "0.0.0.0/0, ::/0", "1.1.1.1"), REMOVE_PUBLIC_KEY)
             client.removePeer(connection, "phone", REMOVE_PUBLIC_KEY)
             client.revokePeer(connection, "tablet", REVOKE_PUBLIC_KEY)
             client.syncStatus(connection)
@@ -119,7 +119,8 @@ class VpsProvisioningRequestTest {
             val installArgs = listOf("--endpoint", hostileValue, "--port", "51820", "--cidr", "10.8.0.0/24", "--dns", "1.1.1.1, example.internal", "--force")
             assertEquals(installArgs, remote.arguments.getValue("plan.sh"))
             assertEquals(installArgs, remote.arguments.getValue("install.sh"))
-            assertEquals(listOf("--name", hostileValue, "--dns", "1.1.1.1", "--allowed-ips", "0.0.0.0/0, ::/0"), remote.arguments.getValue("add-peer.sh"))
+            assertEquals(listOf("--name", hostileValue, "--dns", "1.1.1.1", "--allowed-ips", "0.0.0.0/0, ::/0",
+                "--expected-server-public-key", REMOVE_PUBLIC_KEY), remote.arguments.getValue("add-peer.sh"))
             assertEquals(listOf("--name", "phone", "--expected-public-key", REMOVE_PUBLIC_KEY), remote.arguments.getValue("remove-peer.sh"))
             assertEquals(listOf("--name", "tablet", "--expected-public-key", REVOKE_PUBLIC_KEY), remote.arguments.getValue("revoke-peer.sh"))
             assertEquals(emptyList<String>(), remote.arguments.getValue("sync-status.sh"))

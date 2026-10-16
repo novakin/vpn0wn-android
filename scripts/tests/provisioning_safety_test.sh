@@ -211,6 +211,145 @@ test_c2_valid_add() {
   [[ "$RESPONSE" == *'0.0.0.0/0, ::/0'* ]]
 }
 
+test_c143_guarded_add_success_running_and_stopped() {
+  local state key
+  key=$(printf '%-32.32s' PUBLIC-old | base64 -w0)
+  for state in running stopped; do
+    owned_config
+    if [[ "$state" == stopped ]]; then /bin/rm "$TEST_STATE/runtime.conf" "$TEST_STATE/enabled"; fi
+    run_script add-peer --name laptop --expected-server-public-key "$key"
+    assert_success
+    grep -qxF '# BEGIN_PEER laptop' "$WG_CONF"
+    [[ "$RESPONSE" == *"PublicKey = $key"* ]]
+    if [[ "$state" == stopped ]]; then
+      [[ ! -e "$TEST_STATE/runtime.conf" && ! -e "$TEST_STATE/enabled" ]]
+    else
+      grep -qxF 'AllowedIPs = 10.8.0.3/32' "$TEST_STATE/runtime.conf"
+    fi
+  done
+}
+
+test_c143_add_rejects_invalid_server_keys_before_mutation() {
+  local key
+  owned_config
+  for key in '' ' ' 'not-a-key' "$(printf 'A%.0s' {1..42})B=" $'key\n[Peer]'; do
+    run_script add-peer --name laptop --expected-server-public-key "$key"
+    assert_failure invalid_public_key
+    assert_restored
+    assert_no_mutations
+  done
+  run_script add-peer --name laptop --expected-server-public-key
+  assert_failure missing_arg
+  assert_no_mutations
+}
+
+test_c143_add_rejects_configured_and_live_server_key_drift() {
+  local key replacement_private replacement_public
+  key=$(printf '%-32.32s' PUBLIC-old | base64 -w0)
+  replacement_private=$(printf '%-32.32s' PRIVATE-replacement | base64 -w0)
+  replacement_public=$(printf '%-32.32s' PUBLIC-replacement | base64 -w0)
+  owned_config
+  run_script add-peer --name laptop --expected-server-public-key "$replacement_public"
+  assert_failure server_identity_mismatch
+  assert_restored
+  assert_no_mutations
+  [[ -z $(find "$WG_DIR" -name '.tunnl-recovery.*') ]]
+  sed -i "s|^PrivateKey = .*|PrivateKey = $replacement_private|" "$TEST_STATE/runtime.conf"
+  /bin/cp "$TEST_STATE/runtime.conf" "$TEST_ROOT/before.runtime"
+  run_script add-peer --name laptop --expected-server-public-key "$key"
+  assert_failure server_identity_mismatch
+  cmp -s "$WG_CONF" "$TEST_ROOT/before.conf"
+  cmp -s "$TEST_STATE/runtime.conf" "$TEST_ROOT/before.runtime"
+  assert_no_mutations
+  [[ -z $(find "$WG_DIR" -name '.tunnl-recovery.*') ]]
+}
+
+test_c143_add_checks_server_identity_after_concurrent_owner() {
+  local key replacement writer_lock mutation_pid ready
+  owned_config
+  key=$(printf '%-32.32s' PUBLIC-old | base64 -w0)
+  replacement=$(printf '%-32.32s' PRIVATE-replacement | base64 -w0)
+  export TEST_REAL_FLOCK TEST_LOCK_SIGNAL
+  TEST_REAL_FLOCK=$(command -v flock)
+  TEST_LOCK_SIGNAL="$TEST_ROOT/lock-entered"
+  mkfifo "$TEST_LOCK_SIGNAL"
+  exec {lock_signal}<>"$TEST_LOCK_SIGNAL"
+  cat > "$TEST_ROOT/bin/flock" <<'EOF'
+#!/usr/bin/env bash
+printf 'ready\n' > "$TEST_LOCK_SIGNAL"
+exec "$TEST_REAL_FLOCK" "$@"
+EOF
+  chmod 700 "$TEST_ROOT/bin/flock"
+  exec {writer_lock}>"$WG_LOCK_FILE"
+  "$TEST_REAL_FLOCK" "$writer_lock"
+  bash "$SCRIPTS/add-peer.sh" --name laptop --expected-server-public-key "$key" > "$TEST_ROOT/response" 2> "$TEST_ROOT/stderr" &
+  mutation_pid=$!
+  if ! read -r -t 5 ready <&"$lock_signal"; then
+    "$TEST_REAL_FLOCK" -u "$writer_lock"
+    kill "$mutation_pid" 2>/dev/null || true
+    wait "$mutation_pid" 2>/dev/null || true
+    return 1
+  fi
+  [[ ! -s "$TEST_ROOT/response" ]]
+  sed -i "s|^PrivateKey = .*|PrivateKey = $replacement|" "$WG_CONF"
+  /bin/cp "$WG_CONF" "$TEST_STATE/runtime.conf"
+  /bin/cp "$WG_CONF" "$TEST_ROOT/before.conf"
+  "$TEST_REAL_FLOCK" -u "$writer_lock"
+  wait "$mutation_pid" && RESULT_CODE=0 || RESULT_CODE=$?
+  RESPONSE=$(cat "$TEST_ROOT/response")
+  assert_failure server_identity_mismatch
+  assert_restored
+  assert_no_mutations
+  [[ -z $(find "$WG_DIR" -name '.tunnl-recovery.*') ]]
+}
+
+test_c143_add_and_status_suppress_failed_key_diagnostics() {
+  local key
+  owned_config
+  key=$(printf '%-32.32s' PUBLIC-old | base64 -w0)
+  printf '*' > "$TEST_STATE/fail-wg-pubkey"
+  run_script add-peer --name laptop --expected-server-public-key "$key"
+  assert_failure key_failed
+  assert_restored
+  assert_no_mutations
+  [[ -z $(find "$WG_DIR" -name '.tunnl-recovery.*') ]]
+  run_script sync-status
+  assert_success
+  [[ "$RESPONSE" == *'"serverPublicKey":null'* ]]
+  ! grep -q 'synthetic-secret-tool-diagnostic' "$TEST_ROOT/response" "$TEST_ROOT/stderr"
+  assert_no_mutations
+}
+
+test_c143_add_refuses_unobservable_live_identity_before_mutation() {
+  local key
+  owned_config
+  key=$(printf '%-32.32s' PUBLIC-old | base64 -w0)
+  printf '2' > "$TEST_STATE/fail-wg-show"
+  run_script add-peer --name laptop --expected-server-public-key "$key"
+  assert_failure runtime_unknown
+  assert_restored
+  assert_no_mutations
+  [[ -z $(find "$WG_DIR" -name '.tunnl-recovery.*') ]]
+}
+
+test_c143_status_withholds_drifted_or_unobservable_live_identity() {
+  local replacement
+  owned_config
+  replacement=$(printf '%-32.32s' PRIVATE-replacement | base64 -w0)
+  sed -i "s|^PrivateKey = .*|PrivateKey = $replacement|" "$TEST_STATE/runtime.conf"
+  run_script sync-status
+  assert_success
+  [[ "$RESPONSE" == *'"running":true'* && "$RESPONSE" == *'"serverPublicKey":null'* ]]
+  assert_no_mutations
+  printf '0' > "$TEST_STATE/count-wg-show"
+  printf '2' > "$TEST_STATE/fail-wg-show"
+  run_script sync-status
+  assert_success
+  [[ "$RESPONSE" == *'"running":true'* && "$RESPONSE" == *'"serverPublicKey":null'* ]]
+  ! grep -q 'synthetic-secret-tool-diagnostic' "$TEST_ROOT/response" "$TEST_ROOT/stderr"
+  assert_no_mutations
+}
+
 test_c2_shared_package_config() {
   owned_config
   printf '# foreign config\n' > "$WG_DIR/other.conf"
@@ -895,7 +1034,10 @@ test_c4_response_fixtures() {
 }
 
 test_c12_status_serializes_with_existing_interface_lock() {
+  local replacement_private replacement_public
   owned_config
+  replacement_private=$(printf '%-32.32s' PRIVATE-replacement | base64 -w0)
+  replacement_public=$(printf '%-32.32s' PUBLIC-replacement | base64 -w0)
   export TEST_REAL_FLOCK
   TEST_REAL_FLOCK=$(command -v flock)
   exec {writer_lock}>"$WG_LOCK_FILE"
@@ -918,12 +1060,13 @@ EOF
   fi
   [[ ! -s "$TEST_ROOT/status" ]]
   sed -i 's/# ENDPOINT vpn.example/# ENDPOINT moved.example/' "$WG_CONF"
+  sed -i "s|^PrivateKey = .*|PrivateKey = $replacement_private|" "$WG_CONF"
   /bin/cp "$WG_CONF" "$TEST_STATE/runtime.conf"
   "$TEST_REAL_FLOCK" -u "$writer_lock"
   wait "$status_pid"
   RESULT_CODE=0 RESPONSE=$(cat "$TEST_ROOT/status")
   assert_success
-  [[ "$RESPONSE" == *'"endpoint":"moved.example"'* && "$RESPONSE" == *'"rxBytes":"1024"'* ]]
+  [[ "$RESPONSE" == *'"endpoint":"moved.example"'* && "$RESPONSE" == *'"rxBytes":"1024"'* && "$RESPONSE" == *"\"serverPublicKey\":\"$replacement_public\""* ]]
   assert_no_mutations
 }
 
@@ -1031,6 +1174,10 @@ if [[ ${1-} == --case ]]; then
 fi
 
 tests=(
+  test_c143_guarded_add_success_running_and_stopped test_c143_add_rejects_invalid_server_keys_before_mutation
+  test_c143_add_rejects_configured_and_live_server_key_drift test_c143_add_checks_server_identity_after_concurrent_owner
+  test_c143_add_and_status_suppress_failed_key_diagnostics test_c143_add_refuses_unobservable_live_identity_before_mutation
+  test_c143_status_withholds_drifted_or_unobservable_live_identity
   test_c12_guarded_mutation_success_running_and_stopped test_c12_guard_rejects_invalid_keys_before_mutation
   test_c12_guard_rejects_mismatch_and_reused_name test_c12_guard_checks_identity_after_concurrent_owner
   test_c12_guard_never_reads_identity_from_following_peer

@@ -459,6 +459,102 @@ class VpsProvisioningWorkflowTest {
         } finally { fixture.close() }
     }
 
+    @Test fun createNameValidationAndExactIdentityReviewDoNotMutateTheServer() = runTest {
+        val fixture = fixture()
+        try {
+            prepareUserCreation(fixture)
+            fixture.root.findViewById<View>(R.id.vpn0wn_vps_add_user).performClick()
+            settle()
+            val form = ShadowDialog.getLatestDialog() as AlertDialog
+            val input = form.findViewById<EditText>(R.id.vpn0wn_vps_peer_name)!!
+            assertFalse(input.isSaveEnabled)
+            assertTrue(input.minimumHeight >= (48 * input.resources.displayMetrics.density).toInt())
+            assertEquals(1, descendants(form.window!!.decorView).filterIsInstance<TextView>().count { it.labelFor == input.id })
+            input.setText("bad name")
+            form.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            assertTrue(form.isShowing)
+            assertEquals(fixture.activity.getString(R.string.vpn0wn_user_name_invalid), input.error.toString())
+            assertNull(fixture.model.state.value.addConfirmation)
+            input.setText("phone-new")
+            form.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            fixture.model.state.first { !it.busy && it.addConfirmation != null }
+            settle()
+            val confirmation = requireNotNull(fixture.model.state.value.addConfirmation)
+            val review = ShadowDialog.getLatestDialog() as AlertDialog
+            assertNotSame(form, review)
+            assertTrue(review.isShowing)
+            val message = review.findViewById<TextView>(android.R.id.message)!!.text.toString()
+            for (value in listOf("phone-new", "root@198.51.100.42:22", confirmation.fingerprint,
+                confirmation.serverPublicKey, "0.0.0.0/0", requireNotNull(confirmation.request.dns))) assertTrue(message.contains(value))
+            assertFalse(fixture.peer.commands.any { it.contains("./'add-peer.sh'") })
+            review.getButton(DialogInterface.BUTTON_NEGATIVE).performClick()
+            settle()
+            assertNull(fixture.model.state.value.addConfirmation)
+            assertFalse(fixture.peer.commands.any { it.contains("./'add-peer.sh'") })
+        } finally { fixture.close() }
+    }
+
+    @Test fun rebuiltNameFormAndStoppedReviewCannotAuthorizeCreation() = runTest {
+        val fixture = fixture()
+        try {
+            prepareUserCreation(fixture)
+            fixture.root.findViewById<View>(R.id.vpn0wn_vps_add_user).performClick()
+            settle()
+            val oldForm = ShadowDialog.getLatestDialog() as AlertDialog
+            oldForm.findViewById<EditText>(R.id.vpn0wn_vps_peer_name)!!.setText("stale-name")
+            val saved = Vpn0wnApplication.getVpsServerStore().servers.first().single()
+            Vpn0wnApplication.getVpsServerStore().upsert(saved.copy(id = "unrelated", name = "unrelated"))
+            settle()
+            assertFalse(oldForm.isShowing)
+            oldForm.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            settle()
+            assertNull(fixture.model.state.value.addConfirmation)
+            fixture.root.findViewById<View>(R.id.vpn0wn_vps_add_user).performClick()
+            settle()
+            val form = ShadowDialog.getLatestDialog() as AlertDialog
+            form.findViewById<EditText>(R.id.vpn0wn_vps_peer_name)!!.setText("fresh-name")
+            form.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            fixture.model.state.first { !it.busy && it.addConfirmation != null }
+            settle()
+            val oldReview = ShadowDialog.getLatestDialog() as AlertDialog
+            fixture.controller.pause().stop()
+            assertFalse(oldReview.isShowing)
+            oldReview.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            settle()
+            assertNull(fixture.model.state.value.addConfirmation)
+            assertFalse(fixture.peer.commands.any { it.contains("./'add-peer.sh'") })
+            fixture.controller.start().resume()
+            settle()
+        } finally { fixture.close() }
+    }
+
+    @Test fun legacyStatusWithoutServerIdentityKeepsCreationDisabled() = runTest {
+        val fixture = fixture()
+        try {
+            prepareUserCreation(fixture, confirmedIdentity = false)
+            assertFalse(fixture.root.findViewById<View>(R.id.vpn0wn_vps_add_user).isEnabled)
+            assertTrue(text(fixture.root, fixture.activity.getString(R.string.vpn0wn_user_identity_required)).isShown)
+            fixture.root.findViewById<View>(R.id.vpn0wn_vps_add_user).performClick()
+            settle()
+            assertNull(fixture.model.state.value.addConfirmation)
+            assertFalse(fixture.peer.commands.any { it.contains("./'add-peer.sh'") })
+        } finally { fixture.close() }
+    }
+
+    private suspend fun TestScope.prepareUserCreation(fixture: Fixture, confirmedIdentity: Boolean = true) {
+        fillAccess(fixture)
+        click(fixture, R.string.vpn0wn_continue)
+        fixture.model.state.first { !it.busy && it.detect != null }
+        fixture.model.leave()
+        settle()
+        clickServer(fixture)
+        if (confirmedIdentity) fixture.peer.statusOutput = requireNotNull(javaClass.getResourceAsStream("/provisioning/status-running.json"))
+            .bufferedReader().use { it.readText() }
+        fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status).performClick()
+        fixture.model.state.first { !it.busy && it.statusSnapshots.isNotEmpty() }
+        settle()
+    }
+
     // A failed setup must drain Android, ViewModel and DataStore owners before resetting Main.
     @Suppress("TooGenericExceptionCaught")
     private suspend fun TestScope.fixture(immediateMain: Boolean = false): Fixture {
