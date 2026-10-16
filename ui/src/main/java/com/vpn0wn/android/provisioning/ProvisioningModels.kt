@@ -5,6 +5,8 @@
 package com.vpn0wn.android.provisioning
 
 import android.util.Log
+import com.vpn0wn.crypto.Key
+import com.vpn0wn.crypto.KeyFormatException
 import java.time.Instant
 import java.time.format.DateTimeParseException
 import org.json.JSONException
@@ -126,6 +128,7 @@ data class VpsServerStatus(
     val cidr: String,
     val dns: String,
     val peers: List<VpsPeerStatus>,
+    val serverPublicKey: String? = null,
 )
 
 data class VpsAddPeerResult(
@@ -134,10 +137,13 @@ data class VpsAddPeerResult(
     val publicKey: String,
     val config: String,
     val cleanupPath: String = "",
-)
+) {
+    override fun toString(): String = "VpsAddPeerResult(redacted)"
+}
 
 data class VpsPeerMutationResult(
     val name: String,
+    val publicKey: String,
     val removed: Boolean = false,
     val revoked: Boolean = false,
     val archive: String = "",
@@ -222,6 +228,15 @@ object ProvisioningJson {
         val peers = json.getJSONArray("peers")
         val names = mutableSetOf<String>()
         val keys = mutableSetOf<String>()
+        val serverPublicKey = if (!json.has("serverPublicKey") || json.isNull("serverPublicKey")) null else json.string("serverPublicKey")
+        if (serverPublicKey != null) {
+            try {
+                if (Key.fromBase64(serverPublicKey).toBase64() != serverPublicKey)
+                    throw JSONException("Invalid server public key")
+            } catch (_: KeyFormatException) {
+                throw JSONException("Invalid server public key")
+            }
+        }
         VpsServerStatus(
             interfaceName = json.string("interface"),
             running = json.nullableBoolean("running"),
@@ -229,6 +244,7 @@ object ProvisioningJson {
             listenPort = json.string("listenPort"),
             cidr = json.string("cidr"),
             dns = json.string("dns"),
+            serverPublicKey = serverPublicKey,
             peers = (0 until peers.length()).map { index ->
                 val peer = peers.getJSONObject(index)
                 val name = peer.string("name")
@@ -263,8 +279,17 @@ object ProvisioningJson {
         val revoked = json.boolean("revoked")
         val archive = if (revoked) json.string("archive") else json.optionalString("archive")
         if (revoked && archive.isBlank()) throw JSONException("Revocation archive was not provided")
+        val name = json.string("name")
+        val publicKey = json.string("publicKey")
+        if (name.isBlank()) throw JSONException("Peer name was not provided")
+        try {
+            Key.fromBase64(publicKey)
+        } catch (_: KeyFormatException) {
+            throw JSONException("Invalid peer public key")
+        }
         VpsPeerMutationResult(
-            name = json.string("name"),
+            name = name,
+            publicKey = publicKey,
             removed = removed,
             revoked = revoked,
             archive = archive,
@@ -360,12 +385,13 @@ object ProvisioningJson {
         val category = when (code) {
             "invalid_arg", "missing_arg", "missing_endpoint", "invalid_endpoint",
             "invalid_port", "invalid_dns", "invalid_allowed_ips", "invalid_cidr",
-            "missing_name", "invalid_name", "invalid_interface", "confirmation_required" -> ProvisioningFailureCategory.INVALID_INPUT
+            "missing_name", "invalid_name", "invalid_public_key", "invalid_interface", "confirmation_required" -> ProvisioningFailureCategory.INVALID_INPUT
             "unsupported_os" -> ProvisioningFailureCategory.UNSUPPORTED_SERVER
             "not_root" -> ProvisioningFailureCategory.PERMISSION_DENIED
             "unmanaged_config", "unmanaged_forwarding", "shared_wireguard_state",
             "unmanaged_runtime", "unsafe_path", "config_exists", "peer_exists",
-            "peer_not_found", "address_pool_full", "backup_limit" -> ProvisioningFailureCategory.CONFLICT
+            "peer_not_found", "peer_identity_mismatch", "server_identity_mismatch",
+            "address_pool_full", "backup_limit" -> ProvisioningFailureCategory.CONFLICT
             "not_installed", "missing_server_metadata" -> ProvisioningFailureCategory.NOT_INSTALLED
             "runtime_unknown" -> ProvisioningFailureCategory.RUNTIME_UNKNOWN
             "missing_tool", "lock_failed", "snapshot_failed", "key_failed", "write_failed",

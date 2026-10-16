@@ -19,6 +19,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
+import org.json.JSONObject
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
@@ -109,9 +110,9 @@ class VpsProvisioningRequestTest {
             val install = VpsInstallRequest(hostileValue, "10.8.0.0/24", "1.1.1.1, example.internal", force = true)
             client.plan(connection, install)
             client.install(connection, install)
-            client.addPeer(connection, VpsAddPeerRequest(hostileValue, "0.0.0.0/0, ::/0", "1.1.1.1"))
-            client.removePeer(connection, hostileValue)
-            client.revokePeer(connection, hostileValue)
+            client.addPeer(connection, VpsAddPeerRequest(hostileValue, "0.0.0.0/0, ::/0", "1.1.1.1"), REMOVE_PUBLIC_KEY)
+            client.removePeer(connection, "phone", REMOVE_PUBLIC_KEY)
+            client.revokePeer(connection, "tablet", REVOKE_PUBLIC_KEY)
             client.syncStatus(connection)
             val backup = client.backup(connection)
             assertEquals(1, backup.snapshotVersion)
@@ -121,9 +122,10 @@ class VpsProvisioningRequestTest {
             val installArgs = listOf("--endpoint", hostileValue, "--port", "51820", "--cidr", "10.8.0.0/24", "--dns", "1.1.1.1, example.internal", "--force")
             assertEquals(installArgs, remote.arguments.getValue("plan.sh"))
             assertEquals(installArgs, remote.arguments.getValue("install.sh"))
-            assertEquals(listOf("--name", hostileValue, "--dns", "1.1.1.1", "--allowed-ips", "0.0.0.0/0, ::/0"), remote.arguments.getValue("add-peer.sh"))
-            assertEquals(listOf("--name", hostileValue), remote.arguments.getValue("remove-peer.sh"))
-            assertEquals(listOf("--name", hostileValue), remote.arguments.getValue("revoke-peer.sh"))
+            assertEquals(listOf("--name", hostileValue, "--dns", "1.1.1.1", "--allowed-ips", "0.0.0.0/0, ::/0",
+                "--expected-server-public-key", REMOVE_PUBLIC_KEY), remote.arguments.getValue("add-peer.sh"))
+            assertEquals(listOf("--name", "phone", "--expected-public-key", REMOVE_PUBLIC_KEY), remote.arguments.getValue("remove-peer.sh"))
+            assertEquals(listOf("--name", "tablet", "--expected-public-key", REVOKE_PUBLIC_KEY), remote.arguments.getValue("revoke-peer.sh"))
             assertEquals(emptyList<String>(), remote.arguments.getValue("sync-status.sh"))
             assertEquals(emptyList<String>(), remote.arguments.getValue("backup.sh"))
             assertEquals(listOf("--confirm", "--purge-packages"), remote.arguments.getValue("uninstall.sh"))
@@ -147,7 +149,7 @@ class VpsProvisioningRequestTest {
         val client = Vpn0wnProvisioningClient(ApplicationProvider.getApplicationContext(), factory)
         val connection = VpsConnection(VpsEndpoint("vpn.example"), VpsCredential.Password(charArrayOf()), true)
         try {
-            client.removePeer(connection, "missing")
+            client.removePeer(connection, "missing", REMOVE_PUBLIC_KEY)
             throw AssertionError("Failed script must not succeed")
         } catch (failure: ProvisioningException) {
             assertEquals("peer_not_found", failure.remoteCode)
@@ -155,6 +157,97 @@ class VpsProvisioningRequestTest {
         }
         assertTrue(remote.cleanedUp)
         assertEquals(1, remote.closes)
+    }
+
+    @Test
+    fun peerMutationsRejectInvalidIdentityBeforeCreatingRemoteClient() = runBlocking {
+        var creations = 0
+        val client = Vpn0wnProvisioningClient(
+            ApplicationProvider.getApplicationContext(),
+            object : RemoteShellClientFactory {
+                override fun create(connection: VpsConnection): RemoteShellClient {
+                    creations++
+                    throw AssertionError("Invalid identity reached transport")
+                }
+            },
+        )
+        val invalidIdentities = listOf(
+            "" to REMOVE_PUBLIC_KEY,
+            " " to REMOVE_PUBLIC_KEY,
+            "name's" to REMOVE_PUBLIC_KEY,
+            "n".repeat(33) to REMOVE_PUBLIC_KEY,
+            "phone" to "",
+            "phone" to " ",
+            "phone" to "synthetic-shape-secret",
+            "phone" to ("A".repeat(42) + "B="),
+        )
+        for ((name, key) in invalidIdentities) {
+            for (revoke in listOf(false, true)) {
+                val failure = runCatching {
+                    if (revoke) client.revokePeer(connection(), name, key) else client.removePeer(connection(), name, key)
+                }.exceptionOrNull()
+                assertTrue(failure is ProvisioningException)
+                assertEquals(ProvisioningFailureCategory.INVALID_INPUT, (failure as ProvisioningException).category)
+                assertTrue(!failure.stackTraceToString().contains("synthetic-shape-secret"))
+            }
+        }
+        assertEquals(0, creations)
+    }
+
+    @Test
+    fun peerMutationsRequireExactReceiptIdentityAndActionWithoutRetrying() = runBlocking {
+        for (revoke in listOf(false, true)) {
+            val scriptName = if (revoke) "revoke-peer.sh" else "remove-peer.sh"
+            val valid = JSONObject().put("ok", true).put("name", "phone").put("publicKey", REMOVE_PUBLIC_KEY)
+                .put("removed", true).put("revoked", revoke).put("archive", if (revoke) "/fixture/revoked.conf" else "")
+                .put("cleanupPath", "/fixture/private-residue")
+            val responses = listOf(
+                valid,
+                JSONObject(valid.toString()).put("name", "reused-name"),
+                JSONObject(valid.toString()).put("publicKey", REVOKE_PUBLIC_KEY),
+                JSONObject(valid.toString()).put("removed", false),
+                JSONObject(valid.toString()).put("revoked", !revoke),
+                JSONObject(valid.toString()).apply { remove("publicKey") },
+            )
+            for ((index, response) in responses.withIndex()) {
+                var mutations = 0
+                var cleanups = 0
+                var closes = 0
+                val remote = object : RemoteShellClient {
+                    override suspend fun execute(command: String): ProvisioningCommandOutput = when {
+                        command.startsWith("mktemp ") -> ProvisioningCommandOutput(0, "/tmp/vpn0wn-provisioning.test01", "")
+                        command.startsWith("mkdir -p ") -> ProvisioningCommandOutput(0, "", "")
+                        command.startsWith("rm -rf ") -> {
+                            cleanups++
+                            ProvisioningCommandOutput(0, "", "")
+                        }
+                        command.startsWith("cd ") && command.contains("./'$scriptName'") -> {
+                            mutations++
+                            ProvisioningCommandOutput(0, response.toString(), "")
+                        }
+                        else -> throw AssertionError("Unexpected provisioning command")
+                    }
+                    override suspend fun upload(path: String, content: String, mode: String) = ProvisioningCommandOutput(0, "", "")
+                    override suspend fun close() {
+                        closes++
+                    }
+                }
+                val result = runCatching {
+                    val client = provisioningClient(remote)
+                    if (revoke) client.revokePeer(connection(), "phone", REMOVE_PUBLIC_KEY) else client.removePeer(connection(), "phone", REMOVE_PUBLIC_KEY)
+                }
+                if (index == 0) {
+                    assertEquals(REMOVE_PUBLIC_KEY, result.getOrThrow().publicKey)
+                    assertEquals("/fixture/private-residue", result.getOrThrow().cleanupPath)
+                    assertEquals(revoke, result.getOrThrow().revoked)
+                } else {
+                    assertEquals(ProvisioningFailureCategory.INVALID_RESPONSE, (result.exceptionOrNull() as ProvisioningException).category)
+                }
+                assertEquals(1, mutations)
+                assertEquals(1, cleanups)
+                assertEquals(1, closes)
+            }
+        }
     }
 
     @Test
@@ -279,6 +372,11 @@ class VpsProvisioningRequestTest {
         assertTrue(failure is AssertionError)
         assertSame(original, generateSequence(failure) { it.cause }.last())
         assertEquals(1, closes)
+    }
+
+    private companion object {
+        const val REMOVE_PUBLIC_KEY = "UFVCTElDLTIgICAgICAgICAgICAgICAgICAgICAgICA="
+        const val REVOKE_PUBLIC_KEY = "UFVCTElDLTMgICAgICAgICAgICAgICAgICAgICAgICA="
     }
 
     private class RecordingShell(directory: File, root: Boolean, private val failScript: Boolean = false) : RemoteShellClient {

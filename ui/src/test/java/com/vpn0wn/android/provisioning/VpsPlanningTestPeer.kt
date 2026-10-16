@@ -11,8 +11,22 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
     val commands = Collections.synchronizedList(mutableListOf<String>())
     val closes = AtomicInteger()
     val detectEntered = CompletableDeferred<Unit>()
+    val installEntered = CompletableDeferred<Unit>()
+    var blockInstall: CompletableDeferred<Unit>? = null
+    var installFailure: ProvisioningException? = null
+    var installOutput: String? = null
+    var installExitCode = 0
+    val addEntered = CompletableDeferred<Unit>()
+    var blockAdd: CompletableDeferred<Unit>? = null
+    var addFailure: ProvisioningException? = null
+    var addOutput: String? = null
+    var addExitCode = 0
+    var afterAdd: (() -> Unit)? = null
+    var configExists = false
+    var planOverwrites = false
     var statusEntered = CompletableDeferred<Unit>()
     var blockStatus: CompletableDeferred<Unit>? = null
+    var statusFailure: ProvisioningException? = null
     var statusOutput: String? = null
     var blockDetect: CompletableDeferred<Unit>? = null
     var failure: ProvisioningException? = null
@@ -39,12 +53,26 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
                     command.contains("./'sync-status.sh'") -> {
                         statusEntered.complete(Unit)
                         blockStatus?.await()
+                        statusFailure?.let { throw it }
                         failure?.let { throw it }
                         ProvisioningCommandOutput(0, statusOutput ?: statusJson(), "")
                     }
                     command.contains("./'plan.sh'") -> {
                         failure?.let { throw it }
                         ProvisioningCommandOutput(0, planJson(), "")
+                    }
+                    command.contains("./'install.sh'") -> {
+                        installEntered.complete(Unit)
+                        blockInstall?.await()
+                        installFailure?.let { throw it }
+                        ProvisioningCommandOutput(installExitCode, installOutput ?: installJson(), "")
+                    }
+                    command.contains("./'add-peer.sh'") -> {
+                        addEntered.complete(Unit)
+                        blockAdd?.await()
+                        afterAdd?.invoke()
+                        addFailure?.let { throw it }
+                        ProvisioningCommandOutput(addExitCode, requireNotNull(addOutput), "")
                     }
                     else -> error("Unexpected provisioning command")
                 }
@@ -58,7 +86,7 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
     private fun detectJson(): String = JSONObject()
         .put("ok", true).put("os", "debian").put("version", "12").put("supported", supported)
         .put("packageManager", "apt").put("firewall", "iptables").put("wireGuardInstalled", false)
-        .put("configExists", false).put("interface", "wg0").put("endpoint", detectedEndpoint).put("listenPort", "")
+        .put("configExists", configExists).put("interface", "wg0").put("endpoint", detectedEndpoint).put("listenPort", "")
         .put("cidr", "").put("ipv4Forwarding", "0").toString()
 
     private fun statusJson(): String = JSONObject()
@@ -74,7 +102,13 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
     private fun planJson(): String = JSONObject()
         .put("ok", true).put("supported", true).put("endpoint", planRequest.endpoint)
         .put("port", planRequest.port.toString()).put("cidr", planRequest.cidr).put("dns", planRequest.dns)
-        .put("willOverwriteConfig", false)
+        .put("willOverwriteConfig", planOverwrites)
         .put("steps", org.json.JSONArray(listOf("install wireguard iptables qrencode with apt", "enable and start wg-quick@wg0")))
+        .toString()
+
+    private fun installJson(): String = JSONObject()
+        .put("ok", true).put("interface", "wg0").put("endpoint", planRequest.endpoint)
+        .put("port", planRequest.port.toString()).put("cidr", planRequest.cidr)
+        .put("serverPublicKey", java.util.Base64.getEncoder().encodeToString(ByteArray(32) { it.toByte() }))
         .toString()
 }

@@ -11,6 +11,7 @@ import com.vpn0wn.android.backend.Statistics
 import com.vpn0wn.android.backend.Tunnel
 import com.vpn0wn.android.configStore.ConfigStore
 import com.vpn0wn.android.provisioning.VpsServerStore
+import com.vpn0wn.android.provisioning.VpsUserProfileStore
 import com.vpn0wn.android.provisioning.credentialFileForTest
 import com.vpn0wn.config.Config
 import java.io.File
@@ -45,6 +46,7 @@ internal class TunnelTestEnvironment(directory: File, scope: CoroutineScope) {
         setField("vpsServerStore", VpsServerStore(
             Application.getPreferencesDataStore(), credentialFileForTest(File(directory, "credentials")),
         ))
+        setField("vpsUserProfileStore", VpsUserProfileStore(application))
         @Suppress("UNCHECKED_CAST")
         val future = Application::class.java.getDeclaredField("futureBackend").apply { isAccessible = true }
             .get(application) as CompletableDeferred<Backend>

@@ -18,6 +18,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.Fragment
 import com.vpn0wn.android.R
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -28,23 +29,31 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.io.OutputStream
 
-class DownloadsFileSaver(private val context: ComponentActivity) {
+class DownloadsFileSaver private constructor(private val context: Context) {
     private lateinit var activityResult: ActivityResultLauncher<String>
     private var futureGrant: CompletableDeferred<Boolean>? = null
 
-    init {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-            activityResult = context.registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-                futureGrant?.complete(granted)
-                futureGrant = null
-            }
-        }
+    constructor(activity: ComponentActivity) : this(activity as Context) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q)
+            activityResult = activity.registerForActivityResult(ActivityResultContracts.RequestPermission(), ::completePermissionRequest)
     }
+
+    constructor(fragment: Fragment) : this(fragment.requireContext()) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q)
+            activityResult = fragment.registerForActivityResult(ActivityResultContracts.RequestPermission(), ::completePermissionRequest)
+    }
+
+    private fun completePermissionRequest(granted: Boolean) {
+        futureGrant?.complete(granted)
+        futureGrant = null
+    }
+
+    suspend fun ensurePermission(): Boolean = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q || requestPermission()
 
     // Acquisition and write cleanup must preserve the primary failure, including cancellation or Error.
     @Suppress("TooGenericExceptionCaught")
     suspend fun save(name: String, mimeType: String?, overwriteExisting: Boolean, write: (OutputStream) -> Unit): String? {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && !requestPermission())
+        if (!ensurePermission())
             return null
         return withContext(Dispatchers.IO) {
             val outputFile = createDownload(name, mimeType, overwriteExisting)

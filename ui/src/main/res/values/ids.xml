@@ -24,4 +24,10 @@
     <item name="vpn0wn_vps_operation_problem" type="id" />
     <item name="vpn0wn_vps_bottom_action" type="id" />
     <item name="vpn0wn_vps_refresh_status" type="id" />
+    <item name="vpn0wn_vps_add_user" type="id" />
+    <item name="vpn0wn_vps_peer_name" type="id" />
+    <item name="vpn0wn_vps_user_creation_status" type="id" />
+    <item name="vpn0wn_vps_reconcile_user" type="id" />
+    <item name="vpn0wn_vps_profile_import" type="id" />
+    <item name="vpn0wn_vps_profile_qr" type="id" />
 </resources>

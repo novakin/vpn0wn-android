@@ -45,6 +45,12 @@ require_arg_value() {
   [[ $# -ge 2 && "$2" != --* ]] || fail_json "missing_arg" "An option value is missing." 64
 }
 
+require_public_key() {
+  local LC_ALL=C
+  # Match Android's key parser by rejecting nonzero base64 padding bits.
+  [[ "$1" =~ ^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$ ]] || fail_json "invalid_public_key" "Expected public key must be a canonical WireGuard key." 64
+}
+
 require_owned_config() {
   [[ -e "$WG_CONF" || -L "$WG_CONF" ]] || fail_json "not_installed" "WireGuard configuration is absent." 72
   [[ -f "$WG_CONF" && ! -L "$WG_CONF" ]] && grep -qxF '# TUNNL_MANAGED 1' "$WG_CONF" || fail_json "unmanaged_config" "Refusing to modify unmanaged WireGuard configuration." 73
@@ -459,14 +465,26 @@ private_artifact_directory() {
   mkdir -p "$directory" 2>/dev/null && chmod 700 "$TUNNL_DIR" "$directory" || mutation_abort write_failed
 }
 
+peer_public_key() {
+  awk -v name="$1" '
+    $0 == "# BEGIN_PEER " name {inside=1; next}
+    $0 == "# END_PEER " name {exit}
+    inside && $1 == "PublicKey" && $2 == "=" {print $3; exit}
+  ' "$WG_CONF"
+}
+
+require_expected_peer() {
+  local name=$1 expected_public_key=$2
+  validate_peer_markers || fail_json "invalid_config" "Peer markers are ambiguous." 74
+  grep -qxF "# BEGIN_PEER $name" "$WG_CONF" && grep -qxF "# END_PEER $name" "$WG_CONF" || fail_json "peer_not_found" "Peer was not found." 73
+  [[ $(peer_public_key "$name") == "$expected_public_key" ]] || fail_json "peer_identity_mismatch" "Peer identity changed; refresh before retrying." 73
+}
+
 prepare_peer_removal() {
   local name=$1
   validate_peer_markers || mutation_abort invalid_config
   grep -qxF "# BEGIN_PEER $name" "$WG_CONF" && grep -qxF "# END_PEER $name" "$WG_CONF" || mutation_abort peer_not_found
-  REMOVED_PUBLIC_KEY=$(awk -v name="$name" '
-    $0 == "# BEGIN_PEER " name {inside=1}
-    inside && /^PublicKey = / {print $3; exit}
-  ' "$WG_CONF")
+  REMOVED_PUBLIC_KEY=$(peer_public_key "$name")
   [[ -n "$REMOVED_PUBLIC_KEY" ]] || mutation_abort invalid_config
   [[ $(awk -v key="$REMOVED_PUBLIC_KEY" '$1 == "PublicKey" && $3 == key {count++} END {print count+0}' "$WG_CONF") -eq 1 ]] || mutation_abort invalid_config
   awk -v name="$name" '

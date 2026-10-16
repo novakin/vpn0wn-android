@@ -199,9 +199,10 @@ def install_cycle(label: str, final: bool = False) -> None:
     require_postcondition(f"{label}-add-peer-1-key", isinstance(peer1.get("publicKey"), str) and bool(peer1["publicKey"]))
     check_sync(f"{label}-sync-after-peer-1", {"android-test-1": peer1["publicKey"]})
 
-    revoke = run_json(f"{label}-revoke-peer-1", f"{q(REMOTE_DIR + '/revoke-peer.sh')} --name android-test-1")
+    revoke = run_json(f"{label}-revoke-peer-1", f"{q(REMOTE_DIR + '/revoke-peer.sh')} --name android-test-1 --expected-public-key {q(peer1['publicKey'])}")
     require_postcondition(f"{label}-revoke-peer-1", revoke.get("removed") is True and revoke.get("revoked") is True)
     require_postcondition(f"{label}-revoke-peer-1-name", revoke.get("name") == "android-test-1")
+    require_postcondition(f"{label}-revoke-peer-1-key", revoke.get("publicKey") == peer1["publicKey"])
     check_sync(f"{label}-sync-after-revoke-1", {})
 
     peer2 = run_json(f"{label}-add-peer-2", f"{q(REMOTE_DIR + '/add-peer.sh')} --name android-test-2 --dns {q(DNS)}")
@@ -209,9 +210,10 @@ def install_cycle(label: str, final: bool = False) -> None:
     require_postcondition(f"{label}-add-peer-2-key", isinstance(peer2.get("publicKey"), str) and bool(peer2["publicKey"]))
     check_sync(f"{label}-sync-after-peer-2", {"android-test-2": peer2["publicKey"]})
 
-    remove = run_json(f"{label}-remove-peer-2", f"{q(REMOTE_DIR + '/remove-peer.sh')} --name android-test-2")
+    remove = run_json(f"{label}-remove-peer-2", f"{q(REMOTE_DIR + '/remove-peer.sh')} --name android-test-2 --expected-public-key {q(peer2['publicKey'])}")
     require_postcondition(f"{label}-remove-peer-2", remove.get("removed") is True and remove.get("revoked") is False)
     require_postcondition(f"{label}-remove-peer-2-name", remove.get("name") == "android-test-2")
+    require_postcondition(f"{label}-remove-peer-2-key", remove.get("publicKey") == peer2["publicKey"])
     check_sync(f"{label}-sync-after-remove-2", {})
 
     backup = run_json(f"{label}-backup", f"{q(REMOTE_DIR + '/backup.sh')}")

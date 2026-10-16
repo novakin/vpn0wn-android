@@ -8,12 +8,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 name=""
 dns=""
 allowed_ips="0.0.0.0/0"
+expected_server_public_key=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --name) require_arg_value "$@"; name=$2; shift 2 ;;
     --dns) require_arg_value "$@"; dns=$2; shift 2 ;;
     --allowed-ips) require_arg_value "$@"; allowed_ips=$2; shift 2 ;;
+    --expected-server-public-key) require_arg_value "$@"; require_public_key "$2"; expected_server_public_key=$2; shift 2 ;;
     *) fail_json "invalid_arg" "Unknown argument: $1" 64 ;;
   esac
 done
@@ -39,11 +41,21 @@ require_dns "$dns"
 require_allowed_ips "$allowed_ips"
 
 listen_port=$(grep -m1 -E '^ListenPort = ' "$WG_CONF" | awk '{print $3}')
-server_private_key=$(grep -m1 -E '^PrivateKey = ' "$WG_CONF" | awk '{print $3}')
+server_private_key=$(grep -m1 -E '^PrivateKey = ' "$WG_CONF" | awk '{print $3}' || true)
 require_port "$listen_port"
+[[ -n "$server_private_key" ]] || fail_json "key_failed" "Unable to determine server identity." 74
+server_public_key=$(wg_public_key_from_private "$server_private_key" 2>/dev/null) || fail_json "key_failed" "Unable to determine server identity." 74
+[[ "$server_public_key" =~ ^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$ ]] || fail_json "key_failed" "Unable to determine server identity." 74
+if [[ -n "$expected_server_public_key" ]]; then
+  [[ "$server_public_key" == "$expected_server_public_key" ]] || fail_json "server_identity_mismatch" "Server identity changed." 73
+  observe_runtime || fail_json "runtime_unknown" "Unable to determine interface state." 74
+  if [[ "$RUNTIME_RUNNING" == true ]]; then
+    live_public_key=$(wg show "$WG_IFACE" public-key 2>/dev/null) || fail_json "runtime_unknown" "Unable to determine live server identity." 74
+    [[ "$live_public_key" == "$expected_server_public_key" ]] || fail_json "server_identity_mismatch" "Live server identity changed." 73
+  fi
+fi
 begin_mutation peer
 peer_ip=$(next_peer_address "$cidr") || mutation_abort address_pool_full
-server_public_key=$(wg_public_key_from_private "$server_private_key" 2>/dev/null) || mutation_abort key_failed
 private_key=$(wg genkey 2>/dev/null) || mutation_abort key_failed
 public_key=$(wg_public_key_from_private "$private_key" 2>/dev/null) || mutation_abort key_failed
 psk=$(wg genpsk 2>/dev/null) || mutation_abort key_failed

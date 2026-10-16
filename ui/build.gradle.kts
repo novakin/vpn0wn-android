@@ -118,6 +118,8 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.withType<Test>().configureEach {
     maxHeapSize = "2g"
+    // Robolectric retains SDK sandboxes and asset maps across test classes.
+    forkEvery = 1
 }
 
 detekt {
