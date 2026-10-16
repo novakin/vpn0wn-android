@@ -1,6 +1,6 @@
 # Backend & Functional Changelog
 
-Last updated: 2026-10-15 (Europe/Paris).
+Last updated: 2026-10-16 (Europe/Paris).
 
 Tracks non-UI changes: backend logic, data layer, permissions, networking, build config, and any functional behavior changes. Separate from `ui-redesign-roadmap.md` which covers visual/layout work only.
 
@@ -58,6 +58,10 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 - [x] Add opt-in destructive end-to-end test path against a disposable Ubuntu/Debian VPS.
 
 ## Done
+
+- **Detail public-key row copy targets — [#180](https://github.com/novakin/vpn0wn-android/issues/180) (source 2026-10-15, Europe/Paris):** Both Detail layouts bind the current complete key to their existing `public_key_row` container, with a local 48dp minimum height, localized label and native selectable foreground. `BindingAdapters.setCopyText(View, text)` owns row click/focus state and removes the listener, clickability and focusability for empty payloads or disabled targets when bound. `ClipboardUtils.copyText` accepts the row's content description while preserving TextInputEditText hint labels and existing TextView callers. The peer layout guards its keepalive plural lookup when `item` is cleared, avoiding generated nullable-Integer unboxing while retaining configured/absent keepalive behavior. Compact value text, fonts, row padding, RX/TX displayed-value copying and private-key handling remain unchanged. Extended [copy controls](qa-test-plan.md#detail-public-key-copy-controls--180) cover the source contract; focused execution passes under the [2026-10-16 QA record](qa-test-plan.md#detail-public-key-copy-controls--180); [Native API-28/36 acceptance](reviews/2026-10-16-detail-public-key-copy-acceptance.md) adds twelve exact pastes, representative API-28 Snackbar and all six API-36 system-preview originals with same-boot uninstall/owned-guest cleanup. Two API-28 peer frames remain faint; physical/full-matrix/spoken-accessibility proof stays separate.
+
+- **Detail full public-key copying — [#180](https://github.com/novakin/vpn0wn-android/issues/180) (2026-10-14, Europe/Paris):** `BindingAdapters.setCopyText` binds the current interface/peer public key as a separate clipboard payload in both Detail layouts. `ClipboardUtils.copyText` retains the existing clipboard metadata and pre-Android-13 Snackbar; `copyTextView` still copies displayed values for other callers. Compact `shortKey` text, typography, RX/TX copying and private-key handling remain unchanged. [QA controls](qa-test-plan.md#detail-public-key-copy-controls--180) cover rebinding, replacement views and empty data with synthetic keys; Android paste and final delivery gates remain separate.
 
 - **Native saved-credential storage proof — #143 (2026-10-15, Europe/Paris):** The same isolated debug acceptance APK passes seven named Android Keystore/store/filesystem controls on fresh owned API-24 and API-28 Google APIs x86_64 guests. The [acceptance record](reviews/2026-10-15-native-ssh-credential-storage-acceptance.md) binds source/artifact/runner/results, preserves the earlier runner-launch failure and records uninstall/guest termination. This adds no product behavior or SSH/UI/backup/crash/physical acceptance; #143 remains open.
 
