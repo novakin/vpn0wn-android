@@ -475,7 +475,7 @@
     <string name="vpn0wn_label_allowed_ips">ALLOWED IPS</string>
     <string name="vpn0wn_label_keepalive">KEEPALIVE</string>
     <string name="vpn0wn_user_subtitle">USER · %s</string>
-    <string name="vpn0wn_profile_exported">Profile exported</string>
+    <string name="vpn0wn_profile_exported">Private profile saved to %1$s. Keep this file secure.</string>
     <string name="vpn0wn_label_rx">RX</string>
     <string name="vpn0wn_label_tx">TX</string>
     <string name="vpn0wn_section_profile">profile</string>
@@ -574,7 +574,16 @@
     <string name="vpn0wn_servers_summary_partial">%1$d CONFIGURED · %2$d OBSERVED PEERS</string>
     <string name="vpn0wn_server_card_summary_unknown">%1$s · PEERS UNKNOWN · %2$s</string>
     <string name="vpn0wn_peers_unavailable">Peer inventory unavailable. Refresh server status to observe it.</string>
-    <string name="vpn0wn_profile_unavailable">QR and profile export are unavailable in this version. Retained profiles stay encrypted on this device.</string>
+    <string name="vpn0wn_profile_unavailable">No retained profile matches this user’s current server identity and settings. Public status cannot recover a missing private key.</string>
+    <string name="vpn0wn_profile_authenticate">Authenticate to access VPN profile</string>
+    <string name="vpn0wn_profile_import">Import into this app</string>
+    <string name="vpn0wn_profile_import_note">Save a tunnel on this phone using the current retained profile. The tunnel stays disconnected. Imported tunnels use the app’s ordinary local configuration storage.</string>
+    <string name="vpn0wn_profile_import_failed">Tunnel could not be saved. Check the name is valid and unused, then try again.</string>
+    <string name="vpn0wn_profile_output_failed">Profile output failed. No successful export was confirmed.</string>
+    <string name="vpn0wn_profile_qr_failed">Profile is too large to display as a QR code. Export its .conf file instead.</string>
+    <string name="vpn0wn_profile_qr_description">WireGuard profile QR code for %1$s</string>
+    <string name="vpn0wn_profile_scan">Scan to pair</string>
+    <string name="vpn0wn_profile_checking">Checking current profile…</string>
     <string name="vpn0wn_user_create_title">Create VPN user</string>
     <string name="vpn0wn_user_name">PEER NAME</string>
     <string name="vpn0wn_user_name_hint">phone</string>

@@ -19,6 +19,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+import android.view.WindowManager
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Button
 import android.widget.EditText
@@ -51,6 +52,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.vpn0wn.android.R
 import com.vpn0wn.android.model.ObservableTunnel
+import com.vpn0wn.android.backend.Tunnel
 import com.vpn0wn.android.provisioning.VpsDeployAction
 import com.vpn0wn.android.provisioning.VpsDeployServer
 import com.vpn0wn.android.provisioning.VpsDeployServerStatus
@@ -69,6 +71,16 @@ import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.AddUserConfirmat
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.UserCreation
 import com.vpn0wn.android.provisioning.ProvisioningRecovery
 import com.vpn0wn.android.util.vpn0wnStyle
+import com.vpn0wn.android.util.AdminKnobs
+import com.vpn0wn.android.util.BiometricAuthenticator
+import com.vpn0wn.android.util.DownloadsFileSaver
+import com.vpn0wn.android.databinding.ConfigNamingDialogFragmentBinding
+import com.vpn0wn.android.provisioning.VpsUserProfile
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.WriterException
+import com.google.zxing.qrcode.QRCodeWriter
+import com.journeyapps.barcodescanner.BarcodeEncoder
+import java.io.IOException
 import com.vpn0wn.android.widget.VpsSectionHeaderLayout
 import com.vpn0wn.android.widget.VpsHealthChecksLayout
 import com.vpn0wn.android.widget.VpsCornerLayout
@@ -77,7 +89,12 @@ import com.vpn0wn.android.widget.VpsTopologyView
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class VpsProvisioningFragment : BaseFragment() {
     private lateinit var root: FrameLayout
@@ -93,6 +110,10 @@ class VpsProvisioningFragment : BaseFragment() {
     private var installDialog: AlertDialog? = null
     private var addUserDialog: AlertDialog? = null
     private var addUserAction: AddUserAction? = null
+    private lateinit var downloadsFileSaver: DownloadsFileSaver
+    @Volatile private var profileAction: ProfileAction? = null
+    private var profileDialog: AlertDialog? = null
+    private var profileJob: Job? = null
     private val servers = mutableListOf<VpsDeployServer>()
     private val storedServers = mutableListOf<StoredVpsServer>()
     private val serverStore by lazy { Application.getVpsServerStore() }
@@ -101,6 +122,11 @@ class VpsProvisioningFragment : BaseFragment() {
     }
     private val cachedMediumMonoTypeface by lazy {
         ResourcesCompat.getFont(requireContext(), R.font.jetbrains_mono_medium) ?: cachedMonoTypeface
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        downloadsFileSaver = DownloadsFileSaver(this)
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -158,6 +184,7 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     override fun onDestroyView() {
+        retireProfileAction()
         retireAddUserAction()
         installDialog?.dismiss()
         installDialog = null
@@ -170,6 +197,7 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     override fun onStop() {
+        if (profileAction?.authenticating == false) retireProfileAction()
         retireAddUserAction()
         super.onStop()
     }
@@ -178,6 +206,7 @@ class VpsProvisioningFragment : BaseFragment() {
     override fun onSelectedTunnelChanged(oldTunnel: ObservableTunnel?, newTunnel: ObservableTunnel?) = Unit
 
     private fun render() {
+        profileAction?.takeUnless { ownsProfileAction(it, requireStarted = false) }?.let { retireProfileAction() }
         retireAddUserAction()
         updateServerProjection(TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()))
         root.removeAllViews()
@@ -583,7 +612,11 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun userScreen(server: VpsDeployServer, user: VpsDeployUser): View {
         val container = vertical()
-        container.addView(topBar(title = user.name, sub = str(R.string.vpn0wn_user_subtitle, server.name.uppercase(Locale.ROOT)), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { screen = Screen.Detail(server.id); render() }, right = listOf(iconButton(R.drawable.ic_vpn0wn_share, str(R.string.vpn0wn_action_export)) { toast(str(R.string.vpn0wn_profile_unavailable)) })))
+        val exportDisabled = provisionState.busy || AdminKnobs.disableConfigExport
+        container.addView(topBar(title = user.name, sub = str(R.string.vpn0wn_user_subtitle, server.name.uppercase(Locale.ROOT)), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { screen = Screen.Detail(server.id); render() }, right = listOf(iconButton(R.drawable.ic_vpn0wn_share, str(R.string.vpn0wn_action_export)) { requestProfileAction(server, user, ProfileUse.EXPORT) }.apply {
+            isEnabled = !exportDisabled
+            alpha = if (exportDisabled) 0.45f else 1f
+        })))
         val (scrollView, scroll) = scrollContent()
         scroll.addView(card(user.status.colorRes).apply {
             setPadding(dp(14), dp(14), dp(14), dp(10))
@@ -601,9 +634,10 @@ class VpsProvisioningFragment : BaseFragment() {
             configLine(str(R.string.vpn0wn_label_allowed), user.allowedIps)
         })
         scroll.addView(sectionHeader(2, str(R.string.vpn0wn_section_actions), str(R.string.vpn0wn_hint_device)))
+        addOperationStatus(scroll, server.id)
         scroll.addView(actionGrid(listOf(
-            VpsDeployAction(R.drawable.ic_vpn0wn_qr, str(R.string.vpn0wn_action_show_qr), str(R.string.vpn0wn_action_show_qr_sub), R.color.vpn0wn_signal_deep, user.status == VpsDeployUserStatus.REVOKED) { toast(str(R.string.vpn0wn_profile_unavailable)) },
-            VpsDeployAction(R.drawable.ic_vpn0wn_share, str(R.string.vpn0wn_action_export), str(R.string.vpn0wn_action_export_sub), R.color.vpn0wn_ink) { toast(str(R.string.vpn0wn_profile_unavailable)) },
+            VpsDeployAction(R.drawable.ic_vpn0wn_qr, str(R.string.vpn0wn_action_show_qr), str(R.string.vpn0wn_action_show_qr_sub), R.color.vpn0wn_signal_deep, exportDisabled || user.status == VpsDeployUserStatus.REVOKED) { requestProfileAction(server, user, ProfileUse.QR) },
+            VpsDeployAction(R.drawable.ic_vpn0wn_share, str(R.string.vpn0wn_action_export), str(R.string.vpn0wn_action_export_sub), R.color.vpn0wn_ink, exportDisabled) { requestProfileAction(server, user, ProfileUse.EXPORT) },
             VpsDeployAction(R.drawable.ic_vpn0wn_refresh, str(R.string.vpn0wn_action_rotate_key), str(R.string.vpn0wn_action_rotate_key_sub), R.color.vpn0wn_ink, user.status == VpsDeployUserStatus.REVOKED) {
                 toast(str(R.string.vpn0wn_peer_mutation_unavailable))
             },
@@ -611,8 +645,267 @@ class VpsProvisioningFragment : BaseFragment() {
                 toast(str(R.string.vpn0wn_peer_mutation_unavailable))
             },
         )))
+        scroll.addView(rowButton(str(R.string.vpn0wn_profile_import)) { requestProfileAction(server, user, ProfileUse.IMPORT) }
+            .apply {
+                id = R.id.vpn0wn_vps_profile_import
+                isEnabled = !provisionState.busy
+                alpha = if (provisionState.busy) 0.45f else 1f
+            }.withMargins(top = 10))
         container.addView(scrollView, LinearLayout.LayoutParams(-1, 0, 1f))
         return container
+    }
+
+    private fun requestProfileAction(server: VpsDeployServer, user: VpsDeployUser, use: ProfileUse) {
+        if (profileAction != null || provisionState.busy || !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
+        val stored = storedServers.singleOrNull { it.id == server.id } ?: return
+        val action = ProfileAction(stored, user.id, user.name, use, requireView())
+        if (!ownsProfileSelection(action) || exportProhibited(action)) return
+        profileAction = action
+        try {
+            authenticateProfileAction(action)
+        } catch (failure: RuntimeException) {
+            if (profileAction === action) retireProfileAction()
+            throw failure
+        }
+    }
+
+    private fun authenticateProfileAction(action: ProfileAction) {
+        BiometricAuthenticator.authenticate(R.string.vpn0wn_profile_authenticate, this) { result ->
+            if (profileAction !== action || !action.authenticating) return@authenticate
+            if (result is BiometricAuthenticator.Result.Failure && result.code == null) {
+                if (ownsProfileAction(action)) toast(str(R.string.biometric_auth_error))
+                return@authenticate
+            }
+            action.authenticating = false
+            if (!ownsProfileAction(action) || exportProhibited(action)) {
+                retireProfileAction()
+                return@authenticate
+            }
+            when (result) {
+                is BiometricAuthenticator.Result.Success, is BiometricAuthenticator.Result.NoAuthenticationConfigured -> {
+                    if (action.use == ProfileUse.IMPORT) showProfileImport(action) else consumeProfile(action)
+                }
+                is BiometricAuthenticator.Result.Failure -> {
+                    toast(str(R.string.biometric_auth_error))
+                    retireProfileAction()
+                }
+                is BiometricAuthenticator.Result.Cancelled -> retireProfileAction()
+            }
+        }
+    }
+
+    private fun consumeProfile(action: ProfileAction, importName: String? = null, imported: (() -> Unit)? = null,
+        importFailed: ((String) -> Unit)? = null, settled: (() -> Unit)? = null) {
+        if (!ownsProfileAction(action) || profileJob?.isActive == true) return
+        profileJob = viewLifecycleOwner.lifecycleScope.launch {
+            var access: Job? = null
+            try {
+                ensureProfileAllowed(action)
+                if (action.use == ProfileUse.EXPORT && !downloadsFileSaver.ensurePermission()) {
+                    retireProfileAction()
+                    return@launch
+                }
+                ensureProfileAllowed(action)
+                access = provision.useUserProfile(action.server, action.clientPublicKey) { profile ->
+                    ensureProfileAllowed(action)
+                    try {
+                        when (action.use) {
+                            ProfileUse.QR -> showProfileQr(action, profile)
+                            ProfileUse.EXPORT -> exportProfile(action, profile)
+                            ProfileUse.IMPORT -> importProfile(action, profile, requireNotNull(importName), imported, importFailed)
+                        }
+                    } catch (_: IOException) {
+                        if (ownsProfileAction(action)) toast(str(R.string.vpn0wn_profile_output_failed))
+                    } catch (_: SecurityException) {
+                        if (ownsProfileAction(action)) toast(str(R.string.vpn0wn_profile_output_failed))
+                    }
+                }
+                access?.join()
+                val settledState = provision.state.value
+                if (action.use == ProfileUse.IMPORT && ownsProfileAction(action) && settledState.serverId == action.server.id)
+                    settledState.problem?.let { importFailed?.invoke(problemText(it)) }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: IOException) {
+                if (ownsProfileAction(action)) toast(str(R.string.vpn0wn_profile_output_failed))
+            } catch (_: SecurityException) {
+                if (ownsProfileAction(action)) toast(str(R.string.vpn0wn_profile_output_failed))
+            } finally {
+                access?.cancel()
+                if (profileAction === action) {
+                    profileJob = null
+                    if (ownsProfileAction(action)) settled?.invoke()
+                    if (action.use == ProfileUse.EXPORT || action.use == ProfileUse.QR && profileDialog == null) retireProfileAction()
+                }
+            }
+        }
+    }
+
+    // ConfigStore declares checked Exception; report expected save failures without hiding runtime defects.
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun importProfile(action: ProfileAction, profile: VpsUserProfile, name: String, imported: (() -> Unit)?,
+        failed: ((String) -> Unit)?) {
+        val created = try {
+            Application.getTunnelManager().create(name, profile.config)
+            true
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (_: IllegalArgumentException) {
+            false
+        } catch (_: IOException) {
+            false
+        } catch (_: SecurityException) {
+            false
+        } catch (failure: RuntimeException) {
+            throw failure
+        } catch (_: Exception) {
+            false
+        }
+        ensureProfileAllowed(action)
+        if (created) {
+            toast(str(R.string.import_success, name))
+            imported?.invoke()
+        } else failed?.invoke(str(R.string.vpn0wn_profile_import_failed))
+    }
+
+    private suspend fun exportProfile(action: ProfileAction, profile: VpsUserProfile) {
+        val bytes = profile.payload().toByteArray(Charsets.UTF_8)
+        val timestamp = System.currentTimeMillis().toString(Character.MAX_RADIX)
+        val prefixLength = Tunnel.NAME_MAX_LENGTH - timestamp.length - 1
+        val fileName = "${profile.name.take(prefixLength)}-$timestamp.conf"
+        try {
+            val path = downloadsFileSaver.save(fileName, "text/plain", false) { stream ->
+                if (profileAction !== action || AdminKnobs.disableConfigExport)
+                    throw CancellationException("Profile export is no longer authorized")
+                stream.write(bytes)
+            }
+            currentCoroutineContext().ensureActive()
+            if (path != null && ownsProfileAction(action)) toast(str(R.string.vpn0wn_profile_exported, path))
+        } finally {
+            bytes.fill(0)
+        }
+    }
+
+    // QR geometry follows the approved overlay; native scrolling retains short-screen access.
+    @Suppress("MagicNumber")
+    private suspend fun showProfileQr(action: ProfileAction, profile: VpsUserProfile) {
+        val size = dp(240)
+        val matrix = try {
+            withContext(Dispatchers.Default) { QRCodeWriter().encode(profile.payload(), BarcodeFormat.QR_CODE, size, size) }
+        } catch (_: WriterException) {
+            if (ownsProfileAction(action)) toast(str(R.string.vpn0wn_profile_qr_failed))
+            return
+        }
+        ensureProfileAllowed(action)
+        val bitmap = BarcodeEncoder().createBitmap(matrix)
+        val image = ImageView(requireContext()).apply {
+            id = R.id.vpn0wn_vps_profile_qr
+            adjustViewBounds = true
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setImageBitmap(bitmap)
+            contentDescription = str(R.string.vpn0wn_profile_qr_description, profile.name)
+        }
+        val content = vertical().apply {
+            setPadding(dp(20), dp(12), dp(20), dp(12))
+            addView(label(str(R.string.vpn0wn_profile_scan)))
+            addView(mono(profile.name, 13, R.color.vpn0wn_ink).withMargins(top = 4, bottom = 14))
+            addView(image, LinearLayout.LayoutParams(size, size).apply { gravity = Gravity.CENTER_HORIZONTAL })
+            addView(panel {
+                configLine(str(R.string.vpn0wn_label_server), action.server.name)
+                configLine(str(R.string.vpn0wn_label_ip), profile.config.`interface`.addresses.joinToString())
+                configLine(str(R.string.vpn0wn_label_endpoint), profile.config.peers.single().endpoint.get().toString())
+            }.withMargins(top = 14))
+            addView(mono(str(R.string.vpn0wn_qr_footer), 11, R.color.vpn0wn_ink_3).withMargins(top = 14))
+        }
+        val scroll = ScrollView(requireContext()).apply {
+            addView(content)
+            addOnLayoutChangeListener { viewport, _, _, _, _, _, _, _, _ ->
+                val imageSize = minOf(size, viewport.height, viewport.width - content.paddingLeft - content.paddingRight)
+                if (imageSize > 0 && image.layoutParams.height != imageSize) {
+                    image.layoutParams = (image.layoutParams as LinearLayout.LayoutParams).apply {
+                        width = imageSize
+                        height = imageSize
+                    }
+                }
+            }
+        }
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setView(scroll)
+            .setPositiveButton(R.string.vpn0wn_close, null).create()
+        profileDialog = dialog
+        dialog.setOnDismissListener {
+            image.setImageDrawable(null)
+            bitmap.recycle()
+            if (profileDialog === dialog) {
+                profileDialog = null
+                retireProfileAction()
+            }
+        }
+        dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        dialog.show()
+    }
+
+    // Insets retain the native dialog body treatment beside the shared naming form.
+    @Suppress("MagicNumber")
+    private fun showProfileImport(action: ProfileAction) {
+        val binding = ConfigNamingDialogFragmentBinding.inflate(layoutInflater)
+        binding.tunnelNameText.setText(action.name)
+        binding.tunnelNameText.isSaveEnabled = false
+        val builder = MaterialAlertDialogBuilder(requireContext())
+        val content = vertical().apply {
+            addView(TextView(builder.context, null, com.google.android.material.R.attr.materialAlertDialogBodyTextStyle).apply {
+                id = android.R.id.message
+                setText(R.string.vpn0wn_profile_import_note)
+                setPadding(dp(24), 0, dp(24), 0)
+            }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            addView(binding.root, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        }
+        val dialog = builder.setTitle(R.string.vpn0wn_profile_import)
+            .setView(ScrollView(builder.context).apply { addView(content) })
+            .setNegativeButton(R.string.cancel, null).setPositiveButton(R.string.create_tunnel, null).create()
+        profileDialog = dialog
+        dialog.setOnDismissListener { if (profileDialog === dialog) { profileDialog = null; retireProfileAction() } }
+        dialog.show()
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            if (!ownsProfileAction(action) || profileJob?.isActive == true) return@setOnClickListener
+            val button = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            button.isEnabled = false
+            binding.tunnelNameText.isEnabled = false
+            binding.tunnelNameTextLayout.error = null
+            binding.tunnelNameTextLayout.helperText = str(R.string.vpn0wn_profile_checking)
+            consumeProfile(action, binding.tunnelNameText.text.toString(), imported = { dialog.dismiss() },
+                importFailed = { message -> binding.tunnelNameTextLayout.error = message },
+                settled = {
+                    button.isEnabled = true
+                    binding.tunnelNameText.isEnabled = true
+                    binding.tunnelNameTextLayout.helperText = null
+                })
+        }
+    }
+
+    private fun ownsProfileSelection(action: ProfileAction): Boolean {
+        val selected = screen as? Screen.User ?: return false
+        return selected.serverId == action.server.id && selected.userId == action.clientPublicKey &&
+            storedServers.singleOrNull { it.id == action.server.id } == action.server
+    }
+
+    private fun ownsProfileAction(action: ProfileAction, requireStarted: Boolean = true): Boolean =
+        profileAction === action && view === action.ownerView && ownsProfileSelection(action) &&
+            (!requireStarted || viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+
+    private fun exportProhibited(action: ProfileAction): Boolean = action.use != ProfileUse.IMPORT && AdminKnobs.disableConfigExport
+
+    private fun ensureProfileAllowed(action: ProfileAction) {
+        if (!ownsProfileAction(action) || exportProhibited(action)) throw CancellationException("Profile action is no longer authorized")
+    }
+
+    private fun retireProfileAction() {
+        profileAction = null
+        profileJob?.cancel()
+        profileJob = null
+        val dialog = profileDialog
+        profileDialog = null
+        dialog?.dismiss()
     }
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
@@ -704,28 +997,28 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun renderOperationStatus(parent: LinearLayout) {
         parent.removeAllViews()
-        val selectedServerId = (screen as? Screen.Detail)?.serverId
+        val selectedServerId = when (val current = screen) {
+            is Screen.Detail -> current.serverId
+            is Screen.User -> current.serverId
+            else -> null
+        }
         val operationSelected = selectedServerId == null || selectedServerId == provisionState.serverId
         val problem = provisionState.problem.takeIf { operationSelected }
-        if (problem != null) parent.addView(mono(str(when (problem) {
-            Problem.INVALID_INPUT -> R.string.vpn0wn_ssh_invalid_input
-            Problem.CONNECTION_FAILED -> R.string.vpn0wn_ssh_connection_failed
-            Problem.INVALID_RESPONSE -> R.string.vpn0wn_ssh_invalid_response
-            Problem.ACCESS_MISSING -> R.string.vpn0wn_saved_ssh_missing
-            Problem.CONNECTION_CHANGED -> R.string.vpn0wn_ssh_connection_changed
-            Problem.STORAGE_FAILED -> R.string.vpn0wn_saved_ssh_failed
-            Problem.STORAGE_CONFLICT -> R.string.vpn0wn_saved_ssh_conflict
-            Problem.CANCELLED -> R.string.vpn0wn_ssh_cancelled
-            Problem.INSTALL_FAILED -> R.string.vpn0wn_apply_failed
-            Problem.INSTALL_PENDING -> R.string.vpn0wn_apply_uncertain
-            Problem.ADD_PENDING -> R.string.vpn0wn_user_add_pending
-            Problem.IDENTITY_UNAVAILABLE -> R.string.vpn0wn_user_identity_required
-        }), 11, R.color.vpn0wn_warn).apply {
+        if (problem != null) parent.addView(mono(problemText(problem), 11, R.color.vpn0wn_warn).apply {
             id = R.id.vpn0wn_vps_operation_problem
             accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
             setPadding(dp(14), dp(8), dp(14), dp(8))
         })
+        val action = profileAction
+        if (provisionState.busy && action != null && ownsProfileAction(action)) {
+            parent.addView(mono(str(R.string.vpn0wn_profile_checking), 11, R.color.vpn0wn_ink_2).apply {
+                accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+            }.withMargins(bottom = 10))
+            parent.addView(rowButton(str(R.string.vpn0wn_cancel_check)) {
+                if (profileAction === action) retireProfileAction()
+            }.withMargins(bottom = 10))
+        }
         val saved = when (provisionState.savedAccess.takeIf { operationSelected }) {
             null -> null
             SavedAccess.NONE -> null
@@ -750,6 +1043,22 @@ class VpsProvisioningFragment : BaseFragment() {
             })
         addUserCreationStatus(parent)
     }
+
+    private fun problemText(problem: Problem): String = str(when (problem) {
+        Problem.INVALID_INPUT -> R.string.vpn0wn_ssh_invalid_input
+        Problem.CONNECTION_FAILED -> R.string.vpn0wn_ssh_connection_failed
+        Problem.INVALID_RESPONSE -> R.string.vpn0wn_ssh_invalid_response
+        Problem.ACCESS_MISSING -> R.string.vpn0wn_saved_ssh_missing
+        Problem.CONNECTION_CHANGED -> R.string.vpn0wn_ssh_connection_changed
+        Problem.STORAGE_FAILED -> R.string.vpn0wn_saved_ssh_failed
+        Problem.STORAGE_CONFLICT -> R.string.vpn0wn_saved_ssh_conflict
+        Problem.CANCELLED -> R.string.vpn0wn_ssh_cancelled
+        Problem.INSTALL_FAILED -> R.string.vpn0wn_apply_failed
+        Problem.INSTALL_PENDING -> R.string.vpn0wn_apply_uncertain
+        Problem.ADD_PENDING -> R.string.vpn0wn_user_add_pending
+        Problem.IDENTITY_UNAVAILABLE -> R.string.vpn0wn_user_identity_required
+        Problem.PROFILE_UNAVAILABLE -> R.string.vpn0wn_profile_unavailable
+    })
 
     private fun ownsServerFeedback(owner: StoredVpsServer?): Boolean {
         val selectedServerId = (screen as? Screen.Detail)?.serverId ?: provisionState.serverId.takeIf { screen is Screen.Provision }
@@ -1417,6 +1726,10 @@ class VpsProvisioningFragment : BaseFragment() {
     private fun monoTypeface(): Typeface = cachedMonoTypeface
 
     private data class AddUserAction(val server: StoredVpsServer, val name: String? = null)
+
+    private enum class ProfileUse { QR, EXPORT, IMPORT }
+    private class ProfileAction(val server: StoredVpsServer, val clientPublicKey: String, val name: String,
+        val use: ProfileUse, val ownerView: View, var authenticating: Boolean = true)
 
     private sealed class Screen {
         object Fleet : Screen()

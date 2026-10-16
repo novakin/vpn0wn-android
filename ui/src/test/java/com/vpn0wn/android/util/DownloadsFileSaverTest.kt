@@ -11,6 +11,7 @@ import android.content.pm.ProviderInfo
 import android.database.Cursor
 import android.database.MatrixCursor
 import android.net.Uri
+import android.os.Bundle
 import android.os.ParcelFileDescriptor
 import android.os.Environment
 import android.provider.MediaStore
@@ -19,10 +20,14 @@ import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContract
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityOptionsCompat
+import androidx.fragment.app.Fragment
+import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.Lifecycle
 import java.io.File
 import java.io.IOException
 import java.io.OutputStream
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.cancelAndJoin
@@ -38,6 +43,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -51,6 +57,7 @@ import org.robolectric.shadows.ShadowEnvironment
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, sdk = [29])
+@OptIn(ExperimentalCoroutinesApi::class)
 class DownloadsFileSaverTest {
     @get:Rule val folder = TemporaryFolder()
     @After fun resetDispatcher() = Dispatchers.resetMain()
@@ -412,6 +419,132 @@ class DownloadsFileSaverTest {
             } finally {
                 retry.cancelAndJoin()
             }
+        }
+    }
+
+    @Test
+    @Config(sdk = [24, 28])
+    fun legacyActivityRegistrationAfterStartIsRejected() {
+        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+        try {
+            assertTrue(controller.get().lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+            val failure = runCatching { DownloadsFileSaver(controller.get()) }.exceptionOrNull()
+            assertTrue(failure is IllegalStateException)
+        } finally {
+            controller.destroy()
+        }
+    }
+
+    @Test
+    @Config(sdk = [24, 28])
+    fun legacyFragmentRegistersAfterActivityStartAndRetriesDeniedPermission() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        withLegacyFragment { saver, activity, directory ->
+            shadowOf(activity).denyPermissions(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            var deniedResult: String? = "pending"
+            var writes = 0
+            val denied = launch { deniedResult = saver.save("profile.conf", null, false) { writes++ } }
+            runCurrent()
+            dispatchPermissionResult(activity, PackageManager.PERMISSION_DENIED)
+            denied.join()
+            assertEquals(null, deniedResult)
+            assertEquals(0, writes)
+            assertFalse(File(directory, "profile.conf").exists())
+
+            var result: String? = null
+            val granted = launch { result = saver.save("profile.conf", null, false) { it.write("fixture".toByteArray()) } }
+            runCurrent()
+            shadowOf(activity).grantPermissions(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            dispatchPermissionResult(activity, PackageManager.PERMISSION_GRANTED)
+            granted.join()
+            val output = File(directory, "profile.conf")
+            assertEquals(output.absolutePath, result)
+            assertEquals("fixture", output.readText())
+        }
+    }
+
+    @Test
+    @Config(sdk = [24, 28])
+    fun legacyFragmentCanSettlePermissionBeforeCreatingOutput() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        withLegacyFragment { saver, activity, directory ->
+            shadowOf(activity).denyPermissions(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            var allowed: Boolean? = null
+            val denied = launch { allowed = saver.ensurePermission() }
+            runCurrent()
+            assertNull(allowed)
+            assertTrue(directory.listFiles()!!.isEmpty())
+            dispatchPermissionResult(activity, PackageManager.PERMISSION_DENIED)
+            denied.join()
+            assertEquals(false, allowed)
+
+            val granted = launch { allowed = saver.ensurePermission() }
+            runCurrent()
+            val request = shadowOf(activity).lastRequestedPermission
+            shadowOf(activity).grantPermissions(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            dispatchPermissionResult(activity, PackageManager.PERMISSION_GRANTED)
+            granted.join()
+            assertEquals(true, allowed)
+            assertTrue(directory.listFiles()!!.isEmpty())
+            saver.save("profile.conf", null, false) { it.write(1) }
+            assertSame(request, shadowOf(activity).lastRequestedPermission)
+            assertTrue(File(directory, "profile.conf").exists())
+        }
+    }
+
+    @Test
+    @Config(sdk = [28])
+    fun legacyFragmentFailureRemovesOnlyNewOutput() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        withLegacyFragment { saver, activity, directory ->
+            shadowOf(activity).grantPermissions(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            val existing = File(directory, "existing.conf").apply { writeText("saved fixture") }
+            var writes = 0
+            assertTrue(failureOf { saver.save(existing.name, null, false) { writes++ } } is IOException)
+            assertEquals(0, writes)
+            assertEquals("saved fixture", existing.readText())
+            val failure = failureOf {
+                saver.save("profile.conf", null, false) { throw IOException("fixture write failure") }
+            }
+            assertEquals("fixture write failure", failure.message)
+            assertFalse(File(directory, "profile.conf").exists())
+            assertEquals("saved fixture", existing.readText())
+        }
+    }
+
+    private fun dispatchPermissionResult(activity: ComponentActivity, result: Int) {
+        val request = shadowOf(activity).lastRequestedPermission
+        assertNotNull(request)
+        val pending = Activity::class.java.getDeclaredField("mHasCurrentPermissionsRequest").apply { isAccessible = true }
+        assertTrue(pending.getBoolean(activity))
+        val data = Intent().putExtra("android.content.pm.extra.REQUEST_PERMISSIONS_NAMES", arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE))
+            .putExtra("android.content.pm.extra.REQUEST_PERMISSIONS_RESULTS", intArrayOf(result))
+        shadowOf(activity).internalCallDispatchActivityResult("@android:requestPermissions:", request.requestCode, Activity.RESULT_OK, data)
+        assertFalse(pending.getBoolean(activity))
+    }
+
+    private suspend fun withLegacyFragment(test: suspend (DownloadsFileSaver, FragmentActivity, File) -> Unit) {
+        ShadowEnvironment.setExternalStoragePublicDirectory(folder.newFolder("storage").toPath())
+        @Suppress("DEPRECATION") val directory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        directory.mkdirs()
+        val controller = Robolectric.buildActivity(FragmentActivity::class.java).setup()
+        val activity = controller.get()
+        assertTrue(activity.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+        val fragment = DownloadsFragment()
+        try {
+            activity.supportFragmentManager.beginTransaction().add(fragment, "downloads").commitNow()
+            test(fragment.saver, activity, directory)
+        } finally {
+            controller.destroy()
+        }
+    }
+
+    class DownloadsFragment : Fragment() {
+        lateinit var saver: DownloadsFileSaver
+
+        override fun onCreate(savedInstanceState: Bundle?) {
+            super.onCreate(savedInstanceState)
+            saver = DownloadsFileSaver(this)
         }
     }
 

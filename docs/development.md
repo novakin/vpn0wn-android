@@ -192,11 +192,15 @@ These roles do not limit newly available relevant skills. Record unavailable app
 
 Inspect actual output at the affected sizes, orientations and supported themes, including relevant font-scale/RTL configurations under the [QA plan](qa-test-plan.md). Review hierarchy, alignment, spacing, typography, colors/contrast, touch/focus behavior, states and motion against the approved intent and native behavior. A prototype or JVM/static check does not establish Android output, accessibility or runtime acceptance.
 
+For manual native-view renders, assert the actual locale, font scale and resolved layout direction on the rendered roots; resource qualifiers alone are insufficient. Complete layout and registered pre-draw callbacks before capture, and do not accept a canceled draw as a frame. Check painted glyph bounds and real visible targets while preserving native scrolling and focus behavior. Label manually drawn/composited or synthetic-data output explicitly; it does not prove WindowManager/insets, IME/TalkBack, a physical QR scan or installed-device behavior.
+
 Before declaring completion, ask: **“Am I satisfied with this UI/UX result?”** Record a concise author verdict in the current PR acceptance record or unpublished handoff: skills applied, output/revision/configurations inspected, material findings/corrections and remaining limits. Fix material in-scope gaps and recheck the affected output before a satisfied verdict. If required output or proof is unavailable, state verification incomplete; do not replace missing evidence with an unsupported 100/100 claim. This self-review does not replace independent ultra review, required acceptance or merge authorization.
 
 ## Verification commands and ownership
 
 Run focused repository-native checks first. JVM test tasks compile their dependencies but do not assemble an APK. APK assembly still requires an explicit request. Commands below run from the repository root in an appropriate configured environment:
+
+UI `Test` tasks use one fresh worker per test class with the existing 2 GiB heap limit and default serial execution. Robolectric retains SDK/shadow/graphics sandboxes and resource maps across classes; a full-suite run exhausted the shared heap even though the focused profile controls passed. Worker recycling bounds that retained state per class and adds JVM/framework startup cost. Keep the complete suite as the acceptance check for this boundary; filtered success cannot establish cumulative suite behavior. This configuration changes test execution only, not app process ownership or runtime behavior.
 
 The Detekt configuration is compatible with pinned 1.23.8 after the merged #20 repair. Source remediation under [issue #22](https://github.com/novakin/vpn0wn-android/issues/22) now passes native analysis with zero findings; the [dated source evidence](#detekt-source-remediation--2026-10-06) separates that local result from publication and future CI enforcement. The inherited 538/546 findings remain historical evidence below.
 
