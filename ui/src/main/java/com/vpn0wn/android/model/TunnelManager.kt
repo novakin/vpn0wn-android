@@ -299,7 +299,17 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     }
 
     suspend fun getTunnelConfig(tunnel: ObservableTunnel): Config = withContext(Dispatchers.Main.immediate) {
-        tunnel.onConfigChanged(withContext(Dispatchers.IO) { configStore.load(tunnel.name) })!!
+        requireManaged(tunnel)
+        var current: Config?
+        do {
+            val name = tunnel.name
+            val generation = tunnel.configGeneration
+            val config = withContext(Dispatchers.IO) { configStore.load(name) }
+            requireManaged(tunnel)
+            current = if (name == tunnel.name && generation == tunnel.configGeneration)
+                tunnel.onConfigChanged(config) else tunnel.peekConfig()
+        } while (current == null)
+        current
     }
 
     // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
