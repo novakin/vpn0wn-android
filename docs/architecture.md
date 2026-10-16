@@ -64,7 +64,7 @@ flowchart LR
     Fleet --> Screen[Fleet UI]
 ```
 
-The provisioning client, scripts, concrete transport and protected credential-storage backend exist. Wizard credential capture/reuse and live action/result wiring remain planned; persisted fleet records already render. The transport is exercised with a synthetic loopback peer. This flow establishes no Android runtime, live deployment, user management or generated-profile QR acceptance.
+The provisioning client, scripts, concrete transport and protected credential-storage backend exist. Wizard credential capture/reuse and live action/result wiring remain planned; persisted fleet records already render. The transport is exercised with a synthetic loopback peer. The separate [native API-24/28 storage record](reviews/2026-10-15-native-ssh-credential-storage-acceptance.md) adds bounded Keystore/store/filesystem proof; this unfinished flow establishes no Android transport, live deployment, user management or generated-profile QR acceptance.
 
 ## Boundaries and invariants
 
@@ -215,7 +215,7 @@ Alternatives include Compose/MVVM or a general controller/DI rewrite. Current re
 
 ### Keep provisioning behind explicit transport and script contracts
 
-Status: boundary, bounded concrete transport and protected storage backend implemented; credential capture, Android proof and UI integration remain open under [#143](https://github.com/novakin/vpn0wn-android/issues/143). Existing client/factory separation supports injected remote responses and preserves non-interactive packaged scripts.
+Status: boundary, bounded concrete transport and protected storage backend implemented; credential capture, Android transport proof and UI integration remain open under [#143](https://github.com/novakin/vpn0wn-android/issues/143). Existing client/factory separation supports injected remote responses and preserves non-interactive packaged scripts.
 
 Alternatives include embedding all server management in Android or invoking the upstream interactive installer. Neither fits the current machine-readable flow.
 
@@ -225,7 +225,7 @@ Alternatives include embedding all server management in Android or invoking the 
 
 **Consequences/limits:** require a canonical out-of-band SHA256 host-key pin and numeric IPv4/IPv6 address before networking; the legacy trust Boolean never bypasses verification. Use ordinary VPN routing. Support password and bounded traditional RSA/ECDSA PEM credentials, with RSA-SHA2/ECDSA host/auth algorithms, SHA2 key exchanges/MACs and AES ciphers. No Ed25519/provider dependency, OpenSSH/PKCS8 key format, hostname resolution, fingerprint enrollment or credential persistence is added. Expected library failures expose fixed messages without raw causes; private-key stringification is redacted. The [transport contract](backend-contracts.md#concrete-ssh-transport--c11) owns exact limits and teardown.
 
-**Verification/migration impact:** Apache MINA SSHD 2.20.0 is test-only, providing a synthetic authenticated loopback SSH/SFTP peer within existing JUnit/Robolectric infrastructure. Controlled blocking sockets additionally exercise cancellation before socket connect returns, banner IO and channel-open waits. JSch declares Java 8; desktop/Robolectric checks do not certify Android API 24 crypto, desugaring or networking. API-24 runtime, credential storage, wired workflow and live-server acceptance remain open under #143. No persisted contract or live server is migrated. [Offline attribution](license-attribution.md#jsch-transport-notices) retains JSch, JZlib and jBCrypt notices.
+**Verification/migration impact:** Apache MINA SSHD 2.20.0 is test-only, providing a synthetic authenticated loopback SSH/SFTP peer within existing JUnit/Robolectric infrastructure. Controlled blocking sockets additionally exercise cancellation before socket connect returns, banner IO and channel-open waits. JSch declares Java 8; desktop/Robolectric checks do not certify Android API 24 crypto, desugaring or networking. Android/API-24 transport runtime, credential capture/reuse, wired workflow and live-server acceptance remain open under #143. No persisted contract or live server is migrated. [Offline attribution](license-attribution.md#jsch-transport-notices) retains JSch, JZlib and jBCrypt notices.
 
 ### Keystore-backed saved SSH credentials — 2026-10-15
 
@@ -235,7 +235,7 @@ Alternatives include embedding all server management in Android or invoking the 
 
 **Alternatives/consequences:** an extra encrypted-preferences library or general vault/provider framework adds no required capability. Per-use biometric authorization would change reconnect/session behavior and is not introduced. Atomicity across the existing settings file and the new ciphertext is not claimed. Vault-first deletion, positively checked recovery and rejection of new-ID orphan collisions prevent automatic credential reassociation without adding a second persisted binding-token schema. Corrupt/key-lost protection remains observable and is never replaced automatically. Unrelated settings/profile exports and safe status/display updates do not require credential decryption.
 
-**Verification and migration limits:** tests use real JVM AES-GCM with injected keys/commit failures and existing DataStore/transfer controls. These do not establish Android Keystore lifecycle, API-24 crypto, backup/OEM behavior or power-loss durability. There is no prior credential file to migrate; stored fleet and transfer schemas remain unchanged. C12 capture, fingerprint input, actual credential reuse/removal UI and runtime/live acceptance keep #143 open. Revisit the policy before adding another process that writes fleet/credential state or changing recovery behavior.
+**Verification and migration limits:** tests use real JVM AES-GCM with injected keys/commit failures and existing DataStore/transfer controls. Those source controls do not establish Android runtime. The separate [native API-24/28 storage record](reviews/2026-10-15-native-ssh-credential-storage-acceptance.md) passes seven scoped Keystore/store/filesystem checks; process-restart lifecycle, backup/OEM behavior and power-loss durability remain unverified. There is no prior credential file to migrate; stored fleet and transfer schemas remain unchanged. C12 capture, fingerprint input, actual credential reuse/removal UI and Android transport/live acceptance keep #143 open. Revisit the policy before adding another process that writes fleet/credential state or changing recovery behavior.
 
 ### Full transfer uses existing profile and metadata owners — 2026-10-09
 
