@@ -373,10 +373,11 @@ class HomeSelectionTest {
                 layout(f.binding, case.width, case.height)
                 assertEquals(Tunnel.State.UP, f.binding.tunnels!!["charlie"]!!.state)
                 assertEquals("198.51.100.42", f.binding.homeEndpointHost.text.toString())
-                val targets = listOf(f.binding.homeSearch, f.binding.homeLogs, f.binding.homeSettings)
+                val targets = listOf(f.binding.homeSearch, f.binding.homeServers, f.binding.homeLogs, f.binding.homeSettings)
                 val targetBounds = targets.map { target ->
                     assertTrue("${case.name}: Home action width", target.width >= 48 * target.resources.displayMetrics.density)
                     assertTrue("${case.name}: Home action height", target.height >= 48 * target.resources.displayMetrics.density)
+                    assertFullyVisible(target, "${case.name}: Home action")
                     Rect().also { target.getGlobalVisibleRect(it) }
                 }
                 for (index in 1 until targetBounds.size) {

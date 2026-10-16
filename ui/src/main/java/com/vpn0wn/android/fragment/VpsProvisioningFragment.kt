@@ -26,9 +26,8 @@ import android.widget.HorizontalScrollView
 import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.RadioButton
-import android.widget.Switch
+import android.widget.ScrollView
 import android.widget.Space
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
@@ -41,8 +40,12 @@ import androidx.core.content.withStyledAttributes
 import androidx.core.view.setPadding
 import androidx.core.view.doOnLayout
 import androidx.core.widget.doAfterTextChanged
+import androidx.fragment.app.viewModels
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.vpn0wn.android.Application
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.vpn0wn.android.R
 import com.vpn0wn.android.databinding.BindingAdapters
@@ -54,17 +57,22 @@ import com.vpn0wn.android.provisioning.VpsDeployServerStatus
 import com.vpn0wn.android.provisioning.VpsDeployUser
 import com.vpn0wn.android.provisioning.VpsDeployUserStatus
 import com.vpn0wn.android.provisioning.VpsDeployMapper
+import com.vpn0wn.android.provisioning.StoredVpsServer
+import com.vpn0wn.android.provisioning.VpsProvisioningViewModel
+import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.AuthMode
+import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Problem
+import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.SavedAccess
+import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.State
+import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Step
 import com.vpn0wn.android.util.vpn0wnStyle
 import com.vpn0wn.android.widget.VpsQrCodeView
 import com.vpn0wn.android.widget.VpsSectionHeaderLayout
 import com.vpn0wn.android.widget.VpsCornerLayout
-import com.vpn0wn.android.widget.VpsSwitchGlyphView
 import com.vpn0wn.android.widget.VpsTerminalStreamView
 import com.vpn0wn.android.widget.VpsTopologyView
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class VpsProvisioningFragment : BaseFragment() {
@@ -72,16 +80,15 @@ class VpsProvisioningFragment : BaseFragment() {
     private var screen: Screen = Screen.Fleet
     private var filter: VpsDeployServerStatus? = null
     private var qrUser: VpsDeployUser? = null
-    private var applyRunning = false
-    private var applyDone = false
-    private var provisionStep = SSH_STEP
-    private var authMode = AuthMode.KEY
-    private var trustHost = true
+    private val provision by viewModels<VpsProvisioningViewModel>()
+    private val provisionState get() = provision.state.value
+    private val provisionForm get() = provision.draft
+    private val provisionStep get() = provisionState.step.ordinal
     private var backCallback: OnBackPressedCallback? = null
-    private var applyJob: Job? = null
     private var storeJob: Job? = null
-    private var provisionForm = ProvisionForm()
+    private var renderedProvisionState: State? = null
     private val servers = mutableListOf<VpsDeployServer>()
+    private val storedServers = mutableListOf<StoredVpsServer>()
     private val serverStore by lazy { Application.getVpsServerStore() }
     private val cachedMonoTypeface by lazy {
         ResourcesCompat.getFont(requireContext(), R.font.jetbrains_mono_regular) ?: Typeface.MONOSPACE
@@ -89,17 +96,13 @@ class VpsProvisioningFragment : BaseFragment() {
     private val cachedBoldMonoTypeface by lazy {
         Typeface.create(cachedMonoTypeface, Typeface.BOLD)
     }
-    private val cachedUiTypeface by lazy {
-        ResourcesCompat.getFont(requireContext(), R.font.inter_tight) ?: Typeface.DEFAULT
-    }
-    private val cachedBoldUiTypeface by lazy {
-        Typeface.create(cachedUiTypeface, Typeface.BOLD)
-    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         root = FrameLayout(requireContext()).apply {
             setBackgroundColor(color(R.color.vpn0wn_paper))
+            isSaveFromParentEnabled = false
         }
+        if (provisionState.active) screen = Screen.Provision
         backCallback = requireActivity().onBackPressedDispatcher.addCallback(this) { goBack() }
         render()
         return root
@@ -108,14 +111,51 @@ class VpsProvisioningFragment : BaseFragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         collectServers()
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                provision.state.collect { state ->
+                    val previous = renderedProvisionState
+                    if (state.active) screen = Screen.Provision else if (screen is Screen.Provision) screen = Screen.Fleet
+                    val editingStep = state.step == Step.SSH || state.step == Step.DETECT
+                    if (previous != null && screen is Screen.Provision && editingStep && previous.step == state.step &&
+                        !state.busy && previous.busy == state.busy && state.problem == null &&
+                        (state.detect === previous.detect || state.detect == null)
+                    ) {
+                        root.findViewById<LinearLayout>(R.id.vpn0wn_vps_operation_status)?.let { renderOperationStatus(it) }
+                        if (previous.usingSavedAccess != state.usingSavedAccess)
+                            root.findViewById<LinearLayout>(R.id.vpn0wn_vps_ssh_credentials)?.let { it.sshCredentials() }
+                        root.findViewById<View>(R.id.vpn0wn_vps_bottom_action)?.let { action ->
+                            val parent = action.parent as ViewGroup
+                            val index = parent.indexOfChild(action)
+                            parent.removeView(action)
+                            parent.addView(bottomAction(), index)
+                        }
+                        renderedProvisionState = state
+                    } else {
+                        render()
+                    }
+                    val settledProblem = !state.busy && state.problem != null
+                    if (settledProblem && (state.problem != previous?.problem || previous?.busy == true)) {
+                        root.findViewById<View>(R.id.vpn0wn_vps_operation_problem)?.let { problem ->
+                            problem.doOnLayout {
+                                problem.post {
+                                    if (problem.isAttachedToWindow && provisionState.problem == state.problem && !provisionState.busy)
+                                        problem.requestRectangleOnScreen(Rect(0, 0, problem.width, problem.height), true)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     override fun onDestroyView() {
-        resetProvisionSession()
         storeJob?.cancel()
         storeJob = null
         backCallback?.remove()
         backCallback = null
+        renderedProvisionState = null
         super.onDestroyView()
     }
 
@@ -137,6 +177,7 @@ class VpsProvisioningFragment : BaseFragment() {
             },
             FrameLayout.LayoutParams(-1, -1),
         )
+        renderedProvisionState = if (screen is Screen.Provision) provisionState else null
         val user = qrUser
         val currentScreen = screen
         if (user != null && currentScreen is Screen.User) {
@@ -149,10 +190,12 @@ class VpsProvisioningFragment : BaseFragment() {
         storeJob?.cancel()
         storeJob = viewLifecycleOwner.lifecycleScope.launch {
             serverStore.servers.collect { storedServers ->
+                this@VpsProvisioningFragment.storedServers.clear()
+                this@VpsProvisioningFragment.storedServers.addAll(storedServers)
                 val now = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())
                 servers.clear()
                 servers.addAll(storedServers.map { VpsDeployMapper.fromStored(it, now) })
-                if (::root.isInitialized) render()
+                if (::root.isInitialized && screen !is Screen.Provision) render()
             }
         }
     }
@@ -167,15 +210,7 @@ class VpsProvisioningFragment : BaseFragment() {
         displayed.forEach { scroll.addView(serverCard(it)) }
         if (displayed.isEmpty()) scroll.addView(emptyFleetCard())
         scroll.addView(dashedButton(str(R.string.vpn0wn_add_server)) {
-            provisionForm.clear()
-            provisionStep = SSH_STEP
-            applyRunning = false
-            applyDone = false
-            provisionForm = ProvisionForm()
-            authMode = AuthMode.KEY
-            trustHost = true
-            screen = Screen.Provision
-            render()
+            provision.begin()
         })
         container.addView(scrollView, LinearLayout.LayoutParams(-1, 0, 1f))
         return container
@@ -250,7 +285,7 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun detailScreen(server: VpsDeployServer): View {
         val container = vertical()
-        container.addView(topBar(title = server.name, sub = str(R.string.vpn0wn_server_subtitle, server.region.uppercase(Locale.ROOT)), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { screen = Screen.Fleet; render() }, right = listOf(iconButton(R.drawable.ic_vpn0wn_refresh, str(R.string.refresh)) { toast(str(R.string.vpn0wn_server_synced)) }, iconButton(R.drawable.ic_vpn0wn_more, str(R.string.vpn0wn_more_actions)) { toast(str(R.string.vpn0wn_more_pending)) })))
+        container.addView(topBar(title = server.name, sub = str(R.string.vpn0wn_server_subtitle, server.region.uppercase(Locale.ROOT)), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { screen = Screen.Fleet; render() }, right = listOf(iconButton(R.drawable.ic_vpn0wn_more, str(R.string.vpn0wn_more_actions)) { toast(str(R.string.vpn0wn_more_pending)) })))
         val (scrollView, scroll) = scrollContent()
         scroll.addView(VpsTopologyView(requireContext()).apply {
             bind(server)
@@ -292,36 +327,43 @@ class VpsProvisioningFragment : BaseFragment() {
             VpsDeployAction(R.drawable.ic_vpn0wn_logs, str(R.string.vpn0wn_action_terminal), str(R.string.vpn0wn_action_terminal_sub), R.color.vpn0wn_ink) { toast(str(R.string.vpn0wn_terminal_pending)) },
             VpsDeployAction(R.drawable.ic_vpn0wn_trash, str(R.string.vpn0wn_action_uninstall), str(R.string.vpn0wn_action_uninstall_sub), R.color.vpn0wn_error) { toast(str(R.string.vpn0wn_uninstall_requires_confirmation)) },
         )))
+        storedServers.find { it.id == server.id }?.let { stored ->
+            scroll.addView(sectionHeader(5, str(R.string.vpn0wn_section_ssh_access), str(R.string.vpn0wn_hint_local)))
+            scroll.addView(panel {
+                addView(rowButton(str(R.string.vpn0wn_reuse_saved_ssh)) { provision.reuse(stored) })
+                addView(rowButton(str(R.string.vpn0wn_clear_saved_ssh)) {
+                    MaterialAlertDialogBuilder(requireContext())
+                        .setTitle(R.string.vpn0wn_clear_saved_ssh)
+                        .setMessage(R.string.vpn0wn_clear_saved_ssh_confirmation)
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .setPositiveButton(R.string.vpn0wn_clear_saved_ssh) { _, _ -> provision.clearSavedAccess(stored) }
+                        .show()
+                })
+                addOperationStatus(this, stored.id)
+            })
+        }
         container.addView(scrollView, LinearLayout.LayoutParams(-1, 0, 1f))
         return container
     }
 
-    // Existing form gutters and bottom clearance retain approved geometry after scroll ownership changes.
+    // Local scroll insets preserve the scalable wizard's existing drawing geometry.
     @Suppress("MagicNumber")
     private fun provisionScreen(): View {
         val steps = listOf(str(R.string.vpn0wn_step_ssh), str(R.string.vpn0wn_step_detect), str(R.string.vpn0wn_step_plan), str(R.string.vpn0wn_step_apply), str(R.string.vpn0wn_step_import))
         val container = vertical()
         val scrollView = ScrollView(requireContext())
         val page = vertical()
-        page.addView(topBar(title = str(R.string.vpn0wn_deploy_server_title), sub = str(R.string.vpn0wn_deploy_step_summary, provisionStep + 1, steps[provisionStep]), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = {
-            if (provisionStep == 0) {
-                resetProvisionSession()
-                screen = Screen.Fleet
-            } else {
-                provisionStep--
-            }
-            render()
-        }))
+        page.addView(topBar(title = str(R.string.vpn0wn_deploy_server_title), sub = str(R.string.vpn0wn_deploy_step_summary, provisionStep + 1, steps[provisionStep]), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { provision.back() }))
         page.addView(progressStrip(steps.size, provisionStep))
-        page.addView(stepTracker(steps))
+        page.addView(stepTracker(steps, provisionStep))
         val scroll = vertical().apply { setPadding(dp(14), 0, dp(14), dp(24)) }
         when (provisionStep) {
             SSH_STEP -> sshStep(scroll)
             DETECT_STEP -> detectStep(scroll)
             PLAN_STEP -> planStep(scroll)
             APPLY_STEP -> applyStep(scroll)
-            else -> importStep(scroll)
         }
+        addOperationStatus(scroll)
         page.addView(scroll)
         scrollView.addView(page)
         container.addView(scrollView, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -334,106 +376,119 @@ class VpsProvisioningFragment : BaseFragment() {
     private fun sshStep(parent: LinearLayout) {
         parent.addView(sectionHeader(1, str(R.string.vpn0wn_section_ssh_access), str(R.string.vpn0wn_hint_no_cloud_relay)))
         parent.addView(panel {
-            editLine(str(R.string.vpn0wn_label_host), str(R.string.vpn0wn_host_placeholder), provisionForm.host) {
-                provisionForm = provisionForm.copy(host = it)
+            editLine(R.id.vpn0wn_vps_ssh_host, str(R.string.vpn0wn_label_host), str(R.string.vpn0wn_host_placeholder), provisionForm.host) {
+                provision.edit(provisionForm.copy(host = it))
             }
             val split = horizontal()
-            split.addView(editLineView(str(R.string.vpn0wn_label_port), "22", provisionForm.port, InputType.TYPE_CLASS_NUMBER) {
-                provisionForm = provisionForm.copy(port = it)
+            split.addView(editLineView(R.id.vpn0wn_vps_ssh_port, str(R.string.vpn0wn_label_port), "22", provisionForm.sshPort, InputType.TYPE_CLASS_NUMBER) {
+                provision.edit(provisionForm.copy(sshPort = it))
             }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-            split.addView(editLineView(str(R.string.vpn0wn_label_user), "root", provisionForm.user) {
-                provisionForm = provisionForm.copy(user = it)
+            split.addView(editLineView(R.id.vpn0wn_vps_ssh_user, str(R.string.vpn0wn_label_user), "root", provisionForm.user) {
+                provision.edit(provisionForm.copy(user = it))
             }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             addView(split)
-            addView(segmented(listOf(AuthMode.KEY.name to str(R.string.vpn0wn_auth_ssh_key), AuthMode.PASSWORD.name to str(R.string.vpn0wn_auth_password)), authMode.name) {
-                authMode = AuthMode.valueOf(it)
-                render()
+            editLine(R.id.vpn0wn_vps_ssh_fingerprint, str(R.string.vpn0wn_ssh_fingerprint), "SHA256:…", provisionForm.fingerprint) {
+                provision.edit(provisionForm.copy(fingerprint = it))
+            }
+            addView(mono(str(R.string.vpn0wn_ssh_pin_note), 10, R.color.vpn0wn_ink_3).apply { setPadding(dp(14), 0, dp(14), dp(12)) })
+            addView(vertical().apply { id = R.id.vpn0wn_vps_ssh_credentials; sshCredentials() })
+        })
+    }
+
+    // Local spacing preserves the surrounding authentication form.
+    @Suppress("MagicNumber")
+    private fun LinearLayout.sshCredentials() {
+        removeAllViews()
+        if (provisionState.usingSavedAccess) {
+            addView(mono(str(R.string.vpn0wn_using_saved_ssh), 11, R.color.vpn0wn_ink_2).apply { setPadding(dp(14)) })
+            addView(rowButton(str(R.string.vpn0wn_enter_new_ssh)) { provision.enterCredentials() })
+        } else {
+            addView(segmented(listOf(AuthMode.KEY.name to str(R.string.vpn0wn_auth_ssh_key), AuthMode.PASSWORD.name to str(R.string.vpn0wn_auth_password)), provisionForm.authMode.name) {
+                provision.edit(provisionForm.copy(authMode = AuthMode.valueOf(it)))
+                sshCredentials()
             }.apply { setPadding(dp(14), dp(10), dp(14), dp(10)) })
-            if (authMode == AuthMode.KEY) {
-                boxedEditLine(str(R.string.vpn0wn_label_private_key), str(R.string.vpn0wn_private_key_placeholder), provisionForm.privateKey, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS, minLines = 5, textSize = 10) {
-                    provisionForm = provisionForm.copy(privateKey = it)
+            if (provisionForm.authMode == AuthMode.KEY) {
+                boxedEditLine(R.id.vpn0wn_vps_ssh_private_key, str(R.string.vpn0wn_label_private_key), str(R.string.vpn0wn_private_key_placeholder), provisionForm.privateKey, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS, minLines = 5, textSize = 10) {
+                    provision.edit(provisionForm.copy(privateKey = it))
+                }
+                boxedEditLine(R.id.vpn0wn_vps_ssh_passphrase, str(R.string.vpn0wn_ssh_passphrase), str(R.string.vpn0wn_optional), provisionForm.passphrase, InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD) {
+                    provision.edit(provisionForm.copy(passphrase = it))
                 }
                 addView(mono(str(R.string.vpn0wn_private_key_keystore_note), 10, R.color.vpn0wn_ink_3).apply { setPadding(dp(14), 0, dp(14), dp(8)) })
                 addView(smallOutlineButton(str(R.string.vpn0wn_pick_key_file)) {
                     toast(str(R.string.vpn0wn_key_file_picker_pending))
                 }.withMargins(left = 14, right = 14, bottom = 12))
             } else {
-                boxedEditLine(str(R.string.vpn0wn_auth_password), str(R.string.vpn0wn_password_placeholder), String(provisionForm.password), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD, textSize = 14) {
-                    provisionForm.clear()
-                    provisionForm = provisionForm.copy(password = it.toCharArray())
+                boxedEditLine(R.id.vpn0wn_vps_ssh_password, str(R.string.vpn0wn_auth_password), str(R.string.vpn0wn_password_placeholder), String(provisionForm.password), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD, textSize = 14) {
+                    provision.edit(provisionForm.copy(password = it.toCharArray()))
                 }
                 addView(mono(str(R.string.vpn0wn_password_ephemeral_note), 10, R.color.vpn0wn_warn).apply { setPadding(dp(14), 0, dp(14), dp(12)) })
             }
-            addView(toggleLine(str(R.string.vpn0wn_trust_server_key), str(R.string.vpn0wn_trust_server_key_desc), trustHost) {
-                trustHost = !trustHost
-                render()
-            })
-        })
+        }
     }
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
     private fun detectStep(parent: LinearLayout) {
-        val pending = str(R.string.vpn0wn_pending_live_data)
+        val result = provisionState.detect ?: return
         parent.addView(sectionHeader(2, str(R.string.vpn0wn_step_detect).lowercase(Locale.ROOT), str(R.string.vpn0wn_hint_dry_run)))
         parent.addView(panel {
-            configLine(str(R.string.vpn0wn_label_distro), pending)
-            configLine(str(R.string.vpn0wn_label_kernel), pending)
-            configLine(str(R.string.vpn0wn_label_public_ip), pending)
-            configLine(str(R.string.vpn0wn_label_firewall), pending)
-            configLine(str(R.string.vpn0wn_label_wg_status), pending)
-            configLine(str(R.string.vpn0wn_label_ip_forwarding), pending)
+            configLine(str(R.string.vpn0wn_label_distro), "${result.os} ${result.version}")
+            configLine(str(R.string.vpn0wn_label_host), provisionForm.host)
+            configLine(str(R.string.vpn0wn_ssh_fingerprint), provisionForm.fingerprint, wrap = true)
+            configLine(str(R.string.vpn0wn_label_firewall), result.firewall)
+            configLine(str(R.string.vpn0wn_label_wg_status), str(if (result.wireGuardInstalled) R.string.vpn0wn_tools_installed else R.string.vpn0wn_tools_absent))
+            configLine(str(R.string.vpn0wn_label_ip_forwarding), result.ipv4Forwarding)
         })
         parent.addView(card().apply {
             setPadding(dp(14), dp(10), dp(14), dp(10))
             addView(label(str(R.string.vpn0wn_detect_assessment)))
-            addView(mono(str(R.string.vpn0wn_live_detect_placeholder), 11, R.color.vpn0wn_ink_2).apply { setPadding(0, dp(6), 0, 0) })
+            addView(mono(str(if (result.supported) R.string.vpn0wn_detect_supported else R.string.vpn0wn_detect_unsupported), 11, R.color.vpn0wn_ink_2).apply { setPadding(0, dp(6), 0, 0) })
+        })
+        parent.addView(sectionHeader(3, str(R.string.vpn0wn_section_network), str(R.string.vpn0wn_hint_review_before_apply)))
+        parent.addView(panel {
+            editLine(R.id.vpn0wn_vps_vpn_endpoint, str(R.string.vpn0wn_label_endpoint), str(R.string.vpn0wn_vpn_endpoint_hint), provisionForm.endpoint) {
+                provision.edit(provisionForm.copy(endpoint = it))
+            }
+            editLine(R.id.vpn0wn_vps_listen_port, str(R.string.vpn0wn_label_listen_port), "51820", provisionForm.port, InputType.TYPE_CLASS_NUMBER) {
+                provision.edit(provisionForm.copy(port = it))
+            }
+            editLine(R.id.vpn0wn_vps_cidr, str(R.string.vpn0wn_metric_cidr), "10.8.0.0/24", provisionForm.cidr) {
+                provision.edit(provisionForm.copy(cidr = it))
+            }
+            editLine(R.id.vpn0wn_vps_dns, str(R.string.vpn0wn_label_dns), "1.1.1.1, 1.0.0.1", provisionForm.dns) {
+                provision.edit(provisionForm.copy(dns = it))
+            }
         })
     }
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
     private fun planStep(parent: LinearLayout) {
+        val result = provisionState.plan ?: return
         parent.addView(sectionHeader(3, str(R.string.vpn0wn_section_deployment_plan), str(R.string.vpn0wn_hint_review_before_apply)))
         parent.addView(panel {
+            configLine(str(R.string.vpn0wn_label_host), provisionForm.host)
+            configLine(str(R.string.vpn0wn_ssh_fingerprint), provisionForm.fingerprint, wrap = true)
+            configLine(str(R.string.vpn0wn_label_endpoint), result.endpoint)
+            configLine(str(R.string.vpn0wn_label_listen_port), result.port)
+            configLine(str(R.string.vpn0wn_metric_cidr), result.cidr)
+            configLine(str(R.string.vpn0wn_label_dns), result.dns)
             addView(VpsTerminalStreamView(requireContext()).apply {
-                setLines(listOf(str(R.string.vpn0wn_live_plan_placeholder)), false)
+                setLines(result.steps, false)
             })
-            addView(label(str(R.string.vpn0wn_files_written)).apply { setPadding(dp(14), dp(10), dp(14), dp(6)) })
-            addView(mono(str(R.string.vpn0wn_pending_live_data), 10, R.color.vpn0wn_ink_3).apply { setPadding(dp(14), 0, dp(14), dp(8)) })
+            addView(mono(str(if (result.willOverwriteConfig) R.string.vpn0wn_plan_existing_config else R.string.vpn0wn_plan_advisory), 11, R.color.vpn0wn_warn).apply { setPadding(dp(14), dp(12), dp(14), dp(12)) })
         })
     }
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
     private fun applyStep(parent: LinearLayout) {
-        parent.addView(sectionHeader(4, str(R.string.vpn0wn_step_apply).lowercase(Locale.ROOT), if (applyDone) str(R.string.vpn0wn_apply_complete) else if (applyRunning) str(R.string.vpn0wn_apply_running) else str(R.string.vpn0wn_apply_ready)))
+        parent.addView(sectionHeader(4, str(R.string.vpn0wn_step_apply).lowercase(Locale.ROOT), str(R.string.vpn0wn_apply_unavailable)))
         parent.addView(panel {
-            if (!applyRunning && !applyDone) {
-                addView(mono(str(R.string.vpn0wn_apply_review_note), 11, R.color.vpn0wn_ink_3).apply { setPadding(dp(14)) })
-            } else {
-                addView(VpsTerminalStreamView(requireContext()).apply { setLines(listOf(str(R.string.vpn0wn_live_apply_placeholder)), applyRunning) })
-            }
-            if (applyDone) addView(mono(str(R.string.vpn0wn_live_provisioning_required), 11, R.color.vpn0wn_warn).apply { setPadding(dp(14), dp(12), dp(14), dp(12)) })
-        })
-        if (!applyRunning && !applyDone) {
-            parent.addView(dashedButton(str(R.string.vpn0wn_apply_plan_button), R.color.vpn0wn_warn, icon = null) {
-                startApplyPreview()
-            })
-        }
-    }
-
-    // Local layout/drawing dimensions and paint values preserve the visual specification.
-    @Suppress("MagicNumber")
-    private fun importStep(parent: LinearLayout) {
-        val pending = str(R.string.vpn0wn_pending_live_data)
-        parent.addView(sectionHeader(5, str(R.string.vpn0wn_section_import_device), str(R.string.vpn0wn_hint_first_peer)))
-        parent.addView(panel {
-            configLine(str(R.string.vpn0wn_label_device_name), pending)
-            configLine(str(R.string.vpn0wn_label_assigned_ip), pending)
-            configLine(str(R.string.vpn0wn_label_dns), pending)
-            configLine(str(R.string.vpn0wn_label_allowed_ips), pending)
-            configLine(str(R.string.vpn0wn_label_keepalive), pending)
+            configLine(str(R.string.vpn0wn_label_host), provisionForm.host)
+            configLine(str(R.string.vpn0wn_ssh_fingerprint), provisionForm.fingerprint, wrap = true)
+            addView(mono(str(R.string.vpn0wn_apply_not_connected), 11, R.color.vpn0wn_warn).apply { setPadding(dp(14)) })
         })
     }
 
@@ -493,9 +548,21 @@ class VpsProvisioningFragment : BaseFragment() {
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
     private fun bottomAction(): View {
-        val label = if (provisionStep == PLAN_STEP) str(R.string.vpn0wn_confirm_apply) else if (provisionStep == IMPORT_STEP) str(R.string.vpn0wn_finish_close) else str(R.string.vpn0wn_continue)
-        val canAdvance = provisionStep != APPLY_STEP || applyDone
+        val label = str(when {
+            provisionState.busy -> R.string.vpn0wn_cancel_check
+            provisionStep == DETECT_STEP -> R.string.vpn0wn_generate_plan
+            provisionStep == PLAN_STEP -> R.string.vpn0wn_review_apply
+            provisionStep == APPLY_STEP -> R.string.vpn0wn_apply_unavailable
+            else -> R.string.vpn0wn_continue
+        })
+        val canAdvance = provisionState.busy || when (provisionStep) {
+            SSH_STEP -> true
+            DETECT_STEP -> provisionState.detect?.supported == true
+            PLAN_STEP -> provisionState.plan != null
+            else -> false
+        }
         return TextView(requireContext()).apply {
+            id = R.id.vpn0wn_vps_bottom_action
             text = label
             typeface = monoTypeface()
             textSize = 11f
@@ -507,25 +574,63 @@ class VpsProvisioningFragment : BaseFragment() {
             background = rounded(
                 when {
                     !canAdvance -> R.color.vpn0wn_paper_2
-                    provisionStep == IMPORT_STEP -> R.color.vpn0wn_signal_deep
                     else -> R.color.vpn0wn_ink
                 },
                 when {
                     !canAdvance -> R.color.vpn0wn_rule_strong
-                    provisionStep == IMPORT_STEP -> R.color.vpn0wn_signal_deep
                     else -> R.color.vpn0wn_ink
                 },
             )
             setPadding(dp(13))
             setOnClickListener {
-                if (provisionStep < IMPORT_STEP) provisionStep++ else {
-                    toast(str(R.string.vpn0wn_live_provisioning_required))
-                    resetProvisionSession()
-                    screen = Screen.Fleet
+                when {
+                    provisionState.busy -> provision.back()
+                    provisionStep == SSH_STEP -> provision.detect()
+                    provisionStep == DETECT_STEP -> provision.plan()
+                    provisionStep == PLAN_STEP -> provision.reviewApply()
                 }
-                render()
             }
         }.withMargins(left = 14, top = 12, right = 14, bottom = 12)
+    }
+
+    // Literal dimensions retain the surrounding form typography and spacing.
+    @Suppress("MagicNumber")
+    private fun addOperationStatus(parent: LinearLayout, serverId: String? = null) {
+        if (serverId != null && serverId != provisionState.serverId) return
+        parent.addView(vertical().apply {
+            id = R.id.vpn0wn_vps_operation_status
+            renderOperationStatus(this)
+        })
+    }
+
+    // Literal spacing preserves the surrounding status typography.
+    @Suppress("MagicNumber")
+    private fun renderOperationStatus(parent: LinearLayout) {
+        parent.removeAllViews()
+        val problem = provisionState.problem
+        if (problem != null) parent.addView(mono(str(when (problem) {
+            Problem.INVALID_INPUT -> R.string.vpn0wn_ssh_invalid_input
+            Problem.CONNECTION_FAILED -> R.string.vpn0wn_ssh_connection_failed
+            Problem.INVALID_RESPONSE -> R.string.vpn0wn_ssh_invalid_response
+            Problem.ACCESS_MISSING -> R.string.vpn0wn_saved_ssh_missing
+            Problem.CONNECTION_CHANGED -> R.string.vpn0wn_ssh_connection_changed
+            Problem.STORAGE_FAILED -> R.string.vpn0wn_saved_ssh_failed
+            Problem.STORAGE_CONFLICT -> R.string.vpn0wn_saved_ssh_conflict
+            Problem.CANCELLED -> R.string.vpn0wn_ssh_cancelled
+        }), 11, R.color.vpn0wn_warn).apply {
+            id = R.id.vpn0wn_vps_operation_problem
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+            importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
+            setPadding(dp(14), dp(8), dp(14), dp(8))
+        })
+        val saved = when (provisionState.savedAccess) {
+            SavedAccess.NONE -> null
+            SavedAccess.SAVED -> R.string.vpn0wn_saved_ssh_saved
+            SavedAccess.METADATA_ONLY -> R.string.vpn0wn_saved_ssh_metadata_only
+            SavedAccess.UNKNOWN -> R.string.vpn0wn_saved_ssh_unknown
+            SavedAccess.CLEARED -> R.string.vpn0wn_saved_ssh_cleared
+        }
+        if (saved != null) parent.addView(mono(str(saved), 11, R.color.vpn0wn_ink_2).apply { setPadding(dp(14), dp(8), dp(14), dp(8)) })
     }
 
     private fun addUser() {
@@ -669,15 +774,15 @@ class VpsProvisioningFragment : BaseFragment() {
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
-    private fun stepTracker(steps: List<String>): View = HorizontalScrollView(requireContext()).apply {
+    private fun stepTracker(steps: List<String>, current: Int): View = HorizontalScrollView(requireContext()).apply {
         isFillViewport = true
         isHorizontalScrollBarEnabled = false
         setBackgroundColor(color(R.color.vpn0wn_paper_2))
         val row = horizontal(Gravity.CENTER_VERTICAL).apply {
             setPadding(dp(14), dp(10), dp(14), dp(10))
             steps.forEachIndexed { index, step ->
-                val done = index < provisionStep
-                val active = index == provisionStep
+                val done = index < current
+                val active = index == current
                 val stateColor = when {
                     done -> R.color.vpn0wn_signal_deep
                     active -> R.color.vpn0wn_warn
@@ -688,7 +793,7 @@ class VpsProvisioningFragment : BaseFragment() {
                     addView(horizontal(Gravity.CENTER_VERTICAL).apply {
                         addView(View(requireContext()).apply {
                             visibility = if (index == 0) View.INVISIBLE else View.VISIBLE
-                            setBackgroundColor(color(if (index <= provisionStep) R.color.vpn0wn_signal_deep else R.color.vpn0wn_rule))
+                            setBackgroundColor(color(if (index <= current) R.color.vpn0wn_signal_deep else R.color.vpn0wn_rule))
                         }, LinearLayout.LayoutParams(0, dp(1), 1f))
                         addView(TextView(requireContext()).apply {
                             text = if (done) "✓" else (index + 1).toString().padStart(2, '0')
@@ -723,7 +828,7 @@ class VpsProvisioningFragment : BaseFragment() {
         val minimumColumnWidth = columns.maxOf { it.measuredWidth }
         columns.forEach { it.minimumWidth = minimumColumnWidth }
         addView(row)
-        val activeColumn = row.getChildAt(provisionStep)
+        val activeColumn = row.getChildAt(current)
         doOnLayout {
             requestChildRectangleOnScreen(row, Rect(activeColumn.left, activeColumn.top, activeColumn.right, activeColumn.bottom), true)
         }
@@ -747,15 +852,15 @@ class VpsProvisioningFragment : BaseFragment() {
 
     // Local text/padding values preserve the configuration-row presentation.
     @Suppress("MagicNumber")
-    private fun LinearLayout.configLine(title: String, value: String, copy: Boolean = false) {
+    private fun LinearLayout.configLine(title: String, value: String, copy: Boolean = false, wrap: Boolean = false) {
         val row = horizontal(Gravity.CENTER_VERTICAL).apply {
             setPadding(dp(14), dp(10), dp(14), dp(10))
         }
         row.addView(vertical().apply {
             addView(label(title))
             addView(mono(value, 13, R.color.vpn0wn_ink).apply {
-                setSingleLine(true)
-                ellipsize = android.text.TextUtils.TruncateAt.END
+                setSingleLine(!wrap)
+                ellipsize = if (wrap) null else android.text.TextUtils.TruncateAt.END
                 setPadding(0, dp(2), 0, 0)
             })
         }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
@@ -767,18 +872,20 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     private fun LinearLayout.editLine(
+        fieldId: Int,
         title: String,
         hint: String,
         value: String,
         inputType: Int = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS,
         onChange: (String) -> Unit = {},
     ) {
-        addView(editLineView(title, hint, value, inputType, onChange))
+        addView(editLineView(fieldId, title, hint, value, inputType, onChange))
     }
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
     private fun LinearLayout.boxedEditLine(
+        fieldId: Int,
         title: String,
         hint: String,
         value: String,
@@ -789,11 +896,14 @@ class VpsProvisioningFragment : BaseFragment() {
     ) {
         addView(vertical().apply {
             setPadding(dp(14), dp(12), dp(14), dp(10))
-            addView(label(title).apply { setPadding(0, 0, 0, dp(8)) })
+            addView(label(title).apply { labelFor = fieldId; setPadding(0, 0, 0, dp(8)) })
             addView(EditText(requireContext()).apply {
+                id = fieldId
                 setText(value)
                 this.hint = hint
                 this.inputType = inputType
+                isSaveEnabled = false
+                isEnabled = !provisionState.busy
                 typeface = monoTypeface()
                 this.textSize = textSize.toFloat()
                 setTextColor(color(R.color.vpn0wn_ink))
@@ -803,7 +913,7 @@ class VpsProvisioningFragment : BaseFragment() {
                 gravity = if (minLines > 1) Gravity.TOP else Gravity.CENTER_VERTICAL
                 background = rounded(R.color.vpn0wn_paper_3, R.color.vpn0wn_rule_strong, dp(4))
                 setPadding(dp(10), dp(8), dp(10), dp(8))
-                doAfterTextChanged { onChange(it?.toString().orEmpty()) }
+                doAfterTextChanged { if (isAttachedToWindow && isEnabled) onChange(it?.toString().orEmpty()) }
             }, LinearLayout.LayoutParams(-1, WRAP_CONTENT))
         })
     }
@@ -811,6 +921,7 @@ class VpsProvisioningFragment : BaseFragment() {
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
     private fun editLineView(
+        fieldId: Int,
         title: String,
         hint: String,
         value: String,
@@ -818,11 +929,14 @@ class VpsProvisioningFragment : BaseFragment() {
         onChange: (String) -> Unit = {},
     ): View = vertical().apply {
         setPadding(dp(14), dp(8), dp(14), dp(10))
-        addView(label(title))
+        addView(label(title).apply { labelFor = fieldId })
         addView(EditText(requireContext()).apply {
+            id = fieldId
             setText(value)
             this.hint = hint
             this.inputType = inputType
+            isSaveEnabled = false
+            isEnabled = !provisionState.busy
             typeface = monoTypeface()
             textSize = 13f
             if ((inputType and InputType.TYPE_MASK_CLASS) == InputType.TYPE_CLASS_NUMBER) {
@@ -834,7 +948,7 @@ class VpsProvisioningFragment : BaseFragment() {
             setSingleLine((inputType and InputType.TYPE_TEXT_FLAG_MULTI_LINE) == 0)
             backgroundTintList = android.content.res.ColorStateList.valueOf(color(R.color.vpn0wn_rule_strong))
             setPadding(0, dp(2), 0, dp(2))
-            doAfterTextChanged { onChange(it?.toString().orEmpty()) }
+            doAfterTextChanged { if (isAttachedToWindow && isEnabled) onChange(it?.toString().orEmpty()) }
         })
     }
 
@@ -856,29 +970,9 @@ class VpsProvisioningFragment : BaseFragment() {
                     background = if (key == selected) rounded(R.color.vpn0wn_ink, R.color.vpn0wn_ink, dp(6)) else null
                     setPadding(dp(8))
                     setOnClickListener { onSelect(key) }
+                    isEnabled = !provisionState.busy
                 }, LinearLayout.LayoutParams(0, MATCH_PARENT, 1f))
             }
-        }
-    }
-
-    // Local layout/drawing dimensions and paint values preserve the visual specification.
-    @Suppress("MagicNumber")
-    private fun toggleLine(title: String, desc: String, value: Boolean, onClick: () -> Unit): View {
-        return horizontal(Gravity.CENTER_VERTICAL).apply {
-            setPadding(dp(14), dp(12), dp(14), dp(12))
-            minimumHeight = dp(48)
-            contentDescription = "$title. $desc"
-            actionAccessibility(Switch::class.java.name, value)
-            addView(vertical().apply {
-                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS
-                addView(ui(title, 14, R.color.vpn0wn_ink, Typeface.BOLD))
-                addView(ui(desc, 11, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(2), 0, 0) })
-            }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-            addView(VpsSwitchGlyphView(requireContext()).apply {
-                checked = value
-                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
-            }, LinearLayout.LayoutParams(dp(44), dp(24)))
-            setOnClickListener { onClick() }
         }
     }
 
@@ -1089,18 +1183,6 @@ class VpsProvisioningFragment : BaseFragment() {
         includeFontPadding = false
     }
 
-    private fun ui(text: String, size: Int, colorRes: Int, style: Int = Typeface.NORMAL): TextView = TextView(requireContext()).apply {
-        this.text = text
-        typeface = when (style) {
-            Typeface.NORMAL -> uiTypeface()
-            Typeface.BOLD -> cachedBoldUiTypeface
-            else -> Typeface.create(uiTypeface(), style)
-        }
-        textSize = size.toFloat()
-        setTextColor(color(colorRes))
-        includeFontPadding = false
-    }
-
     private fun View.withMargins(left: Int = 0, top: Int = 0, right: Int = 0, bottom: Int = 0): View = apply {
         layoutParams = LinearLayout.LayoutParams(-1, WRAP_CONTENT).apply {
             setMargins(dp(left), dp(top), dp(right), dp(bottom))
@@ -1128,27 +1210,10 @@ class VpsProvisioningFragment : BaseFragment() {
                 return
             }
             is Screen.Detail -> screen = Screen.Fleet
-            is Screen.Provision -> if (provisionStep > 0) {
-                provisionStep--
-            } else {
-                resetProvisionSession()
-                screen = Screen.Fleet
-            }
+            is Screen.Provision -> provision.back()
             is Screen.User -> screen = Screen.Detail(current.serverId)
         }
         render()
-    }
-
-    private fun startApplyPreview() {
-        applyJob?.cancel()
-        applyJob = viewLifecycleOwner.lifecycleScope.launch {
-            applyRunning = true
-            render()
-            delay(APPLY_PREVIEW_DURATION_MS)
-            applyRunning = false
-            applyDone = true
-            render()
-        }
     }
 
     private companion object {
@@ -1156,45 +1221,13 @@ class VpsProvisioningFragment : BaseFragment() {
         const val DETECT_STEP = 1
         const val PLAN_STEP = 2
         const val APPLY_STEP = 3
-        const val IMPORT_STEP = 4
-        const val APPLY_PREVIEW_DURATION_MS = 5200L
     }
 
     private fun server(id: String) = servers.find { it.id == id }
-    private fun resetProvisionSession() {
-        applyJob?.cancel()
-        applyJob = null
-        provisionForm.clear()
-        applyRunning = false
-        applyDone = false
-        provisionStep = SSH_STEP
-        authMode = AuthMode.KEY
-        trustHost = true
-        provisionForm = ProvisionForm()
-    }
-
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
     private fun color(res: Int): Int = ContextCompat.getColor(requireContext(), res)
     private fun str(res: Int, vararg args: Any): String = getString(res, *args)
     private fun monoTypeface(): Typeface = cachedMonoTypeface
-    private fun uiTypeface(): Typeface = cachedUiTypeface
-
-    private data class ProvisionForm(
-        val host: String = "",
-        val port: String = "22",
-        val user: String = "root",
-        val privateKey: String = "",
-        val password: CharArray = CharArray(0),
-    ) {
-        fun clear() {
-            password.fill('\u0000')
-        }
-    }
-
-    private enum class AuthMode {
-        KEY,
-        PASSWORD,
-    }
 
     private sealed class Screen {
         object Fleet : Screen()

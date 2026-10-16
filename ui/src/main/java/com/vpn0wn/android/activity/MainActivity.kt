@@ -22,6 +22,7 @@ import androidx.fragment.app.commit
 import com.vpn0wn.android.R
 import com.vpn0wn.android.fragment.TunnelDetailFragment
 import com.vpn0wn.android.fragment.TunnelEditorFragment
+import com.vpn0wn.android.fragment.VpsProvisioningFragment
 import com.vpn0wn.android.model.ObservableTunnel
 
 /**
@@ -94,6 +95,25 @@ class MainActivity : BaseActivity(), FragmentManager.OnBackStackChangedListener 
     fun shouldShowDetailBackButton(): Boolean =
         !isTwoPaneLayout || supportFragmentManager.backStackEntryCount > 1
 
+    fun openServers() {
+        val container = if (isTwoPaneLayout) R.id.detail_container else R.id.list_detail_container
+        if (supportFragmentManager.isStateSaved || supportFragmentManager.findFragmentById(container) is VpsProvisioningFragment) return
+        supportFragmentManager.commit {
+            replace(container, VpsProvisioningFragment())
+            setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE)
+            addToBackStack(null)
+        }
+    }
+
+    fun selectTunnel(tunnel: ObservableTunnel) {
+        val fragmentManager = supportFragmentManager
+        if (fragmentManager.isStateSaved) return
+        val container = if (isTwoPaneLayout) R.id.detail_container else R.id.list_detail_container
+        if (fragmentManager.findFragmentById(container) is VpsProvisioningFragment)
+            fragmentManager.popBackStackImmediate()
+        selectedTunnel = tunnel
+    }
+
     fun onDetailBackPressed() {
         if (shouldShowDetailBackButton())
             onBackPressedDispatcher.onBackPressed()
@@ -132,17 +152,18 @@ class MainActivity : BaseActivity(), FragmentManager.OnBackStackChangedListener 
         }
 
         val backStackEntries = fragmentManager.backStackEntryCount
+        val container = if (isTwoPaneLayout) R.id.detail_container else R.id.list_detail_container
         if (newTunnel == null) {
             // Clear everything off the back stack (all editors and detail fragments).
             fragmentManager.popBackStackImmediate(0, FragmentManager.POP_BACK_STACK_INCLUSIVE)
-        } else if (backStackEntries == BACK_STACK_DETAIL_AND_EDITOR) {
+        } else if (backStackEntries == BACK_STACK_DETAIL_AND_EDITOR && fragmentManager.findFragmentById(container) is TunnelEditorFragment) {
             // Pop the editor off the back stack to reveal the detail fragment. Use the immediate
             // method to avoid the editor picking up the new tunnel while it is still visible.
             fragmentManager.popBackStackImmediate()
         } else if (backStackEntries == 0) {
             // Create and show a new detail fragment.
             fragmentManager.commit {
-                add(if (isTwoPaneLayout) R.id.detail_container else R.id.list_detail_container, TunnelDetailFragment())
+                add(container, TunnelDetailFragment())
                 setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE)
                 addToBackStack(null)
             }
