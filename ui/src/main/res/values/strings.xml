@@ -585,7 +585,7 @@
     <string name="vpn0wn_user_identity_required">Refresh server status to confirm its WireGuard identity before creating a user. A response without a confirmed identity cannot authorize creation.</string>
     <string name="vpn0wn_user_creating">Creating the user. The private profile and final server status are not yet confirmed.</string>
     <string name="vpn0wn_user_retained">Private profile saved encrypted on this device. Final server verification is pending; check this attempt again. QR and export remain unavailable.</string>
-    <string name="vpn0wn_user_unsaved">The server returned a private profile, but encrypted retention is unconfirmed. Check this attempt again to retry local retention; do not create the user again.</string>
+    <string name="vpn0wn_user_unsaved">The server returned a private profile, but encrypted retention is unconfirmed. Check this attempt again to retry local retention; do not create the user again. Closing Servers or restarting the app can lose the unsaved copy.</string>
     <string name="vpn0wn_user_add_uncertain">Creation outcome is uncertain. Check this attempt again; do not create the user again. Server status alone cannot recover a lost private profile.</string>
     <string name="vpn0wn_user_add_pending">A previous create needs reconciliation. Check that attempt before creating another user. A lost private response cannot be rebuilt from server status.</string>
     <string name="vpn0wn_user_created">User created and private profile saved encrypted on this device. Server status confirms the peer. VPN traffic is unverified. QR and export remain unavailable.</string>

@@ -553,7 +553,7 @@
     <string name="vpn0wn_user_identity_required">Actualisez l’état du serveur pour confirmer son identité WireGuard avant de créer un utilisateur. Une réponse sans identité confirmée ne permet pas la création.</string>
     <string name="vpn0wn_user_creating">Création en cours. Le profil privé et l’état final du serveur ne sont pas encore confirmés.</string>
     <string name="vpn0wn_user_retained">Profil privé conservé chiffré sur cet appareil. La vérification finale du serveur reste en attente ; vérifiez à nouveau cette tentative. QR et export restent indisponibles.</string>
-    <string name="vpn0wn_user_unsaved">Le serveur a renvoyé un profil privé, mais sa conservation chiffrée reste à confirmer. Vérifiez cette tentative pour réessayer la conservation locale ; ne recréez pas l’utilisateur.</string>
+    <string name="vpn0wn_user_unsaved">Le serveur a renvoyé un profil privé, mais sa conservation chiffrée reste à confirmer. Vérifiez cette tentative pour réessayer la conservation locale ; ne recréez pas l’utilisateur. Fermer Serveurs ou redémarrer l’application peut faire perdre la copie non enregistrée.</string>
     <string name="vpn0wn_user_add_uncertain">Résultat de création incertain. Vérifiez cette tentative ; ne recréez pas l’utilisateur. L’état du serveur ne peut pas récupérer un profil privé perdu.</string>
     <string name="vpn0wn_user_add_pending">Une création précédente doit être vérifiée avant de créer un autre utilisateur. Une réponse privée perdue ne peut pas être reconstruite depuis l’état du serveur.</string>
     <string name="vpn0wn_user_created">Utilisateur créé et profil privé conservé chiffré sur cet appareil. L’état du serveur confirme le pair. Le trafic VPN reste non vérifié. QR et export restent indisponibles.</string>
