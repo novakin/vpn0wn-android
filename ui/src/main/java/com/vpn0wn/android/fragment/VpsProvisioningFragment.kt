@@ -1035,6 +1035,7 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun rowButton(text: String, onClick: () -> Unit): View = horizontal(Gravity.CENTER_VERTICAL).apply {
         minimumHeight = dp(48)
+        actionAccessibility(Button::class.java.name)
         setPadding(dp(14), dp(12), dp(14), dp(12))
         addView(ImageView(requireContext()).apply {
             setImageDrawable(AppCompatResources.getDrawable(requireContext(), R.drawable.ic_vpn0wn_plus))

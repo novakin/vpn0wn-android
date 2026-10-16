@@ -6,10 +6,12 @@ import android.content.DialogInterface
 import android.os.Bundle
 import android.os.Looper
 import android.os.Parcel
+import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
+import android.widget.Button
 import android.widget.TextView
 import android.widget.ScrollView
 import androidx.appcompat.app.AlertDialog
@@ -363,6 +365,7 @@ class VpsProvisioningWorkflowTest {
         } finally { fixture.close() }
     }
 
+    @Config(sdk = [24, 28])
     @Test fun busyStatusCanCancelAndARealPeerCannotExportAPlaceholderProfile() = runTest {
         val fixture = fixture()
         try {
@@ -373,11 +376,17 @@ class VpsProvisioningWorkflowTest {
             settle()
             clickServer(fixture)
             fixture.peer.blockStatus = CompletableDeferred()
-            fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status).performClick()
+            val refresh = fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status)
+            assertButtonAction(refresh)
+            assertTrue(refresh.requestFocus())
+            assertTrue(refresh.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER)))
+            assertTrue(refresh.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER)))
             fixture.peer.statusEntered.await()
             settle()
             assertTrue(text(fixture.root, fixture.activity.getString(R.string.vpn0wn_cancel_check)).isShown)
-            fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status).performClick()
+            val cancel = fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status)
+            assertButtonAction(cancel)
+            cancel.performClick()
             fixture.model.state.first { !it.busy }
             fixture.peer.blockStatus = null
             settle()
@@ -391,6 +400,19 @@ class VpsProvisioningWorkflowTest {
             assertNotNull(text(fixture.activity.window.decorView, fixture.activity.getString(R.string.vpn0wn_profile_unavailable)))
             assertFalse(fixture.peer.commands.any { it.contains("./'add-peer.sh'") || it.contains("./'backup.sh'") })
         } finally { fixture.close() }
+    }
+
+    private fun assertButtonAction(view: View) {
+        assertTrue(view.isFocusable)
+        assertTrue(view.foreground != null && view.foreground.isStateful)
+        val node = view.createAccessibilityNodeInfo()
+        try {
+            assertEquals(Button::class.java.name, node.className.toString())
+            assertTrue(node.isClickable)
+            assertTrue(node.isEnabled)
+        } finally {
+            node.recycle()
+        }
     }
 
     // A failed setup must drain Android, ViewModel and DataStore owners before resetting Main.
