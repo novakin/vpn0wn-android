@@ -426,7 +426,7 @@ class VpsProvisioningViewModel internal constructor(
 
     fun detect(): Job? = operate {
         invalidateVerification()
-        mutableState.value = mutableState.value.copy(detect = null, plan = null, step = Step.SSH)
+        mutableState.value = mutableState.value.copy(detect = null, plan = null, step = Step.SSH, recovery = null)
         val connection = connection() ?: return@operate
         try {
             val result = client.detect(connection)
@@ -585,7 +585,7 @@ class VpsProvisioningViewModel internal constructor(
         withContext(NonCancellable) {
             store.clearFailedInstall(expected, attempt)
             mutableState.value = mutableState.value.copy(
-                pendingInstall = false, installation = Installation.NONE, problem = null,
+                pendingInstall = false, installation = Installation.NONE, problem = null, recovery = null,
                 detect = detected, plan = null, step = Step.DETECT,
             )
         }
@@ -601,7 +601,7 @@ class VpsProvisioningViewModel internal constructor(
             val committed = store.settleInstall(expected, attempt, status, observedAt)
             server = committed
             mutableState.value = mutableState.value.copy(
-                pendingInstall = false, installation = installation, problem = null,
+                pendingInstall = false, installation = installation, problem = null, recovery = null,
                 statusSnapshots = mutableState.value.statusSnapshots + (expected.id to StatusSnapshot(committed, status, observedAt)),
             )
         }

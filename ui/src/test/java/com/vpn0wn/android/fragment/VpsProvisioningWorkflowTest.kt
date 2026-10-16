@@ -16,6 +16,7 @@ import android.widget.TextView
 import android.widget.ScrollView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.res.ResourcesCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.ViewModel
@@ -70,6 +71,26 @@ class VpsProvisioningWorkflowTest {
 
     @After fun tearDown() { Dispatchers.resetMain() }
 
+    @Test
+    @Config(sdk = [24, 28])
+    fun technicalLabelsUseBundledRegularFontAcrossSupportedApis() = runTest {
+        val fixture = fixture()
+        try {
+            val title = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_servers_title).lowercase(java.util.Locale.ROOT))
+            assertFalse("Existing title omits extra font padding", title.includeFontPadding)
+            val add = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_add_server).removePrefix("+ ").trim())
+            assertTrue(clickableAncestor(add).performClick())
+            settle()
+            val label = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_label_host).uppercase(java.util.Locale.ROOT))
+            assertEquals("Bundled regular face", ResourcesCompat.getFont(fixture.activity, R.font.jetbrains_mono_regular), label.typeface)
+            assertEquals("Shared mono features", "ss01, zero, tnum", label.fontFeatureSettings)
+            assertFalse("Existing label omits extra font padding", label.includeFontPadding)
+            assertTrue(fixture.peer.connections.isEmpty())
+        } finally {
+            fixture.close()
+        }
+    }
+
     @Test fun actualActionsRequireExplicitConfirmationBeforeInstallation() = runTest {
         val fixture = fixture()
         try {
@@ -91,6 +112,8 @@ class VpsProvisioningWorkflowTest {
             settle()
             val dialog = ShadowDialog.getLatestDialog() as AlertDialog
             assertTrue(dialog.isShowing)
+            assertEquals(fixture.activity.getString(R.string.vpn0wn_apply_install_button),
+                dialog.getButton(DialogInterface.BUTTON_POSITIVE).text.toString())
             assertTrue(dialog.findViewById<TextView>(android.R.id.message)!!.text.contains("198.51.100.42"))
             dialog.getButton(DialogInterface.BUTTON_NEGATIVE).performClick()
             assertFalse(fixture.peer.commands.any { it.contains("./'install.sh'") || it.contains("./'add-peer.sh'") })
@@ -156,6 +179,39 @@ class VpsProvisioningWorkflowTest {
             assertFalse(fixture.peer.commands.any { it.contains("./'install.sh'") })
             assertEquals(original, Vpn0wnApplication.getVpsServerStore().servers.first().single())
             assertNull(Vpn0wnApplication.getVpsServerStore().pendingInstall(original))
+        } finally { fixture.close() }
+    }
+
+    @Test fun reconciliationShowsObservedNetworkRatherThanAnEditedAdvisoryPlan() = runTest {
+        val fixture = fixture()
+        try {
+            fillAccess(fixture)
+            requireNotNull(fixture.model.detect()).join()
+            requireNotNull(fixture.model.plan()).join()
+            fixture.model.reviewApply()
+            fixture.peer.installFailure = ProvisioningException("lost reply")
+            val confirmation = requireNotNull(fixture.model.requestInstallConfirmation())
+            requireNotNull(fixture.model.confirmInstall(confirmation)).join()
+            fixture.peer.installFailure = null
+            val next = fixture.peer.planRequest.copy(endpoint = "203.0.113.9", port = 51821, cidr = "10.9.0.0/24", dns = "9.9.9.9")
+            fixture.model.edit(fixture.model.draft.copy(endpoint = next.endpoint, port = next.port.toString(), cidr = next.cidr, dns = next.dns))
+            fixture.peer.planRequest = next
+            requireNotNull(fixture.model.plan()).join()
+            fixture.model.reviewApply()
+            settle()
+            assertTrue(text(fixture.root, next.port.toString()).isShown)
+            requireNotNull(fixture.model.reconcileInstall()).join()
+            settle()
+            assertTrue(text(fixture.root, fixture.activity.getString(R.string.vpn0wn_apply_observed)).isShown)
+            for (actual in listOf("198.51.100.42", "51820", "10.8.0.0/24", "1.1.1.1, 1.0.0.1"))
+                assertTrue(text(fixture.root, actual).isShown)
+            val shownValues = descendants(fixture.root).filterIsInstance<TextView>().map { it.text.toString() }.toSet()
+            for (advisory in listOf(next.endpoint, next.port.toString(), next.cidr, next.dns))
+                assertFalse("Advisory value must not appear as observed: $advisory", advisory in shownValues)
+            assertEquals(VpsProvisioningViewModel.Installation.OBSERVED, fixture.model.state.value.installation)
+            assertEquals("51820", Vpn0wnApplication.getVpsServerStore().servers.first().single().listenPort)
+            assertFalse(fixture.model.state.value.pendingInstall)
+            assertEquals(1, fixture.peer.commands.count { it.contains("./'install.sh'") })
         } finally { fixture.close() }
     }
 
@@ -566,7 +622,8 @@ class VpsProvisioningWorkflowTest {
 
     private fun assertButtonAction(view: View) {
         assertTrue(view.isFocusable)
-        assertTrue(view.foreground != null && view.foreground.isStateful)
+        assertTrue(view.background != null && view.background.isStateful)
+        assertNull(view.foreground)
         val node = view.createAccessibilityNodeInfo()
         try {
             assertEquals(Button::class.java.name, node.className.toString())

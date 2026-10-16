@@ -156,8 +156,9 @@ docs/               architecture, development, operations, backend contracts, pl
 - State: `vpn0wn_warn`, `vpn0wn_error`
 
 **Fonts:**
-- UI labels, titles: `@font/inter_tight`
-- Data, keys, values, monospace fields: `@font/jetbrains_mono_regular` or `jetbrains_mono_medium`
+- General UI prose and controls use `@font/inter_tight` where the owning approved component specifies it.
+- Technical labels, section/deploy titles, tunnel/server names and data use their existing Mono component styles. Preserve explicit JSX/style exceptions; do not replace these roles wholesale with Inter Tight.
+- Reuse `jetbrains_mono_regular` and actual `jetbrains_mono_medium` assets with shared `ss01, zero, tnum` features. Do not synthesize bold where the approved role specifies regular or medium.
 
 **Styles** (`res/values/styles.xml`):
 - `Vpn0wnLabelText` — 10sp mono caps, ink_3 (field labels, section prefixes)

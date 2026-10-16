@@ -94,6 +94,7 @@ class VpsInstallApplyTest {
         val saved = store.servers.first().single()
         assertEquals(Installation.INSTALLED, model.state.value.installation)
         assertNull(model.state.value.problem)
+        assertNull(model.state.value.recovery)
         assertEquals(true, saved.running)
         assertEquals(OBSERVED_AT, saved.lastSyncEpochSeconds)
         assertFalse(model.state.value.pendingInstall)
@@ -150,6 +151,13 @@ class VpsInstallApplyTest {
 
     @Test fun lostResponseSurvivesNewOwnerAndReconciliationDoesNotInventInstallSuccess() = runTest {
         val model = planned()
+        val defaultRequest = peer.planRequest
+        val admittedRequest = defaultRequest.copy(endpoint = "203.0.113.9", port = 51821, cidr = "10.9.0.0/24", dns = "9.9.9.9")
+        model.edit(model.draft.copy(endpoint = admittedRequest.endpoint, port = admittedRequest.port.toString(),
+            cidr = admittedRequest.cidr, dns = admittedRequest.dns))
+        peer.planRequest = admittedRequest
+        requireNotNull(model.plan()).join()
+        model.reviewApply()
         peer.installFailure = ProvisioningException("synthetic-secret-transport-failure")
         apply(model).join()
         val saved = store.servers.first().single()
@@ -158,6 +166,9 @@ class VpsInstallApplyTest {
         assertNotNull(store.pendingInstall(saved))
         assertFalse(model.state.value.toString().contains("synthetic-secret-transport-failure"))
         peer.installFailure = null
+        peer.planRequest = defaultRequest
+        peer.statusOutput = JSONObject(status(port = admittedRequest.port.toString())).put("endpoint", admittedRequest.endpoint)
+            .put("cidr", admittedRequest.cidr).put("dns", admittedRequest.dns).toString()
         val restored = model()
         requireNotNull(restored.reuse(saved)).join()
         assertTrue(restored.state.value.pendingInstall)
@@ -166,6 +177,13 @@ class VpsInstallApplyTest {
         assertFalse(restored.canInstall)
         requireNotNull(restored.reconcileInstall()).join()
         assertEquals(Installation.OBSERVED, restored.state.value.installation)
+        assertEquals(defaultRequest.port.toString(), restored.state.value.plan?.port)
+        val observation = restored.state.value.statusSnapshots.getValue(saved.id)
+        assertEquals(admittedRequest.endpoint, observation.status.endpoint)
+        assertEquals(admittedRequest.port.toString(), observation.status.listenPort)
+        assertEquals(admittedRequest.cidr, observation.status.cidr)
+        assertEquals(admittedRequest.dns, observation.status.dns)
+        assertEquals(admittedRequest.port.toString(), store.servers.first().single().listenPort)
         assertEquals(1, peer.commands.count(::isInstall))
         assertNull(store.pendingInstall(store.servers.first().single()))
         assertFalse(restored.canInstall)
@@ -291,26 +309,50 @@ class VpsInstallApplyTest {
     }
 
     @Test fun receivedRestorationAndFreshAbsentDetectPermitOnlyANewPlanAndConfirmation() = runTest {
+        knownFailureRequiresFreshPlanAndConfirmation(ProvisioningRecovery.RESTORED)
+    }
+
+    @Test fun receivedUnchangedAndFreshAbsentDetectPermitOnlyANewPlanAndConfirmation() = runTest {
+        knownFailureRequiresFreshPlanAndConfirmation(ProvisioningRecovery.UNCHANGED)
+    }
+
+    @Test fun settledRestorationCannotClearAnotherOwnersUnknownAdmission() = runTest {
+        settledRecoveryCannotClearAnotherOwnersAdmission(ProvisioningRecovery.RESTORED)
+    }
+
+    @Test fun settledUnchangedCannotClearAnotherOwnersUnknownAdmission() = runTest {
+        settledRecoveryCannotClearAnotherOwnersAdmission(ProvisioningRecovery.UNCHANGED)
+    }
+
+    @Test fun freshWizardDetectDiscardsAnUnsettledRecoveryReceipt() = runTest {
         val model = planned()
-        peer.installExitCode = 74
-        peer.installOutput = JSONObject().put("ok", false).put("error", "apply_failed")
-            .put("message", "synthetic").put("recovery", "restored").toString()
+        failInstallWithRecovery(ProvisioningRecovery.RESTORED)
         apply(model).join()
+        val saved = store.servers.first().single()
+        val pending = requireNotNull(store.pendingInstall(saved))
+        assertEquals(ProvisioningRecovery.RESTORED, model.state.value.recovery)
+        requireNotNull(model.detect()).join()
+        assertNull(model.state.value.recovery)
         peer.statusFailure = ProvisioningException("absent", category = ProvisioningFailureCategory.NOT_INSTALLED)
+        val detects = peer.commands.count { it.contains("./'detect.sh'") }
         requireNotNull(model.reconcileInstall()).join()
+        assertEquals(pending, store.pendingInstall(saved))
+        assertEquals(Installation.UNCERTAIN, model.state.value.installation)
+        assertEquals(detects, peer.commands.count { it.contains("./'detect.sh'") })
+        assertEquals(1, peer.commands.count(::isInstall))
+    }
+
+    @Test fun observedSettlementConsumesTheEarlierRecoveryReceipt() = runTest {
+        val model = planned()
+        failInstallWithRecovery(ProvisioningRecovery.RESTORED)
+        apply(model).join()
+        assertEquals(ProvisioningRecovery.RESTORED, model.state.value.recovery)
+        requireNotNull(model.reconcileInstall()).join()
+        assertEquals(Installation.OBSERVED, model.state.value.installation)
+        assertNull(model.state.value.recovery)
         assertFalse(model.state.value.pendingInstall)
-        assertNull(model.state.value.plan)
-        assertFalse(model.canInstall)
         assertNull(store.pendingInstall(store.servers.first().single()))
         assertEquals(1, peer.commands.count(::isInstall))
-        peer.statusFailure = null
-        peer.installOutput = null
-        peer.installExitCode = 0
-        requireNotNull(model.plan()).join()
-        model.reviewApply()
-        apply(model).join()
-        assertEquals(Installation.INSTALLED, model.state.value.installation)
-        assertEquals(2, peer.commands.count(::isInstall))
     }
 
     @Test fun corruptPendingIntentFailsClosedInsteadOfEnablingAnotherInstall() = runTest {
@@ -534,6 +576,74 @@ class VpsInstallApplyTest {
 
     private suspend fun pendingAttempts(): List<PendingVpsInstall> =
         PendingVpsInstall.decode(preferences.data.first()[stringPreferencesKey("vps_pending_installs")].orEmpty())
+
+    private suspend fun knownFailureRequiresFreshPlanAndConfirmation(recovery: ProvisioningRecovery) {
+        val model = planned()
+        failInstallWithRecovery(recovery)
+        apply(model).join()
+        assertEquals(recovery, model.state.value.recovery)
+        peer.statusFailure = ProvisioningException("absent", category = ProvisioningFailureCategory.NOT_INSTALLED)
+        requireNotNull(model.reconcileInstall()).join()
+        assertFalse(model.state.value.pendingInstall)
+        assertNull(model.state.value.recovery)
+        assertNull(model.state.value.plan)
+        assertFalse(model.canInstall)
+        assertNull(model.requestInstallConfirmation())
+        assertNull(store.pendingInstall(store.servers.first().single()))
+        assertEquals(1, peer.commands.count(::isInstall))
+        peer.statusFailure = null
+        peer.installOutput = null
+        peer.installExitCode = 0
+        requireNotNull(model.plan()).join()
+        model.reviewApply()
+        apply(model).join()
+        assertEquals(Installation.INSTALLED, model.state.value.installation)
+        assertNull(model.state.value.recovery)
+        assertEquals(2, peer.commands.count(::isInstall))
+    }
+
+    private suspend fun settledRecoveryCannotClearAnotherOwnersAdmission(recovery: ProvisioningRecovery) {
+        val first = planned()
+        val saved = store.servers.first().single()
+        failInstallWithRecovery(recovery)
+        apply(first).join()
+        assertEquals(recovery, first.state.value.recovery)
+        peer.statusFailure = ProvisioningException("absent", category = ProvisioningFailureCategory.NOT_INSTALLED)
+        requireNotNull(first.reconcileInstall()).join()
+        assertNull(first.state.value.recovery)
+        assertNull(store.pendingInstall(saved))
+        peer.statusFailure = null
+        peer.installOutput = null
+        peer.installExitCode = 0
+        val second = model()
+        requireNotNull(second.reuse(saved)).join()
+        requireNotNull(second.plan()).join()
+        second.reviewApply()
+        peer.installFailure = ProvisioningException("lost reply")
+        apply(second).join()
+        peer.installFailure = null
+        val unknown = requireNotNull(store.pendingInstall(saved))
+        assertEquals(Installation.UNCERTAIN, second.state.value.installation)
+        assertNull(second.state.value.recovery)
+        requireNotNull(first.detect()).join()
+        assertNull(first.state.value.recovery)
+        peer.statusFailure = ProvisioningException("absent", category = ProvisioningFailureCategory.NOT_INSTALLED)
+        val detects = peer.commands.count { it.contains("./'detect.sh'") }
+        requireNotNull(first.reconcileInstall()).join()
+        assertEquals(unknown, store.pendingInstall(saved))
+        assertTrue(first.state.value.pendingInstall)
+        assertEquals(Installation.UNCERTAIN, first.state.value.installation)
+        assertFalse(first.canInstall)
+        assertEquals(detects, peer.commands.count { it.contains("./'detect.sh'") })
+        assertEquals(2, peer.commands.count(::isInstall))
+        assertEquals(saved, store.servers.first().single())
+    }
+
+    private fun failInstallWithRecovery(recovery: ProvisioningRecovery) {
+        peer.installExitCode = 74
+        peer.installOutput = JSONObject().put("ok", false).put("error", "apply_failed")
+            .put("message", "synthetic").put("recovery", recovery.name.lowercase(java.util.Locale.ROOT)).toString()
+    }
 
     private fun replacementPin(): String = "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(ByteArray(32) { (it + 1).toByte() })
 
