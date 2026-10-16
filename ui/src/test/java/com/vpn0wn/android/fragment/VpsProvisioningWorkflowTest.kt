@@ -27,6 +27,7 @@ import com.vpn0wn.android.R
 import com.vpn0wn.android.model.TunnelTestEnvironment
 import com.vpn0wn.android.provisioning.VpsCredential
 import com.vpn0wn.android.provisioning.ProvisioningException
+import com.vpn0wn.android.provisioning.ProvisioningRecovery
 import com.vpn0wn.android.provisioning.StoredVpsServer
 import com.vpn0wn.android.provisioning.VpsCredentialFileTest
 import com.vpn0wn.android.provisioning.VpsPlanningTestPeer
@@ -694,6 +695,125 @@ class VpsProvisioningWorkflowTest {
         } finally { fixture.close() }
     }
 
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class])
+    fun cleanupGuidanceStaysWithItsSshServerAcrossOtherServerRefreshAndReview() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        val fixture = fixture(immediateMain = true, profiles = profileStore {})
+        try {
+            val (first, second) = prepareProfileServerPair(fixture)
+            openServer(fixture, first)
+            requestUserReview(fixture, "phone")
+            fixture.model.state.first { !it.busy && it.addConfirmation != null }
+            settle()
+            fixture.peer.addOutput = profileReceipt(cleanup = true)
+            fixture.peer.afterAdd = { fixture.peer.statusOutput = profileStatus(first, withPeer = true) }
+            (ShadowDialog.getLatestDialog() as AlertDialog).getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            fixture.model.state.first { !it.busy && it.creation == UserCreation.CREATED }
+            settle()
+            assertGuidance(fixture, R.string.vpn0wn_apply_cleanup, present = true)
+            backToFleet(fixture)
+            openServer(fixture, second)
+            fixture.peer.statusOutput = profileStatus(second)
+            fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status).performClick()
+            fixture.model.state.first { !it.busy && it.serverId == second.id }
+            settle()
+            assertGuidance(fixture, R.string.vpn0wn_apply_cleanup, present = false)
+            requestUserReview(fixture, "second-phone")
+            fixture.model.state.first { !it.busy && it.addConfirmation != null }
+            settle()
+            assertGuidance(fixture, R.string.vpn0wn_apply_cleanup, present = false)
+            (ShadowDialog.getLatestDialog() as AlertDialog).getButton(DialogInterface.BUTTON_NEGATIVE).performClick()
+            settle()
+            backToFleet(fixture)
+            openServer(fixture, first)
+            assertGuidance(fixture, R.string.vpn0wn_apply_cleanup, present = true)
+            val store = Vpn0wnApplication.getVpsServerStore()
+            val current = store.servers.first().single { it.id == first.id }
+            store.upsert(current.copy(provider = "Updated provider"))
+            settle()
+            assertGuidance(fixture, R.string.vpn0wn_apply_cleanup, present = true)
+            store.clearCredential(first.id)
+            store.upsert(current.copy(host = "203.0.113.12"))
+            settle()
+            assertGuidance(fixture, R.string.vpn0wn_apply_cleanup, present = false)
+            assertEquals(1, fixture.peer.commands.count { it.contains("./'add-peer.sh'") })
+        } finally { fixture.close() }
+    }
+
+    @Test fun installationRecoveryGuidanceDoesNotMoveToAnotherSavedServer() = runTest {
+        for (recovery in listOf(ProvisioningRecovery.RESTORED, ProvisioningRecovery.INCOMPLETE)) {
+            val fixture = fixture()
+            try {
+                failInstallWithRecovery(fixture, recovery)
+                val store = Vpn0wnApplication.getVpsServerStore()
+                val first = store.servers.first().single()
+                val second = first.copy(id = "second", name = "Second server", host = "203.0.113.11", endpoint = "203.0.113.11",
+                    listenPort = "51820", cidr = "10.8.0.0/24", dns = "1.1.1.1")
+                store.upsert(second)
+                store.saveCredential(second, PROFILE_PIN, VpsCredential.Password(PASSWORD.toCharArray()))
+                fixture.model.leave()
+                settle()
+                openServer(fixture, first)
+                val message = if (recovery == ProvisioningRecovery.RESTORED) R.string.vpn0wn_recovery_restored else R.string.vpn0wn_recovery_incomplete
+                assertGuidance(fixture, message, present = true)
+                backToFleet(fixture)
+                openServer(fixture, second)
+                fixture.peer.statusOutput = profileStatus(second)
+                fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status).performClick()
+                fixture.model.state.first { !it.busy && it.serverId == second.id }
+                settle()
+                assertGuidance(fixture, message, present = false)
+                assertEquals(recovery, fixture.model.state.value.recovery)
+                assertEquals(first, fixture.model.state.value.recoveryOwner)
+                assertNotNull(store.pendingInstall(first))
+                backToFleet(fixture)
+                openServer(fixture, first)
+                assertGuidance(fixture, message, present = true)
+                store.upsert(first.copy(provider = "Updated provider"))
+                settle()
+                assertGuidance(fixture, message, present = true)
+                store.clearCredential(first.id)
+                store.upsert(first.copy(sshPort = 2222))
+                settle()
+                assertGuidance(fixture, message, present = false)
+                assertEquals(1, fixture.peer.commands.count { it.contains("./'install.sh'") })
+            } finally { fixture.close() }
+        }
+    }
+
+    private suspend fun TestScope.failInstallWithRecovery(fixture: Fixture, recovery: ProvisioningRecovery) {
+        fillAccess(fixture)
+        click(fixture, R.string.vpn0wn_continue)
+        fixture.model.state.first { !it.busy && it.detect != null }
+        requireNotNull(fixture.model.plan()).join()
+        fixture.model.reviewApply()
+        settle()
+        fixture.peer.installExitCode = 74
+        fixture.peer.installOutput = JSONObject().put("ok", false).put("error", "apply_failed").put("message", "synthetic")
+            .put("recovery", recovery.name.lowercase(java.util.Locale.ROOT)).toString()
+        click(fixture, R.string.vpn0wn_apply_plan_button)
+        (ShadowDialog.getLatestDialog() as AlertDialog).getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+        fixture.model.state.first { !it.busy && it.recovery == recovery }
+        settle()
+    }
+
+    private fun assertGuidance(fixture: Fixture, resource: Int, present: Boolean) {
+        assertEquals(present, descendants(fixture.root).filterIsInstance<TextView>().any {
+            it.text.toString() == fixture.activity.getString(resource)
+        })
+    }
+
+    private fun TestScope.openServer(fixture: Fixture, server: StoredVpsServer) {
+        clickableAncestor(text(fixture.root, server.name)).performClick()
+        settle()
+    }
+
+    private fun TestScope.backToFleet(fixture: Fixture) {
+        fixture.activity.onBackPressedDispatcher.onBackPressed()
+        settle()
+    }
+
     private fun profileStore(beforeSync: () -> Unit): VpsUserProfileStore {
         val key = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
         return VpsUserProfileStore(VpsUserProfileFile(File(folder.newFolder(), "profiles"), { key }, sync = {
@@ -703,6 +823,22 @@ class VpsProvisioningWorkflowTest {
     }
 
     private suspend fun TestScope.prepareUnsavedUserAndSelectOtherServer(fixture: Fixture): Pair<StoredVpsServer, StoredVpsServer> {
+        val (first, second) = prepareProfileServerPair(fixture)
+        openServer(fixture, first)
+        requestUserReview(fixture, "phone")
+        fixture.model.state.first { !it.busy && it.addConfirmation != null }
+        settle()
+        fixture.peer.addOutput = profileReceipt()
+        (ShadowDialog.getLatestDialog() as AlertDialog).getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+        fixture.model.state.first { !it.busy && it.creation == UserCreation.UNSAVED }
+        settle()
+        backToFleet(fixture)
+        openServer(fixture, second)
+        assertNull(fixture.root.findViewById<View>(R.id.vpn0wn_vps_user_creation_status))
+        return first to second
+    }
+
+    private suspend fun TestScope.prepareProfileServerPair(fixture: Fixture): Pair<StoredVpsServer, StoredVpsServer> {
         val store = Vpn0wnApplication.getVpsServerStore()
         val first = VpsProfileFixture.server
         val second = first.copy(id = "server-2", name = "Second server", host = "203.0.113.11", endpoint = "203.0.113.11")
@@ -713,25 +849,14 @@ class VpsProvisioningWorkflowTest {
             requireNotNull(fixture.model.syncStatus(server)).join()
         }
         settle()
-        clickableAncestor(text(fixture.root, first.name)).performClick()
-        settle()
-        requestUserReview(fixture, "phone")
-        fixture.model.state.first { !it.busy && it.addConfirmation != null }
-        settle()
-        fixture.peer.addOutput = VpsProfileFixture.result().let {
-            JSONObject().put("ok", true).put("name", it.name).put("address", it.address)
-                .put("publicKey", it.publicKey).put("config", it.config).toString()
-        }
-        (ShadowDialog.getLatestDialog() as AlertDialog).getButton(DialogInterface.BUTTON_POSITIVE).performClick()
-        fixture.model.state.first { !it.busy && it.creation == UserCreation.UNSAVED }
-        settle()
-        fixture.activity.onBackPressedDispatcher.onBackPressed()
-        settle()
-        clickableAncestor(text(fixture.root, second.name)).performClick()
-        settle()
-        assertNull(fixture.root.findViewById<View>(R.id.vpn0wn_vps_user_creation_status))
         val servers = store.servers.first()
         return servers.single { it.id == first.id } to servers.single { it.id == second.id }
+    }
+
+    private fun profileReceipt(cleanup: Boolean = false): String = VpsProfileFixture.result().let {
+        JSONObject().put("ok", true).put("name", it.name).put("address", it.address)
+            .put("publicKey", it.publicKey).put("config", it.config)
+            .put("cleanupPath", if (cleanup) "/tmp/vpn0wn-provisioning.test01" else "").toString()
     }
 
     private fun TestScope.requestUserReview(fixture: Fixture, name: String) {

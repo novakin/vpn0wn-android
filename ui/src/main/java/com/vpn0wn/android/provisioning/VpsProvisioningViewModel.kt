@@ -78,7 +78,9 @@ class VpsProvisioningViewModel internal constructor(
         val installation: Installation = Installation.NONE,
         val pendingInstall: Boolean = false,
         val recovery: ProvisioningRecovery? = null,
+        val recoveryOwner: StoredVpsServer? = null,
         val cleanupRequired: Boolean = false,
+        val cleanupOwner: StoredVpsServer? = null,
         val addConfirmation: AddUserConfirmation? = null,
         val creation: UserCreation = UserCreation.NONE,
         val pendingAdd: Boolean = false,
@@ -234,7 +236,7 @@ class VpsProvisioningViewModel internal constructor(
                         withContext(Dispatchers.Main.immediate) {
                             receivedUser = received
                             mutableState.value = mutableState.value.copy(creation = UserCreation.UNSAVED,
-                                cleanupRequired = receipt.cleanupPath.isNotEmpty(), creationOwner = null)
+                                cleanupRequired = receipt.cleanupPath.isNotEmpty(), cleanupOwner = confirmation.server, creationOwner = null)
                         }
                         val owner = currentAddOwner(confirmation)
                         withContext(Dispatchers.Main.immediate) {
@@ -243,7 +245,7 @@ class VpsProvisioningViewModel internal constructor(
                         attempt = retainReceivedUser(received)
                     },
                 )
-                mutableState.value = mutableState.value.copy(cleanupRequired = result.cleanupPath.isNotEmpty())
+                mutableState.value = mutableState.value.copy(cleanupRequired = result.cleanupPath.isNotEmpty(), cleanupOwner = confirmation.server)
                 val retained = requireNotNull(retainedProfile)
                 store.checkAddOwner(confirmation.server, confirmation.fingerprint)
                 val status = client.syncStatus(connection)
@@ -430,7 +432,7 @@ class VpsProvisioningViewModel internal constructor(
 
     fun detect(): Job? = operate {
         invalidateVerification()
-        mutableState.value = mutableState.value.copy(detect = null, plan = null, step = Step.SSH, recovery = null)
+        mutableState.value = mutableState.value.copy(detect = null, plan = null, step = Step.SSH, recovery = null, recoveryOwner = null)
         val connection = connection() ?: return@operate
         try {
             val result = client.detect(connection)
@@ -512,19 +514,20 @@ class VpsProvisioningViewModel internal constructor(
                         // Persist admission before the remote command; cancellation cannot erase an uncertain mutation.
                         withContext(NonCancellable) {
                             admitInstall(expected, connection.endpoint, request)
-                            mutableState.value = mutableState.value.copy(pendingInstall = true, installation = Installation.RUNNING, recovery = null)
+                            mutableState.value = mutableState.value.copy(pendingInstall = true, installation = Installation.RUNNING,
+                                recovery = null, recoveryOwner = null)
                         }
                         currentCoroutineContext().ensureActive()
                     }
                 }
-                mutableState.value = mutableState.value.copy(cleanupRequired = result.cleanupPath.isNotEmpty())
+                mutableState.value = mutableState.value.copy(cleanupRequired = result.cleanupPath.isNotEmpty(), cleanupOwner = expected)
                 validateInstall(result, request)
                 val status = client.syncStatus(connection)
                 validateInstalledStatus(status, request)
                 if (status.peers.isNotEmpty()) throw invalidInstallResponse()
                 publishInstalledStatus(expected, request, status, Installation.INSTALLED)
             } catch (failure: ProvisioningException) {
-                mutableState.value = mutableState.value.copy(recovery = failure.recovery, problem = Problem.INSTALL_FAILED)
+                mutableState.value = mutableState.value.copy(recovery = failure.recovery, recoveryOwner = expected, problem = Problem.INSTALL_FAILED)
                 if (!mutableState.value.pendingInstall) throw failure
             } finally {
                 if (mutableState.value.pendingInstall)
@@ -568,8 +571,11 @@ class VpsProvisioningViewModel internal constructor(
                 val status = try {
                     client.syncStatus(connection)
                 } catch (failure: ProvisioningException) {
-                    val knownRecovery = mutableState.value.recovery == ProvisioningRecovery.UNCHANGED ||
-                        mutableState.value.recovery == ProvisioningRecovery.RESTORED
+                    val recoveryOwner = mutableState.value.recoveryOwner
+                    val knownRecovery = recoveryOwner != null && recoveryOwner.id == expected.id &&
+                        VpsEndpoint(recoveryOwner.host, recoveryOwner.sshPort, recoveryOwner.sshUser) == attempt.ssh &&
+                        (mutableState.value.recovery == ProvisioningRecovery.UNCHANGED ||
+                            mutableState.value.recovery == ProvisioningRecovery.RESTORED)
                     if (failure.category != ProvisioningFailureCategory.NOT_INSTALLED || !knownRecovery) throw failure
                     reconcileAbsentInstall(expected, attempt, connection)
                     return@operate
@@ -589,7 +595,7 @@ class VpsProvisioningViewModel internal constructor(
         withContext(NonCancellable) {
             store.clearFailedInstall(expected, attempt)
             mutableState.value = mutableState.value.copy(
-                pendingInstall = false, installation = Installation.NONE, problem = null, recovery = null,
+                pendingInstall = false, installation = Installation.NONE, problem = null, recovery = null, recoveryOwner = null,
                 detect = detected, plan = null, step = Step.DETECT,
             )
         }
@@ -605,7 +611,7 @@ class VpsProvisioningViewModel internal constructor(
             val committed = store.settleInstall(expected, attempt, status, observedAt)
             server = committed
             mutableState.value = mutableState.value.copy(
-                pendingInstall = false, installation = installation, problem = null, recovery = null,
+                pendingInstall = false, installation = installation, problem = null, recovery = null, recoveryOwner = null,
                 statusSnapshots = mutableState.value.statusSnapshots + (expected.id to StatusSnapshot(committed, status, observedAt)),
             )
         }

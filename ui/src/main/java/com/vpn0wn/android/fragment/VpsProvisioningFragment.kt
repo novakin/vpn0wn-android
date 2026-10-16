@@ -691,7 +691,9 @@ class VpsProvisioningFragment : BaseFragment() {
     // Literal dimensions retain the surrounding form typography and spacing.
     @Suppress("MagicNumber")
     private fun addOperationStatus(parent: LinearLayout, serverId: String? = null) {
-        if (serverId != null && serverId != provisionState.serverId) return
+        if (serverId != null && serverId != provisionState.serverId &&
+            !(provisionState.cleanupRequired && ownsServerFeedback(provisionState.cleanupOwner)) &&
+            !(provisionState.recovery != null && ownsServerFeedback(provisionState.recoveryOwner))) return
         parent.addView(vertical().apply {
             id = R.id.vpn0wn_vps_operation_status
             renderOperationStatus(this)
@@ -702,7 +704,9 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun renderOperationStatus(parent: LinearLayout) {
         parent.removeAllViews()
-        val problem = provisionState.problem
+        val selectedServerId = (screen as? Screen.Detail)?.serverId
+        val operationSelected = selectedServerId == null || selectedServerId == provisionState.serverId
+        val problem = provisionState.problem.takeIf { operationSelected }
         if (problem != null) parent.addView(mono(str(when (problem) {
             Problem.INVALID_INPUT -> R.string.vpn0wn_ssh_invalid_input
             Problem.CONNECTION_FAILED -> R.string.vpn0wn_ssh_connection_failed
@@ -722,7 +726,8 @@ class VpsProvisioningFragment : BaseFragment() {
             importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_YES
             setPadding(dp(14), dp(8), dp(14), dp(8))
         })
-        val saved = when (provisionState.savedAccess) {
+        val saved = when (provisionState.savedAccess.takeIf { operationSelected }) {
+            null -> null
             SavedAccess.NONE -> null
             SavedAccess.SAVED -> R.string.vpn0wn_saved_ssh_saved
             SavedAccess.METADATA_ONLY -> R.string.vpn0wn_saved_ssh_metadata_only
@@ -730,20 +735,27 @@ class VpsProvisioningFragment : BaseFragment() {
             SavedAccess.CLEARED -> R.string.vpn0wn_saved_ssh_cleared
         }
         if (saved != null) parent.addView(mono(str(saved), 11, R.color.vpn0wn_ink_2).apply { setPadding(dp(14), dp(8), dp(14), dp(8)) })
-        provisionState.recovery?.let { recovery ->
+        provisionState.recovery?.takeIf { ownsServerFeedback(provisionState.recoveryOwner) }?.let { recovery ->
             parent.addView(mono(str(when (recovery) {
                 ProvisioningRecovery.UNCHANGED -> R.string.vpn0wn_recovery_unchanged
                 ProvisioningRecovery.RESTORED -> R.string.vpn0wn_recovery_restored
                 ProvisioningRecovery.INCOMPLETE, ProvisioningRecovery.UNKNOWN -> R.string.vpn0wn_recovery_incomplete
             }), 11, R.color.vpn0wn_warn).apply { setPadding(dp(14), dp(8), dp(14), dp(8)) })
         }
-        if (provisionState.cleanupRequired)
+        if (provisionState.cleanupRequired && ownsServerFeedback(provisionState.cleanupOwner))
             parent.addView(mono(str(R.string.vpn0wn_apply_cleanup), 11, R.color.vpn0wn_warn).apply { setPadding(dp(14)) })
-        if (provisionState.active && provisionState.pendingInstall && provisionState.step != Step.APPLY)
+        if (operationSelected && provisionState.active && provisionState.pendingInstall && provisionState.step != Step.APPLY)
             parent.addView(rowButton(str(R.string.vpn0wn_reconcile_install)) { provision.reconcileInstall() }.apply {
                 isEnabled = !provisionState.busy
             })
         addUserCreationStatus(parent)
+    }
+
+    private fun ownsServerFeedback(owner: StoredVpsServer?): Boolean {
+        val selectedServerId = (screen as? Screen.Detail)?.serverId ?: provisionState.serverId.takeIf { screen is Screen.Provision }
+        val current = storedServers.singleOrNull { it.id == selectedServerId } ?: return false
+        return owner != null && owner.id == current.id && owner.host == current.host &&
+            owner.sshPort == current.sshPort && owner.sshUser == current.sshUser
     }
 
     private fun canAddUser(serverId: String): Boolean {
