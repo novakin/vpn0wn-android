@@ -22,6 +22,11 @@ import androidx.lifecycle.viewModelScope
 import com.vpn0wn.android.Application as Vpn0wnApplication
 import com.vpn0wn.android.R
 import com.vpn0wn.android.model.TunnelTestEnvironment
+import com.vpn0wn.android.provisioning.VpsDeployFixtureData
+import com.vpn0wn.android.provisioning.VpsDeployMapper
+import com.vpn0wn.android.provisioning.VpsDeployServer
+import com.vpn0wn.android.provisioning.VpsDeployUser
+import com.vpn0wn.android.provisioning.VpsDeployUserStatus
 import com.vpn0wn.android.provisioning.VpsPlanningTestPeer
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Step
@@ -75,6 +80,55 @@ class VpsProvisioningLayoutTest {
     @Test fun allFiveTrackerStagesFitNormalTextAtTheRenderer() = verifyTrackerLayout(1f)
 
     @Test fun allFiveTrackerStagesFitEnlargedTextAtTheRenderer() = verifyTrackerLayout(2f)
+
+    @Test fun peerHeadersKeepLogicalEdgesAndSpaceAtNormalText() = verifyPeerHeaders(1f)
+
+    @Test fun peerHeadersKeepLogicalEdgesAndSpaceAtEnlargedText() = verifyPeerHeaders(2f)
+
+    private fun verifyPeerHeaders(fontScale: Float) = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        for (locale in listOf("en", "fr")) for (night in listOf("night", "notnight")) {
+            for (direction in listOf("ldltr", "ldrtl")) for ((width, height) in listOf(320 to 640, 640 to 320)) {
+                val orientation = if (width > height) "land" else "port"
+                RuntimeEnvironment.setQualifiers("$locale-$direction-w${width}dp-h${height}dp-$orientation-$night-mdpi")
+                RuntimeEnvironment.setFontScale(fontScale)
+                val rtl = direction == "ldrtl"
+                val fixture = provisioningLayoutFixture(folder, if (rtl) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR)
+                try {
+                    val server = VpsDeployMapper.fromStored(VpsDeployFixtureData.storedServers().first(), VpsDeployFixtureData.NOW)
+                    val factory = VpsProvisioningFragment::class.java.getDeclaredMethod("userRow",
+                        VpsDeployServer::class.java, VpsDeployUser::class.java, Int::class.javaPrimitiveType).apply { isAccessible = true }
+                    for (state in VpsDeployUserStatus.entries) {
+                        val user = VpsDeployUser("peer", "peer", "phone", "10.8.0.2/32", "0.0.0.0/0", state,
+                            "0 B", "0 B", "—", "—", "synthetic-public-key")
+                        val row = factory.invoke(fixture.fragment, server, user, 0) as ViewGroup
+                        fixture.root.removeAllViews()
+                        fixture.root.addView(row, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT))
+                        measure(fixture.root, width, height)
+                        val index = text(row, fixture.activity.getString(R.string.vpn0wn_user_index, "01").uppercase(Locale.ROOT))
+                        val status = text(row, fixture.activity.getString(state.labelRes).uppercase(Locale.ROOT))
+                        assertTextFits(index)
+                        assertTextFits(status)
+                        val indexPosition = IntArray(2).also(index::getLocationInWindow)
+                        val statusPosition = IntArray(2).also(status::getLocationInWindow)
+                        val indexLayout = requireNotNull(index.layout)
+                        val statusLayout = requireNotNull(status.layout)
+                        val indexStart = indexPosition[0] + index.compoundPaddingLeft + (0 until indexLayout.lineCount).minOf(indexLayout::getLineLeft)
+                        val indexEnd = indexPosition[0] + index.compoundPaddingLeft + (0 until indexLayout.lineCount).maxOf(indexLayout::getLineRight)
+                        val statusStart = statusPosition[0] + status.compoundPaddingLeft + (0 until statusLayout.lineCount).minOf(statusLayout::getLineLeft)
+                        val statusEnd = statusPosition[0] + status.compoundPaddingLeft + (0 until statusLayout.lineCount).maxOf(statusLayout::getLineRight)
+                        val gap = if (rtl) indexStart - statusEnd else statusStart - indexEnd
+                        assertTrue("Peer labels retain at least 8dp separation", gap >= 8 * row.resources.displayMetrics.density)
+                        if (rtl) assertEquals("Index starts at logical right", (indexPosition[0] + index.width - index.compoundPaddingRight).toFloat(), indexEnd, 0.5f)
+                        else assertEquals("Index starts at logical left", (indexPosition[0] + index.compoundPaddingLeft).toFloat(), indexStart, 0.5f)
+                    }
+                } finally {
+                    fixture.close()
+                }
+            }
+        }
+    }
 
     private fun verifyCredentialLayout(fontScale: Float) = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
