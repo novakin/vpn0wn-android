@@ -6,9 +6,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/common.sh"
 
 name=""
+expected_public_key=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --name) require_arg_value "$@"; name=$2; shift 2 ;;
+    --expected-public-key) require_arg_value "$@"; require_public_key "$2"; expected_public_key=$2; shift 2 ;;
     *) fail_json "invalid_arg" "Unknown argument: $1" 64 ;;
   esac
 done
@@ -19,6 +21,7 @@ require_owned_config
 name=$(sanitize_name "$name")
 lock_interface
 require_owned_config
+[[ -z "$expected_public_key" ]] || require_expected_peer "$name" "$expected_public_key"
 begin_mutation peer
 prepare_peer_removal "$name"
 

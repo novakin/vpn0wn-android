@@ -527,6 +527,14 @@ Executed offline here: `bash -n` on the status script and safety fixture, then `
 
 Required later proof: focused JVM/static gates and source review; actual small/large-text/RTL/status/error rendering; Android saved-access transport/routing/cancellation; explicitly authorized disposable-server sync and mutation postconditions. Prior Detect/Plan/storage evidence retains its own revision and scope. No live-server, connectivity or production-readiness claim follows from offline observations.
 
+### Peer mutation identity guard controls — #143
+
+The 2026-10-16 prerequisite source slice keeps Android user/profile wiring outside scope. `VpsProvisioningRequestTest` checks mandatory guarded arguments through root/sudo branches, invalid identity rejection before transport, exact response name/key/action, cleanup/close and no retry after mismatched receipts. `ProvisioningJsonTest` checks required canonical mutation keys, nonblank names, strict removed/revoked/archive fields and safe existing error categories. Run both plus `:ui:detekt` before source acceptance; those Android/JVM gates remain pending until the integrating acceptance record records execution.
+
+The offline Bash suite now has **76 passing controls, zero failed**, including guarded remove/revoke with running and stopped interfaces, blank/malformed/padding-invalid keys, different keys, remove/add name reuse and a waiting guarded writer whose selected key changes under the real interface lock. A two-peer regression first reproduced an incorrect successful removal: assignment whitespace made the old extractor read the following peer's key. Bounded, whitespace-tolerant extraction now rejects that wrong identity and removes only the selected peer for its matching key, for both commands. Mismatch tests require unchanged config/runtime, no transaction recovery directory and no privileged fixture mutation. Existing explicit name-only remove/revoke schema controls retain supported operator CLI behavior. `bash -n` also passed for the affected scripts and fixture. All **18 injected Python harness controls** pass with mandatory guarded requests and exact mutation receipt keys; no SSH or disposable-host invocation occurred. Current-task and failed regression logs remain under the identity-guard worktree's ignored `.artifacts/codex-command-logs`.
+
+These fixtures establish source/offline behavior. They do not prove Android transport/UI confirmation, cancellation/lost-response reconciliation, actual VPN access revocation, remote archive durability or live-server behavior. APK/device/live operations need separate authorization. A different or missing success receipt remains an uncertain remote outcome, never a retry target selected by name alone.
+
 ## Next Implementation Roadmap
 
 This roadmap covers the whole app, not only the VPS fleet. Do not move items from this section into active coverage until the tests exist and run in the expected test layer.

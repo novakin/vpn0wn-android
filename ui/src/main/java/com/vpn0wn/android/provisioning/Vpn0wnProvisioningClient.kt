@@ -6,6 +6,8 @@ package com.vpn0wn.android.provisioning
 
 import android.content.Context
 import android.util.Log
+import com.vpn0wn.crypto.Key
+import com.vpn0wn.crypto.KeyFormatException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -34,12 +36,36 @@ class Vpn0wnProvisioningClient(
         ProvisioningJson.parseAddPeer(run(client, remoteDir, "add-peer.sh", request.args()).stdout)
     }
 
-    suspend fun removePeer(connection: VpsConnection, name: String): VpsPeerMutationResult = withClient(connection) { client, remoteDir ->
-        ProvisioningJson.parsePeerMutation(run(client, remoteDir, "remove-peer.sh", listOf("--name", name)).stdout)
+    suspend fun removePeer(connection: VpsConnection, name: String, expectedPublicKey: String): VpsPeerMutationResult {
+        val args = peerMutationArgs(name, expectedPublicKey)
+        return withClient(connection) { client, remoteDir ->
+            parsePeerMutation(run(client, remoteDir, "remove-peer.sh", args).stdout, name, expectedPublicKey, revoked = false)
+        }
     }
 
-    suspend fun revokePeer(connection: VpsConnection, name: String): VpsPeerMutationResult = withClient(connection) { client, remoteDir ->
-        ProvisioningJson.parsePeerMutation(run(client, remoteDir, "revoke-peer.sh", listOf("--name", name)).stdout)
+    suspend fun revokePeer(connection: VpsConnection, name: String, expectedPublicKey: String): VpsPeerMutationResult {
+        val args = peerMutationArgs(name, expectedPublicKey)
+        return withClient(connection) { client, remoteDir ->
+            parsePeerMutation(run(client, remoteDir, "revoke-peer.sh", args).stdout, name, expectedPublicKey, revoked = true)
+        }
+    }
+
+    private fun peerMutationArgs(name: String, expectedPublicKey: String): List<String> {
+        if (!PEER_NAME.matches(name))
+            throw ProvisioningException(ProvisioningFailureCategory.INVALID_INPUT.safeMessage, category = ProvisioningFailureCategory.INVALID_INPUT)
+        try {
+            Key.fromBase64(expectedPublicKey)
+        } catch (_: KeyFormatException) {
+            throw ProvisioningException(ProvisioningFailureCategory.INVALID_INPUT.safeMessage, category = ProvisioningFailureCategory.INVALID_INPUT)
+        }
+        return listOf("--name", name, "--expected-public-key", expectedPublicKey)
+    }
+
+    private fun parsePeerMutation(stdout: String, name: String, expectedPublicKey: String, revoked: Boolean): VpsPeerMutationResult {
+        val result = ProvisioningJson.parsePeerMutation(stdout)
+        if (result.name != name || result.publicKey != expectedPublicKey || result.revoked != revoked)
+            throw ProvisioningException(ProvisioningFailureCategory.INVALID_RESPONSE.safeMessage, category = ProvisioningFailureCategory.INVALID_RESPONSE)
+        return result
     }
 
     suspend fun backup(connection: VpsConnection): VpsBackupResult = withClient(connection) { client, remoteDir ->
@@ -136,6 +162,7 @@ class Vpn0wnProvisioningClient(
     companion object {
         private const val TAG = "vpn0wn/Provisioning"
         private val REMOTE_DIRECTORY = Regex("/tmp/vpn0wn-provisioning\\.[A-Za-z0-9]{6}")
+        private val PEER_NAME = Regex("[A-Za-z0-9_-]{1,32}")
     }
 }
 

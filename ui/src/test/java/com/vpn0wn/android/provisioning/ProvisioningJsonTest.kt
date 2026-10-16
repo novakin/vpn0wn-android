@@ -163,6 +163,7 @@ class ProvisioningJsonTest {
             {
               "ok": true,
               "name": "phone",
+              "publicKey": "UFVCTElDLTIgICAgICAgICAgICAgICAgICAgICAgICA=",
               "removed": true,
               "revoked": false,
               "archive": "/etc/wireguard/revoked/phone.conf"
@@ -171,6 +172,7 @@ class ProvisioningJsonTest {
         )
 
         assertEquals("phone", result.name)
+        assertEquals("UFVCTElDLTIgICAgICAgICAgICAgICAgICAgICAgICA=", result.publicKey)
         assertTrue(result.removed)
         assertFalse(result.revoked)
         assertEquals("/etc/wireguard/revoked/phone.conf", result.archive)
@@ -381,6 +383,37 @@ class ProvisioningJsonTest {
         }
         assertEquals("", ProvisioningJson.parsePeerMutation(fixture("remove-peer")).archive)
         assertTrue(ProvisioningJson.parsePeerMutation(fixture("revoke-peer")).archive.isNotBlank())
+    }
+
+    @Test
+    fun mutationRequiresCanonicalPublicKeyAndNonblankNameWithoutPayloadDiagnostics() {
+        for (fixtureName in listOf("remove-peer", "revoke-peer")) {
+            for (field in listOf("name", "publicKey")) {
+                assertInvalid { ProvisioningJson.parsePeerMutation(JSONObject(fixture(fixtureName)).apply { remove(field) }.toString()) }
+                for (value in listOf("", " ", JSONObject.NULL, JSONObject().put("secret", "synthetic-shape-secret"))) {
+                    assertInvalid { ProvisioningJson.parsePeerMutation(JSONObject(fixture(fixtureName)).put(field, value).toString()) }
+                }
+            }
+            for (key in listOf("synthetic-shape-secret", "A".repeat(42) + "B=", "A".repeat(43), "A".repeat(43) + "==")) {
+                assertInvalid { ProvisioningJson.parsePeerMutation(JSONObject(fixture(fixtureName)).put("publicKey", key).toString()) }
+            }
+        }
+    }
+
+    @Test
+    fun peerIdentityGuardFailuresUseExistingSafeCategories() {
+        val categories = listOf(
+            "invalid_public_key" to ProvisioningFailureCategory.INVALID_INPUT,
+            "peer_identity_mismatch" to ProvisioningFailureCategory.CONFLICT,
+        )
+        for ((code, category) in categories) {
+            val failure = runCatching {
+                ProvisioningJson.parsePeerMutation("""{"ok":false,"error":"$code","message":"synthetic-shape-secret"}""")
+            }.exceptionOrNull() as ProvisioningException
+            assertEquals(category, failure.category)
+            assertEquals(code, failure.remoteCode)
+            assertFalse(failure.stackTraceToString().contains("synthetic-shape-secret"))
+        }
     }
 
     @Test

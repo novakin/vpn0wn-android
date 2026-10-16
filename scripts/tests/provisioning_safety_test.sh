@@ -259,6 +259,139 @@ test_c3_concurrent_add_remove() {
   [[ $(awk '$1 == "PublicKey" {print $3}' "$TEST_STATE/runtime.conf" | wc -l) -eq 1 ]]
 }
 
+test_c12_guarded_mutation_success_running_and_stopped() {
+  local operation state key
+  for operation in remove-peer revoke-peer; do
+    for state in running stopped; do
+      owned_config
+      key=$(awk '$1 == "PublicKey" {print $3}' "$WG_CONF")
+      if [[ "$state" == stopped ]]; then /bin/rm "$TEST_STATE/runtime.conf" "$TEST_STATE/enabled"; fi
+      run_script "$operation" --name existing --expected-public-key "$key"
+      assert_success
+      [[ "$RESPONSE" == *"\"publicKey\":\"$key\""* ]]
+      ! grep -q '^# BEGIN_PEER existing$' "$WG_CONF"
+      if [[ "$state" == stopped ]]; then
+        [[ ! -e "$TEST_STATE/runtime.conf" && ! -e "$TEST_STATE/enabled" ]]
+      else
+        [[ -z $(awk '$1 == "PublicKey" {print $3}' "$TEST_STATE/runtime.conf") ]]
+      fi
+    done
+  done
+}
+
+test_c12_guard_rejects_invalid_keys_before_mutation() {
+  local operation key
+  owned_config
+  for operation in remove-peer revoke-peer; do
+    for key in '' ' ' 'not-a-key' "$(printf 'A%.0s' {1..42})B=" "$(printf 'A%.0s' {1..44})=" $'key\n[Peer]'; do
+      run_script "$operation" --name existing --expected-public-key "$key"
+      assert_failure invalid_public_key
+      assert_restored
+      assert_no_mutations
+    done
+    run_script "$operation" --name existing --expected-public-key
+    assert_failure missing_arg
+    assert_no_mutations
+  done
+}
+
+test_c12_guard_rejects_mismatch_and_reused_name() {
+  local operation key replacement
+  replacement=$(printf '%-32.32s' PUBLIC-replacement | base64 -w0)
+  for operation in remove-peer revoke-peer; do
+    owned_config
+    key=$(awk '$1 == "PublicKey" {print $3}' "$WG_CONF")
+    run_script "$operation" --name existing --expected-public-key "$replacement"
+    assert_failure peer_identity_mismatch
+    assert_restored
+    assert_no_mutations
+    [[ -z $(find "$WG_DIR" -name '.tunnl-recovery.*') ]]
+    run_script remove-peer --name existing --expected-public-key "$key"
+    assert_success
+    run_script add-peer --name existing
+    assert_success
+    /bin/cp "$WG_CONF" "$TEST_ROOT/before.conf"
+    : > "$TEST_STATE/trace"
+    run_script "$operation" --name existing --expected-public-key "$key"
+    assert_failure peer_identity_mismatch
+    assert_restored
+    assert_no_mutations
+  done
+}
+
+test_c12_guard_checks_identity_after_concurrent_owner() {
+  local operation key replacement writer_lock mutation_pid ready
+  replacement=$(printf '%-32.32s' PUBLIC-replacement | base64 -w0)
+  export TEST_REAL_FLOCK TEST_LOCK_SIGNAL
+  TEST_REAL_FLOCK=$(command -v flock)
+  TEST_LOCK_SIGNAL="$TEST_ROOT/lock-entered"
+  mkfifo "$TEST_LOCK_SIGNAL"
+  exec {lock_signal}<>"$TEST_LOCK_SIGNAL"
+  cat > "$TEST_ROOT/bin/flock" <<'EOF'
+#!/usr/bin/env bash
+printf 'ready\n' > "$TEST_LOCK_SIGNAL"
+exec "$TEST_REAL_FLOCK" "$@"
+EOF
+  chmod 700 "$TEST_ROOT/bin/flock"
+  for operation in remove-peer revoke-peer; do
+    owned_config
+    : > "$TEST_STATE/trace"
+    key=$(awk '$1 == "PublicKey" {print $3}' "$WG_CONF")
+    exec {writer_lock}>"$WG_LOCK_FILE"
+    "$TEST_REAL_FLOCK" "$writer_lock"
+    bash "$SCRIPTS/$operation.sh" --name existing --expected-public-key "$key" > "$TEST_ROOT/response" 2> "$TEST_ROOT/stderr" &
+    mutation_pid=$!
+    if ! read -r -t 5 ready <&"$lock_signal"; then
+      "$TEST_REAL_FLOCK" -u "$writer_lock"
+      kill "$mutation_pid" 2>/dev/null || true
+      wait "$mutation_pid" 2>/dev/null || true
+      return 1
+    fi
+    [[ ! -s "$TEST_ROOT/response" ]]
+    sed -i "s|$key|$replacement|" "$WG_CONF"
+    /bin/cp "$WG_CONF" "$TEST_STATE/runtime.conf"
+    /bin/cp "$WG_CONF" "$TEST_ROOT/before.conf"
+    "$TEST_REAL_FLOCK" -u "$writer_lock"
+    wait "$mutation_pid" && RESULT_CODE=0 || RESULT_CODE=$?
+    RESPONSE=$(cat "$TEST_ROOT/response")
+    assert_failure peer_identity_mismatch
+    assert_restored
+    assert_no_mutations
+    [[ -z $(find "$WG_DIR" -name '.tunnl-recovery.*') ]]
+    exec {writer_lock}>&-
+  done
+}
+
+test_c12_guard_never_reads_identity_from_following_peer() {
+  local operation key following_key
+  following_key=$(printf '%-32.32s' PUBLIC-following | base64 -w0)
+  for operation in remove-peer revoke-peer; do
+    owned_config
+    key=$(awk '$1 == "PublicKey" {print $3}' "$WG_CONF")
+    sed -i 's/^PublicKey = /PublicKey  = /' "$WG_CONF"
+    cat >> "$WG_CONF" <<EOF
+# BEGIN_PEER following
+[Peer]
+PublicKey = $following_key
+AllowedIPs = 10.8.0.3/32
+# END_PEER following
+EOF
+    /bin/cp "$WG_CONF" "$TEST_STATE/runtime.conf"
+    /bin/cp "$WG_CONF" "$TEST_ROOT/before.conf"
+    : > "$TEST_STATE/trace"
+    run_script "$operation" --name existing --expected-public-key "$following_key"
+    assert_failure peer_identity_mismatch
+    assert_restored
+    assert_no_mutations
+    run_script "$operation" --name existing --expected-public-key "$key"
+    assert_success
+    [[ "$RESPONSE" == *"\"publicKey\":\"$key\""* ]]
+    ! grep -q '^# BEGIN_PEER existing$' "$WG_CONF"
+    grep -qxF '# BEGIN_PEER following' "$WG_CONF"
+    [[ $(awk '$1 == "PublicKey" {print $3}' "$TEST_STATE/runtime.conf") == "$following_key" ]]
+  done
+}
+
 test_c3_strip_failure() {
   owned_config
   printf '*' > "$TEST_STATE/fail-wg-quick-strip"
@@ -857,14 +990,14 @@ test_c4_force_plan() {
   assert_no_mutations
 }
 
-test_c4_remove_schema() {
+test_c4_legacy_name_only_remove_schema() {
   owned_config
   run_script remove-peer --name existing
   assert_success
   [[ "$RESPONSE" == *'"name":"existing"'* && "$RESPONSE" == *'"removed":true'* && "$RESPONSE" == *'"revoked":false'* ]]
 }
 
-test_c4_revoke_schema() {
+test_c4_legacy_name_only_revoke_schema() {
   owned_config
   run_script revoke-peer --name existing
   assert_success
@@ -898,8 +1031,11 @@ if [[ ${1-} == --case ]]; then
 fi
 
 tests=(
+  test_c12_guarded_mutation_success_running_and_stopped test_c12_guard_rejects_invalid_keys_before_mutation
+  test_c12_guard_rejects_mismatch_and_reused_name test_c12_guard_checks_identity_after_concurrent_owner
+  test_c12_guard_never_reads_identity_from_following_peer
   test_c12_status_serializes_with_existing_interface_lock test_c12_status_refuses_unowned_or_ambiguous_config
-  test_c4_force_plan test_c4_remove_schema test_c4_revoke_schema
+  test_c4_force_plan test_c4_legacy_name_only_remove_schema test_c4_legacy_name_only_revoke_schema
   test_c4_unknown_observation test_c4_stopped_observation
   test_c4_response_fixtures test_c4_native_observation test_c4_missing_counters test_c4_invalid_counters
   test_c4_failed_dump_discards_stdout
