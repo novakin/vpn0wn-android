@@ -266,6 +266,8 @@ object ProvisioningJson {
         )
     }
 
+    // Each independent snapshot boundary must reject malformed remote data before retention.
+    @Suppress("ThrowsCount")
     fun parseBackup(stdout: String): VpsBackupResult {
         if ('\u0000' in stdout || stdout.toByteArray(Charsets.UTF_8).size > VpsBackupResult.MAX_RESPONSE_BYTES) invalidResponse()
         return parse(stdout) { json ->
@@ -327,6 +329,8 @@ object ProvisioningJson {
         return output.requireSuccess()
     }
 
+    // Framing, object type and remote failure keep distinct rejection paths at this trust boundary.
+    @Suppress("ThrowsCount")
     private fun <T> parse(stdout: String, read: (JSONObject) -> T): T {
         val json = try {
             val tokener = JSONTokener(stdout.trim())
