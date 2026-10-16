@@ -78,6 +78,17 @@ class VpsDeployMapperTest {
     }
 
     @Test
+    fun statusDoesNotInventEngineFactsFromInterfaceOrOsRelease() {
+        val status = VpsDeployFixtureData.onlineStatusWithPeers().copy(interfaceName = "wg0")
+        for ((knownEngine, expectedEngine) in listOf("" to "unknown", "kernel" to "kernel", "WireGuard" to "WireGuard")) {
+            val stored = storedServer(lastSyncEpochSeconds = 0L).copy(engine = knownEngine)
+            val server = VpsDeployMapper.fromStatus(stored, status, NOW)
+            assertEquals(expectedEngine, server.engine)
+            assertEquals("Ubuntu 24.04", server.distro)
+        }
+    }
+
+    @Test
     fun fixtureSetCoversFleetVisualStates() {
         val servers = VpsDeployFixtureData.storedServers().map {
             VpsDeployMapper.fromStored(it, VpsDeployFixtureData.NOW)

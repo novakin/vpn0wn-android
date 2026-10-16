@@ -17,7 +17,6 @@ object VpsDeployMapper {
             server.running == false -> VpsDeployServerStatus.OFFLINE
             else -> VpsDeployServerStatus.ATTENTION
         }
-        val version = server.version.ifBlank { "pending sync" }
         return VpsDeployServer(
             id = server.id,
             name = server.name,
@@ -27,7 +26,6 @@ object VpsDeployMapper {
             port = server.listenPort.toIntOrNull() ?: 51820,
             status = status,
             distro = listOf(server.os, server.version).filter { it.isNotBlank() }.joinToString(" ").ifBlank { "Awaiting detect" },
-            version = version,
             engine = server.engine.ifBlank { "unknown" },
             cidr = server.cidr.ifBlank { "—" },
             dns = server.dns.ifBlank { "—" },
@@ -53,7 +51,6 @@ object VpsDeployMapper {
         )
         val currentRunning = if (hasRecentSync(observed, nowEpochSeconds)) status.running else null
         return fromStored(observed, nowEpochSeconds).copy(
-            engine = stored.engine.ifBlank { status.interfaceName },
             users = status.peers.mapIndexed { index, peer ->
                 peer.toDeployUser(index, nowEpochSeconds, currentRunning)
             }.toMutableList(),
