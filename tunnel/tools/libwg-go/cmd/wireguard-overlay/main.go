@@ -59,6 +59,36 @@ func generate(output string, host bool) error {
 	if err := os.MkdirAll(output, 0755); err != nil {
 		return err
 	}
+	// Go rejects overlays beneath its immutable module cache.
+	staged := filepath.Join(output, "wireguard")
+	if err := os.RemoveAll(staged); err != nil {
+		return err
+	}
+	if err := os.CopyFS(staged, os.DirFS(module.Dir)); err != nil {
+		return err
+	}
+	module.Dir = staged
+	mainMod, err := exec.Command("go", "env", "GOMOD").Output()
+	if err != nil {
+		return err
+	}
+	moduleRoot := filepath.Dir(strings.TrimSpace(string(mainMod)))
+	for _, name := range []string{"go.mod", "go.sum"} {
+		data, err := os.ReadFile(filepath.Join(moduleRoot, name))
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(filepath.Join(output, name), data, 0644); err != nil {
+			return err
+		}
+	}
+	relative, err := filepath.Rel(moduleRoot, staged)
+	if err != nil {
+		return err
+	}
+	if err := exec.Command("go", "mod", "edit", "-modfile="+filepath.Join(output, "go.mod"), "-replace=golang.zx2c4.com/wireguard=./"+filepath.ToSlash(relative)).Run(); err != nil {
+		return err
+	}
 	replacements := make(map[string]string)
 	for _, file := range []string{"device/device.go", "device/peer.go", "device/noise-protocol.go", "device/uapi.go", "device/send.go", "device/timers.go", "conn/boundif_android.go"} {
 		name := filepath.Base(file)
@@ -92,7 +122,7 @@ func generate(output string, host bool) error {
 		if strings.Count(string(source), packageLine) != 1 {
 			return fmt.Errorf("unexpected host bind package layout")
 		}
-		// Module-cache indexing ignores added overlay files; alias into existing host files.
+		// Expose the Android-only descriptor methods to host fixtures.
 		alias := strings.Replace(string(source), packageLine, header, 1) + "\n" + strings.Replace(string(descriptors), header, "", 1)
 		aliasPath := filepath.Join(output, "default_host.go")
 		if err := os.WriteFile(aliasPath, []byte(alias), 0644); err != nil {
