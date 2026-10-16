@@ -236,6 +236,8 @@ private class JschRemoteShellClient(
         created.setConfig("StrictHostKeyChecking", "yes")
         created.setConfig("MaxAuthTries", connection.maxAuthAttempts.toString())
         created.setConfig("server_host_key", HOST_KEYS)
+        // Optional BC classes must not widen the transport's signature probes.
+        created.setConfig("CheckSignatures", HOST_KEYS)
         created.setConfig("kex", KEY_EXCHANGES)
         created.setConfig("cipher.c2s", CIPHERS)
         created.setConfig("cipher.s2c", CIPHERS)

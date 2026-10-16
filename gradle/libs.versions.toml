@@ -4,6 +4,7 @@ agp = "9.1.0"
 detekt = "1.23.8"
 
 [libraries]
+bcprov = "org.bouncycastle:bcprov-jdk15to18:1.86"
 androidx-activity-ktx = "androidx.activity:activity-ktx:1.13.0"
 androidx-annotation = "androidx.annotation:annotation:1.9.1"
 androidx-appcompat = "androidx.appcompat:appcompat:1.7.1"

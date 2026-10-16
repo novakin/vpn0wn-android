@@ -98,6 +98,47 @@ class JschRemoteShellClientTest {
     }
 
     @Test
+    fun optionalCryptoClassesCannotExpandSessionSignatureProbes() = runBlocking {
+        val optional = listOf("ssh-ed25519", "ssh-ed448")
+        val original = optional.associateWith { requireNotNull(JSch.getConfig(it)) }
+        val previousProbes = requireNotNull(JSch.getConfig("CheckSignatures"))
+        try {
+            optional.forEach { JSch.setConfig(it, ExcludedSignatureProbe::class.java.name) }
+            JSch.setConfig("CheckSignatures", optional.joinToString(","))
+            for (ecdsa in listOf(false, true)) {
+                SshTestServer(temporaryFolder.root.toPath().resolve("probe-$ecdsa"), ecdsaHostKey = ecdsa).use { peer ->
+                    val client = JschRemoteShellClientFactory().create(peer.connection())
+                    try {
+                        assertEquals(0, withTimeout(TEST_TIMEOUT) { client.execute("success") }.exitCode)
+                        val delegate = GuardedRemoteShellClient::class.java.getDeclaredField("delegate")
+                            .apply { isAccessible = true }.get(client)
+                        val session = delegate.javaClass.getDeclaredField("session").apply { isAccessible = true }
+                            .get(delegate) as com.jcraft.jsch.Session
+                        val admitted = session.getConfig("server_host_key").split(',')
+                        assertEquals(admitted, session.getConfig("CheckSignatures").split(','))
+                        assertFalse(admitted.any { it in optional })
+                        assertFalse(session.getConfig("kex").split(',').any {
+                            it.startsWith("curve") || it.startsWith("mlkem") || it.startsWith("sntrup")
+                        })
+                        assertFalse(session.getConfig("cipher.c2s").contains("chacha20"))
+                        assertEquals(session.getConfig("cipher.c2s"), session.getConfig("cipher.s2c"))
+                    } finally { client.close() }
+                    awaitNoSessions(peer)
+                }
+            }
+        } finally {
+            original.forEach { (name, implementation) -> JSch.setConfig(name, implementation) }
+            JSch.setConfig("CheckSignatures", previousProbes)
+        }
+    }
+
+    class ExcludedSignatureProbe : com.jcraft.jsch.jce.SignatureRSASHA256() {
+        override fun init() {
+            throw AssertionError("Excluded optional signature probe was initialized")
+        }
+    }
+
+    @Test
     fun changedPinCannotAuthenticateEvenWhenLegacyTrustFlagIsEnabled() = runBlocking {
         server().use { peer ->
             val socket = Socket()
