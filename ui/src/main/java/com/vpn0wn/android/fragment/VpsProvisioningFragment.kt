@@ -336,7 +336,9 @@ class VpsProvisioningFragment : BaseFragment() {
             VpsDeployAction(R.drawable.ic_vpn0wn_trash, str(R.string.vpn0wn_action_uninstall), str(R.string.vpn0wn_action_uninstall_sub), R.color.vpn0wn_error) { toast(str(R.string.vpn0wn_uninstall_requires_confirmation)) },
         )))
         storedServers.find { it.id == server.id }?.let { stored ->
-            scroll.addView(rowButton(str(if (provisionState.busy && provisionState.serverId == stored.id) R.string.vpn0wn_cancel_check else R.string.vpn0wn_refresh_server)) {
+            val checking = provisionState.busy && provisionState.serverId == stored.id
+            scroll.addView(rowButton(str(if (checking) R.string.vpn0wn_cancel_check else R.string.vpn0wn_refresh_server),
+                if (checking) R.drawable.ic_vpn0wn_close else R.drawable.ic_vpn0wn_refresh) {
                 if (provisionState.busy) provision.cancelOperation() else provision.syncStatus(stored)
             }.apply {
                 id = R.id.vpn0wn_vps_refresh_status
@@ -1105,10 +1107,12 @@ class VpsProvisioningFragment : BaseFragment() {
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
-    private fun rowButton(text: String, onClick: () -> Unit): View = horizontal(Gravity.CENTER_VERTICAL).apply {
+    private fun rowButton(text: String, icon: Int = R.drawable.ic_vpn0wn_plus, onClick: () -> Unit): View = horizontal(Gravity.CENTER_VERTICAL).apply {
+        minimumHeight = dp(48)
+        actionAccessibility(Button::class.java.name)
         setPadding(dp(14), dp(12), dp(14), dp(12))
         addView(ImageView(requireContext()).apply {
-            setImageDrawable(AppCompatResources.getDrawable(requireContext(), R.drawable.ic_vpn0wn_plus))
+            setImageDrawable(AppCompatResources.getDrawable(requireContext(), icon))
             setColorFilter(color(R.color.vpn0wn_ink_3))
         }, LinearLayout.LayoutParams(dp(14), dp(14)).apply { marginEnd = dp(10) })
         addView(mono(text.removePrefix("+ ").trim(), 11, R.color.vpn0wn_ink_3).apply { letterSpacing = 0.06f })
