@@ -185,12 +185,8 @@ class VpsProvisioningLayoutTest {
                     clickAction(fixture, R.string.vpn0wn_review_apply)
                     measure(root, width, height)
                     assertStageLayout(fixture, Step.APPLY, fontScale)
-                    val apply = text(root, activity.getString(R.string.vpn0wn_apply_unavailable), clickable = true)
-                    assertFalse("Apply remains unavailable", apply.isEnabled)
-                    val commandsBeforeApply = fixture.peer.commands.toList()
-                    apply.performClick()
-                    settle()
-                    assertEquals("Disabled Apply never starts a remote command", commandsBeforeApply, fixture.peer.commands.toList())
+                    val apply = text(root, activity.getString(R.string.vpn0wn_apply_plan_button), clickable = true)
+                    assertTrue("Fresh Apply opens confirmation", apply.isEnabled)
                     assertEquals(Step.APPLY, fixture.model.state.value.step)
                     assertTrue(fixture.peer.commands.any { it.contains("./'detect.sh'") })
                     assertTrue(fixture.peer.commands.any { it.contains("./'plan.sh'") })
@@ -243,7 +239,7 @@ class VpsProvisioningLayoutTest {
         assertTextFits(action)
         assertAccessibleAction(action, android.widget.Button::class.java.name)
         assertInside(action, fixture.root)
-        assertEquals("Only Apply stays unavailable", step != Step.APPLY, action.isEnabled)
+        assertTrue("Fresh verified Detect/Plan keeps each reviewed stage actionable", action.isEnabled)
     }
 
     private fun assertTrackerWidth(root: View, fontScale: Float) {

@@ -24,7 +24,8 @@ class Vpn0wnProvisioningClient(
         ProvisioningJson.parsePlan(run(client, remoteDir, "plan.sh", request.installArgs(), requiresRoot = false).stdout)
     }
 
-    suspend fun install(connection: VpsConnection, request: VpsInstallRequest): VpsInstallResult = withClient(connection) { client, remoteDir ->
+    suspend fun install(connection: VpsConnection, request: VpsInstallRequest, onAdmitted: suspend () -> Unit = {}): VpsInstallResult = withClient(connection) { client, remoteDir ->
+        onAdmitted()
         ProvisioningJson.parseInstall(run(client, remoteDir, "install.sh", request.installArgs()).stdout)
     }
 
