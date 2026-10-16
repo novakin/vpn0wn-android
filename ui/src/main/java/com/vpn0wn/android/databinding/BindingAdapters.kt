@@ -49,6 +49,7 @@ import com.vpn0wn.android.backend.Statistics
 import com.vpn0wn.android.backend.Tunnel
 import com.vpn0wn.android.databinding.ObservableKeyedRecyclerViewAdapter.RowConfigurationHandler
 import com.vpn0wn.android.model.ObservableTunnel
+import com.vpn0wn.android.util.ClipboardUtils
 import com.vpn0wn.android.util.QuantityFormatter
 import com.vpn0wn.android.widget.TunnelSignalView
 import com.vpn0wn.android.widget.TunnelThroughputView
@@ -69,6 +70,15 @@ import java.util.WeakHashMap
  * Static methods for use by generated code in the Android data binding library.
  */
 object BindingAdapters {
+    @JvmStatic
+    @BindingAdapter("copyText")
+    fun setCopyText(view: View, text: CharSequence?) {
+        val canCopy = view.isEnabled && !text.isNullOrEmpty()
+        view.setOnClickListener(if (canCopy) View.OnClickListener { ClipboardUtils.copyText(view, text) } else null)
+        view.isClickable = canCopy
+        view.isFocusable = canCopy
+    }
+
     @JvmStatic
     @BindingAdapter("tunnelSelectionInset")
     fun setTunnelSelectionInset(view: View, selecting: Boolean) {
