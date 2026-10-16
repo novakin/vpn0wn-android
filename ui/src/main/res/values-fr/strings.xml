@@ -393,7 +393,7 @@
     <string name="vpn0wn_ssh_invalid_response">Le serveur a renvoyé un résultat invalide ou différent de la demande. Aucun résultat accepté.</string>
     <string name="vpn0wn_saved_ssh_missing">Aucun accès SSH enregistré pour ce serveur. Saisissez un accès vérifié pour continuer.</string>
     <string name="vpn0wn_ssh_connection_changed">L’identité SSH ou l’empreinte enregistrée a changé. Relancez la détection avant de planifier.</string>
-    <string name="vpn0wn_saved_ssh_failed">Échec du stockage local de l’accès SSH. L’état ci-dessous précise les données enregistrées. Aucun stockage illisible réinitialisé.</string>
+    <string name="vpn0wn_saved_ssh_failed">Impossible de lire ou de modifier les données locales. Les données illisibles n’ont pas été réinitialisées.</string>
     <string name="vpn0wn_saved_ssh_conflict">L’accès SSH enregistré ne correspond pas à la fiche actuelle. Effacez-le explicitement avant de changer l’identité SSH.</string>
     <string name="vpn0wn_ssh_cancelled">Vérification annulée. Toute sauvegarde locale admise a été terminée avant l’annulation ; consultez son état ci-dessous.</string>
     <string name="vpn0wn_saved_ssh_saved">Identifiant SSH et empreinte vérifiée enregistrés chiffrés sur cet appareil.</string>

@@ -422,7 +422,7 @@
     <string name="vpn0wn_ssh_invalid_response">The server returned an invalid or mismatched result. No result was accepted.</string>
     <string name="vpn0wn_saved_ssh_missing">No saved SSH access exists for this server. Enter verified access to continue.</string>
     <string name="vpn0wn_ssh_connection_changed">Saved SSH identity or fingerprint changed. Detect the server again before planning.</string>
-    <string name="vpn0wn_saved_ssh_failed">Local SSH-access storage failed. The status below describes what was saved; unreadable storage was not reset.</string>
+    <string name="vpn0wn_saved_ssh_failed">Local storage could not be read or updated. Unreadable stored data was not reset.</string>
     <string name="vpn0wn_saved_ssh_conflict">Saved SSH access conflicts with the current server record. Clear it explicitly before changing SSH identity.</string>
     <string name="vpn0wn_ssh_cancelled">Check cancelled. Any admitted local save settled before cancellation; inspect its status below.</string>
     <string name="vpn0wn_saved_ssh_saved">SSH credential and verified host fingerprint saved encrypted on this device.</string>
