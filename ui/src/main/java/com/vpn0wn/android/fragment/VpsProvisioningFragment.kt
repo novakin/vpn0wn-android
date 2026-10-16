@@ -1113,6 +1113,7 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun label(text: String, colorRes: Int = R.color.vpn0wn_ink_3): TextView = TextView(requireContext()).apply {
         setTextAppearance(R.style.Vpn0wnLabelText)
+        typeface = monoTypeface()
         this.text = text.uppercase(Locale.ROOT)
         setTextColor(color(colorRes))
     }
