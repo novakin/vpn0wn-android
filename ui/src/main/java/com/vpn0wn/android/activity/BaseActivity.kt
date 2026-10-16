@@ -6,12 +6,18 @@
 package com.vpn0wn.android.activity
 
 import android.os.Bundle
+import android.util.Log
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.databinding.CallbackRegistry
 import androidx.databinding.CallbackRegistry.NotifierCallback
 import androidx.lifecycle.lifecycleScope
 import com.vpn0wn.android.Application
+import com.vpn0wn.android.R
 import com.vpn0wn.android.model.ObservableTunnel
+import com.vpn0wn.android.util.ErrorMessages
+import com.vpn0wn.android.util.RootShell.RootShellException
+import java.io.IOException
 import kotlinx.coroutines.launch
 
 /**
@@ -49,7 +55,17 @@ abstract class BaseActivity : AppCompatActivity() {
         }
         if (savedTunnelName != null) {
             lifecycleScope.launch {
-                val tunnel = Application.getTunnelManager().getTunnels()[savedTunnelName]
+                val tunnel = try {
+                    Application.getTunnelManager().getTunnels()[savedTunnelName]
+                } catch (failure: IOException) {
+                    reportInventoryFailure(failure)
+                    created = true
+                    return@launch
+                } catch (failure: RootShellException) {
+                    reportInventoryFailure(failure)
+                    created = true
+                    return@launch
+                }
                 if (tunnel == null)
                     created = true
                 selectedTunnel = tunnel
@@ -58,6 +74,12 @@ abstract class BaseActivity : AppCompatActivity() {
         } else {
             created = true
         }
+    }
+
+    private fun reportInventoryFailure(failure: Exception) {
+        val message = getString(R.string.error_prepare, ErrorMessages[failure])
+        Log.e(TAG, message, failure)
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -92,6 +114,7 @@ abstract class BaseActivity : AppCompatActivity() {
         CallbackRegistry<OnSelectedTunnelChangedListener, ObservableTunnel, ObservableTunnel>(SelectionChangeNotifier())
 
     companion object {
+        private const val TAG = "vpn0wn/BaseActivity"
         private const val KEY_SELECTED_TUNNEL = "selected_tunnel"
     }
 }

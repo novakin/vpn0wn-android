@@ -59,7 +59,7 @@ node docs/assets/vpnown-brand/generate.mjs --android
 
 The optional flag also writes the resources below into [`ui/src/main/res`](../../../ui/src/main/res), using the same frame, slash, gradient, font outlines and optical gaps as the reference assets. It leaves the reference artwork byte-identical. Running without the flag writes only the reference artwork and palette records. Android export uses no additional dependency, font installation, SVG parser or small-PNG resampling.
 
-Known generator follow-up under [#71](https://github.com/novakin/vpn0wn-android/issues/71#issuecomment-6225617777): the shared upstream-header template omits the modification notice currently retained in six inherited Android XML outputs. Preserve/reapply that existing notice when reviewing an Android export until the template is repaired, keeping the declaration, original copyright and SPDX intact under the [source-notice contract](../../license-attribution.md#fork-source-notices). The audit traced the template statically; it did not regenerate or alter the current artwork.
+The shared upstream-header template retains `Modified for vpn0wn.` in all six inherited Android XML outputs, alongside their declaration, original copyright and SPDX, under the [source-notice contract](../../license-attribution.md#fork-source-notices). This repairs the [#71 generator follow-up](https://github.com/novakin/vpn0wn-android/issues/71#issuecomment-6225617777). The 2026-10-17 locked-dependency `--android` regeneration leaves every tracked generated artwork/resource byte unchanged, including all six notices. This verifies regeneration retention, not complete #71, installed artwork or distribution acceptance.
 
 | Resource | Geometry and use |
 | --- | --- |

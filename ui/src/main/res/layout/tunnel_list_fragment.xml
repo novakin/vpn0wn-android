@@ -230,6 +230,7 @@
                             android:background="@color/vpn0wn_paper"
                             android:gravity="center_vertical"
                             android:minHeight="48dp"
+                            android:visibility="gone"
                             android:orientation="horizontal"
                             android:paddingStart="14dp"
                             android:paddingTop="10dp"
@@ -373,7 +374,7 @@
                     android:layout_height="match_parent"
                     android:background="@drawable/vpn0wn_license_notice_background"
                     android:fillViewport="true"
-                    android:visibility="@{tunnels.size() == 0 ? android.view.View.VISIBLE : android.view.View.GONE}"
+                    android:visibility="@{tunnels != null &amp;&amp; tunnels.size() == 0 ? android.view.View.VISIBLE : android.view.View.GONE}"
                     app:layout_behavior="@string/appbar_scrolling_view_behavior"
                     tools:visibility="gone">
 

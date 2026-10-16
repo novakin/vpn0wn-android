@@ -27,6 +27,7 @@ import com.vpn0wn.android.backend.Tunnel
 import com.vpn0wn.android.model.ObservableTunnel
 import com.vpn0wn.android.util.applicationScope
 import com.vpn0wn.android.util.UserKnobs
+import com.vpn0wn.android.util.RootShell.RootShellException
 import com.vpn0wn.android.widget.SlashDrawable
 import kotlinx.coroutines.launch
 import java.io.IOException
@@ -60,8 +61,14 @@ class QuickTileService : TileService() {
     override fun onClick() {
         applicationScope.launch {
             if (tunnel == null) {
-                Application.getTunnelManager().getTunnels()
-                updateTile()
+                try {
+                    Application.getTunnelManager().getTunnels()
+                    updateTile()
+                } catch (failure: IOException) {
+                    Log.e(TAG, "Failed to load tunnel inventory, so opening the app", failure)
+                } catch (failure: RootShellException) {
+                    Log.e(TAG, "Failed to load tunnel inventory, so opening the app", failure)
+                }
             }
             when (val tunnel = tunnel) {
                 null -> {

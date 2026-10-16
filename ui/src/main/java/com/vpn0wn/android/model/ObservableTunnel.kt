@@ -49,6 +49,7 @@ class ObservableTunnel internal constructor(
     }
 
     fun onNameChanged(name: String): String {
+        configGeneration++
         this.name = name
         notifyPropertyChanged(BR.name)
         return name
@@ -93,6 +94,9 @@ class ObservableTunnel internal constructor(
 
     private var cachedConfig = config
 
+    internal var configGeneration = 0L
+        private set
+
     @get:Bindable
     // The asynchronous getter handles the generic ConfigStore/Backend contract.
     @Suppress("TooGenericExceptionCaught")
@@ -130,6 +134,7 @@ class ObservableTunnel internal constructor(
 
     fun onConfigChanged(config: Config?): Config? {
         if (config === cachedConfig) return config
+        configGeneration++
         this.config = config
         notifyPropertyChanged(BR.config)
         return config

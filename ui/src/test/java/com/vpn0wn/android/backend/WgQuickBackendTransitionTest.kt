@@ -13,6 +13,7 @@ import com.vpn0wn.android.util.RootShell
 import com.vpn0wn.android.util.ToolsInstaller
 import com.vpn0wn.android.util.UserKnobs
 import java.io.File
+import java.io.FileNotFoundException
 import java.io.IOException
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
@@ -24,7 +25,9 @@ import kotlin.coroutines.intrinsics.COROUTINE_SUSPENDED
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
@@ -68,6 +71,7 @@ class WgQuickBackendTransitionTest {
         ToolsShadow.blockAtCall = 0
         ToolsShadow.entered = CountDownLatch(1)
         ToolsShadow.release = CountDownLatch(1)
+        ToolsShadow.failure = null
         context = object : ContextWrapper(ApplicationProvider.getApplicationContext<Context>()) {
             override fun getCacheDir(): File = folder.root
         }
@@ -82,6 +86,129 @@ class WgQuickBackendTransitionTest {
 
     @Test
     fun concurrentUpRetainsBothTunnelsWhenMultipleModeIsEnabled() = concurrentUp(true)
+
+    @Test
+    fun runningNamesPropagateToolExtractionFailure() {
+        val failure = FileNotFoundException("Injected extraction failure")
+        ToolsShadow.failure = failure
+        assertSame(failure, assertThrows(FileNotFoundException::class.java) { backend.runningTunnelNames })
+        assertTrue(shell.events.isEmpty())
+    }
+
+    @Test
+    fun runningNamesPropagateRootIoAndCancellationFailures() {
+        val failures = listOf(
+            RootShell.RootShellException(RootShell.RootShellException.Reason.NO_ROOT_ACCESS),
+            IOException("Injected observation failure"),
+            CancellationException("Injected observation cancellation"),
+        )
+        for (failure in failures) {
+            shell.observationFailure = failure
+            assertSame(failure, assertThrows(failure.javaClass) { backend.runningTunnelNames })
+            assertSame(failure, assertThrows(failure.javaClass) { backend.getState(NamedTunnel("one")) })
+        }
+        assertTrue(shell.events.isEmpty())
+    }
+
+    @Test
+    fun nonzeroObservationRejectsEvenCollectedInterfaceNames() {
+        val tunnel = NamedTunnel("one")
+        backend.setState(tunnel, Tunnel.State.UP, profile)
+        shell.events.clear()
+        shell.observationExit = 7
+        val failure = assertThrows(IOException::class.java) { backend.runningTunnelNames }
+        assertTrue(failure.message!!.contains("code 7"))
+        assertThrows(IOException::class.java) { backend.setState(tunnel, Tunnel.State.DOWN, profile) }
+        assertEquals(Tunnel.State.UP, tunnel.observedState)
+        assertTrue(shell.events.isEmpty())
+    }
+
+    @Test
+    fun failedObservationRejectsAllTransitionsWithoutChangingActiveTunnel() {
+        val tunnel = NamedTunnel("one")
+        backend.setState(tunnel, Tunnel.State.UP, profile)
+        shell.events.clear()
+        val failure = IOException("Injected observation failure")
+        shell.observationFailure = failure
+        for (state in Tunnel.State.entries) {
+            assertSame(failure, assertThrows(IOException::class.java) { backend.setState(tunnel, state, profile) })
+        }
+        assertEquals(Tunnel.State.UP, tunnel.observedState)
+        assertTrue(shell.events.isEmpty())
+        shell.observationFailure = null
+        assertEquals(setOf("one"), backend.runningTunnelNames)
+        assertEquals(Tunnel.State.DOWN, backend.setState(tunnel, Tunnel.State.DOWN, profile))
+        assertEquals(listOf("down:one"), shell.events)
+    }
+
+    @Test
+    fun successfulEmptyObservationAllowsDownNoOp() {
+        val tunnel = NamedTunnel("one")
+        assertTrue(backend.runningTunnelNames.isEmpty())
+        assertEquals(Tunnel.State.DOWN, backend.getState(tunnel))
+        assertEquals(Tunnel.State.DOWN, backend.setState(tunnel, Tunnel.State.DOWN, null))
+        shell.emptyInventoryLine = true
+        assertTrue(backend.runningTunnelNames.isEmpty())
+        assertEquals(Tunnel.State.DOWN, backend.setState(tunnel, Tunnel.State.DOWN, null))
+        assertTrue(shell.events.isEmpty())
+    }
+
+    @Test
+    fun failedObservationPreventsDeleteAndRetainsRecoveryProfile() = recreatedKernelEnvironment(true) { env ->
+        val tunnel = env.manager.getTunnels()["one"]!!
+        val failure = IOException("Injected observation failure")
+        shell.observationFailure = failure
+        val caught = runCatching { env.manager.delete(tunnel) }.exceptionOrNull()
+        assertEquals(failure.message, caught?.message)
+        assertEquals(Tunnel.State.UP, tunnel.state)
+        assertSame(tunnel, env.manager.getTunnels()["one"])
+        assertSame(profile, env.store.configs["one"])
+        assertTrue(env.store.deleteAttempts.isEmpty())
+        assertTrue(shell.events.isEmpty())
+        shell.observationFailure = null
+        env.manager.delete(tunnel)
+        assertEquals(listOf("down:one"), shell.events)
+        assertTrue(backend.runningTunnelNames.isEmpty())
+        assertTrue(env.store.configs.isEmpty())
+    }
+
+    @Test
+    fun failedObservationPreventsBackendSwitchAndRetainsSetting() = recreatedKernelEnvironment(true) { env ->
+        val tunnel = env.manager.getTunnels()["one"]!!
+        val originalSetting = UserKnobs.enableKernelModule.first()
+        shell.observationFailure = IOException("Injected observation failure")
+        assertTrue(runCatching { env.manager.prepareBackendSwitch(!originalSetting) }.exceptionOrNull() is IOException)
+        assertEquals(originalSetting, UserKnobs.enableKernelModule.first())
+        assertEquals(Tunnel.State.UP, tunnel.state)
+        assertSame(profile, env.store.configs["one"])
+        assertTrue(shell.events.isEmpty())
+        shell.observationFailure = null
+        env.manager.prepareBackendSwitch(!originalSetting)
+        assertEquals(!originalSetting, UserKnobs.enableKernelModule.first())
+        assertEquals(Tunnel.State.DOWN, tunnel.state)
+        assertEquals(listOf("down:one"), shell.events)
+    }
+
+    @Test
+    fun failedInitialObservationSettlesInventoryWaitersAndCanRetry() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val env = TunnelTestEnvironment(folder.root, backgroundScope)
+        try {
+            env.store.configs["one"] = profile
+            backend.setState(NamedTunnel("one"), Tunnel.State.UP, profile)
+            shell.events.clear()
+            env.replaceBackend(backend)
+            shell.observationFailure = IOException("Injected observation failure")
+            assertTrue(runCatching { env.manager.getTunnels() }.exceptionOrNull() is IOException)
+            assertSame(profile, env.store.configs["one"])
+            assertTrue(shell.events.isEmpty())
+            shell.observationFailure = null
+            val tunnel = env.manager.getTunnels()["one"]!!
+            assertEquals(Tunnel.State.UP, tunnel.state)
+        } finally {
+            env.close()
+        }
+    }
 
     @Test
     fun managerDisconnectsKernelTunnelAfterBackendRecreation() = recreatedKernelEnvironment(true) { env ->
@@ -411,6 +538,9 @@ class WgQuickBackendTransitionTest {
         val failUp = mutableMapOf<String, Int>()
         val failDown = mutableMapOf<String, Int>()
         val events = mutableListOf<String>()
+        var observationFailure: Exception? = null
+        var observationExit = 0
+        var emptyInventoryLine = false
         var startCalls = 0
             private set
 
@@ -420,8 +550,9 @@ class WgQuickBackendTransitionTest {
 
         override fun run(output: MutableCollection<String>?, command: String): Int = synchronized(commandLock) {
             if (command == "wg show interfaces") {
-                if (running.isNotEmpty()) output?.add(running.joinToString(" "))
-                return@synchronized 0
+                observationFailure?.let { throw it }
+                if (running.isNotEmpty() || emptyInventoryLine) output?.add(running.joinToString(" "))
+                return@synchronized observationExit
             }
             val match = Regex("wg-quick (up|down) '([^']+)'").find(command)
                 ?: error("Unexpected fixture command")
@@ -450,6 +581,7 @@ class WgQuickBackendTransitionTest {
     class ToolsShadow {
         @Implementation
         fun ensureToolsAvailable() {
+            failure?.let { throw it }
             if (calls.incrementAndGet() == blockAtCall) {
                 entered.countDown()
                 assertTrue(release.await(5, TimeUnit.SECONDS))
@@ -461,6 +593,7 @@ class WgQuickBackendTransitionTest {
             var blockAtCall = 0
             lateinit var entered: CountDownLatch
             lateinit var release: CountDownLatch
+            var failure: Exception? = null
         }
     }
 
