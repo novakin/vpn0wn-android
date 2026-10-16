@@ -46,6 +46,7 @@ import com.vpn0wn.android.model.ObservableTunnel
 import com.vpn0wn.android.model.TunnelManager
 import com.vpn0wn.android.util.ErrorMessages
 import com.vpn0wn.android.util.QrCodeFromFileScanner
+import com.vpn0wn.android.util.RootShell.RootShellException
 import com.vpn0wn.android.util.TunnelImporter
 import com.vpn0wn.android.util.vpn0wnStyle
 import com.vpn0wn.android.widget.MultiselectableRelativeLayout
@@ -230,11 +231,27 @@ class TunnelListFragment : BaseFragment() {
     override fun onSelectedTunnelChanged(oldTunnel: ObservableTunnel?, newTunnel: ObservableTunnel?) {
         val currentBinding = binding ?: return
         viewLifecycleOwner.lifecycleScope.launch {
-            val tunnels = Application.getTunnelManager().getTunnels()
+            val tunnels = loadTunnels() ?: return@launch
             if (binding !== currentBinding || selectionMode) return@launch
             if (newTunnel != null) viewForTunnel(newTunnel, tunnels)?.setSingleSelected(true)
             if (oldTunnel != null) viewForTunnel(oldTunnel, tunnels)?.setSingleSelected(false)
         }
+    }
+
+    private suspend fun loadTunnels() = try {
+        Application.getTunnelManager().getTunnels()
+    } catch (failure: IOException) {
+        reportInventoryFailure(failure)
+        null
+    } catch (failure: RootShellException) {
+        reportInventoryFailure(failure)
+        null
+    }
+
+    private fun reportInventoryFailure(failure: Exception) {
+        val message = getString(R.string.error_prepare, ErrorMessages[failure])
+        Log.e(TAG, message, failure)
+        showSnackbar(message)
     }
 
     override fun onViewStateRestored(savedInstanceState: Bundle?) {
@@ -244,7 +261,7 @@ class TunnelListFragment : BaseFragment() {
         selectionMode = savedInstanceState?.getBoolean(SELECTION_MODE) ?: selectionMode
         val restoredNames = savedInstanceState?.getStringArrayList(SELECTED_NAMES)
         viewLifecycleOwner.lifecycleScope.launch {
-            val tunnels = Application.getTunnelManager().getTunnels()
+            val tunnels = loadTunnels() ?: return@launch
             if (binding !== currentBinding) return@launch
             if (restoredNames != null) {
                 selectedTunnels.clear()
@@ -470,7 +487,7 @@ class TunnelListFragment : BaseFragment() {
         val currentBinding = binding ?: return
         val selectionChanged = (currentBinding.selectionHeaderContainer.visibility == View.VISIBLE) != selectionMode
         currentBinding.homeHeaderContainer.visibility = if (selectionMode) View.GONE else View.VISIBLE
-        currentBinding.homeStatusContainer.visibility = if (selectionMode) View.GONE else View.VISIBLE
+        currentBinding.homeStatusContainer.visibility = if (selectionMode || currentBinding.tunnels == null) View.GONE else View.VISIBLE
         currentBinding.selectionHeaderContainer.visibility = if (selectionMode) View.VISIBLE else View.GONE
         currentBinding.selectionStatusContainer.visibility = if (selectionMode) View.VISIBLE else View.GONE
         currentBinding.createFab.visibility = if (selectionMode) View.GONE else View.VISIBLE

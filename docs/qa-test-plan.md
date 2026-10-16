@@ -1,6 +1,6 @@
 # vpn0wn QA Test Plan
 
-Last updated: 2026-10-16 (Europe/Paris).
+Last updated: 2026-10-17 (Europe/Paris).
 
 This document tracks the automated and manual QA coverage required for the vpn0wn Android redesign.
 
@@ -139,6 +139,16 @@ For [#48](https://github.com/novakin/vpn0wn-android/issues/48), `TunnelStatistic
   - connecting
   - active with fresh handshake
   - no signal with stale handshake
+
+### Failed kernel observation controls — #210
+
+Use actual `WgQuickBackend`/manager owners with injected tools/root responses in `WgQuickBackendTransitionTest`. Require unchanged extraction, denied-root, I/O and cancellation failures; reject a nonzero observation even with collected names; retain normal successful empty/UP behavior. Failed observation must prevent successful transitions, recovery-profile deletion and backend-setting commit, with successful retry controls. Retain recreated-backend teardown, rollback, concurrent transitions and mode-setting checks from #109/#15.
+
+`TunnelInventoryFailureTest` exercises Home I/O/denied-root, saved-selection restoration, TV startup and initial tile-click failure/retry through their production owners. No initial tile failure may toggle a tunnel. Home must withhold zero-count, disconnected and empty-state claims while its list is null, then render the real profile after retry and the normal empty state after successful managed deletion. `BindingAdaptersTest` distinguishes a missing inventory's brand-only header from a successful empty inventory's localized zero count. `HomeSelectionTest` retains selection, deletion and existing Home rendering controls.
+
+2026-10-17 (Europe/Paris) scoped local verification: kernel/model/preference controls pass 41 tests; the changed adapter owner passes 17 tests. After correcting Home status visibility at its existing selection owner, all 22 `HomeSelectionTest` controls pass. The final four inventory-failure UI controls pass after their harness settles both coroutine work and actual posted main-Looper callbacks. Reports contain zero failures/errors/skips in these passing scopes. These are separate retained executions, not one combined final-head suite. Detekt reports zero findings in the final scoped run. Final-head independent review and CI remain delivery gates.
+
+Two synthetic native-View outputs were inspected at 320×640dp light/LTR/1× and 640×320dp dark/Arabic RTL/2×. The harness asserts actual locale, font scale and resolved layout direction, completes layout/pre-draw and rejects a canceled draw before capture. Approved artwork, fonts, palette and existing error controls remain; the unavailable inventory has no zero-count/disconnected/empty claim, and feedback/Add remain legible and reachable. Earlier failing assertion/callback-timing runs and misleading pre-correction captures remain retained as private evidence. This is Robolectric API-28 output under WSL JDK 21, not an installed-device, spoken TalkBack, actual root-command, kernel-traffic, release or production-readiness result. No APK/device/live operation was performed for this repair.
 
 ### Translation resource contracts — #195
 

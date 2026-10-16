@@ -1,6 +1,6 @@
 # Backend and provisioning contracts
 
-Last updated: 2026-10-16 (Europe/Paris).
+Last updated: 2026-10-17 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -72,6 +72,14 @@ The prior Java socket owner's TrafficStats tag isolation is historical behavior 
 In retained baseline logs, `UDP preflight sent` means the protected Java socket accepted a local send. It does not acknowledge delivery or DPI resistance. Native warm-up adds no per-packet success log or server acknowledgment and leaves the WireGuard protocol unchanged. Socket continuity and authenticated loopback traffic do not establish hardware deep suspend, broader unchanged kernel-server compatibility or DPI benefit. The maintainer's 2026-10-08 report of sleep/wake recovery without manual action is not new measured packet/timing proof; the earlier 195-second forced Doze trial retains its own scope in [the experiment record](reviews/2026-10-07-protocol-preflight-experiment.md#forced-deep-doze-recovery--2026-10-07). The [G4 investigation](reviews/2026-10-07-g4-preflight-investigation.md) retains its separate incident/port-change scope. No DPI, speed or battery gain is established.
 
 `WgQuickBackend` serializes the entire transition on its existing instance: observed state, config snapshot, prior-tunnel shutdown, apply, rollback, map update and callback. Running-name reads and multiple-tunnel preference changes share that monitor. Application collects those mode changes on IO, so waiting behind a root transition leaves the main thread free. Disabled multiple mode admits one app-owned active tunnel; enabled mode retains supported simultaneous tunnels. Failed apply/shutdown attempts restoration where applicable; restoration failures attach to the primary exception and observed running names remain queryable. RootShell still serializes individual commands; the backend monitor additionally protects the whole transition. This does not coordinate another backend instance or external root tools, turn multi-command changes into kernel transactions, or guarantee observation after an unreachable shell. #15 has controlled command-level JVM proof; device/kernel traffic and partial native effects remain separate.
+
+### Failed kernel observation — #210
+
+`Backend.getRunningTunnelNames` permits checked observation failures. A successful kernel command with no interface names, including an empty line, returns an empty set. Tool extraction, root admission, I/O and cancellation failures propagate from `WgQuickBackend` unchanged; nonzero `wg show interfaces` exit status becomes an `IOException` retaining the code. No unavailable observation becomes an authoritative DOWN. Java embedding callers must handle the enumeration failure contract; method names, return type and successful inventories remain compatible.
+
+`getState` and the existing serialized transition owner propagate that failure before a transition, so manager delete cannot remove the recovery profile and backend switching cannot commit its setting through a failed observation. Existing rollback and admitted-mutation cancellation semantics remain. Initialization settles its existing deferred exceptionally and can retry; refresh retains prior observed state when the inventory cannot be read.
+
+Home, saved-selection restoration, TV startup and initial tile clicks handle expected I/O/root failures at their existing UI owners. Other exceptions, cancellation and Errors propagate. Home keeps its branded header but withholds count, protection summary and empty-tunnel presentation until inventory succeeds; a genuine successful empty inventory retains its zero-count/disconnected/empty state. The existing selection presenter remains the sole runtime owner of the Home status container. Error feedback reuses native controls; reopening/recreating the view retries existing initialization, and a later tile click retries without a new scheduler. [Scoped host/View checks](qa-test-plan.md#failed-kernel-observation-controls--210) do not establish actual root-command, device or traffic behavior.
 
 ### VPN consent continuation — #177
 

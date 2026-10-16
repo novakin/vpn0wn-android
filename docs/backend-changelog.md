@@ -1,6 +1,6 @@
 # Backend & Functional Changelog
 
-Last updated: 2026-10-16 (Europe/Paris).
+Last updated: 2026-10-17 (Europe/Paris).
 
 Tracks non-UI changes: backend logic, data layer, permissions, networking, build config, and any functional behavior changes. Separate from `ui-redesign-roadmap.md` which covers visual/layout work only.
 
@@ -67,6 +67,8 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 - [x] Add opt-in destructive end-to-end test path against a disposable Ubuntu/Debian VPS.
 
 ## Done
+
+- **Failed kernel observation preserves recovery — #210 (2026-10-17, Europe/Paris):** `Backend.getRunningTunnelNames` declares observation failure; `WgQuickBackend.getRunningTunnelNames/getState` propagate extraction, root, I/O and cancellation failures instead of returning an empty inventory. A nonzero `wg show interfaces` exit retains its code in an I/O failure. Existing manager delete/switch admission therefore stops before removing a profile or committing the backend setting. Successful empty inventories keep normal DOWN/no-op behavior. Initial inventory failures settle existing waiters and can retry; Home, saved-selection restoration, TV and tile entry points handle expected failures without an automatic VPN mutation. [The contract](backend-contracts.md#failed-kernel-observation--210) and [scoped host/View verification](qa-test-plan.md#failed-kernel-observation-controls--210) retain compatibility and proof limits. Final-head review/CI and delivery remain PR gates; no new APK or rooted-device result follows.
 
 - **Settings membership fixture startup — #34/#85 follow-up (2026-10-16, Europe/Paris):** `SettingsActivityTest` installs membership DataStore fixtures after synchronous preference inflation and before STARTED so the lifecycle collector cannot subscribe to the original store and bypass the fixture's first-emission signal. Initial preference reads keep their original store. A forced early-dispatch control reproduced the CI timeout before repair. Existing stale-success/removal, loading/error and reopened-Settings assertions remain; no production code, timeout or membership policy changes. [QA](qa-test-plan.md#jvm-unit-tests) records the failure and final-head acceptance boundary.
 
