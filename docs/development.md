@@ -244,6 +244,10 @@ Broaden tests for shared state, public/script contracts or cross-cutting/high-ri
 
 For documentation-only work, validate relative links, fences, examples/source claims, consistency with AGENTS.md, date presence/actual edit date and `git diff --check`. Keep historical event/test/review dates separate from the latest edit marker. A search with no matches returns `rg` exit 1; exit 2 is a search error. An executed test suite with disclosed skips differs from source-inspected tests, and neither proves unperformed device or live-server behavior.
 
+### Synthetic backend handoff in consent tests
+
+`VpnConsentLifecycleTest` temporarily replaces its injected backend with `GoBackend` to enter the real consent-preparation path. An awaited synthetic UP transition still queues an application-owned state-notification job that reads the current backend on IO. Before that fixture-only replacement, capture the pre-transition children and join the new notification work; retain existing long-lived DataStore jobs. Virtual scheduler drain alone cannot settle that IO read. Keep production transitions and consent assertions unchanged; [the consent QA record](qa-test-plan.md#vpn-consent-continuation-acceptance--177) retains the observed CI failure and bounded repair scope.
+
 ## Android CI and debug APK artifacts
 
 For #165 kernel cleanup, run `python3 -m unittest discover -s scripts/tests -p 'test_wg_quick_cleanup.py'` in Linux/WSL with `cc` and `patch`. CI runs this command after the native lifecycle checks. It applies the maintained production patch and compiles the actual cleanup functions with harmless command stubs; no root, network mutation or Android netd call runs. CMake needs the existing `patch` tool to generate `wg-quick` build input and fails configuration if the patch cannot apply. Changing the source or patch triggers reconfiguration; compile affected native ABIs for build-owner changes.
