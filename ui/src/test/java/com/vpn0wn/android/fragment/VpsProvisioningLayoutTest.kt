@@ -85,6 +85,28 @@ class VpsProvisioningLayoutTest {
 
     @Test fun peerHeadersKeepLogicalEdgesAndSpaceAtEnlargedText() = verifyPeerHeaders(2f)
 
+    @Test fun serverDetailsKeepOsReleaseOutOfEngineRows() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val fixture = provisioningLayoutFixture(folder, View.LAYOUT_DIRECTION_LTR)
+        try {
+            val server = VpsDeployMapper.fromStored(VpsDeployFixtureData.storedServers().first(), VpsDeployFixtureData.NOW)
+            val factory = VpsProvisioningFragment::class.java.getDeclaredMethod("detailScreen", VpsDeployServer::class.java)
+                .apply { isAccessible = true }
+            val detail = factory.invoke(fixture.fragment, server) as View
+            val engineLabels = descendants(detail).filterIsInstance<TextView>().filter {
+                it.text.toString() == fixture.activity.getString(R.string.vpn0wn_label_engine).uppercase(Locale.ROOT)
+            }.toList()
+            assertEquals("Health and network engine rows", 2, engineLabels.size)
+            for (label in engineLabels) {
+                val values = descendants(label.parent as View).filterIsInstance<TextView>().filter { it !== label }
+                    .map { it.text.toString() }.toList()
+                assertEquals("No OS release presented as engine version", listOf(server.engine), values)
+            }
+        } finally {
+            fixture.close()
+        }
+    }
+
     private fun verifyPeerHeaders(fontScale: Float) = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         for (locale in listOf("en", "fr")) for (night in listOf("night", "notnight")) {
@@ -422,7 +444,7 @@ class VpsProvisioningLayoutTest {
 
 internal class VpsProvisioningLayoutFixture(
     private val environment: TunnelTestEnvironment,
-    private val controller: ActivityController<VpsProvisioningLayoutHostActivity>,
+    val controller: ActivityController<VpsProvisioningLayoutHostActivity>,
     val fragment: VpsProvisioningFragment,
     val peer: VpsPlanningTestPeer,
     val model: VpsProvisioningViewModel,

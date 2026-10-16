@@ -300,7 +300,7 @@ class VpsProvisioningFragment : BaseFragment() {
         scroll.addView(panel {
             configLine(str(R.string.vpn0wn_label_endpoint), "${server.endpoint}:${server.port}", copy = true)
             configLine(str(R.string.vpn0wn_label_distro), server.distro)
-            configLine(str(R.string.vpn0wn_label_engine), "${server.engine} · ${server.version}")
+            configLine(str(R.string.vpn0wn_label_engine), server.engine)
             configLine(str(R.string.vpn0wn_label_uptime), server.uptime)
             configLine(str(R.string.vpn0wn_label_last_sync), server.lastSync)
             addView(label(str(R.string.vpn0wn_checks)).apply { setPadding(dp(14), dp(10), dp(14), dp(6)) })
