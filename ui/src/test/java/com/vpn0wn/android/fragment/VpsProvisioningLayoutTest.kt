@@ -170,7 +170,7 @@ class VpsProvisioningLayoutTest {
                     val add = text(root, activity.getString(R.string.vpn0wn_add_server).removePrefix("+ ").trim())
                     assertTrue("Enabled Add label has readable contrast", ColorUtils.calculateContrast(
                         add.currentTextColor, activity.getColor(R.color.vpn0wn_paper)) >= 4.5)
-                    val filterTile = clickableAncestor(text(root, activity.getString(R.string.vpn0wn_filter_all).uppercase(Locale.ROOT)))
+                    val filterTile = clickableAncestor(text(root, activity.getString(R.string.vpn0wn_filter_all).uppercase(Locale.ROOT))) as ViewGroup
                     for (value in descendants(filterTile).filterIsInstance<TextView>()) {
                         assertTextFits(value)
                         assertInside(value, filterTile)
