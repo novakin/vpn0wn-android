@@ -809,10 +809,13 @@ class VpsProvisioningFragment : BaseFragment() {
         root.findViewById<View>(R.id.vpn0wn_vps_add_user)?.isEnabled = canAddUser(action.server.id)
         root.findViewById<View>(R.id.vpn0wn_vps_refresh_status)?.isEnabled = !state.busy
         if (state.busy) return true
-        val confirmation = state.addConfirmation ?: return false
-        if (confirmation.server != action.server || confirmation.request.name != action.name) return false
-        confirmAddUser(action, confirmation)
-        return true
+        val confirmation = state.addConfirmation
+        return if (confirmation != null && confirmation.server == action.server && confirmation.request.name == action.name) {
+            confirmAddUser(action, confirmation)
+            true
+        } else {
+            false
+        }
     }
 
     private fun confirmAddUser(action: AddUserAction, confirmation: AddUserConfirmation) {
