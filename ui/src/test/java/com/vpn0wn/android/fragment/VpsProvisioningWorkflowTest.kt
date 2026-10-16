@@ -996,13 +996,20 @@ class VpsProvisioningWorkflowTest {
         val profiles = profileStore {}
         val fixture = fixture(profiles = profiles)
         try {
+            fixture.activity.window.decorView.layoutDirection = View.LAYOUT_DIRECTION_RTL
+            assertEquals(View.LAYOUT_DIRECTION_RTL, fixture.root.layoutDirection)
+            assertEquals("fr", fixture.root.resources.configuration.locales[0].language)
+            assertEquals(2f, fixture.root.resources.configuration.fontScale, 0f)
             openProfileUser(fixture, profiles)
             click(fixture, R.string.vpn0wn_action_show_qr)
             AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.Success(null))
             finishProfileAction(fixture)
             val qr = requireNotNull(profileDialog(fixture))
-            repeat(3) { measure(qr.window!!.decorView, 640, 320); settle() }
+            val qrRoot = qr.window!!.decorView
+            qrRoot.layoutDirection = View.LAYOUT_DIRECTION_RTL
+            repeat(3) { measure(qrRoot, 640, 320); qrRoot.viewTreeObserver.dispatchOnPreDraw(); settle() }
             val image = qr.findViewById<ImageView>(R.id.vpn0wn_vps_profile_qr)!!
+            assertEquals(View.LAYOUT_DIRECTION_RTL, image.layoutDirection)
             assertEquals(image.width, image.height)
             assertTrue(image.width <= (240 * image.resources.displayMetrics.density).toInt())
             assertProfileViewReachable(image)
@@ -1018,7 +1025,9 @@ class VpsProvisioningWorkflowTest {
             AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.Success(null))
             settle()
             val naming = requireNotNull(profileDialog(fixture))
-            repeat(3) { measure(naming.window!!.decorView, 640, 320); settle() }
+            val namingRoot = naming.window!!.decorView
+            namingRoot.layoutDirection = View.LAYOUT_DIRECTION_RTL
+            repeat(3) { measure(namingRoot, 640, 320); namingRoot.viewTreeObserver.dispatchOnPreDraw(); settle() }
             assertProfileTextReachable(text(naming.window!!.decorView, fixture.activity.getString(R.string.vpn0wn_profile_import_note)))
             val input = naming.findViewById<EditText>(R.id.tunnel_name_text)!!
             assertTrue("Naming field accepts native focus", input.requestFocus())
@@ -1030,7 +1039,7 @@ class VpsProvisioningWorkflowTest {
             }
             naming.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
             finishProfileAction(fixture)
-            repeat(3) { measure(naming.window!!.decorView, 640, 320); settle() }
+            repeat(3) { measure(namingRoot, 640, 320); namingRoot.viewTreeObserver.dispatchOnPreDraw(); settle() }
             assertTrue(naming.isShowing)
             assertTrue(input.isEnabled)
             val error = naming.findViewById<TextInputLayout>(R.id.tunnel_name_text_layout)!!.error
