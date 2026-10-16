@@ -352,7 +352,6 @@ class SettingsActivityTest {
     @Test @Config(sdk = [33]) fun loadingMembershipDoesNotExposeSetupUntilItsFirstValue() = runTest {
         val env = environment()
         UserKnobs.setQuickTileAdded(true)
-        val activity = openSettings()
         val dataStore = com.vpn0wn.android.Application.getPreferencesDataStore()
         val loaded = CompletableDeferred<Unit>()
         val delayedStore = object : DataStore<Preferences> by dataStore {
@@ -361,7 +360,7 @@ class SettingsActivityTest {
                 emitAll(dataStore.data)
             }
         }
-        setApplicationField(env, "preferencesDataStore", delayedStore)
+        val activity = openSettings { setApplicationField(env, "preferencesDataStore", delayedStore) }
         runCurrent()
         assertFalse(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
         loaded.complete(Unit)
@@ -372,12 +371,11 @@ class SettingsActivityTest {
 
     @Test @Config(sdk = [33]) fun unavailableMembershipKeepsSetupHiddenWithoutWritingAbsence() = runTest {
         val env = environment()
-        val activity = openSettings()
         val dataStore = com.vpn0wn.android.Application.getPreferencesDataStore()
         val unavailableStore = object : DataStore<Preferences> by dataStore {
             override val data = flow<Preferences> { throw IOException("fixture unavailable") }
         }
-        setApplicationField(env, "preferencesDataStore", unavailableStore)
+        val activity = openSettings { setApplicationField(env, "preferencesDataStore", unavailableStore) }
         settle(activity)
         assertFalse(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
         setApplicationField(env, "preferencesDataStore", dataStore)
@@ -387,7 +385,6 @@ class SettingsActivityTest {
     @Test @Config(sdk = [33]) fun membershipReadFailureAfterLoadedRemovalHidesTheAvailableRow() = runTest {
         val env = environment()
         UserKnobs.setQuickTileAdded(false)
-        val activity = openSettings()
         val dataStore = com.vpn0wn.android.Application.getPreferencesDataStore()
         val failRead = CompletableDeferred<Unit>()
         val failingStore = object : DataStore<Preferences> by dataStore {
@@ -397,7 +394,7 @@ class SettingsActivityTest {
                 throw IOException("fixture unavailable")
             }
         }
-        setApplicationField(env, "preferencesDataStore", failingStore)
+        val activity = openSettings { setApplicationField(env, "preferencesDataStore", failingStore) }
         settle(activity)
         val tile = fragment(activity).findPreference<Preference>("quick_tile")!!
         assertTrue(tile.isVisible)
@@ -644,18 +641,20 @@ class SettingsActivityTest {
         return testEnvironment
     }
 
-    private fun openSettings(): SettingsActivity {
+    private fun openSettings(beforeStart: () -> Unit = {}): SettingsActivity {
         val controller = Robolectric.buildActivity(SettingsActivity::class.java)
         controllers += controller
         controller.get().setTheme(R.style.AppTheme)
-        controller.setup()
+        controller.create()
+        controller.get().supportFragmentManager.executePendingTransactions()
+        beforeStart()
+        controller.start().postCreate(null).resume().visible().topActivityResumed(true)
         controller.get().supportFragmentManager.executePendingTransactions()
         return controller.get()
     }
 
     private suspend fun TestScope.openSettingsWithLoadedMembership(): SettingsActivity {
         val dataStore = com.vpn0wn.android.Application.getPreferencesDataStore()
-        val activity = openSettings()
         val membershipLoaded = CompletableDeferred<Unit>()
         val observingStore = object : DataStore<Preferences> by dataStore {
             override val data = flow {
@@ -665,7 +664,8 @@ class SettingsActivityTest {
                 }
             }
         }
-        setApplicationField(testEnvironment, "preferencesDataStore", observingStore)
+        val activity = openSettings { setApplicationField(testEnvironment, "preferencesDataStore", observingStore) }
+        runCurrent()
         settle(activity)
         membershipLoaded.await()
         runCurrent()
