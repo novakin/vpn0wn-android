@@ -29,6 +29,7 @@ class ProvisioningScriptBundle(private val scripts: List<ProvisioningScript>) {
             "revoke-peer.sh",
             "sync-status.sh",
             "backup.sh",
+            "restore.sh",
             "uninstall.sh",
         )
 

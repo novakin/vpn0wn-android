@@ -41,9 +41,9 @@ class Vpn0wnProvisioningClient(
         onReceived: suspend (VpsAddPeerResult) -> Unit = {},
     ): VpsAddPeerResult {
         try {
-            if (Key.fromBase64(expectedServerPublicKey).toBase64() != expectedServerPublicKey) throw invalidPeerInput()
+            if (Key.fromBase64(expectedServerPublicKey).toBase64() != expectedServerPublicKey) throw invalidInput()
         } catch (_: KeyFormatException) {
-            throw invalidPeerInput()
+            throw invalidInput()
         }
         return withClient(connection) { client, remoteDir ->
             onAdmitted()
@@ -56,7 +56,7 @@ class Vpn0wnProvisioningClient(
         }
     }
 
-    private fun invalidPeerInput() = ProvisioningException(
+    private fun invalidInput() = ProvisioningException(
         ProvisioningFailureCategory.INVALID_INPUT.safeMessage, category = ProvisioningFailureCategory.INVALID_INPUT,
     )
 
@@ -96,6 +96,51 @@ class Vpn0wnProvisioningClient(
         ProvisioningJson.parseBackup(run(client, remoteDir, "backup.sh").stdout)
     }
 
+    suspend fun restoreFresh(
+        connection: VpsConnection,
+        snapshot: VpsBackupResult,
+        request: VpsRestoreRequest,
+        onAdmitted: suspend () -> Unit = {},
+    ): VpsRestoreResult {
+        val owned = snapshot.copy(revoked = snapshot.revoked.toList())
+        validateRestore(owned, request)
+        val expectedCidr = owned.config.lineSequence().singleOrNull { it.startsWith("# TUNNL_CIDR ") }
+            ?.removePrefix("# TUNNL_CIDR ") ?: throw invalidInput()
+        val expectedPeerCount = owned.config.lineSequence().count { it == "[Peer]" }
+        return withClient(connection) { client, remoteDir ->
+            val inputDir = "$remoteDir/restore-input"
+            val revokedDir = "$inputDir/revoked"
+            client.execute("umask 077 && mkdir -- ${inputDir.shellQuote()} ${revokedDir.shellQuote()}").requireSuccess()
+            client.upload("$inputDir/server.conf", owned.config, "0600").requireSuccess()
+            for (archive in owned.revoked) {
+                client.upload("$revokedDir/${archive.archiveName}", archive.config, "0600").requireSuccess()
+            }
+            onAdmitted()
+            val result = ProvisioningJson.parseRestore(run(client, remoteDir, "restore.sh", request.args(inputDir)).stdout)
+            if (result.interfaceName != owned.interfaceName || result.endpoint != request.endpoint ||
+                result.port != request.port.toString() || result.serverPublicKey != request.expectedServerPublicKey ||
+                result.cidr != expectedCidr || result.peerCount != expectedPeerCount || result.revokedCount != owned.revokedCount)
+                throw ProvisioningException(ProvisioningFailureCategory.INVALID_RESPONSE.safeMessage, category = ProvisioningFailureCategory.INVALID_RESPONSE)
+            result
+        }
+    }
+
+    private fun validateRestore(snapshot: VpsBackupResult, request: VpsRestoreRequest) {
+        val canonicalKey = try {
+            Key.fromBase64(request.expectedServerPublicKey).toBase64()
+        } catch (_: KeyFormatException) {
+            null
+        }
+        if (snapshot.interfaceName != "wg0" || request.port !in 1..MAX_PORT || request.endpoint.isBlank() ||
+            canonicalKey != request.expectedServerPublicKey)
+            throw invalidInput()
+        try {
+            ProvisioningJson.encodeBackup(snapshot).fill(0)
+        } catch (_: ProvisioningException) {
+            throw invalidInput()
+        }
+    }
+
     suspend fun uninstall(connection: VpsConnection, purgePackages: Boolean = false): VpsUninstallResult = withClient(connection) { client, remoteDir ->
         val args = buildList {
             add("--confirm")
@@ -124,13 +169,15 @@ class Vpn0wnProvisioningClient(
                 operationFailure = problem
                 throw problem
             } finally {
-                try {
-                    client.execute("rm -rf ${remoteDir.shellQuote()}").requireSuccess()
-                } catch (_: ProvisioningException) {
-                    Log.d(TAG, "Remote cleanup failed for provisioning temp dir")
-                } catch (cleanup: Throwable) {
-                    if (operationFailure == null) throw cleanup
-                    if (cleanup !== operationFailure) operationFailure.addSuppressed(cleanup)
+                withContext(NonCancellable) {
+                    try {
+                        client.execute("rm -rf ${remoteDir.shellQuote()}").requireSuccess()
+                    } catch (_: ProvisioningException) {
+                        Log.d(TAG, "Remote cleanup failed for provisioning temp dir")
+                    } catch (cleanup: Throwable) {
+                        if (operationFailure == null) throw cleanup
+                        if (cleanup !== operationFailure) operationFailure.addSuppressed(cleanup)
+                    }
                 }
             }
         } catch (problem: Throwable) {
@@ -185,6 +232,7 @@ class Vpn0wnProvisioningClient(
 
     companion object {
         private const val TAG = "vpn0wn/Provisioning"
+        private const val MAX_PORT = 65_535
         private val REMOTE_DIRECTORY = Regex("/tmp/vpn0wn-provisioning\\.[A-Za-z0-9]{6}")
         private val PEER_NAME = Regex("[A-Za-z0-9_-]{1,32}")
     }
@@ -225,4 +273,11 @@ data class VpsAddPeerRequest(
         add("--allowed-ips")
         add(allowedIps)
     }
+}
+
+data class VpsRestoreRequest(val endpoint: String, val port: Int, val expectedServerPublicKey: String) {
+    fun args(inputDir: String): List<String> = listOf(
+        "--input", inputDir, "--endpoint", endpoint, "--port", port.toString(),
+        "--expected-server-public-key", expectedServerPublicKey, "--confirm",
+    )
 }

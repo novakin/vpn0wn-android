@@ -23,7 +23,7 @@ setup() {
   mkdir -p "$TEST_STATE" "$WG_DIR" "$TEST_ROOT/bin"
   /bin/cp "$REPO_DIR/scripts/tests/fixtures/provisioning-command.sh" "$TEST_ROOT/bin/command"
   chmod 700 "$TEST_ROOT/bin/command"
-  for tool in wg wg-quick systemctl apt-get dpkg-query sysctl ip cp mv rm; do
+  for tool in wg wg-quick systemctl apt-get dpkg-query sysctl ip iptables ss cp mv rm; do
     ln -s command "$TEST_ROOT/bin/$tool"
   done
   export PATH="$TEST_ROOT/bin:$PATH"
@@ -64,6 +64,34 @@ EOF
   printf '%s\n' wireguard wireguard-tools qrencode iptables > "$TEST_STATE/packages"
 }
 
+restore_source() {
+  owned_config
+  RESTORE_INPUT="$TEST_ROOT/input"
+  mkdir -p "$RESTORE_INPUT/revoked"
+  /bin/mv "$WG_CONF" "$RESTORE_INPUT/server.conf"
+  /bin/rm -f "$TEST_STATE/runtime.conf" "$TEST_STATE/enabled" "$TEST_STATE/address" "$TEST_STATE/nat" "$FORWARD_CONF"
+  RESTORE_PUBLIC_KEY=$(printf '%-32.32s' PUBLIC-old | base64 -w0)
+}
+
+restore_peer() {
+  local name=$1 key=$2 address=$3 psk=${4-}
+  printf '# BEGIN_PEER %s\n[Peer]\nPublicKey = %s\n' "$name" "$(printf '%-32.32s' "PUBLIC-$key" | base64 -w0)"
+  [[ -z "$psk" ]] || printf 'PresharedKey = %s\n' "$(printf '%-32.32s' "PSK-$psk" | base64 -w0)"
+  printf 'AllowedIPs = %s/32\n# END_PEER %s\n' "$address" "$name"
+}
+
+run_restore() {
+  run_script restore --input "$RESTORE_INPUT" --endpoint restored.example --port 51900 \
+    --expected-server-public-key "$RESTORE_PUBLIC_KEY" --confirm "$@"
+}
+
+assert_fresh_restore_rolled_back() {
+  [[ ! -e "$WG_CONF" && ! -e "$FORWARD_CONF" && ! -e "$TEST_STATE/runtime.conf" && ! -e "$TEST_STATE/enabled" && ! -e "$TEST_STATE/nat" ]]
+  [[ "$RESPONSE" == *'"recovery":"restored"'* ]]
+  [[ -z $(find "$WG_DIR" -maxdepth 1 -type d -name '.tunnl-recovery.*') ]]
+  [[ $(cat "$TEST_STATE/forward-value") == 0 ]]
+}
+
 run_script() {
   set +e
   bash "$SCRIPTS/$1.sh" "${@:2}" > "$TEST_ROOT/response" 2> "$TEST_ROOT/stderr"
@@ -89,7 +117,7 @@ assert_failure() {
 }
 
 assert_no_mutations() {
-  ! grep -Eq '^(apt-get|sysctl|cp|mv|rm) |^systemctl (enable|disable|stop|start|restart) |^wg (genkey|genpsk|syncconf|set) ' "$TEST_STATE/trace"
+  ! grep -Eq '^(apt-get|cp|mv|rm) |^sysctl -w |^systemctl (enable|disable|stop|start|restart) |^wg (genkey|genpsk|syncconf|set) ' "$TEST_STATE/trace"
 }
 
 assert_restored() {
@@ -1380,6 +1408,652 @@ PY
   assert_no_mutations
 }
 
+test_restore_fresh_identity_and_receipt() {
+  restore_source
+  run_restore
+  assert_success
+  python3 - "$TEST_ROOT/response" "$WG_CONF" "$RESTORE_INPUT/server.conf" "$RESTORE_PUBLIC_KEY" <<'PY'
+import json
+import pathlib
+import sys
+response, restored, source = map(pathlib.Path, sys.argv[1:4])
+assert json.loads(response.read_text()) == {
+    'ok': True, 'interface': 'wg0', 'endpoint': 'restored.example', 'port': '51900',
+    'cidr': '10.8.0.0/24', 'serverPublicKey': sys.argv[4], 'peerCount': 1,
+    'revokedCount': 0, 'cleanupPath': ''
+}
+before = source.read_text()
+after = restored.read_text()
+assert 'PrivateKey = ' + before.split('PrivateKey = ', 1)[1].splitlines()[0] in after
+assert after.count('# BEGIN_PEER existing') == 1
+assert after.split('# BEGIN_PEER existing', 1)[1] == before.split('# BEGIN_PEER existing', 1)[1]
+assert '# ENDPOINT restored.example\n' in after
+assert 'ListenPort = 51900\n' in after
+assert 'PostUp = iptables -t nat -A POSTROUTING -s 10.8.0.0/24 ! -d 10.8.0.0/24 -j MASQUERADE\n' in after
+assert 'PostDown = iptables -t nat -D POSTROUTING -s 10.8.0.0/24 ! -d 10.8.0.0/24 -j MASQUERADE\n' in after
+PY
+  [[ -f "$TEST_STATE/runtime.conf" && -f "$TEST_STATE/enabled" && $(cat "$TEST_STATE/forward-value") == 1 ]]
+  [[ $(cat "$TEST_STATE/address") == 10.8.0.1/24 && $(cat "$TEST_STATE/nat") == 10.8.0.0/24 ]]
+  assert_private "$WG_CONF" 600
+  assert_private "$TUNNL_DIR/revoked" 700
+  grep -qxF 'ss -H -uan sport = :51900' "$TEST_STATE/trace"
+  ! grep -Eq '^apt-get |^wg (genkey|genpsk) ' "$TEST_STATE/trace"
+}
+
+test_restore_preserves_psk_and_historical_reuse() {
+  restore_source
+  printf '\n' >> "$RESTORE_INPUT/server.conf"
+  restore_peer phone phone 10.8.0.3 current >> "$RESTORE_INPUT/server.conf"
+  restore_peer existing first 10.8.0.2 historical > "$RESTORE_INPUT/revoked/existing.conf"
+  restore_peer existing second 10.9.0.2 > "$RESTORE_INPUT/revoked/existing.conf.ABC123"
+  run_restore
+  assert_success
+  [[ "$RESPONSE" == *'"peerCount":2'* && "$RESPONSE" == *'"revokedCount":2'* ]]
+  cmp -s "$RESTORE_INPUT/revoked/existing.conf" "$TUNNL_DIR/revoked/existing.conf"
+  cmp -s "$RESTORE_INPUT/revoked/existing.conf.ABC123" "$TUNNL_DIR/revoked/existing.conf.ABC123"
+  assert_private "$TUNNL_DIR/revoked/existing.conf" 600
+  assert_private "$TUNNL_DIR/revoked/existing.conf.ABC123" 600
+  [[ $(awk '$1 == "PublicKey" {print $3}' "$WG_CONF" | wc -l) -eq 2 ]]
+  [[ $(awk '$1 == "PresharedKey" {print $3}' "$WG_CONF") == "$(printf '%-32.32s' PSK-current | base64 -w0)" ]]
+  [[ $(awk '$1 == "PresharedKey" {print $3}' "$TEST_STATE/runtime.conf") == "$(printf '%-32.32s' PSK-current | base64 -w0)" ]]
+  ! grep -Eq '^apt-get |^wg (genkey|genpsk) ' "$TEST_STATE/trace"
+}
+
+test_restore_requires_explicit_options() {
+  restore_source
+  for missing in input endpoint port expected-server-public-key confirm; do
+    args=()
+    [[ "$missing" == input ]] || args+=(--input "$RESTORE_INPUT")
+    [[ "$missing" == endpoint ]] || args+=(--endpoint restored.example)
+    [[ "$missing" == port ]] || args+=(--port 51900)
+    [[ "$missing" == expected-server-public-key ]] || args+=(--expected-server-public-key "$RESTORE_PUBLIC_KEY")
+    [[ "$missing" == confirm ]] || args+=(--confirm)
+    run_script restore "${args[@]}"
+    assert_failure missing_arg
+  done
+  for option in input endpoint port expected-server-public-key; do
+    run_script restore "--$option"
+    assert_failure missing_arg
+  done
+  WG_IFACE=wg1 run_restore
+  assert_failure invalid_interface
+  assert_no_mutations
+}
+
+test_restore_rejects_unsafe_input_paths() {
+  restore_source
+  /bin/mv "$RESTORE_INPUT" "$TEST_ROOT/actual-input"
+  ln -s "$TEST_ROOT/actual-input" "$RESTORE_INPUT"
+  run_restore
+  assert_failure unsafe_path
+  /bin/rm "$RESTORE_INPUT"
+  /bin/mv "$TEST_ROOT/actual-input" "$RESTORE_INPUT"
+  /bin/mv "$RESTORE_INPUT/server.conf" "$TEST_ROOT/actual.conf"
+  ln -s "$TEST_ROOT/actual.conf" "$RESTORE_INPUT/server.conf"
+  run_restore
+  assert_failure unsafe_path
+  /bin/rm "$RESTORE_INPUT/server.conf"
+  mkfifo "$RESTORE_INPUT/server.conf"
+  run_restore
+  assert_failure unsafe_path
+  assert_no_mutations
+}
+
+test_restore_rejects_unsafe_revoked_entries() {
+  restore_source
+  for kind in absent symlink directory fifo hidden unsupported newline; do
+    /bin/rm -rf -- "$RESTORE_INPUT/revoked"
+    mkdir "$RESTORE_INPUT/revoked"
+    case "$kind" in
+      absent) /bin/rmdir "$RESTORE_INPUT/revoked" ;;
+      symlink) ln -s "$RESTORE_INPUT/server.conf" "$RESTORE_INPUT/revoked/alice.conf" ;;
+      directory) mkdir "$RESTORE_INPUT/revoked/alice.conf" ;;
+      fifo) mkfifo "$RESTORE_INPUT/revoked/alice.conf" ;;
+      hidden) printf x > "$RESTORE_INPUT/revoked/.hidden" ;;
+      unsupported) printf x > "$RESTORE_INPUT/revoked/alice.conf.longer-suffix" ;;
+      newline) printf x > "$RESTORE_INPUT/revoked/"$'alice.conf\nbob.conf' ;;
+    esac
+    run_restore
+    if [[ "$kind" == hidden || "$kind" == unsupported || "$kind" == newline ]]; then
+      assert_failure invalid_config
+    else
+      assert_failure unsafe_path
+    fi
+  done
+  /bin/rm -rf -- "$RESTORE_INPUT/revoked"
+  ln -s "$TEST_ROOT" "$RESTORE_INPUT/revoked"
+  run_restore
+  assert_failure unsafe_path
+  assert_no_mutations
+}
+
+test_restore_rejects_unsafe_destination_paths() {
+  restore_source
+  mkdir -p "$TUNNL_DIR"
+  chmod 700 "$TUNNL_DIR"
+  ln -s "$RESTORE_INPUT/revoked" "$TUNNL_DIR/revoked"
+  run_restore
+  assert_failure unsafe_path
+  [[ -L "$TUNNL_DIR/revoked" ]]
+  /bin/rm "$TUNNL_DIR/revoked"
+  ln -s "$RESTORE_INPUT/server.conf" "$FORWARD_CONF"
+  run_restore
+  assert_failure unmanaged_forwarding
+  [[ -L "$FORWARD_CONF" ]]
+  assert_no_mutations
+}
+
+test_restore_rejects_existing_config_and_history() {
+  restore_source
+  for kind in managed unmanaged symlink directory; do
+    case "$kind" in
+      managed) /bin/cp "$RESTORE_INPUT/server.conf" "$WG_CONF" ;;
+      unmanaged) printf '[Interface]\n' > "$WG_CONF" ;;
+      symlink) ln -s "$RESTORE_INPUT/server.conf" "$WG_CONF" ;;
+      directory) mkdir "$WG_CONF" ;;
+    esac
+    run_restore
+    assert_failure config_exists
+    [[ -e "$WG_CONF" || -L "$WG_CONF" ]]
+    /bin/rm -rf -- "$WG_CONF"
+  done
+  mkdir -p "$TUNNL_DIR/revoked"
+  chmod 700 "$TUNNL_DIR"
+  printf 'retained old record\n' > "$TUNNL_DIR/revoked/old.conf"
+  run_restore
+  assert_failure revoked_history_exists
+  [[ $(cat "$TUNNL_DIR/revoked/old.conf") == 'retained old record' ]]
+  assert_no_mutations
+}
+
+test_restore_rejects_writable_state_parents_without_chmod() {
+  restore_source
+  for mode in 777 775 757; do
+    chmod "$mode" "$WG_DIR"
+    run_restore
+    assert_failure unsafe_path
+    [[ $(stat -c %a "$WG_DIR") == "$mode" ]]
+  done
+  chmod 755 "$WG_DIR"
+  mkdir "$TUNNL_DIR"
+  for mode in 777 755 750; do
+    chmod "$mode" "$TUNNL_DIR"
+    run_restore
+    assert_failure unsafe_path
+    [[ $(stat -c %a "$TUNNL_DIR") == "$mode" ]]
+  done
+  [[ ! -e "$WG_CONF" && ! -e "$TUNNL_DIR/revoked" ]]
+  assert_no_mutations
+}
+
+test_restore_rejects_nonroot_state_owners() {
+  restore_source
+  mkdir "$TUNNL_DIR"
+  chmod 700 "$TUNNL_DIR"
+  cat > "$TEST_ROOT/bin/stat" <<'SH'
+#!/usr/bin/env bash
+if [[ "$*" == '-c %u %a -- '* && "${*: -1}" == "$TEST_NONROOT_DIRECTORY" ]]; then
+  printf '1234 %s\n' "$(/usr/bin/stat -c %a -- "$TEST_NONROOT_DIRECTORY")"
+else
+  exec /usr/bin/stat "$@"
+fi
+SH
+  chmod 700 "$TEST_ROOT/bin/stat"
+  export TEST_NONROOT_DIRECTORY
+  for TEST_NONROOT_DIRECTORY in "$WG_DIR" "$TUNNL_DIR"; do
+    before=$(/usr/bin/stat -c '%u %a' -- "$TEST_NONROOT_DIRECTORY")
+    run_restore
+    assert_failure unsafe_path
+    [[ $(/usr/bin/stat -c '%u %a' -- "$TEST_NONROOT_DIRECTORY") == "$before" ]]
+  done
+  assert_no_mutations
+}
+
+test_restore_accepts_protected_existing_state_parents() {
+  restore_source
+  chmod 755 "$WG_DIR"
+  mkdir -p "$TUNNL_DIR/revoked"
+  chmod 700 "$TUNNL_DIR"
+  run_restore
+  assert_success
+  assert_private "$WG_DIR" 755
+  assert_private "$TUNNL_DIR" 700
+  assert_private "$TUNNL_DIR/revoked" 700
+}
+
+test_restore_rejects_address_prefix_overlaps() {
+  restore_source
+  for prefix in 10.8.0.20/24 10.8.0.129/25 10.8.1.1/16 10.8.0.2/32 10.8.0.4/0; do
+    printf '2: eth0 inet %s scope global noprefixroute eth0\n' "$prefix" > "$TEST_STATE/ipv4-addresses"
+    run_restore
+    assert_failure subnet_in_use
+  done
+  assert_no_mutations
+}
+
+test_restore_rejects_route_prefix_overlaps() {
+  restore_source
+  for selector in root match; do
+    for prefix in 10.8.0.0/24 10.8.0.128/25 10.8.0.0/16 10.8.0.2; do
+      printf '%s dev eth0 table 123 proto static\n' "$prefix" > "$TEST_STATE/ipv4-routes-$selector"
+      run_restore
+      assert_failure subnet_in_use
+    done
+    /bin/rm "$TEST_STATE/ipv4-routes-$selector"
+  done
+  assert_no_mutations
+}
+
+test_restore_allows_ordinary_defaults_and_unrelated_subnets() {
+  restore_source
+  printf '1: lo inet 127.0.0.1/8 scope host lo\n2: eth0 inet 10.9.0.1/24 scope global eth0\n' > "$TEST_STATE/ipv4-addresses"
+  printf '10.9.0.0/24 dev eth0 proto kernel\n' > "$TEST_STATE/ipv4-routes-root"
+  printf 'default via 192.0.2.1 dev eth0\n0.0.0.0/0 via 192.0.2.2 dev eth1 table 123\n' > "$TEST_STATE/ipv4-routes-match"
+  run_restore
+  assert_success
+  grep -qxF 'ip -4 -o address show' "$TEST_STATE/trace"
+  grep -qxF 'ip -4 -o route show table all root 10.8.0.0/24' "$TEST_STATE/trace"
+  grep -qxF 'ip -4 -o route show table all match 10.8.0.0/24' "$TEST_STATE/trace"
+}
+
+test_restore_rejects_default_deny_routes() {
+  restore_source
+  for selector in root match; do
+    for kind in blackhole unreachable prohibit; do
+      for prefix in default 0.0.0.0/0; do
+        printf '%s %s table 123 proto static\n' "$kind" "$prefix" > "$TEST_STATE/ipv4-routes-$selector"
+        run_restore
+        assert_failure subnet_in_use
+      done
+    done
+    /bin/rm "$TEST_STATE/ipv4-routes-$selector"
+  done
+  assert_no_mutations
+}
+
+test_restore_rejects_unknown_subnet_observations() {
+  restore_source
+  for call in 1 2 3; do
+    /bin/rm -f "$TEST_STATE/count-ip--4"
+    printf '%s' "$call" > "$TEST_STATE/fail-ip--4"
+    run_restore
+    assert_failure runtime_unknown
+  done
+  /bin/rm "$TEST_STATE/fail-ip--4"
+  for observation in 'malformed' '2: eth0 inet 10.8.0.1/33' '2: eth0 inet 999.1.2.3/24' '2: eth0 inet 10.9.0.1'; do
+    printf '%s\n' "$observation" > "$TEST_STATE/ipv4-addresses"
+    run_restore
+    assert_failure runtime_unknown
+  done
+  /bin/rm "$TEST_STATE/ipv4-addresses"
+  for selector in root match; do
+    for observation in 'malformed' 'invalid dev eth0' '10.8.0.0/33 dev eth0' 'blackhole invalid'; do
+      printf '%s\n' "$observation" > "$TEST_STATE/ipv4-routes-$selector"
+      run_restore
+      assert_failure runtime_unknown
+    done
+    /bin/rm "$TEST_STATE/ipv4-routes-$selector"
+  done
+  assert_no_mutations
+}
+
+test_restore_rejects_live_interface() {
+  restore_source
+  /bin/cp "$RESTORE_INPUT/server.conf" "$TEST_STATE/runtime.conf"
+  run_restore
+  assert_failure unmanaged_runtime
+  [[ ! -e "$WG_CONF" ]]
+  cmp -s "$TEST_STATE/runtime.conf" "$RESTORE_INPUT/server.conf"
+  assert_no_mutations
+}
+
+test_restore_rejects_udp_holders() {
+  restore_source
+  for holder in \
+    'UNCONN 0 0 0.0.0.0:51900 0.0.0.0:*' \
+    'ESTAB 0 0 192.0.2.1:51900 192.0.2.2:53000' \
+    'UNCONN 0 0 [::]:51900 [::]:*'; do
+    printf '%s\n' "$holder" > "$TEST_STATE/udp-holders"
+    run_restore
+    assert_failure port_in_use
+  done
+  assert_no_mutations
+}
+
+test_restore_rejects_unknown_udp_observation() {
+  restore_source
+  printf '*' > "$TEST_STATE/fail-ss--H"
+  run_restore
+  assert_failure runtime_unknown
+  assert_no_mutations
+}
+
+test_restore_requires_installed_tools() {
+  restore_source
+  for tool in wg wg-quick ip iptables systemctl ss sysctl; do
+    cat > "$TEST_ROOT/bin/command-check" <<SH
+command() {
+  if [[ \$1 == -v && \$2 == '$tool' ]]; then return 1; fi
+  builtin command "\$@"
+}
+SH
+    BASH_ENV="$TEST_ROOT/bin/command-check" run_restore
+    assert_failure missing_tool
+  done
+  assert_no_mutations
+}
+
+test_restore_rejects_identity_mismatch() {
+  restore_source
+  RESTORE_PUBLIC_KEY=$(printf '%-32.32s' PUBLIC-wrong | base64 -w0)
+  run_restore
+  assert_failure server_identity_mismatch
+  RESTORE_PUBLIC_KEY=invalid-synthetic-secret
+  run_restore
+  assert_failure invalid_public_key
+  [[ "$RESPONSE" != *invalid-synthetic-secret* ]]
+  assert_no_mutations
+}
+
+test_restore_rejects_unrecognized_grammar() {
+  restore_source
+  /bin/cp "$RESTORE_INPUT/server.conf" "$TEST_ROOT/valid-source.conf"
+  for invalid in unknown duplicate hook saveconfig marker peer-marker extra-section nul utf8; do
+    /bin/cp "$TEST_ROOT/valid-source.conf" "$RESTORE_INPUT/server.conf"
+    case "$invalid" in
+      unknown) sed -i '/^Address = /a DNS = 1.1.1.1' "$RESTORE_INPUT/server.conf" ;;
+      duplicate) sed -i '/^ListenPort = /a ListenPort = 51820' "$RESTORE_INPUT/server.conf" ;;
+      hook) sed -i "s|^PostUp = .*|PostUp = touch $TEST_ROOT/hook-ran|" "$RESTORE_INPUT/server.conf" ;;
+      saveconfig) sed -i 's/^SaveConfig = false/SaveConfig = true/' "$RESTORE_INPUT/server.conf" ;;
+      marker) sed -i '/^# TUNNL_MANAGED 1$/d' "$RESTORE_INPUT/server.conf" ;;
+      peer-marker) sed -i 's/^# END_PEER existing$/# END_PEER other/' "$RESTORE_INPUT/server.conf" ;;
+      extra-section) printf '\n[Interface]\n' >> "$RESTORE_INPUT/server.conf" ;;
+      nul) printf '\000' >> "$RESTORE_INPUT/server.conf" ;;
+      utf8) printf '\377' >> "$RESTORE_INPUT/server.conf" ;;
+    esac
+    run_restore
+    assert_failure invalid_config
+    [[ ! -e "$TEST_ROOT/hook-ran" && ! -e "$WG_CONF" ]]
+  done
+  assert_no_mutations
+}
+
+test_restore_rejects_noncanonical_keys() {
+  restore_source
+  /bin/cp "$RESTORE_INPUT/server.conf" "$TEST_ROOT/valid-source.conf"
+  for directive in PrivateKey PublicKey PresharedKey; do
+    for key in short 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAB='; do
+      /bin/cp "$TEST_ROOT/valid-source.conf" "$RESTORE_INPUT/server.conf"
+      if [[ "$directive" == PresharedKey ]]; then
+        sed -i "/^PublicKey = /a PresharedKey = $key" "$RESTORE_INPUT/server.conf"
+      else
+        sed -i "s|^$directive = .*|$directive = $key|" "$RESTORE_INPUT/server.conf"
+      fi
+      run_restore
+      assert_failure invalid_config
+    done
+  done
+  assert_no_mutations
+}
+
+test_restore_rejects_invalid_pool_and_duplicate_peers() {
+  restore_source
+  /bin/cp "$RESTORE_INPUT/server.conf" "$TEST_ROOT/valid-source.conf"
+  for invalid in subnet leading-zero-subnet server peer-mask peer-server peer-broadcast peer-foreign leading-zero-peer duplicate-name duplicate-key duplicate-address; do
+    /bin/cp "$TEST_ROOT/valid-source.conf" "$RESTORE_INPUT/server.conf"
+    case "$invalid" in
+      subnet) sed -i 's|10.8.0.0/24|10.8.0.0/16|g' "$RESTORE_INPUT/server.conf" ;;
+      leading-zero-subnet) sed -i 's|10.8.0.|10.08.0.|g' "$RESTORE_INPUT/server.conf" ;;
+      server) sed -i 's|^Address = .*|Address = 10.8.0.2/24|' "$RESTORE_INPUT/server.conf" ;;
+      peer-mask) sed -i 's|^AllowedIPs = .*|AllowedIPs = 10.8.0.2/24|' "$RESTORE_INPUT/server.conf" ;;
+      peer-server) sed -i 's|^AllowedIPs = .*|AllowedIPs = 10.8.0.1/32|' "$RESTORE_INPUT/server.conf" ;;
+      peer-broadcast) sed -i 's|^AllowedIPs = .*|AllowedIPs = 10.8.0.255/32|' "$RESTORE_INPUT/server.conf" ;;
+      peer-foreign) sed -i 's|^AllowedIPs = .*|AllowedIPs = 10.9.0.2/32|' "$RESTORE_INPUT/server.conf" ;;
+      leading-zero-peer) restore_peer another another 10.8.0.02 >> "$RESTORE_INPUT/server.conf" ;;
+      duplicate-name) restore_peer existing another 10.8.0.3 >> "$RESTORE_INPUT/server.conf" ;;
+      duplicate-key) restore_peer another existing 10.8.0.3 >> "$RESTORE_INPUT/server.conf" ;;
+      duplicate-address) restore_peer another another 10.8.0.2 >> "$RESTORE_INPUT/server.conf" ;;
+    esac
+    run_restore
+    assert_failure invalid_config
+  done
+  assert_no_mutations
+}
+
+test_restore_rejects_revoked_identity_overlap() {
+  restore_source
+  restore_peer existing existing 10.8.0.2 > "$RESTORE_INPUT/revoked/existing.conf"
+  run_restore
+  assert_failure invalid_config
+  assert_no_mutations
+}
+
+test_restore_rechecks_destination_under_locks() {
+  restore_source
+  export TEST_HELD_LOCK TEST_LOCK_SIGNAL
+  TEST_LOCK_SIGNAL="$TEST_ROOT/restore-lock-entered"
+  mkfifo "$TEST_LOCK_SIGNAL"
+  exec {lock_signal}<>"$TEST_LOCK_SIGNAL"
+  cat > "$TEST_ROOT/bin/flock" <<'SH'
+#!/usr/bin/env bash
+if [[ $(readlink "/proc/$$/fd/$1") == "$TEST_HELD_LOCK" ]]; then
+  printf 'ready\n' > "$TEST_LOCK_SIGNAL"
+fi
+exec /usr/bin/flock "$@"
+SH
+  chmod 700 "$TEST_ROOT/bin/flock"
+  for change in config subnet parent; do
+    for TEST_HELD_LOCK in "$WG_HOST_LOCK_FILE" "$WG_LOCK_FILE"; do
+      exec {held_lock}>"$TEST_HELD_LOCK"
+      /usr/bin/flock "$held_lock"
+      bash "$SCRIPTS/restore.sh" --input "$RESTORE_INPUT" --endpoint restored.example --port 51900 \
+        --expected-server-public-key "$RESTORE_PUBLIC_KEY" --confirm > "$TEST_ROOT/response" 2> "$TEST_ROOT/stderr" &
+      restore_pid=$!
+      if ! read -r -t 5 ready <&"$lock_signal"; then
+        kill "$restore_pid" 2>/dev/null || true
+        wait "$restore_pid" 2>/dev/null || true
+        return 1
+      fi
+      [[ ! -s "$TEST_ROOT/response" ]]
+      case "$change" in
+        config) printf '# concurrent managed owner\n' > "$WG_CONF" ;;
+        subnet) printf '2: eth0 inet 10.8.1.1/16 scope global noprefixroute eth0\n' > "$TEST_STATE/ipv4-addresses" ;;
+        parent) chmod 777 "$WG_DIR" ;;
+      esac
+      /usr/bin/flock -u "$held_lock"
+      exec {held_lock}>&-
+      wait "$restore_pid" && RESULT_CODE=0 || RESULT_CODE=$?
+      RESPONSE=$(cat "$TEST_ROOT/response")
+      case "$change" in
+        config)
+          assert_failure config_exists
+          [[ $(cat "$WG_CONF") == '# concurrent managed owner' ]]
+          /bin/rm "$WG_CONF"
+          ;;
+        subnet)
+          assert_failure subnet_in_use
+          /bin/rm "$TEST_STATE/ipv4-addresses"
+          ;;
+        parent)
+          assert_failure unsafe_path
+          assert_private "$WG_DIR" 777
+          chmod 755 "$WG_DIR"
+          ;;
+      esac
+    done
+  done
+  assert_no_mutations
+}
+
+test_restore_apply_failure_restores_absent_history() {
+  restore_source
+  restore_peer old archived 10.8.0.2 > "$RESTORE_INPUT/revoked/old.conf"
+  printf '1' > "$TEST_STATE/fail-systemctl-restart"
+  run_restore
+  assert_failure apply_failed
+  assert_fresh_restore_rolled_back
+  [[ ! -e "$TUNNL_DIR/revoked" ]]
+  cmp -s "$RESTORE_INPUT/server.conf" "$TEST_ROOT/before.conf"
+  [[ -f "$RESTORE_INPUT/revoked/old.conf" ]]
+}
+
+test_restore_apply_failure_restores_empty_history() {
+  restore_source
+  restore_peer old archived 10.8.0.2 > "$RESTORE_INPUT/revoked/old.conf"
+  mkdir -p "$TUNNL_DIR/revoked"
+  chmod 700 "$TUNNL_DIR"
+  chmod 750 "$TUNNL_DIR/revoked"
+  printf '1' > "$TEST_STATE/fail-systemctl-restart"
+  run_restore
+  assert_failure apply_failed
+  assert_fresh_restore_rolled_back
+  [[ -d "$TUNNL_DIR/revoked" && -z $(find "$TUNNL_DIR/revoked" -mindepth 1 -print -quit) ]]
+  assert_private "$TUNNL_DIR/revoked" 750
+}
+
+test_restore_write_failure_rolls_back() {
+  restore_source
+  printf '1' > "$TEST_STATE/fail-mv-rename"
+  run_restore
+  assert_failure write_failed
+  [[ ! -e "$WG_CONF" && ! -e "$FORWARD_CONF" && ! -e "$TEST_STATE/runtime.conf" ]]
+  [[ $(cat "$TEST_STATE/forward-value") == 0 ]]
+  cmp -s "$RESTORE_INPUT/server.conf" "$TEST_ROOT/before.conf"
+}
+
+test_restore_postcondition_failure_rolls_back() {
+  restore_source
+  touch "$TEST_STATE/wrong-address-once"
+  run_restore
+  assert_failure postcondition_failed
+  assert_fresh_restore_rolled_back
+  [[ $(cat "$TEST_STATE/stopped-cidr") == 10.8.0.0/24 ]]
+}
+
+test_restore_incomplete_recovery_retains_state() {
+  restore_source
+  restore_peer old archived 10.8.0.2 > "$RESTORE_INPUT/revoked/old.conf"
+  touch "$TEST_STATE/wrong-address-once"
+  printf '*' > "$TEST_STATE/fail-systemctl-stop"
+  run_restore
+  assert_failure postcondition_failed
+  [[ "$RESPONSE" == *'"recovery":"incomplete"'* ]]
+  recovery=$(find "$WG_DIR" -maxdepth 1 -type d -name '.tunnl-recovery.*')
+  [[ -n "$recovery" && "$RESPONSE" == *"\"recoveryPath\":\"$recovery\""* ]]
+  [[ -f "$WG_CONF" && -f "$TEST_STATE/runtime.conf" && -f "$TEST_STATE/enabled" ]]
+  cmp -s "$RESTORE_INPUT/revoked/old.conf" "$TUNNL_DIR/revoked/old.conf"
+  assert_private "$recovery" 700
+  assert_private "$WG_CONF" 600
+}
+
+test_restore_cleanup_failure_reports_committed_path() {
+  restore_source
+  touch "$TEST_STATE/fail-recovery-cleanup"
+  run_restore
+  assert_success
+  recovery=$(find "$WG_DIR" -maxdepth 1 -type d -name '.tunnl-recovery.*')
+  [[ -n "$recovery" && "$RESPONSE" == *"\"cleanupPath\":\"$recovery\""* ]]
+  [[ -f "$WG_CONF" && -f "$TEST_STATE/runtime.conf" && -f "$TEST_STATE/enabled" && $(cat "$TEST_STATE/forward-value") == 1 ]]
+  ! grep -q '^systemctl stop ' "$TEST_STATE/trace"
+  assert_private "$recovery" 700
+}
+
+test_restore_rejects_bounded_input_excess() {
+  restore_source
+  /bin/cp "$RESTORE_INPUT/server.conf" "$TEST_ROOT/valid-source.conf"
+  head -c 262145 /dev/zero | tr '\000' x > "$RESTORE_INPUT/server.conf"
+  run_restore
+  assert_failure invalid_config
+  /bin/cp "$TEST_ROOT/valid-source.conf" "$RESTORE_INPUT/server.conf"
+  head -c 16385 /dev/zero | tr '\000' x > "$RESTORE_INPUT/revoked/alice.conf"
+  run_restore
+  assert_failure invalid_config
+  /bin/rm "$RESTORE_INPUT/revoked/alice.conf"
+  for ((number=0; number<1025; number++)); do printf x > "$RESTORE_INPUT/revoked/peer$number.conf"; done
+  run_restore
+  assert_failure invalid_config
+  /bin/rm -rf -- "$RESTORE_INPUT/revoked"
+  mkdir "$RESTORE_INPUT/revoked"
+  for ((number=0; number<50; number++)); do
+    restore_peer "peer$number" "archived$number" 10.8.0.2 > "$RESTORE_INPUT/revoked/peer$number.conf"
+    head -c 16000 /dev/zero | tr '\000' '\n' >> "$RESTORE_INPUT/revoked/peer$number.conf"
+  done
+  run_restore
+  assert_failure invalid_config
+  assert_no_mutations
+}
+
+test_restore_rejects_late_invalid_revoked_body() {
+  restore_source
+  restore_peer alpha first 10.8.0.2 > "$RESTORE_INPUT/revoked/alpha.conf"
+  cat > "$TEST_ROOT/bin/find" <<'SH'
+#!/usr/bin/env bash
+set -o pipefail
+/usr/bin/find "$@" | sort -z
+SH
+  chmod 700 "$TEST_ROOT/bin/find"
+  for invalid in name hook key extra-block; do
+    restore_peer zeta second 10.8.0.2 > "$RESTORE_INPUT/revoked/zeta.conf"
+    case "$invalid" in
+      name) sed -i 's/PEER zeta/PEER other/g' "$RESTORE_INPUT/revoked/zeta.conf" ;;
+      hook) printf 'PostUp = synthetic-secret-hook\n' >> "$RESTORE_INPUT/revoked/zeta.conf" ;;
+      key) sed -i 's|^PublicKey = .*|PublicKey = invalid-synthetic-secret|' "$RESTORE_INPUT/revoked/zeta.conf" ;;
+      extra-block) restore_peer zeta third 10.8.0.3 >> "$RESTORE_INPUT/revoked/zeta.conf" ;;
+    esac
+    run_restore
+    assert_failure invalid_config
+    [[ "$RESPONSE" != *synthetic-secret* ]]
+  done
+  assert_no_mutations
+}
+
+test_restore_rejects_failed_revoked_enumeration() {
+  restore_source
+  restore_peer alpha first 10.8.0.2 > "$RESTORE_INPUT/revoked/alpha.conf"
+  export RESTORE_INPUT
+  cat > "$TEST_ROOT/bin/find" <<'SH'
+#!/usr/bin/env bash
+if [[ "$1" != "$RESTORE_INPUT/revoked" ]]; then exec /usr/bin/find "$@"; fi
+[[ ! -f "$TEST_STATE/partial-enumeration" ]] || printf '%s\0' "$RESTORE_INPUT/revoked/alpha.conf"
+printf synthetic-secret-enumeration-error >&2
+exit 1
+SH
+  chmod 700 "$TEST_ROOT/bin/find"
+  for state in empty partial; do
+    [[ "$state" != partial ]] || touch "$TEST_STATE/partial-enumeration"
+    run_restore
+    assert_failure invalid_config
+    ! grep -q synthetic-secret-enumeration-error "$TEST_ROOT/response" "$TEST_ROOT/stderr"
+  done
+  assert_no_mutations
+}
+
+test_restore_rejects_unknown_forwarding_observation() {
+  restore_source
+  printf '*' > "$TEST_STATE/fail-sysctl--n"
+  run_restore
+  assert_failure runtime_unknown
+  /bin/rm "$TEST_STATE/fail-sysctl--n"
+  printf synthetic-secret-invalid-state > "$TEST_STATE/forward-value"
+  run_restore
+  assert_failure runtime_unknown
+  [[ "$RESPONSE" != *synthetic-secret-invalid-state* ]]
+  assert_no_mutations
+}
+
+test_restore_failed_forwarding_recovery_retains_snapshot() {
+  restore_source
+  touch "$TEST_STATE/wrong-address-once"
+  printf '2' > "$TEST_STATE/fail-sysctl--w"
+  run_restore
+  assert_failure postcondition_failed
+  [[ "$RESPONSE" == *'"recovery":"incomplete"'* && $(cat "$TEST_STATE/forward-value") == 1 ]]
+  recovery=$(find "$WG_DIR" -maxdepth 1 -type d -name '.tunnl-recovery.*')
+  [[ -n "$recovery" && "$RESPONSE" == *"\"recoveryPath\":\"$recovery\""* ]]
+  cmp -s "$RESTORE_INPUT/server.conf" "$TEST_ROOT/before.conf"
+  assert_private "$recovery" 700
+}
+
 if [[ ${1-} == --case ]]; then
   setup
   "$2"
@@ -1387,6 +2061,24 @@ if [[ ${1-} == --case ]]; then
 fi
 
 tests=(
+  test_restore_fresh_identity_and_receipt test_restore_preserves_psk_and_historical_reuse
+  test_restore_requires_explicit_options test_restore_rejects_unsafe_input_paths
+  test_restore_rejects_unsafe_revoked_entries test_restore_rejects_unsafe_destination_paths
+  test_restore_rejects_existing_config_and_history test_restore_rejects_live_interface
+  test_restore_rejects_writable_state_parents_without_chmod test_restore_rejects_nonroot_state_owners
+  test_restore_accepts_protected_existing_state_parents test_restore_rejects_address_prefix_overlaps
+  test_restore_rejects_route_prefix_overlaps test_restore_allows_ordinary_defaults_and_unrelated_subnets
+  test_restore_rejects_default_deny_routes test_restore_rejects_unknown_subnet_observations
+  test_restore_rejects_udp_holders test_restore_rejects_unknown_udp_observation test_restore_requires_installed_tools
+  test_restore_rejects_identity_mismatch test_restore_rejects_unrecognized_grammar test_restore_rejects_noncanonical_keys
+  test_restore_rejects_invalid_pool_and_duplicate_peers test_restore_rejects_revoked_identity_overlap
+  test_restore_rechecks_destination_under_locks test_restore_apply_failure_restores_absent_history
+  test_restore_apply_failure_restores_empty_history test_restore_write_failure_rolls_back
+  test_restore_postcondition_failure_rolls_back test_restore_incomplete_recovery_retains_state
+  test_restore_cleanup_failure_reports_committed_path
+  test_restore_rejects_bounded_input_excess test_restore_rejects_late_invalid_revoked_body
+  test_restore_rejects_failed_revoked_enumeration test_restore_rejects_unknown_forwarding_observation
+  test_restore_failed_forwarding_recovery_retains_snapshot
   test_backup_complete_snapshot test_backup_json_controls test_backup_empty_revoked
   test_backup_ownership test_backup_rejects_unsafe_revoked_entries test_backup_rejects_binary_and_invalid_utf8
   test_backup_limits test_backup_encoded_response_limit test_backup_late_read_failure_emits_no_partial_snapshot

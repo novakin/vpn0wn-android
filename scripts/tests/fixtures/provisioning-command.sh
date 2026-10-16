@@ -34,6 +34,9 @@ if [[ -f "$failure_file" ]]; then
   failures=$(cat "$failure_file")
   [[ "$failures" != '*' && ",$failures," != *",$count,"* ]] || fail=true
 fi
+if [[ "$command_name" == rm && "$action" == cleanup && -f "$TEST_STATE/fail-recovery-cleanup" && "${@: -1}" == */.tunnl-recovery.* ]]; then
+  fail=true
+fi
 /usr/bin/flock -u 9
 exec 9>&-
 if [[ "$fail" == true ]]; then
@@ -212,9 +215,25 @@ case "$command_name" in
     [[ -f "$TEST_STATE/packages" ]] && grep -qxF "$package" "$TEST_STATE/packages" || exit 1
     printf 'installed'
     ;;
-  sysctl) printf '1' > "$TEST_STATE/forward-value" ;;
+  sysctl)
+    case "$*" in
+      '-n net.ipv4.ip_forward') cat "$TEST_STATE/forward-value" ;;
+      '-w net.ipv4.ip_forward='[01]) printf '%s' "${2##*=}" > "$TEST_STATE/forward-value" ;;
+      *) exit 2 ;;
+    esac
+    ;;
+  ss)
+    [[ "$*" == '-H -uan sport = :'[0-9]* ]] || exit 2
+    [[ ! -f "$TEST_STATE/udp-holders" ]] || cat "$TEST_STATE/udp-holders"
+    ;;
+  iptables) ;;
   ip)
-    if [[ " $* " == *' link show '* ]]; then
+    if [[ "$*" == '-4 -o address show' ]]; then
+      [[ ! -f "$TEST_STATE/ipv4-addresses" ]] || cat "$TEST_STATE/ipv4-addresses"
+    elif [[ "$*" == '-4 -o route show table all root '* || "$*" == '-4 -o route show table all match '* ]]; then
+      route_file="$TEST_STATE/ipv4-routes-${7}"
+      [[ ! -f "$route_file" ]] || cat "$route_file"
+    elif [[ " $* " == *' link show '* ]]; then
       printf '1: lo: <LOOPBACK> mtu 65536\n'
       [[ ! -f "$TEST_STATE/runtime.conf" ]] || printf '2: wg0: <UP> mtu 1420\n'
     else

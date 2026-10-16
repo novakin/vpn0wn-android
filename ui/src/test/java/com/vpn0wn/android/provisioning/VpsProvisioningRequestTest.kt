@@ -129,7 +129,7 @@ class VpsProvisioningRequestTest {
             assertEquals(emptyList<String>(), remote.arguments.getValue("sync-status.sh"))
             assertEquals(emptyList<String>(), remote.arguments.getValue("backup.sh"))
             assertEquals(listOf("--confirm", "--purge-packages"), remote.arguments.getValue("uninstall.sh"))
-            assertEquals(80, remote.uploads.size)
+            assertEquals(remote.closes * ProvisioningScriptBundle.scriptNames.size, remote.uploads.size)
             assertEquals(8, remote.closes)
             assertTrue(remote.uploads.all { it.second == "0700" })
             assertEquals(ProvisioningScriptBundle.scriptNames.toSet(), remote.uploads.map { it.first }.toSet())
