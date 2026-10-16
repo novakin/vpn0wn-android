@@ -289,11 +289,15 @@
     <string name="vpn0wn_selection_status_empty">0 IZBRANIH</string>
     <string name="vpn0wn_selection_status_count">%1$d OD %2$d IZBRANIH</string>
     <plurals name="vpn0wn_selection_title">
-        <item quantity="one">%d IZBRANIH</item>
+        <item quantity="one">%d IZBRAN</item>
+        <item quantity="two">%d IZBRANA</item>
+        <item quantity="few">%d IZBRANI</item>
         <item quantity="other">%d IZBRANIH</item>
     </plurals>
     <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">izbrisati %d tunel?</item>
+        <item quantity="two">izbrisati %d tunela?</item>
+        <item quantity="few">izbrisati %d tunele?</item>
         <item quantity="other">izbrisati %d tunelov?</item>
     </plurals>
 </resources>

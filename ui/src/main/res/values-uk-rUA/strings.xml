@@ -71,7 +71,7 @@
         <item quantity="other">Виключити %d додатків</item>
     </plurals>
     <plurals name="persistent_keepalive_seconds_unit">
-        <item quantity="one">кожну секунду</item>
+        <item quantity="one">кожну %d секунду</item>
         <item quantity="few">кожні %d секунди</item>
         <item quantity="many">кожних %d секунд</item>
         <item quantity="other">кожних %d секунд</item>
@@ -290,10 +290,14 @@
     <string name="vpn0wn_selection_status_count">%1$d З %2$d ВИБРАНО</string>
     <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d ВИБРАНО</item>
+        <item quantity="few">%d ВИБРАНО</item>
+        <item quantity="many">%d ВИБРАНО</item>
         <item quantity="other">%d ВИБРАНО</item>
     </plurals>
     <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">видалити %d тунель?</item>
+        <item quantity="few">видалити %d тунелі?</item>
+        <item quantity="many">видалити %d тунелів?</item>
         <item quantity="other">видалити %d тунелів?</item>
     </plurals>
 </resources>

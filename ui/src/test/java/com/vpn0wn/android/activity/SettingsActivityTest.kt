@@ -5,6 +5,7 @@ import android.app.assist.AssistStructure
 import android.content.Context
 import android.content.ComponentName
 import android.content.RestrictionsManager
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.drawable.Icon
@@ -14,6 +15,7 @@ import android.view.View
 import android.view.ViewStructure
 import android.widget.TextView
 import android.widget.ImageView
+import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -539,6 +541,35 @@ class SettingsActivityTest {
         assertEquals(activity.getString(androidx.appcompat.R.string.abc_action_bar_up_description), back.contentDescription.toString())
         assertEquals((48 * activity.resources.displayMetrics.density).toInt(), back.layoutParams.width)
         assertEquals(back.layoutParams.width, back.layoutParams.height)
+    }
+
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun inflatedPreferenceAndHeaderPreserveTheirFontRolesInBothSystemModes() = runTest {
+        environment()
+        for (mode in listOf("notnight", "night")) {
+            RuntimeEnvironment.setQualifiers("en-$mode")
+            val activity = openSettings()
+            settle(activity)
+            val expectedMode = if (mode == "night") Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO
+            assertEquals("$mode effective activity mode", expectedMode,
+                activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)
+            val preference = fragment(activity).findPreference<Preference>("system_vpn_settings")!!
+            val row = activity.layoutInflater.inflate(R.layout.vpn0wn_preference_item, fragment(activity).listView, false)
+            preference.onBindViewHolder(PreferenceViewHolder.createInstanceForTests(row))
+            val title = row.findViewById<TextView>(android.R.id.title)
+            val summary = row.findViewById<TextView>(android.R.id.summary)
+            val header = textViews(activity.findViewById(R.id.settings_root)).single {
+                it.text == activity.getString(R.string.vpn0wn_settings_title)
+            }
+
+            assertTrue(title.text.isNotEmpty())
+            assertTrue(summary.text.isNotEmpty())
+            assertEquals("$mode preference title", requireNotNull(ResourcesCompat.getFont(activity, R.font.inter_tight)), title.typeface)
+            assertEquals("$mode preference summary", requireNotNull(ResourcesCompat.getFont(activity, R.font.jetbrains_mono_regular)), summary.typeface)
+            assertEquals("$mode styled header", requireNotNull(ResourcesCompat.getFont(activity, R.font.jetbrains_mono_medium)), header.typeface)
+            assertFalse(summary.paint.isFakeBoldText)
+            assertFalse(header.paint.isFakeBoldText)
+        }
     }
 
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)

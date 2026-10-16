@@ -164,4 +164,65 @@ class LocalizedResourcesTest {
             assertEquals(unformatted, resources.getQuantityString(resource, 2, 2))
         }
     }
+
+    @Test
+    fun homeSelectionAndDeleteCountsUseTheLocalesIntegerCategories() {
+        val cases = listOf(
+            Triple("sk-SK", 1, "%d VYBRATÝ" to "odstrániť %d tunel?"),
+            Triple("sk-SK", 2, "%d VYBRATÉ" to "odstrániť %d tunely?"),
+            Triple("sk-SK", 5, "%d VYBRATÝCH" to "odstrániť %d tunelov?"),
+            Triple("ro-RO", 1, "%d SELECTAT" to "șterge %d tunel?"),
+            Triple("ro-RO", 2, "%d SELECTATE" to "șterge %d tuneluri?"),
+            Triple("ro-RO", 20, "%d SELECTATE" to "șterge %d de tuneluri?"),
+            Triple("cs-CZ", 1, "%d VYBRÁNO" to "smazat %d tunel?"),
+            Triple("cs-CZ", 2, "%d VYBRÁNO" to "smazat %d tunely?"),
+            Triple("cs-CZ", 5, "%d VYBRÁNO" to "smazat %d tunelů?"),
+            Triple("pl-PL", 1, "%d WYBRANY" to "usunąć %d tunel?"),
+            Triple("pl-PL", 2, "%d WYBRANE" to "usunąć %d tunele?"),
+            Triple("pl-PL", 5, "%d WYBRANYCH" to "usunąć %d tuneli?"),
+            Triple("pl-PL", 12, "%d WYBRANYCH" to "usunąć %d tuneli?"),
+            Triple("pl-PL", 22, "%d WYBRANE" to "usunąć %d tunele?"),
+            Triple("ru", 1, "%d ВЫБРАНО" to "удалить %d туннель?"),
+            Triple("ru", 2, "%d ВЫБРАНО" to "удалить %d туннеля?"),
+            Triple("ru", 5, "%d ВЫБРАНО" to "удалить %d туннелей?"),
+            Triple("ru", 21, "%d ВЫБРАНО" to "удалить %d туннель?"),
+            Triple("sl", 1, "%d IZBRAN" to "izbrisati %d tunel?"),
+            Triple("sl", 2, "%d IZBRANA" to "izbrisati %d tunela?"),
+            Triple("sl", 3, "%d IZBRANI" to "izbrisati %d tunele?"),
+            Triple("sl", 5, "%d IZBRANIH" to "izbrisati %d tunelov?"),
+            Triple("sl", 101, "%d IZBRAN" to "izbrisati %d tunel?"),
+            Triple("sl", 102, "%d IZBRANA" to "izbrisati %d tunela?"),
+            Triple("uk-UA", 1, "%d ВИБРАНО" to "видалити %d тунель?"),
+            Triple("uk-UA", 2, "%d ВИБРАНО" to "видалити %d тунелі?"),
+            Triple("uk-UA", 5, "%d ВИБРАНО" to "видалити %d тунелів?"),
+            Triple("uk-UA", 21, "%d ВИБРАНО" to "видалити %d тунель?"),
+            Triple("ar-SA", 0, "تم تحديد %d" to "حذف %d من الأنفاق؟"),
+            Triple("ar-SA", 1, "تم تحديد %d" to "حذف نفق واحد؟"),
+            Triple("ar-SA", 2, "تم تحديد %d" to "حذف نفقين؟"),
+            Triple("ar-SA", 3, "تم تحديد %d" to "حذف %d أنفاق؟"),
+            Triple("ar-SA", 11, "تم تحديد %d" to "حذف %d نفقًا؟"),
+            Triple("ar-SA", 100, "تم تحديد %d" to "حذف %d نفق؟"),
+        )
+        val application = Application.get()
+
+        for ((tag, count, expected) in cases) {
+            val locale = Locale.forLanguageTag(tag)
+            val configuration = Configuration(application.resources.configuration).apply { setLocale(locale) }
+            val resources = application.createConfigurationContext(configuration).resources
+            assertEquals("$tag selection $count", String.format(locale, expected.first, count),
+                resources.getQuantityString(R.plurals.vpn0wn_selection_title, count, count))
+            assertEquals("$tag deletion $count", String.format(locale, expected.second, count),
+                resources.getQuantityString(R.plurals.vpn0wn_delete_sheet_title, count, count))
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "uk-rUA")
+    fun ukrainianKeepaliveRetainsTheCountWhenTheOneCategoryRepeats() {
+        val resources = Application.get().resources
+
+        assertEquals("кожну 1 секунду", resources.getQuantityString(R.plurals.persistent_keepalive_seconds_unit, 1, 1))
+        assertEquals("кожну 21 секунду", resources.getQuantityString(R.plurals.persistent_keepalive_seconds_unit, 21, 21))
+        assertEquals("кожну 101 секунду", resources.getQuantityString(R.plurals.persistent_keepalive_seconds_unit, 101, 101))
+    }
 }

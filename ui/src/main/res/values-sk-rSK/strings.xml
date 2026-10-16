@@ -176,11 +176,15 @@
     <string name="vpn0wn_selection_status_empty">0 VYBRATÉ</string>
     <string name="vpn0wn_selection_status_count">%1$d Z %2$d VYBRATÉ</string>
     <plurals name="vpn0wn_selection_title">
-        <item quantity="one">%d VYBRATÉ</item>
-        <item quantity="other">%d VYBRATÉ</item>
+        <item quantity="one">%d VYBRATÝ</item>
+        <item quantity="few">%d VYBRATÉ</item>
+        <item quantity="many">%d VYBRATÝCH</item>
+        <item quantity="other">%d VYBRATÝCH</item>
     </plurals>
     <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">odstrániť %d tunel?</item>
+        <item quantity="few">odstrániť %d tunely?</item>
+        <item quantity="many">odstrániť %d tunelov?</item>
         <item quantity="other">odstrániť %d tunelov?</item>
     </plurals>
 </resources>

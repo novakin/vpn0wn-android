@@ -273,11 +273,13 @@
     <string name="vpn0wn_selection_status_empty">0 SELECTATE</string>
     <string name="vpn0wn_selection_status_count">%1$d DIN %2$d SELECTATE</string>
     <plurals name="vpn0wn_selection_title">
-        <item quantity="one">%d SELECTATE</item>
+        <item quantity="one">%d SELECTAT</item>
+        <item quantity="few">%d SELECTATE</item>
         <item quantity="other">%d SELECTATE</item>
     </plurals>
     <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">șterge %d tunel?</item>
-        <item quantity="other">șterge %d tuneluri?</item>
+        <item quantity="few">șterge %d tuneluri?</item>
+        <item quantity="other">șterge %d de tuneluri?</item>
     </plurals>
 </resources>

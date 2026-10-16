@@ -290,10 +290,14 @@
     <string name="vpn0wn_selection_status_count">%1$d ИЗ %2$d ВЫБРАНО</string>
     <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d ВЫБРАНО</item>
+        <item quantity="few">%d ВЫБРАНО</item>
+        <item quantity="many">%d ВЫБРАНО</item>
         <item quantity="other">%d ВЫБРАНО</item>
     </plurals>
     <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">удалить %d туннель?</item>
+        <item quantity="few">удалить %d туннеля?</item>
+        <item quantity="many">удалить %d туннелей?</item>
         <item quantity="other">удалить %d туннелей?</item>
     </plurals>
 </resources>
