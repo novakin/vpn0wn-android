@@ -16,6 +16,7 @@ import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
@@ -264,14 +265,16 @@ class VpsProvisioningViewModel internal constructor(
                 val request = installRequest()
                 if (!matches(confirmation.plan, request)) throw invalidInput()
                 val result = client.install(connection, request) {
-                    currentCoroutineContext().ensureActive()
-                    requireInstallTarget(confirmation, connection)
-                    // Persist admission before the remote command; cancellation cannot erase an uncertain mutation.
-                    withContext(NonCancellable) {
-                        admitInstall(expected, connection.endpoint, request)
-                        mutableState.value = mutableState.value.copy(pendingInstall = true, installation = Installation.RUNNING, recovery = null)
+                    withContext(Dispatchers.Main.immediate) {
+                        currentCoroutineContext().ensureActive()
+                        requireInstallTarget(confirmation, connection)
+                        // Persist admission before the remote command; cancellation cannot erase an uncertain mutation.
+                        withContext(NonCancellable) {
+                            admitInstall(expected, connection.endpoint, request)
+                            mutableState.value = mutableState.value.copy(pendingInstall = true, installation = Installation.RUNNING, recovery = null)
+                        }
+                        currentCoroutineContext().ensureActive()
                     }
-                    currentCoroutineContext().ensureActive()
                 }
                 mutableState.value = mutableState.value.copy(cleanupRequired = result.cleanupPath.isNotEmpty())
                 validateInstall(result, request)

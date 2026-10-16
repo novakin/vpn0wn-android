@@ -60,6 +60,8 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **Install admission dispatcher ownership — #143 (2026-10-16, Europe/Paris):** `VpsProvisioningViewModel.confirmInstall` returns its client admission callback to Main before checking owner identity and publishing state. The noncancellable durable store admission remains intact; leaving during that write cannot restore an older active wizard snapshot. A gated admission regression requires inactive/cleared presentation, preserved pending intent, no install command and drained credentials/client. Execution and final independent review remain pending.
+
 - **Truthful Apply save-failure copy — #143 (2026-10-16, Europe/Paris)**
   `VpsProvisioningFragment.applyStep` distinguishes an actually observed existing configuration or pending installation from a missing current persisted target. The latter asks for fresh Detect/save verification and a new Plan in EN/FR, without falsely claiming a remote blocker or changing admission gates. A real Fragment regression follows failed target save through Plan/Apply and checks the explanation, unchanged fleet and absent install/admission. Source checks, execution and final independent ultra review remain separate; no build/device/live operation was run.
 

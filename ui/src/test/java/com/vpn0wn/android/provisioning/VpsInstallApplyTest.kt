@@ -205,6 +205,47 @@ class VpsInstallApplyTest {
         assertTrue((peer.connections.last().credential as VpsCredential.Password).value.all { it == '\u0000' })
     }
 
+    @Test fun leavingDuringDurableAdmissionCannotReopenTheWizardOrSendTheInstall() = runTest {
+        val entered = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        var blockAdmission = false
+        val gatedPreferences = object : DataStore<Preferences> {
+            override val data = preferences.data
+            override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences {
+                if (blockAdmission) {
+                    entered.complete(Unit)
+                    release.await()
+                }
+                return preferences.updateData(transform)
+            }
+        }
+        val gatedStore = VpsServerStore(gatedPreferences, credentialFileForTest(File(folder.root, "admission-credentials")))
+        val model = planned(gatedStore)
+        val saved = gatedStore.servers.first().single()
+        blockAdmission = true
+        val operation = apply(model)
+        try {
+            entered.await()
+            model.leave()
+            assertFalse(model.state.value.active)
+            assertNull(model.state.value.plan)
+        } finally {
+            release.complete(Unit)
+        }
+        operation.join()
+        assertFalse(model.state.value.active)
+        assertFalse(model.state.value.busy)
+        assertNull(model.state.value.detect)
+        assertNull(model.state.value.plan)
+        assertTrue(model.state.value.pendingInstall)
+        assertEquals(Installation.UNCERTAIN, model.state.value.installation)
+        assertNotNull(gatedStore.pendingInstall(saved))
+        assertEquals(saved, gatedStore.servers.first().single())
+        assertFalse(peer.commands.any(::isInstall))
+        assertEquals(3, peer.closes.get())
+        assertTrue((peer.connections.last().credential as VpsCredential.Password).value.all { it == '\u0000' })
+    }
+
     @Test fun cancelledVerificationCannotPublishSuccessOrClearAdmission() = runTest {
         val model = planned()
         peer.blockStatus = CompletableDeferred()
