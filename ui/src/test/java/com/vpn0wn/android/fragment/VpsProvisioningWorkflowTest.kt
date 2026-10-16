@@ -14,6 +14,7 @@ import android.content.pm.ProviderInfo
 import android.content.pm.PackageManager
 import android.database.Cursor
 import android.database.MatrixCursor
+import android.graphics.Rect
 import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import android.os.Bundle
@@ -106,9 +107,11 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.android.controller.ActivityController
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 import org.robolectric.shadows.ShadowDialog
 import org.robolectric.shadows.ShadowContentResolver
 import org.robolectric.shadows.ShadowEnvironment
@@ -984,6 +987,65 @@ class VpsProvisioningWorkflowTest {
     }
 
     @Test
+    @Config(qualifiers = "fr-ldrtl-w640dp-h320dp-land-mdpi",
+        shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun profileDialogsKeepCompleteQrMetadataAndEditableImportReachableAtEnlargedLandscapeText() = runTest {
+        RuntimeEnvironment.setFontScale(2f)
+        VpsUserProfileFileTest.resetNativeFiles()
+        val profiles = profileStore {}
+        val fixture = fixture(profiles = profiles)
+        try {
+            openProfileUser(fixture, profiles)
+            click(fixture, R.string.vpn0wn_action_show_qr)
+            AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.Success(null))
+            finishProfileAction(fixture)
+            val qr = requireNotNull(profileDialog(fixture))
+            repeat(3) { measure(qr.window!!.decorView, 640, 320); settle() }
+            val image = qr.findViewById<ImageView>(R.id.vpn0wn_vps_profile_qr)!!
+            assertEquals(image.width, image.height)
+            assertTrue(image.width <= (240 * image.resources.displayMetrics.density).toInt())
+            assertProfileViewReachable(image)
+            val endpoint = VpsProfileFixture.profile().config.peers.single().endpoint.get().toString()
+            assertProfileTextReachable(text(qr.window!!.decorView, endpoint))
+            assertProfileTextReachable(text(qr.window!!.decorView, fixture.activity.getString(R.string.vpn0wn_qr_footer)))
+            assertProfileViewReachable(qr.getButton(DialogInterface.BUTTON_POSITIVE))
+            qr.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            settle()
+
+            fixture.environment.manager.create("phone", TunnelTestEnvironment.profile())
+            fixture.root.findViewById<View>(R.id.vpn0wn_vps_profile_import).performClick()
+            AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.Success(null))
+            settle()
+            val naming = requireNotNull(profileDialog(fixture))
+            repeat(3) { measure(naming.window!!.decorView, 640, 320); settle() }
+            assertProfileTextReachable(text(naming.window!!.decorView, fixture.activity.getString(R.string.vpn0wn_profile_import_note)))
+            val input = naming.findViewById<EditText>(R.id.tunnel_name_text)!!
+            assertTrue("Naming field accepts native focus", input.requestFocus())
+            assertProfileViewReachable(input)
+            for (button in listOf(DialogInterface.BUTTON_NEGATIVE, DialogInterface.BUTTON_POSITIVE)) {
+                val action = naming.getButton(button)
+                assertTrue("Native action remains at least 48dp", action.height >= 48 * action.resources.displayMetrics.density)
+                assertProfileViewReachable(action)
+            }
+            naming.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            finishProfileAction(fixture)
+            repeat(3) { measure(naming.window!!.decorView, 640, 320); settle() }
+            assertTrue(naming.isShowing)
+            assertTrue(input.isEnabled)
+            val error = naming.findViewById<TextInputLayout>(R.id.tunnel_name_text_layout)!!.error
+            assertNotNull(error)
+            assertProfileTextReachable(text(naming.window!!.decorView, error.toString()))
+            assertProfileViewReachable(input)
+            input.setText("renamed")
+            assertEquals("renamed", input.text.toString())
+        } finally {
+            fixture.close()
+            RuntimeEnvironment.setFontScale(1f)
+        }
+    }
+
+    @Test
     @Config(sdk = [29], shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
     fun exportRestrictionAtOutputDeletesOwnedFileBeforeAnyProfileBytesAreWritten() = runTest {
         VpsUserProfileFileTest.resetNativeFiles()
@@ -1361,6 +1423,44 @@ class VpsProvisioningWorkflowTest {
     }
 
     private fun profileStatusCommands(fixture: Fixture) = fixture.peer.commands.count { it.contains("./'sync-status.sh'") }
+
+    private fun TestScope.assertProfileViewReachable(view: View) {
+        assertTrue("Target is measured", view.width > 0 && view.height > 0)
+        view.requestRectangleOnScreen(Rect(0, 0, view.width, view.height), true)
+        settle()
+        val visible = Rect()
+        assertTrue("Target is visible", view.getGlobalVisibleRect(visible))
+        val location = IntArray(2).also(view::getLocationOnScreen)
+        val target = Rect(location[0], location[1], location[0] + view.width, location[1] + view.height)
+        // Material text fields may report the enclosing layout's larger focus rectangle.
+        assertTrue("Complete target is reachable: target=$target visible=$visible", visible.contains(target))
+    }
+
+    private fun TestScope.assertProfileTextReachable(view: TextView) {
+        assertNotNull("Text has native layout", view.layout)
+        val layout = view.layout
+        assertTrue("Text has painted lines", layout.lineCount > 0)
+        assertEquals("Complete text is laid out", view.text.length, layout.getLineEnd(layout.lineCount - 1))
+        assertTrue("Complete text height is painted", layout.height <= view.height - view.totalPaddingTop - view.totalPaddingBottom)
+        for (line in 0 until layout.lineCount) {
+            assertEquals("No text is ellipsized", 0, layout.getEllipsisCount(line))
+            val glyphBounds = Rect(kotlin.math.floor(layout.getLineLeft(line)).toInt(), layout.getLineTop(line),
+                kotlin.math.ceil(layout.getLineRight(line)).toInt(), layout.getLineBottom(line))
+            val requested = Rect(glyphBounds).apply { offset(view.totalPaddingLeft, view.totalPaddingTop) }
+            view.requestRectangleOnScreen(Rect(requested), true)
+            settle()
+            val lineBounds = Rect(glyphBounds).apply { offset(view.totalPaddingLeft - view.scrollX, view.totalPaddingTop - view.scrollY) }
+            val location = IntArray(2)
+            view.getLocationOnScreen(location)
+            lineBounds.offset(location[0], location[1])
+            val visible = Rect()
+            assertTrue("Text line is visible", view.getGlobalVisibleRect(visible))
+            assertTrue("Complete text line is reachable: line=$line requested=$requested checked=$lineBounds visible=$visible " +
+                "view=${view.width}x${view.height} layoutWidth=${view.layout.width} " +
+                "glyphs=${view.layout.getLineLeft(line)}..${view.layout.getLineRight(line)} " +
+                "scroll=${view.scrollX},${view.scrollY} origin=${location.joinToString()}", visible.contains(lineBounds))
+        }
+    }
 
     private fun dispatchProfileStoragePermission(fixture: Fixture, result: Int) {
         val request = shadowOf(fixture.activity).lastRequestedPermission

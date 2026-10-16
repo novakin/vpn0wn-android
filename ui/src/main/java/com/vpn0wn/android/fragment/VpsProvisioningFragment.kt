@@ -809,7 +809,7 @@ class VpsProvisioningFragment : BaseFragment() {
             setPadding(dp(20), dp(12), dp(20), dp(12))
             addView(label(str(R.string.vpn0wn_profile_scan)))
             addView(mono(profile.name, 13, R.color.vpn0wn_ink).withMargins(top = 4, bottom = 14))
-            addView(image, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            addView(image, LinearLayout.LayoutParams(size, size).apply { gravity = Gravity.CENTER_HORIZONTAL })
             addView(panel {
                 configLine(str(R.string.vpn0wn_label_server), action.server.name)
                 configLine(str(R.string.vpn0wn_label_ip), profile.config.`interface`.addresses.joinToString())
@@ -817,8 +817,20 @@ class VpsProvisioningFragment : BaseFragment() {
             }.withMargins(top = 14))
             addView(mono(str(R.string.vpn0wn_qr_footer), 11, R.color.vpn0wn_ink_3).withMargins(top = 14))
         }
+        val scroll = ScrollView(requireContext()).apply {
+            addView(content)
+            addOnLayoutChangeListener { viewport, _, _, _, _, _, _, _, _ ->
+                val imageSize = minOf(size, viewport.height, viewport.width - content.paddingLeft - content.paddingRight)
+                if (imageSize > 0 && image.layoutParams.height != imageSize) {
+                    image.layoutParams = (image.layoutParams as LinearLayout.LayoutParams).apply {
+                        width = imageSize
+                        height = imageSize
+                    }
+                }
+            }
+        }
         val dialog = MaterialAlertDialogBuilder(requireContext())
-            .setView(ScrollView(requireContext()).apply { addView(content) })
+            .setView(scroll)
             .setPositiveButton(R.string.vpn0wn_close, null).create()
         profileDialog = dialog
         dialog.setOnDismissListener {
@@ -833,12 +845,23 @@ class VpsProvisioningFragment : BaseFragment() {
         dialog.show()
     }
 
+    // Insets retain the native dialog body treatment beside the shared naming form.
+    @Suppress("MagicNumber")
     private fun showProfileImport(action: ProfileAction) {
         val binding = ConfigNamingDialogFragmentBinding.inflate(layoutInflater)
         binding.tunnelNameText.setText(action.name)
         binding.tunnelNameText.isSaveEnabled = false
-        val dialog = MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.vpn0wn_profile_import)
-            .setMessage(R.string.vpn0wn_profile_import_note).setView(binding.root)
+        val builder = MaterialAlertDialogBuilder(requireContext())
+        val content = vertical().apply {
+            addView(TextView(builder.context, null, com.google.android.material.R.attr.materialAlertDialogBodyTextStyle).apply {
+                id = android.R.id.message
+                setText(R.string.vpn0wn_profile_import_note)
+                setPadding(dp(24), 0, dp(24), 0)
+            }, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+            addView(binding.root, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        }
+        val dialog = builder.setTitle(R.string.vpn0wn_profile_import)
+            .setView(ScrollView(builder.context).apply { addView(content) })
             .setNegativeButton(R.string.cancel, null).setPositiveButton(R.string.create_tunnel, null).create()
         profileDialog = dialog
         dialog.setOnDismissListener { if (profileDialog === dialog) { profileDialog = null; retireProfileAction() } }
