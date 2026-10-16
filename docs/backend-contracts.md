@@ -1,6 +1,6 @@
 # Backend and provisioning contracts
 
-Last updated: 2026-10-16 (Europe/Paris).
+Last updated: 2026-10-17 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -33,6 +33,8 @@ Optional system-wide tools installation remains fail-closed: [ToolsInstaller.ins
 The [scoped namespace record](reviews/2026-10-11-namespace-acceptance.md) adds executed JVM/host-native/artifact checks and rooted new-ID startup, synthetic native-provider import, authenticated same-phone peer traffic, manual protected rebind and sequential DOWN/reconnect. It does not establish old-app-exporter migration, retained-TUN/descriptor proof or actual service destruction for the renamed artifact; checked restoration preserves the original installation/data/settings and removes session-owned resources. [Namespace QA](qa-test-plan.md#source-and-application-namespace-checks--71), [migration operations](operations.md#planned-vpn0wn-migration) and [the decision](architecture.md#coordinate-source-and-application-namespace--2026-10-11) own remaining acceptance and integration boundaries.
 
 ## WireGuard configuration and tunnel state
+
+Configuration loads remain outside the mutation mutex. `TunnelManager.getTunnelConfig` captures the managed model object, current name and model-owned config generation before I/O; publication requires the same current ownership/name/generation. A later committed cache wins over an old read. Renaming without a current cache retries the load under the current name; rename-away/back still invalidates the captured generation. Deleted or same-name-replaced model objects are rejected before publication. This adds no reentrant mutation-lock wait and leaves admitted save/rollback and cancellation reconciliation unchanged. [#211](https://github.com/novakin/vpn0wn-android/issues/211) and [its focused QA](qa-test-plan.md#config-read-publication-controls--211) own the regression and verification scope.
 
 AmneziaWG is not accepted by the current parser/backends. The [2026-10-09 engine assessment](reviews/2026-10-09-amneziawg-engine-assessment.md) records the pinned official candidate, complete field/native/API 24/license matrix and proposed WG/AWG pre-initiation packet separation under [#76](https://github.com/novakin/vpn0wn-android/issues/76). Engine/field selection remains open; this assessment changes no accepted attributes, persistence, backend or packet behavior.
 
