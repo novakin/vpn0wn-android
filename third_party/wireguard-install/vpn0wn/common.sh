@@ -271,16 +271,26 @@ begin_mutation() {
   PACKAGE_EFFECTS=false
   HAD_CONFIG=false
   HAD_FORWARDING=false
+  HAD_REVOKED=false
+  HAD_TUNNL_DIR=false
+  REVOKED_CHANGED=false
+  RESTORE_FORWARDING_CHANGED=false
   RETAIN_ARTIFACT=""
   REVOKE_ARCHIVE=""
   FORWARD_TEMP=""
   observe_runtime || fail_json "runtime_unknown" "Unable to determine interface state." 74
   WAS_RUNNING=$RUNTIME_RUNNING
-  [[ "$MUTATION_MODE" != install || -f "$WG_CONF" || "$WAS_RUNNING" == false ]] || fail_json "unmanaged_runtime" "A live interface exists without owned config." 73
+  [[ "$MUTATION_MODE" != install && "$MUTATION_MODE" != restore || -f "$WG_CONF" || "$WAS_RUNNING" == false ]] || fail_json "unmanaged_runtime" "A live interface exists without owned config." 73
   WAS_ENABLED=false
   if [[ "$MUTATION_MODE" != peer ]]; then
     observe_service || fail_json "runtime_unknown" "Unable to determine service state." 74
     WAS_ENABLED=$SERVICE_ENABLED
+  fi
+  if [[ "$MUTATION_MODE" == restore ]]; then
+    RESTORE_PREVIOUS_FORWARDING=$(sysctl -n net.ipv4.ip_forward 2>/dev/null) || fail_json "runtime_unknown" "Unable to determine forwarding state." 74
+    [[ "$RESTORE_PREVIOUS_FORWARDING" == 0 || "$RESTORE_PREVIOUS_FORWARDING" == 1 ]] || fail_json "runtime_unknown" "Unable to determine forwarding state." 74
+    [[ ! -d "$TUNNL_DIR" ]] || HAD_TUNNL_DIR=true
+    [[ ! -d "$TUNNL_DIR/revoked" ]] || HAD_REVOKED=true
   fi
   mkdir -p "$WG_DIR" 2>/dev/null || fail_json "snapshot_failed" "Unable to prepare private recovery files." 74
   RECOVERY_DIR=$(mktemp -d "$WG_DIR/.tunnl-recovery.XXXXXX") || fail_json "snapshot_failed" "Unable to prepare private recovery files." 74
@@ -300,6 +310,9 @@ begin_mutation() {
     HAD_FORWARDING=true
     cp -- "$FORWARD_CONF" "$RECOVERY_DIR/previous.forward" 2>/dev/null || mutation_abort snapshot_failed
     chmod 600 "$RECOVERY_DIR/previous.forward" || mutation_abort snapshot_failed
+  fi
+  if [[ "$MUTATION_MODE" == restore && "$HAD_REVOKED" == true ]]; then
+    cp -a -- "$TUNNL_DIR/revoked" "$RECOVERY_DIR/previous.revoked" 2>/dev/null || mutation_abort snapshot_failed
   fi
 }
 
@@ -400,6 +413,24 @@ restore_mutation() {
       replace_forwarding "$RECOVERY_DIR/previous.forward" || restored=false
     else
       rm -f -- "$FORWARD_CONF" 2>/dev/null || restored=false
+    fi
+  fi
+  if [[ "$MUTATION_MODE" == restore ]]; then
+    if [[ "$REVOKED_CHANGED" == true ]]; then
+      if rm -rf -- "$TUNNL_DIR/revoked" 2>/dev/null; then
+        if [[ "$HAD_REVOKED" == true ]]; then
+          [[ -d "$RECOVERY_DIR/previous.revoked" ]] && mv -T -- "$RECOVERY_DIR/previous.revoked" "$TUNNL_DIR/revoked" 2>/dev/null || restored=false
+        fi
+        if [[ "$HAD_TUNNL_DIR" == false ]]; then
+          [[ ! -e "$TUNNL_DIR" ]] || rmdir -- "$TUNNL_DIR" 2>/dev/null || restored=false
+        fi
+      else
+        restored=false
+      fi
+    fi
+    if [[ "$RESTORE_FORWARDING_CHANGED" == true ]]; then
+      sysctl -w "net.ipv4.ip_forward=$RESTORE_PREVIOUS_FORWARDING" >/dev/null 2>&1 &&
+        [[ $(sysctl -n net.ipv4.ip_forward 2>/dev/null) == "$RESTORE_PREVIOUS_FORWARDING" ]] || restored=false
     fi
   fi
   [[ "$restored" == true ]] || return 1
