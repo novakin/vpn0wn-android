@@ -8,6 +8,7 @@ import android.widget.TextView
 import androidx.constraintlayout.helper.widget.Flow
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
+import androidx.core.content.res.ResourcesCompat
 import com.vpn0wn.android.R
 import com.vpn0wn.android.provisioning.VpsDeployHealthCheck
 
@@ -49,6 +50,7 @@ internal class VpsHealthChecksLayout(context: Context, checks: List<VpsDeployHea
         val statusColor = ContextCompat.getColor(context, colorRes)
         return TextView(context).apply {
             setTextAppearance(R.style.Vpn0wnMonoSubText)
+            typeface = ResourcesCompat.getFont(context, R.font.jetbrains_mono_regular)
             text = "$glyph ${check.label}"
             letterSpacing = BADGE_LETTER_SPACING
             gravity = Gravity.CENTER
