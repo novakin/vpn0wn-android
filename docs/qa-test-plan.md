@@ -1,12 +1,20 @@
 # vpn0wn QA Test Plan
 
-Last updated: 2026-10-16 (Europe/Paris).
+Last updated: 2026-10-17 (Europe/Paris).
 
 This document tracks the automated and manual QA coverage required for the vpn0wn Android redesign.
 
 The layer lists below are target requirements, not a passing coverage report. [Source-inspected coverage](#source-inspected-coverage) inventories current source, including explicitly identified pending changes; [development evidence](development.md#recorded-verification) records actual executions and their scope. The original documentation audit at `11d4a9b1` ran no runtime suites. #13 adds focused detail-fragment lifecycle tests; broader rendered-row, instrumented navigation and screenshot suites remain absent.
 
 ## Test Layers
+
+### Application routing selection controls — #212
+
+`AppListDialogFragmentTest` uses the actual Fragment, Material dialog, native action buttons and fragment-result consumer under Robolectric API28. Controls keep coroutine inventory publication pending while delivering native button callbacks, preserve loaded selection/mode, permit intentional Toggle all clearing, distinguish genuine empty success, retain Cancel, reject both expected inventory-failure classes and cancel old publication across detach/reattach. The final scroll-aware eight-method host gate passes with zero failures/errors/skips and zero Detekt findings. The fixture retains actual resource/load ownership and restores prior singleton/dispatcher/locale/font/qualifier/shadow state. Invalid harness attempts remain retained locally and excluded from product evidence; the original audit probe retains its distinct source scope.
+
+The native-graphics test produces sixteen default synthetic frames: portrait 360×720dp, compact 320×480dp, landscape 640×320dp and Arabic RTL 360×720dp at 1.5× font scale, each day/night and pending/loaded. These are full declared decor viewports; native Material owns dialog gutters. Locale/font/night/resolved direction are asserted, layout/pre-draw completes before a fresh single-pass capture, and target checks honor the native scrolling owner. Material 1.13.0 wraps its action bar in `ScrollView @id/buttonPanel`; compact output can show a native action peek, so the fixture reveals each action through that owner, verifies its complete visible target of at least 48dp and restores original scrolling. Eight additional revealed-action frames preserve that reachability proof. All twenty-four final originals were visually inspected: pending disabled emphasis, loaded selection, existing hierarchy and compact action reachability are satisfactory within this host scope. Root containment alone is insufficient. The earlier double-inset/composited/manual-clipping captures remain excluded from visual acceptance; no product layout change follows from those fixture errors.
+
+The native indeterminate widget retains correct 48×48 geometry and visible state in pending host frames; this renderer reports its drawable stopped and does not paint its animated arc. That limits animation evidence and does not establish a production regression; the native widget remains unchanged. Separately scoped installed-AVD confirmation is pending. Manually sized Robolectric output does not establish Android WindowManager/insets, IME/TalkBack, physical package-enumeration timing, traffic or complete editor acceptance. Preserve the approved editor `EXCLUDED APPS` configure control at `.design/screens-detail.jsx`, existing Material hierarchy, component-specific font roles and fixed shared palette.
 
 The [2026-10-06 phone follow-up](development.md#phone-ui-and-throughput-follow-up--2026-10-06) records a scoped physical Android 16 run. It does not install an Espresso/screenshot framework or replace the full support matrix below. Keep captures local: real profiles can expose private metadata even with secret fields masked. Before automation, confirm the current package/screen and protect unsaved user drafts; use synthetic inputs for writes. Restore temporary device settings and per-app locales after checks.
 

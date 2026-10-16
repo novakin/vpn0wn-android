@@ -13,6 +13,7 @@ import android.content.pm.PackageManager
 import android.content.pm.PackageManager.PackageInfoFlags
 import android.os.Build
 import android.os.Bundle
+import android.view.View
 import android.widget.Button
 import androidx.appcompat.app.AlertDialog
 import androidx.databinding.Observable
@@ -30,6 +31,7 @@ import com.vpn0wn.android.model.ApplicationData
 import com.vpn0wn.android.util.ErrorMessages
 import com.vpn0wn.android.util.vpn0wnStyle
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -39,11 +41,14 @@ class AppListDialogFragment : DialogFragment() {
     private var initiallyExcluded = false
     private var button: Button? = null
     private var tabs: TabLayout? = null
+    private var binding: AppListDialogFragmentBinding? = null
+    private var loadJob: Job? = null
+    private var inventoryLoaded = false
 
     private fun loadData() {
         val activity = activity ?: return
         val pm = activity.packageManager
-        lifecycleScope.launch(Dispatchers.Default) {
+        loadJob = lifecycleScope.launch(Dispatchers.Default) {
             try {
                 val applicationData: MutableList<ApplicationData> = ArrayList()
                 withContext(Dispatchers.IO) {
@@ -66,6 +71,9 @@ class AppListDialogFragment : DialogFragment() {
                 withContext(Dispatchers.Main.immediate) {
                     appData.clear()
                     appData.addAll(applicationData)
+                    inventoryLoaded = true
+                    binding?.progressBar?.visibility = View.GONE
+                    updateSelectionActions()
                     setButtonText()
                 }
             } catch (e: SecurityException) {
@@ -115,6 +123,7 @@ class AppListDialogFragment : DialogFragment() {
     override fun onCreateDialog(savedInstanceState: Bundle?): Dialog {
         val alertDialogBuilder = MaterialAlertDialogBuilder(requireActivity())
         val binding = AppListDialogFragmentBinding.inflate(requireActivity().layoutInflater, null, false)
+        this.binding = binding
         binding.executePendingBindings()
         alertDialogBuilder.setView(binding.root)
         tabs = binding.tabs
@@ -126,7 +135,7 @@ class AppListDialogFragment : DialogFragment() {
                 override fun onTabSelected(tab: TabLayout.Tab?) = setButtonText()
             })
         }
-        alertDialogBuilder.setPositiveButton(" ") { _, _ -> setSelectionAndDismiss() }
+        alertDialogBuilder.setPositiveButton(" ", null)
         alertDialogBuilder.setNegativeButton(R.string.cancel) { dialog, _ -> dialog.dismiss() }
         alertDialogBuilder.setNeutralButton(R.string.toggle_all) { _, _ -> }
         binding.fragment = this
@@ -135,8 +144,11 @@ class AppListDialogFragment : DialogFragment() {
         val dialog = alertDialogBuilder.create()
         dialog.setOnShowListener {
             button = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            button?.setOnClickListener { setSelectionAndDismiss() }
+            updateSelectionActions()
             setButtonText()
             dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener { _ ->
+                if (!inventoryLoaded) return@setOnClickListener
                 val selectAll = appData.none { it.isSelected }
                 appData.forEach {
                     it.isSelected = selectAll
@@ -146,7 +158,25 @@ class AppListDialogFragment : DialogFragment() {
         return dialog
     }
 
+    private fun updateSelectionActions() {
+        button?.isEnabled = inventoryLoaded
+        (dialog as? AlertDialog)?.getButton(AlertDialog.BUTTON_NEUTRAL)?.isEnabled = inventoryLoaded
+    }
+
+    override fun onDestroyView() {
+        loadJob?.cancel()
+        loadJob = null
+        inventoryLoaded = false
+        binding?.unbind()
+        binding = null
+        button = null
+        tabs = null
+        appData.clear()
+        super.onDestroyView()
+    }
+
     private fun setSelectionAndDismiss() {
+        if (!inventoryLoaded) return
         val selectedApps: MutableList<String> = ArrayList()
         for (data in appData) {
             if (data.isSelected) {

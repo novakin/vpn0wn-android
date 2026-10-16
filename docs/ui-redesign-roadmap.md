@@ -1,6 +1,6 @@
 # vpn0wn UI Redesign Roadmap
 
-Last updated: 2026-10-16 (Europe/Paris).
+Last updated: 2026-10-17 (Europe/Paris).
 
 ## Design Source
 
@@ -498,6 +498,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 ## Progress
 
 ### Done
+
+- [x] **Guard application routing selection while loading — #212, 2026-10-17:** `AppListDialogFragment` disables/guards Apply and Toggle all until package inventory publishes successfully, retains Cancel and stops its spinner for a genuine empty result. The existing native Material dialog, tab/button styles, fonts and palette remain. View teardown cancels loading and clears detached controls; expected inventory errors emit no replacement. [QA](qa-test-plan.md#application-routing-selection-controls--212) records eight passing controls, zero Detekt findings and inspection of all twenty-four native-graphics originals. Pending/loaded feedback and native compact action reachability are satisfactory within that host scope; the host cannot paint the spinner's animated arc. Installed Android confirmation and final PR gates remain separate. No physical package-enumeration, VPN packet or complete #35 acceptance is inferred.
 
 - [x] **Translation source repairs and scoped output — #195, 2026-10-16:** the [dated review](reviews/2026-10-16-translation-review.md) preserves complete default/all-35-qualifier model reading at pre-repair hashes, confirmed wording/plural repairs, passing focused tests/Detekt/localization lint and 188 synthetic native-view originals across 20 actual locale/size/scale/theme/direction configurations. Root inspected 20 originals, one per configuration; increasing Arabic/Persian ranges, readable warnings/errors and checked scrolling are satisfactory within that sample. The four relevant UI skills were applied without changing approved visual intent, palette/assets or Fragment/DataBinding ownership. Significant fallback, hardcoded copy, qualified language, wider installed/accessibility and full #195 acceptance remain open; this is not the later whole-code/security review.
 

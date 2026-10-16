@@ -1,6 +1,6 @@
 # Backend and provisioning contracts
 
-Last updated: 2026-10-16 (Europe/Paris).
+Last updated: 2026-10-17 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -72,6 +72,12 @@ The prior Java socket owner's TrafficStats tag isolation is historical behavior 
 In retained baseline logs, `UDP preflight sent` means the protected Java socket accepted a local send. It does not acknowledge delivery or DPI resistance. Native warm-up adds no per-packet success log or server acknowledgment and leaves the WireGuard protocol unchanged. Socket continuity and authenticated loopback traffic do not establish hardware deep suspend, broader unchanged kernel-server compatibility or DPI benefit. The maintainer's 2026-10-08 report of sleep/wake recovery without manual action is not new measured packet/timing proof; the earlier 195-second forced Doze trial retains its own scope in [the experiment record](reviews/2026-10-07-protocol-preflight-experiment.md#forced-deep-doze-recovery--2026-10-07). The [G4 investigation](reviews/2026-10-07-g4-preflight-investigation.md) retains its separate incident/port-change scope. No DPI, speed or battery gain is established.
 
 `WgQuickBackend` serializes the entire transition on its existing instance: observed state, config snapshot, prior-tunnel shutdown, apply, rollback, map update and callback. Running-name reads and multiple-tunnel preference changes share that monitor. Application collects those mode changes on IO, so waiting behind a root transition leaves the main thread free. Disabled multiple mode admits one app-owned active tunnel; enabled mode retains supported simultaneous tunnels. Failed apply/shutdown attempts restoration where applicable; restoration failures attach to the primary exception and observed running names remain queryable. RootShell still serializes individual commands; the backend monitor additionally protects the whole transition. This does not coordinate another backend instance or external root tools, turn multi-command changes into kernel transactions, or guarantee observation after an unreachable shell. #15 has controlled command-level JVM proof; device/kernel traffic and partial native effects remain separate.
+
+### Application routing selection — #212
+
+`AppListDialogFragment` distinguishes successfully published package inventory from pending or failed loading. Apply and Toggle all remain disabled and guard their callbacks until successful publication; an early callback cannot emit a replacement selection or dismiss through the positive-button default listener. Cancel remains available and emits no selection. A successful empty inventory stops the loading indicator and permits a deliberate empty selection; an unavailable inventory never means an intentionally cleared split-tunnel policy.
+
+The existing dialog owns its load job, binding and action references. View destruction cancels that load, clears those references and resets successful-publication state before reattachment can load again. Expected package-security/resource failures keep the existing failure feedback and dismissal without a replacement. The editor's existing fragment-result consumer remains the only draft replacement path; parser fields, package visibility, include/exclude mode and saved profiles are unchanged. [QA](qa-test-plan.md#application-routing-selection-controls--212) owns actual-dialog regression and output evidence; physical inventory timing, packet behavior and wider editor acceptance remain separate.
 
 ### VPN consent continuation — #177
 
