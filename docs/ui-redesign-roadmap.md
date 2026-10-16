@@ -499,6 +499,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
+- [x] **Current install-recovery feedback — #143, 2026-10-16:** public wizard Detect and both marker settlements now discard earlier recovery receipts, preventing stale unchanged/restored feedback or eligibility from leaking into another attempt. Direct same-attempt reconciliation retains its known-failure path. Existing layouts, fonts, copy and tokens are unchanged; focused execution, affected independent review and fresh install-state output remain required.
+
 - [x] **Observed Apply network facts — #143, 2026-10-16:** verified/observed Apply shows the validated retained status endpoint/port/CIDR/DNS, preserving a later Plan as separate advisory review. Missing observation cannot fall back to unrelated plan values. Existing fonts, tokens, layout and confirmation gates remain unchanged. Edited-plan Fragment and recreated-owner source regressions are added; execution, fresh output inspection and independent review remain pending.
 
 - [x] **Install presentation and current shared VPS UI integration - #143, 2026-10-16:** confirmed Apply, destination confirmation and reconciliation retain their existing mutation gates while adopting PR #200's shared font assets/features/compact padding, background feedback, wrapping health checks, RTL peer spacing and truthful engine model. The readable Add label/icon and content-driven fleet strip retain their approved tokens and 62dp minimum. Both the API-24/28 font regression and install confirmation controls remain present. [Integration limits](qa-test-plan.md#confirmed-fresh-install-controls--143) distinguish this source merge from pending final-head checks, fresh install output and native/live proof.
