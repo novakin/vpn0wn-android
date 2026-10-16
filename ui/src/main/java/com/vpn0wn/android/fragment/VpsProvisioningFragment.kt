@@ -1037,7 +1037,7 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun rowButton(text: String, icon: Int = R.drawable.ic_vpn0wn_plus, onClick: () -> Unit): View = horizontal(Gravity.CENTER_VERTICAL).apply {
         minimumHeight = dp(48)
-        actionAccessibility(Button::class.java.name)
+        actionAccessibility(Button::class.java.name, feedbackInForeground = false)
         setPadding(dp(14), dp(12), dp(14), dp(12))
         addView(ImageView(requireContext()).apply {
             setImageDrawable(AppCompatResources.getDrawable(requireContext(), icon))
@@ -1060,10 +1060,11 @@ class VpsProvisioningFragment : BaseFragment() {
         layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
     }
 
-    private fun View.actionAccessibility(role: String, checked: Boolean? = null) {
+    private fun View.actionAccessibility(role: String, checked: Boolean? = null, feedbackInForeground: Boolean = true) {
         isFocusable = true
         context.withStyledAttributes(attrs = intArrayOf(android.R.attr.selectableItemBackground)) {
-            foreground = getDrawable(0)
+            val feedback = getDrawable(0)
+            if (feedbackInForeground) foreground = feedback else background = feedback
         }
         accessibilityDelegate = object : View.AccessibilityDelegate() {
             override fun onInitializeAccessibilityNodeInfo(host: View, info: AccessibilityNodeInfo) {

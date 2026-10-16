@@ -404,7 +404,8 @@ class VpsProvisioningWorkflowTest {
 
     private fun assertButtonAction(view: View) {
         assertTrue(view.isFocusable)
-        assertTrue(view.foreground != null && view.foreground.isStateful)
+        assertTrue(view.background != null && view.background.isStateful)
+        assertNull(view.foreground)
         val node = view.createAccessibilityNodeInfo()
         try {
             assertEquals(Button::class.java.name, node.className.toString())
