@@ -1,6 +1,7 @@
 /*
  * Copyright © 2026 WireGuard LLC. All Rights Reserved.
  * SPDX-License-Identifier: Apache-2.0
+ * Modified for vpn0wn.
  */
 
 package com.vpn0wn.config;
@@ -14,11 +15,63 @@ import java.util.LinkedHashSet;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 public class ConfigCompatibilityTest {
     private static final String KEY = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+
+    @Test
+    public void independentlyParsedEquivalentProfilesHaveEqualValuesAndHashes() throws Exception {
+        final Config first = profile("DNS = 192.0.2.53, corp.example\n");
+        final Config second = parse(first.toWgQuickString());
+
+        assertEquals(first, second);
+        assertEquals(second, first);
+        assertEquals(first.hashCode(), second.hashCode());
+        assertEquals(first.getInterface(), second.getInterface());
+        assertEquals(first.getInterface().hashCode(), second.getInterface().hashCode());
+    }
+
+    @Test
+    public void changedKeysAndMeaningfulProfileFieldsRemainUnequal() throws Exception {
+        final Config original = profile("DNS = 192.0.2.53\n");
+        final String serialized = original.toWgQuickString();
+        final String otherKey = "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE=";
+
+        assertNotEquals(original, parse(serialized.replace("PrivateKey = " + KEY, "PrivateKey = " + otherKey)));
+        assertNotEquals(original, parse(serialized.replace("PublicKey = " + KEY, "PublicKey = " + otherKey)));
+        assertNotEquals(original, profile("DNS = 192.0.2.54\n"));
+        assertNotEquals(original, profile("DNS = 192.0.2.53\nListenPort = 51820\n"));
+        assertNotEquals(original, profile("DNS = 192.0.2.53\nMTU = 1280\n"));
+        assertNotEquals(original, parse(serialized.replace("AllowedIPs = 0.0.0.0/0", "AllowedIPs = 192.0.2.0/24")));
+    }
+
+    @Test
+    public void negativeDirectAndParsedMtuUseTheMtuDiagnostic() {
+        final BadConfigException direct = assertThrows(BadConfigException.class, () -> new Interface.Builder().setMtu(-1));
+        final BadConfigException parsed = assertThrows(BadConfigException.class, () -> profile("MTU = -1\n"));
+
+        for (final BadConfigException failure : Arrays.asList(direct, parsed)) {
+            assertEquals(BadConfigException.Section.INTERFACE, failure.getSection());
+            assertEquals(BadConfigException.Location.MTU, failure.getLocation());
+            assertEquals(BadConfigException.Reason.INVALID_VALUE, failure.getReason());
+            assertEquals("-1", failure.getText());
+        }
+    }
+
+    @Test
+    public void automaticAndPositiveMtuPreserveListenPortValidation() throws Exception {
+        assertFalse(profile("MTU = 0\n").getInterface().getMtu().isPresent());
+        assertEquals(Integer.valueOf(1280), profile("MTU = 1280\n").getInterface().getMtu().get());
+        for (final int invalidPort : new int[]{-1, 65536}) {
+            final BadConfigException failure = assertThrows(BadConfigException.class,
+                    () -> new Interface.Builder().setListenPort(invalidPort));
+            assertEquals(BadConfigException.Location.LISTEN_PORT, failure.getLocation());
+            assertEquals(BadConfigException.Reason.INVALID_VALUE, failure.getReason());
+        }
+    }
 
     @Test
     public void domainOnlyDnsSurvivesRepeatedSaveExportRoundTrips() throws Exception {
