@@ -1,12 +1,18 @@
 # vpn0wn QA Test Plan
 
-Last updated: 2026-10-16 (Europe/Paris).
+Last updated: 2026-10-17 (Europe/Paris).
 
 This document tracks the automated and manual QA coverage required for the vpn0wn Android redesign.
 
 The layer lists below are target requirements, not a passing coverage report. [Source-inspected coverage](#source-inspected-coverage) inventories current source, including explicitly identified pending changes; [development evidence](development.md#recorded-verification) records actual executions and their scope. The original documentation audit at `11d4a9b1` ran no runtime suites. #13 adds focused detail-fragment lifecycle tests; broader rendered-row, instrumented navigation and screenshot suites remain absent.
 
 ## Test Layers
+
+### Translation archive import controls — #209
+
+On 2026-10-17 (Europe/Paris), `python3 -m unittest discover -s scripts/tests -p 'test_translation_import.py' -v` passes five controls under WSL UID 1000. The actual helper imports synthetic ZIP archives through Debian bsdtar and inspects XML through xmllint, using locally extracted distribution packages without workstation elevation. Cases cover literal spaces/quotes/substitution/backticks/metacharacters/newlines, intended empty-directory removal with surviving populated resources and siblings (including a trailing-newline parent), malformed-XML preservation with failure, and extraction failure stopping before cleanup. The initial four-control run against the old helper records three expected failures, including unsafe paths and malformed-XML deletion; its extraction-failure control passes. That evidence remains private and separate from the final five-control suite. These are host import controls, not Android/root enforcement or arbitrary-archive security certification. CI installs `libarchive-tools`/`libxml2-utils` and executes the same suite; local missing tools produce explicit skips rather than a passing execution claim.
+
+Locked artwork dependencies and `node docs/assets/vpnown-brand/generate.mjs --android` were also executed in the correction worktree. Every tracked generated reference/Android output remains byte-identical; all six inherited XML declarations/copyright/SPDX/modification notices survive. No geometry, font, palette, layout, APK or device output changed. Final-head CI and independent ultra delivery acceptance belong to the PR.
 
 The [2026-10-06 phone follow-up](development.md#phone-ui-and-throughput-follow-up--2026-10-06) records a scoped physical Android 16 run. It does not install an Espresso/screenshot framework or replace the full support matrix below. Keep captures local: real profiles can expose private metadata even with secret fields masked. Before automation, confirm the current package/screen and protect unsaved user drafts; use synthetic inputs for writes. Restore temporary device settings and per-app locales after checks.
 

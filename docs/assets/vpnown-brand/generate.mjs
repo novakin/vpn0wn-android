@@ -112,6 +112,7 @@ function androidGroup(body, x, y, scaleX, scaleY = scaleX) {
 const upstreamXmlNotice = `<!--
   ~ Copyright © 2017-2025 WireGuard LLC. All Rights Reserved.
   ~ SPDX-License-Identifier: Apache-2.0
+  ~ Modified for vpn0wn.
   -->`;
 
 function androidVector(width, height, viewportWidth, viewportHeight, body, upstream = false) {
