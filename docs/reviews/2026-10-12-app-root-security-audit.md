@@ -1,6 +1,8 @@
 # Full app/root security audit — aggregate assessment
 
-Last updated: 2026-10-12 (Europe/Paris).
+Last updated: 2026-10-17 (Europe/Paris).
+
+The initial assessment and follow-ups below retain their original revisions, findings and runtime limits. The [post-delivery #208 reassessment](#post-delivery-reassessment--208-2026-10-17) records current source `56509a3a`, new findings and current sign-off gates; it supersedes the initial ledger only as a description of current coverage, without replacing historical FAILED evidence.
 
 Delivered source: clean `master`, `5b1ddffbdc5692496b0dc2c96fed4925c9499f1a`. Three confirmed bounded defects: two Medium, one Low. No High/Critical defect or ordinary-app root escalation is established. Static assessment and scoped host/Android work are complete: 8/8 recorded control assertions and 12/12 recorded restoration criteria pass. The assertions include identity, same-URI consistency and internal navigation, not eight attack attempts. Broader runtime and release assurance remain partial. Audit completion is not security sign-off or release readiness.
 
@@ -175,3 +177,77 @@ Rotating the guest while the editor's real PIN prompt was pending preserved that
 The integrated full run initially passed **539/540** UI controls; the remaining failure was Java heap exhaustion constructing a test's 16 MiB + 1 byte `String.repeat`, before production import executed. An 8 KiB incremental ZIP fixture generates the identical ignored body of 16,777,217 bytes; its first 14/14 focused controls passed. A second full run also passed 539/540, with a different fixture exhausting heap while growing/copying its ZIP-header staging buffer. `SequenceInputStream` now supplies the same 257 immutable header/name records without that contiguous staging allocation. The actual reader still stops after exactly 16,777,217 consumed bytes and closes once. Valid-profile bodies are shared; invalid accounting keeps identical byte counts without sixteen large retained error payloads, while a separate 1 MiB malformed-line ZIP control preserves the original parser coverage. All 15 final focused import-input controls pass. Production import and its limits/assertions are unchanged, and the test heap remains 1 GiB. Both failed full runs retain their original scopes; final full-suite CI acceptance belongs in the PR.
 
 Cleanup deleted only the verified owned MediaStore row through the target's actual ContentResolver and confirmed its ZIP absent. The synthetic profile, PIN and policy were removed; DPC readback was clear, device-owner removal succeeded and all three owned apps were uninstalled. Original rotation values were restored; the owned JDWP forward was removed and guest adbd returned to non-root. The recorded AVD/process tree stopped; console/ADB/debug ports 5620, 5621 and 60265 were absent afterward, and the original shared ADB process remained. Raw userdata/signing/evidence files stay ignored and retained. No personal-phone or live-server operation occurred. This closes bounded repair runtime proof on this guest, without changing the original audit ledger or granting broader/release security sign-off.
+
+## Post-delivery reassessment — #208, 2026-10-17
+
+### Scope and current conclusion
+
+The requested reassessment followed [PR #207](https://github.com/novakin/vpn0wn-android/pull/207)'s merge and pins delivered `56509a3ad8ed1c8a5e912b87b637990bf4d15135`, tree `919b0f0ad7ddb19d2db71af1ef8751de4c6d554b`. Its tree equals reviewed/tested `b5db3cce`; draft #103 is excluded. [The whole-code review](2026-10-17-delivered-code-review.md) owns the 578-path disposition, external/generated exclusions, correctness findings and repair order. Three independent ultra source passes and coordinator checks covered maintained Android/native/root/provisioning, trust boundaries, persistence, build and dependency integration.
+
+One new confirmed Medium maintenance/security defect is recorded as SYNC-IMPORT-SHELL / [#209](https://github.com/novakin/vpn0wn-android/issues/209). No credible High/Critical security defect or ordinary-app root escalation was established within this scope. The code review also records four Medium/P2 and two Low engineering defects; these are not relabelled as cross-app vulnerabilities. Security sign-off remains withheld for the current defect and the material validation gates below. Audit-work completion is separate from fixing findings, release readiness or complete native/live assurance.
+
+### Actual environment, actors and execution
+
+The coordinator freshly confirmed the audit checkout/revision, Windows without an administrator token, PowerShell 7.6.6, WSL Debian UID 1000, JDK 21.0.10 and the selected WSL SDK path. Available SDK tools remain API 36, Build Tools 36.0.0, NDK 28.2.13676358 and CMake 3.22.1. Gradle 9.8.1/AGP 9.1.0/Detekt 1.23.8 are the declared and executed repository recipe. The unrestricted filesystem/network capability and approval policy `never` provide no technical credential or device isolation. Workstation elevation and credential-vault contents were not used.
+
+The authorized Pixel 7 Pro was queried by its privately retained exact serial: API 34, Android user 0, ADB shell UID 2000 with SELinux shell context. This reassessment only read identity/version/user state; it ran no `su`, app operation, install, VPN toggle, setting mutation or reboot. Root capability was not freshly exercised. Existing device authorization does not turn shell identity into an ordinary-app attacker or root proof. No new separate-UID Android permission/URI control or current signed-release trial ran.
+
+The functional probes use actual manager/backend/proxy/Fragment owners under host JVM/Robolectric API 28 with synthetic stores, commands, packages and profiles. They establish the stated application logic, not Android root/permission/SELinux or packet enforcement. The shell callback proof runs as WSL UID 1000 and uses only a test-owned marker and successful xmllint stub; the deletion branch is never entered. Public package/version/advisory/checksum requests are read-only. No personal app/config store, live server, unrelated device or production system was changed.
+
+### SYNC-IMPORT-SHELL — Medium: imported resource paths enter shell source
+
+At `sync-crowdin.sh:10`, `find` substitutes an archive-derived `strings.xml` path directly inside the program passed to `bash -c`. Shell substitution syntax in a directory name is consequently evaluated. The actual callback pair produces a marker for the crafted filename and no marker for a normal filename; both original resource files survive. This is high-confidence source and bounded host execution evidence.
+
+The attacker controls the lower-trust archive/resource filename; the importing maintainer voluntarily invokes the helper. Resulting execution has that maintainer process's privileges. No Android permission bypass, root escalation or real credential access was demonstrated. Scratch-checkout use protects the active tree but does not isolate process capabilities. Full archive extraction, bsdtar traversal and complete empty-directory cleanup were not tested by this callback-only probe.
+
+[#209](https://github.com/novakin/vpn0wn-android/issues/209) owns a path-as-data repair and paired malicious/ordinary-path cleanup controls. [Development guidance](../development.md#translation-resource-imports) now records the known helper limit pending repair. This audit changes guidance, not helper code. Existing attribution and intentional translation-import semantics must remain.
+
+### Historical finding reconciliation
+
+| Stable ID | Current delivered-source assessment | Evidence retained and limit |
+| --- | --- | --- |
+| ROOT-CLEANUP-REGEX / #165 | Issue reads CLOSED. The maintained literal-cleanup patch and build producer are present; host/CI cleanup controls pass. | Original Medium/FAILED evidence remains above. Existing disposable API36 native cleanup acceptance retains its original producer, actor and restored-state scope; no new rooted enforcement or multi-user trial is inferred. |
+| IPC-DATA-01 / #166 | Issue reads CLOSED. Execution-time administrator/view/config checks, full masking and retained Activity authentication ownership are present. Relevant owners are byte-identical to the `37e0a74a` rebuilt proof. | Existing DPC/PIN/cancel/no-lock/rotation and earlier debugger-admission evidence retains its exact artifact/actor boundary. No current-head signed-release/physical prompt or policy run occurred. |
+| IPC-DATA-02 / #167 | Issue reads CLOSED. Finite source/expanded/profile/entry limits, sequential creation and closure/cancellation behavior remain present; importer owners are unchanged from the repaired proof. | Historical JVM/provider limits remain explicit. No hostile native provider wall-time or OS exhaustion guarantee was established. |
+
+The historical ledger's original FAILED statuses and old “no concrete SSH implementation” entry are preserved as facts about that revision. They do not describe the new implementation: concrete JSch exec/SFTP, pinned host identity, encrypted credentials/profiles, backup codec and fresh-destination restore source were reviewed now. Existing #143/#196 retain their remaining native/live/UI/format acceptance.
+
+### Current coverage ledger
+
+| Criterion | Status | Evidence boundary |
+| --- | --- | --- |
+| Maintained source owners and trust/privilege flow assessed | VERIFIED | Static Android/native/provisioning/build passes; operation, target, asynchronous ownership, user/profile and cancellation boundaries traced. Verification applies to the assessment criterion, not all runtime outcomes. |
+| Imported path remains data in cleanup callback | FAILED | SYNC-IMPORT-SHELL; static plus paired UID-1000 host proof. Full import workflow unexecuted. |
+| Kernel observation failure preserves shutdown/delete postconditions | FAILED | Actual backend/manager with stubbed root commands reproduces false DOWN and lost recovery profile; [#210](https://github.com/novakin/vpn0wn-android/issues/210). Logic/safety finding, without real-root or leak proof. |
+| Config publication retains later committed owner state | FAILED | Actual manager/model with finite IO barriers reproduces old cache replacing the saved profile; [#211](https://github.com/novakin/vpn0wn-android/issues/211). No packet or external attacker claim. |
+| Exported components, URI grants, admin/authentication enforcement | PARTIALLY_ASSESSED | Current source plus preserved scoped separate-UID/DPC/native evidence; no new current-head/release actor-paired runtime run. |
+| Secret stores and backup cryptography | PARTIALLY_ASSESSED | Static Keystore/GCM/AAD/atomic-file and Argon2id/archive bounds reviewed; current JVM and historical isolated native evidence retain scopes. Keystore/OEM/process lifecycle, cold KDF, production file workflow and release proof remain. |
+| SSH identity/algorithm/channel/cancellation boundaries | PARTIALLY_ASSESSED | Concrete JSch pin-before-auth, explicit algorithms, bounded output, captured channel/session ownership and synthetic-peer tests reviewed. Actual Android routing, native connect/cancel and integrated credential lifecycle remain separate. |
+| Privileged script mutation, snapshot and restore contracts | PARTIALLY_ASSESSED | All eleven maintained scripts reviewed, including lock/admission, captured inputs, private paths and rollback/reconciliation. Earlier mapped-root controls and current JVM/offline CI are not live root/SSH/systemd/traffic acceptance. |
+| Persistent root authorization, revocation/reconnect/upgrade and user/profile ownership | PARTIALLY_ASSESSED | Static local shell/backend lifecycle reviewed. Existing #71/#73/#75/#77 policy/runtime limits remain; no invented fresh-prompt requirement. No current root-manager or secondary-user pair ran. |
+| Current dependency resolution and public version queries | VERIFIED | Seven resolved configurations; 236 successful OSV queries covering 204 Maven, 26 npm and six Go coordinates, with exact receipts. This criterion proves performed version assessment only. |
+| Precise native advisory reachability and final packaged inventory | PARTIALLY_ASSESSED | Actual arm64 diagnostic embeds current Go/module pins; scanner limitation below prevents symbol/call closure. Other ABIs, build-plugin graph, repackaged libraries and whole signed APK remain separate. |
+| Current signed-release Android permission/SELinux/leak enforcement | NOT_ASSESSED | No new signed artifact, release runtime, ordinary-UID permission/control pair or packet trial. Debug/JVM/build success cannot verify it. |
+| New destructive/live VPS acceptance | NOT_ASSESSED | No newly authorized disposable target was supplied; the audit did not reuse an unrelated historical VPS approval. |
+
+Runtime-dependent missing controls are not marked NOT_APPLICABLE. External/generated source exclusions are documented in the code-review ledger with their separate boundary criteria.
+
+### Dependency and native diagnostic results
+
+All seven selected configurations resolve with zero failed components: release/debug/googleplay runtime each have 110 module identities; desugaring has two; debug/release unit-test runtime each have 153; Detekt has 46. Deduplication across these graphs yields 204 Maven component/version pairs. The 26 locked npm coordinates include optional generator platforms; six Go coordinates include the compiler standard library and native module pins. These are resolved/configuration inventories rather than a packaged SBOM or complete build-plugin graph.
+
+OSV returns no version matches for the shipped Java runtime graphs or locked npm set at the observed versions. `bcprov-jdk18on:1.81` has four advisory IDs and appears only in unit-test configurations; shipped `bcprov-jdk15to18:1.86` is a different resolved coordinate and has no version match. This does not establish which duplicate class a test loads or infer a shipped vulnerability. Go 1.24.3, x/crypto 0.38.0, x/net 0.40.0 and x/sys 0.33.0 retain advisory matches. Version matches and no-matches neither prove exploitability nor constitute clean security certification.
+
+The current official wrapper JAR checksum matches its tracked bytes. Official Go release metadata lists 1.27.2 and 1.26.9; [#215](https://github.com/novakin/vpn0wn-android/issues/215) owns supported native toolchain/module selection and BD-G01's remaining reachability/compatibility work.
+
+The unchanged Make pipeline built an arm64/API24 c-shared library from the audited tree, SHA256 `aa2344c795b3f163154cd6129dbeb20f6b7cdafc3aaf0ce9c9e78c15288e10f1`. Embedded build information confirms Go 1.24.3 and the pinned WireGuard/x packages. This direct diagnostic leaves CMake caller CFLAGS/LDFLAGS empty and is not a packaged Gradle/debug/release equivalence claim. No APK was assembled.
+
+Official `govulncheck v1.1.4 -json -mode=binary` accepted the library and completed, but extract mode yielded **zero package symbols**. The scanner's `allKnownVulnerableSymbols` fallback emitted 88 advisory IDs/22,720 messages, mixing module/package/symbol-shaped candidates. Names such as x509/SSH/HTTP appeared despite no corresponding names in the inspected actual symbol table. These are conservative module-version candidates, not linked-function confirmation or a clean scan. The source-mode attempt separately failed to load overlay-added Rebind/Recover methods. Both limits and original logs remain; no cached module/product source was rewritten to satisfy the analyzer. BD-G01 stays partial.
+
+### Sign-off and next boundaries
+
+Fix #209 and verify the real path-safe import workflow. Resolve #210/#211's shutdown/config safety failures before relying on production state/recovery guarantees; their synthetic proofs do not claim packet leaks. Continue the native toolchain/reachability gate under #215, current signed/distributed-artifact security/provenance, actor-paired permissions/providers/root/user-profile policy, and #143/#196 Android/live/backup acceptance. No High/Critical finding was established, but these material gaps prevent security sign-off.
+
+Gradle dependency locking/verification, clipboard policy and repository protection remain separate hardening/process choices unless a concrete boundary requires them. Source CI uses pinned actions, read-only contents and no persisted checkout credential; the live `master` protection query returned unprotected. Manual review/CI process is not independent server enforcement. No repository policy change, release, deployment or destructive operation is implied.
+
+This source/public-query/bounded-host audit is complete within its declared scope. Current Android/release/live security assurance remains partial. Private source ledgers, paired probes, advisory/provenance receipts and native diagnostic/report hashes remain under ignored `.artifacts/continuation-20261016/`; no raw host reports or credentials are added to source distribution. Final independent report review, publication, applicable CI and merge readback belong to the delivering PR.

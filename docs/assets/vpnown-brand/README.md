@@ -1,6 +1,6 @@
 # vpnØwn refined identity
 
-Last updated: 2026-10-11 (Europe/Paris).
+Last updated: 2026-10-17 (Europe/Paris).
 
 The supplied navy/cyan identity is preserved. This reviewed brand reference replaces approximate raster colors with exact SVG geometry and palette values, gives the wordmark deliberate optical spacing, and adds a dedicated 16px symbol.
 
@@ -58,6 +58,8 @@ node docs/assets/vpnown-brand/generate.mjs --android
 ```
 
 The optional flag also writes the resources below into [`ui/src/main/res`](../../../ui/src/main/res), using the same frame, slash, gradient, font outlines and optical gaps as the reference assets. It leaves the reference artwork byte-identical. Running without the flag writes only the reference artwork and palette records. Android export uses no additional dependency, font installation, SVG parser or small-PNG resampling.
+
+Known generator follow-up under [#71](https://github.com/novakin/vpn0wn-android/issues/71#issuecomment-6225617777): the shared upstream-header template omits the modification notice currently retained in six inherited Android XML outputs. Preserve/reapply that existing notice when reviewing an Android export until the template is repaired, keeping the declaration, original copyright and SPDX intact under the [source-notice contract](../../license-attribution.md#fork-source-notices). The audit traced the template statically; it did not regenerate or alter the current artwork.
 
 | Resource | Geometry and use |
 | --- | --- |
