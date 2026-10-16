@@ -183,7 +183,11 @@ class VpnConsentLifecycleTest {
 
     @Test fun recreatedConsentPreservesRequestedDownDirection() = consentTest { fixture ->
         fixture.environment.replaceBackend(fixture.backend)
+        val owner = fixture.environment.applicationScope.coroutineContext[Job]!!
+        val previousJobs = owner.children.toSet()
         fixture.tunnel.setStateAsync(Tunnel.State.UP)
+        // Replacing the fixture backend must not retarget the queued synthetic state notification.
+        owner.children.filter { it !in previousJobs }.toList().joinAll()
         val requestCode = launchConsent(fixture)
         fixture.environment.replaceBackend(fixture.backend)
         fixture.controller.recreate()
