@@ -192,6 +192,8 @@ These roles do not limit newly available relevant skills. Record unavailable app
 
 Inspect actual output at the affected sizes, orientations and supported themes, including relevant font-scale/RTL configurations under the [QA plan](qa-test-plan.md). Review hierarchy, alignment, spacing, typography, colors/contrast, touch/focus behavior, states and motion against the approved intent and native behavior. A prototype or JVM/static check does not establish Android output, accessibility or runtime acceptance.
 
+For manual native-view renders, assert the actual locale, font scale and resolved layout direction on the rendered roots; resource qualifiers alone are insufficient. Complete layout and registered pre-draw callbacks before capture, and do not accept a canceled draw as a frame. Check painted glyph bounds and real visible targets while preserving native scrolling and focus behavior. Label manually drawn/composited or synthetic-data output explicitly; it does not prove WindowManager/insets, IME/TalkBack, a physical QR scan or installed-device behavior.
+
 Before declaring completion, ask: **“Am I satisfied with this UI/UX result?”** Record a concise author verdict in the current PR acceptance record or unpublished handoff: skills applied, output/revision/configurations inspected, material findings/corrections and remaining limits. Fix material in-scope gaps and recheck the affected output before a satisfied verdict. If required output or proof is unavailable, state verification incomplete; do not replace missing evidence with an unsupported 100/100 claim. This self-review does not replace independent ultra review, required acceptance or merge authorization.
 
 ## Verification commands and ownership
