@@ -5,8 +5,11 @@
 package com.vpn0wn.android.provisioning
 
 import android.util.Log
+import java.time.Instant
+import java.time.format.DateTimeParseException
 import org.json.JSONException
 import org.json.JSONObject
+import org.json.JSONTokener
 
 data class VpsEndpoint(
     val host: String,
@@ -145,7 +148,24 @@ data class VpsBackupResult(
     val interfaceName: String,
     val config: String,
     val revokedCount: Int,
-)
+    val snapshotVersion: Int,
+    val capturedAtUtc: String,
+    val revoked: List<VpsRevokedBackup>,
+) {
+    override fun toString(): String = "VpsBackupResult(redacted)"
+
+    companion object {
+        internal const val SNAPSHOT_VERSION = 1
+        internal const val MAX_RESPONSE_BYTES = 786_432
+        internal const val MAX_CONFIG_BYTES = 262_144
+        internal const val MAX_REVOKED_BYTES = 16_384
+        internal const val MAX_REVOKED_FILES = 1024
+    }
+}
+
+data class VpsRevokedBackup(val archiveName: String, val config: String) {
+    override fun toString(): String = "VpsRevokedBackup(redacted)"
+}
 
 data class VpsUninstallResult(
     val uninstalled: Boolean,
@@ -246,14 +266,40 @@ object ProvisioningJson {
         )
     }
 
-    fun parseBackup(stdout: String): VpsBackupResult = parse(stdout) { json ->
-        val revokedCount = json.counter("revokedCount")
-        if (revokedCount > Int.MAX_VALUE) throw JSONException("Counter out of range")
-        VpsBackupResult(
-            interfaceName = json.string("interface"),
-            config = json.string("config"),
-            revokedCount = revokedCount.toInt(),
-        )
+    fun parseBackup(stdout: String): VpsBackupResult {
+        if ('\u0000' in stdout || stdout.toByteArray(Charsets.UTF_8).size > VpsBackupResult.MAX_RESPONSE_BYTES) invalidResponse()
+        return parse(stdout) { json ->
+            if (json.get("snapshotVersion") != VpsBackupResult.SNAPSHOT_VERSION) throw JSONException("Unsupported snapshot version")
+            val capturedAt = json.string("capturedAtUtc")
+            if (!BACKUP_TIMESTAMP.matches(capturedAt)) throw JSONException("Invalid snapshot date")
+            try {
+                if (Instant.parse(capturedAt).toString() != capturedAt) throw JSONException("Invalid snapshot date")
+            } catch (_: DateTimeParseException) {
+                throw JSONException("Invalid snapshot date")
+            }
+            val interfaceName = json.string("interface")
+            if (!BACKUP_INTERFACE.matches(interfaceName)) throw JSONException("Invalid snapshot interface")
+            val config = json.backupText("config", VpsBackupResult.MAX_CONFIG_BYTES)
+            if (config.lineSequence().none { it == "# TUNNL_MANAGED 1" }) throw JSONException("Missing snapshot ownership")
+            val revokedCount = json.counter("revokedCount")
+            val revoked = json.getJSONArray("revoked")
+            if (revokedCount > VpsBackupResult.MAX_REVOKED_FILES || revokedCount != revoked.length().toLong())
+                throw JSONException("Invalid revoked count")
+            val archiveNames = mutableSetOf<String>()
+            VpsBackupResult(
+                interfaceName = interfaceName,
+                config = config,
+                revokedCount = revokedCount.toInt(),
+                snapshotVersion = VpsBackupResult.SNAPSHOT_VERSION,
+                capturedAtUtc = capturedAt,
+                revoked = (0 until revoked.length()).map { index ->
+                    val entry = revoked.getJSONObject(index)
+                    val name = entry.string("archiveName")
+                    if (!BACKUP_ARCHIVE_NAME.matches(name) || !archiveNames.add(name)) throw JSONException("Invalid revoked archive name")
+                    VpsRevokedBackup(name, entry.backupText("config", VpsBackupResult.MAX_REVOKED_BYTES))
+                },
+            )
+        }
     }
 
     fun parseUninstall(stdout: String): VpsUninstallResult = parse(stdout) { json ->
@@ -283,7 +329,10 @@ object ProvisioningJson {
 
     private fun <T> parse(stdout: String, read: (JSONObject) -> T): T {
         val json = try {
-            JSONObject(stdout.trim())
+            val tokener = JSONTokener(stdout.trim())
+            val parsed = tokener.nextValue() as? JSONObject ?: throw JSONException("Expected response object")
+            if (tokener.nextClean() != '\u0000') throw JSONException("Unexpected response content")
+            parsed
         } catch (_: JSONException) {
             invalidResponse("Remote command returned invalid JSON")
         }
@@ -306,7 +355,7 @@ object ProvisioningJson {
             "not_root" -> ProvisioningFailureCategory.PERMISSION_DENIED
             "unmanaged_config", "unmanaged_forwarding", "shared_wireguard_state",
             "unmanaged_runtime", "unsafe_path", "config_exists", "peer_exists",
-            "peer_not_found", "address_pool_full" -> ProvisioningFailureCategory.CONFLICT
+            "peer_not_found", "address_pool_full", "backup_limit" -> ProvisioningFailureCategory.CONFLICT
             "not_installed", "missing_server_metadata" -> ProvisioningFailureCategory.NOT_INSTALLED
             "runtime_unknown" -> ProvisioningFailureCategory.RUNTIME_UNKNOWN
             "missing_tool", "lock_failed", "snapshot_failed", "key_failed", "write_failed",
@@ -338,6 +387,14 @@ object ProvisioningJson {
     private fun JSONObject.string(name: String): String =
         get(name) as? String ?: throw JSONException("Invalid string type")
 
+    private fun JSONObject.backupText(name: String, maximumBytes: Int): String {
+        val value = string(name)
+        val bytes = value.toByteArray(Charsets.UTF_8)
+        if (value.isBlank() || '\u0000' in value || bytes.size > maximumBytes || bytes.toString(Charsets.UTF_8) != value)
+            throw JSONException("Invalid snapshot text")
+        return value
+    }
+
     private fun JSONObject.optionalString(name: String): String =
         if (has(name)) string(name) else ""
 
@@ -362,4 +419,7 @@ object ProvisioningJson {
     }
 
     private const val TAG = "vpn0wn/Provisioning"
+    private val BACKUP_TIMESTAMP = Regex("[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z")
+    private val BACKUP_INTERFACE = Regex("[A-Za-z0-9_.-]{1,15}")
+    private val BACKUP_ARCHIVE_NAME = Regex("[A-Za-z0-9_-]{1,32}\\.conf(\\.[A-Za-z0-9]{6})?")
 }

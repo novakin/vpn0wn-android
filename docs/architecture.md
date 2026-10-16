@@ -1,6 +1,6 @@
 # Architecture and maintenance boundaries
 
-Last updated: 2026-10-15 (Europe/Paris).
+Last updated: 2026-10-16 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -82,6 +82,16 @@ These are required maintenance invariants, not guarantees that all current owner
 See [backend contracts](backend-contracts.md) for known divergences and [the plan](improvement-plan.md) for repair ownership.
 
 ## Consequential decisions
+
+### Capture managed server state before portable recovery — 2026-10-16
+
+**Problem:** the old backup read config without writer admission and returned only a revoked count. It could mix generations and could not preserve revoked records for disaster recovery. Per-mutation recovery directories are not portable backups and currently do not snapshot the entire revoked directory.
+
+**Decision/status:** the first [#196](https://github.com/novakin/vpn0wn-android/issues/196) slice extends the existing backup command/result with a bounded, versioned, lossless-text snapshot of owned config and retained revoked bodies under the same interface lock as writers. Keep existing orchestration and response fields; require the matching packaged parser/scripts. Archive basenames remain metadata, not extraction destinations. Reuse Bash/coreutils/`iconv` and Android's installed JSON/time support; add no archive framework, transport or crypto dependency. [Backend contracts](backend-contracts.md#managed-server-snapshot--196) owns exact schema and limits.
+
+**Alternatives/consequences:** counting revoked files loses the evidence needed to preserve access decisions; taking independent unlocked reads permits mixed generations. A tar/ZIP filesystem extraction layer adds paths and file types this snapshot does not need. Reusing Keystore ciphertext as the portable format prevents recovery without the original device. Portable authenticated encryption/recovery-secret UX and restore validation/mutations are therefore separate unfinished slices, not delivered by this source change. Keep server WireGuard identity separate from destination SSH trust and client private-profile retention.
+
+**Verification/migration impact:** offline shell controls exercise exact text, complete history, writer exclusion, unsafe state, limits and payload-free failure; Android and injected harness controls consume the versioned response. No live restore, file export or packet outcome is established. A later restore must extend existing transactional recovery to include revoked state, preserve captured keys, regenerate supported destination hooks, update endpoint metadata and independently authenticate the destination. No destructive target is authorized by this record.
 
 ### Handshake observations follow native protocol and activation owners — 2026-10-09
 

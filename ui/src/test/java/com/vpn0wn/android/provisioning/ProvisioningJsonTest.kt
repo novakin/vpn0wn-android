@@ -9,6 +9,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.json.JSONArray
 import org.json.JSONObject
 
 class ProvisioningJsonTest {
@@ -178,20 +179,113 @@ class ProvisioningJsonTest {
 
     @Test
     fun parseBackupReadsBackupMetadata() {
-        val result = ProvisioningJson.parseBackup(
-            """
-            {
-              "ok": true,
-              "interface": "wg0",
-              "config": "[Interface]",
-              "revokedCount": "3"
-            }
-            """.trimIndent(),
-        )
+        val result = ProvisioningJson.parseBackup(fixture("backup"))
 
         assertEquals("wg0", result.interfaceName)
-        assertEquals("[Interface]", result.config)
+        assertTrue(result.config.startsWith("# TUNNL_MANAGED 1\n"))
+        assertEquals(1, result.revokedCount)
+        assertEquals(1, result.snapshotVersion)
+        assertEquals("2026-10-16T00:00:00Z", result.capturedAtUtc)
+        assertEquals("tablet.conf.ABC123", result.revoked.single().archiveName)
+        assertTrue(result.revoked.single().config.contains("# BEGIN_PEER tablet"))
+    }
+
+    @Test
+    fun backupPreservesExactTextAndDistinctHistoricalRevocations() {
+        val json = JSONObject(fixture("backup"))
+        val config = json.getString("config") + "# UTF-8: café\u0001\t\r\n\n"
+        val entry = json.getJSONArray("revoked").getJSONObject(0)
+        val archived = entry.getString("config") + "\r\n\n"
+        entry.put("config", archived)
+        json.put("config", config).put("revokedCount", "3").getJSONArray("revoked")
+            .put(JSONObject(entry.toString()).put("archiveName", "tablet.conf"))
+            .put(JSONObject(entry.toString()).put("archiveName", "tablet.conf.DEF456"))
+
+        val result = ProvisioningJson.parseBackup(json.toString())
+        assertEquals(config, result.config)
         assertEquals(3, result.revokedCount)
+        assertTrue(result.revoked.all { it.config == archived })
+        assertEquals(3, result.revoked.map { it.archiveName }.toSet().size)
+        assertEquals("VpsBackupResult(redacted)", result.toString())
+        assertTrue(result.revoked.all { it.toString() == "VpsRevokedBackup(redacted)" })
+    }
+
+    @Test
+    fun backupAcceptsEmptyRevokedSnapshotWithoutInventingEntries() {
+        val json = JSONObject(fixture("backup")).put("revokedCount", "0").put("revoked", JSONArray())
+        val result = ProvisioningJson.parseBackup(json.toString())
+        assertEquals(0, result.revokedCount)
+        assertTrue(result.revoked.isEmpty())
+    }
+
+    @Test
+    fun backupRejectsMissingAndUnsupportedVersions() {
+        val original = JSONObject(fixture("backup"))
+        assertInvalid { ProvisioningJson.parseBackup(JSONObject(original.toString()).apply { remove("snapshotVersion") }.toString()) }
+        for (version in listOf<Any>(0, 2, "1", true, JSONObject.NULL)) {
+            assertInvalid { ProvisioningJson.parseBackup(JSONObject(original.toString()).put("snapshotVersion", version).toString()) }
+        }
+        assertInvalid { ProvisioningJson.parseBackup(fixture("backup").replace("\"snapshotVersion\":1", "\"snapshotVersion\":1.0")) }
+    }
+
+    @Test
+    fun backupRejectsInvalidDatesAndInterfaces() {
+        for (date in listOf("2026-02-30T00:00:00Z", "2026-10-16T24:00:00Z", "2026-10-16T00:00:60Z", "2026-10-16", "2026-10-16T00:00:00+00:00")) {
+            assertInvalid { ProvisioningJson.parseBackup(JSONObject(fixture("backup")).put("capturedAtUtc", date).toString()) }
+        }
+        for (name in listOf("", "../wg0", "wg0\n", "a".repeat(16))) {
+            assertInvalid { ProvisioningJson.parseBackup(JSONObject(fixture("backup")).put("interface", name).toString()) }
+        }
+    }
+
+    @Test
+    fun backupRejectsIncompleteAmbiguousAndUnsafeRevokedArrays() {
+        for (count in listOf("0", "2", "-1", "1025", "9223372036854775808")) {
+            assertInvalid { ProvisioningJson.parseBackup(JSONObject(fixture("backup")).put("revokedCount", count).toString()) }
+        }
+        for (entry in listOf<Any>("synthetic-shape-secret", JSONObject.NULL, JSONObject().put("archiveName", "alice.conf"))) {
+            assertInvalid { ProvisioningJson.parseBackup(JSONObject(fixture("backup")).put("revoked", JSONArray().put(entry)).toString()) }
+        }
+        for (name in listOf("../alice.conf", "/alice.conf", "revoked/alice.conf", ".hidden", "alice.conf.extra-suffix")) {
+            val json = JSONObject(fixture("backup"))
+            json.getJSONArray("revoked").getJSONObject(0).put("archiveName", name)
+            assertInvalid { ProvisioningJson.parseBackup(json.toString()) }
+        }
+        val duplicate = JSONObject(fixture("backup")).put("revokedCount", "2")
+        val entries = duplicate.getJSONArray("revoked")
+        entries.put(JSONObject(entries.getJSONObject(0).toString()))
+        assertInvalid { ProvisioningJson.parseBackup(duplicate.toString()) }
+    }
+
+    @Test
+    fun backupRejectsUnsupportedTextAndOversizedBodies() {
+        val json = JSONObject(fixture("backup"))
+        for (config in listOf("", " ", "[Interface]", "# TUNNL_MANAGED 1\n\u0000", "# TUNNL_MANAGED 1\n\uD800", "# TUNNL_MANAGED 1\n" + "é".repeat(VpsBackupResult.MAX_CONFIG_BYTES / 2))) {
+            assertInvalid { ProvisioningJson.parseBackup(JSONObject(json.toString()).put("config", config).toString()) }
+        }
+        for (config in listOf("", "\u0000", "\uD800", "é".repeat(VpsBackupResult.MAX_REVOKED_BYTES / 2 + 1))) {
+            val malformed = JSONObject(json.toString())
+            malformed.getJSONArray("revoked").getJSONObject(0).put("config", config)
+            assertInvalid { ProvisioningJson.parseBackup(malformed.toString()) }
+        }
+        assertInvalid { ProvisioningJson.parseBackup(" ".repeat(VpsBackupResult.MAX_RESPONSE_BYTES + 1)) }
+        assertInvalid { ProvisioningJson.parseBackup(json.toString() + " synthetic-shape-secret") }
+        assertInvalid { ProvisioningJson.parseBackup(json.toString() + '\u0000') }
+    }
+
+    @Test
+    fun backupAcceptsExactBodyBoundsAndRejectsExcessiveEntryCounts() {
+        val json = JSONObject(fixture("backup"))
+        val marker = "# TUNNL_MANAGED 1\n"
+        json.put("config", marker + "x".repeat(VpsBackupResult.MAX_CONFIG_BYTES - marker.length))
+        json.getJSONArray("revoked").getJSONObject(0).put("config", "x".repeat(VpsBackupResult.MAX_REVOKED_BYTES))
+        assertEquals(VpsBackupResult.MAX_CONFIG_BYTES, ProvisioningJson.parseBackup(json.toString()).config.length)
+        val entries = JSONArray()
+        repeat(VpsBackupResult.MAX_REVOKED_FILES + 1) { index ->
+            entries.put(JSONObject().put("archiveName", "peer$index.conf").put("config", "[Peer]"))
+        }
+        val oversized = JSONObject(fixture("backup")).put("revokedCount", entries.length().toString()).put("revoked", entries)
+        assertInvalid { ProvisioningJson.parseBackup(oversized.toString()) }
     }
 
     @Test

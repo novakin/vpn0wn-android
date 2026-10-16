@@ -1,6 +1,6 @@
 # vpn0wn QA Test Plan
 
-Last updated: 2026-10-15 (Europe/Paris).
+Last updated: 2026-10-16 (Europe/Paris).
 
 This document tracks the automated and manual QA coverage required for the vpn0wn Android redesign.
 
@@ -529,6 +529,12 @@ This roadmap covers the whole app, not only the VPS fleet. Do not move items fro
 - Never run VM integration tests as part of default unit tests or default local builds.
 - Repaired mutations reject unmanaged config. C9 requires a clean target, checks postconditions and limits failure cleanup to the owned upload; authorized real-server evidence remains separate.
 - Use key-only SSH. Do not put passwords or private keys in the repo; optional local settings belong in ignored `.tunnl-vps-test.env`.
+
+## Managed server snapshot controls — #196
+
+The [snapshot contract](backend-contracts.md#managed-server-snapshot--196) adds offline coverage in `scripts/tests/provisioning_safety_test.sh`: exact UTF-8/trailing newline/CR/control preservation; absent/empty and multiple same-name historic revoked records; owned-state checks; symlink/nonregular/nested/hidden/unsupported entries, including a newline-bearing filename; NUL/invalid UTF-8; file/count/encoded-response limits; and a late read failure producing no partial secret-bearing result. Injected enumeration failures with zero or partial NUL-delimited entries must fail rather than fabricate empty/truncated history, without exposing diagnostics or bodies. A controlled held-lock admission changes config and revocations before release, then verifies a single matching generation. Independent nonblocking lock probes at both config and revoked reads prove the backup retains writer exclusion. These tests use the existing isolated mapped-root fixture and injected tools, never host root or networking.
+
+`ProvisioningJsonTest` consumes the actual normalized script response and covers version/date/interface/marker checks, required nested types, count agreement, duplicate/unsafe archive names, distinct historical archives, byte bounds, malformed text, trailing content and redacted result diagnostics. `VpsProvisioningRequestTest` preserves no-argument backup command construction and verifies the returned snapshot through the existing client. C9's injected tests reject wrong version/date/revoked-body observations; actual destructive execution still requires its separate authorized target. Unit/source proof does not establish encrypted export, restore/rollback, destination cutover, restored handshakes/traffic, Android UI/authentication or #196 completion.
 
 ## Disposable VPS Integration Use Case
 

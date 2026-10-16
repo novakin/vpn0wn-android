@@ -1,6 +1,6 @@
 # Backend and provisioning contracts
 
-Last updated: 2026-10-15 (Europe/Paris).
+Last updated: 2026-10-16 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -257,12 +257,20 @@ Current server assumptions: Ubuntu/Debian, default `wg0`, IPv4 `/24` allocation,
 | `add-peer.sh` | App sends required `--name` and `--allowed-ips`, plus optional `--dns`. | Name/address/public key and full generated client config. | Serialized disk/apply/recovery checks exist; stopped interfaces receive disk-only changes. The profile contains a private key. |
 | `remove-peer.sh` | `--name`. | Name, `removed:true`, `revoked:false`. | Effective running-peer removal and recovery are checked; stopped-interface changes remain disk-only. |
 | `revoke-peer.sh` | `--name`. | Name, `removed:true`, `revoked:true` and archive path. | A unique secret-bearing archive follows checked removal. |
-| `backup.sh` | No app arguments. | Interface, full server config and revoked count. | Count covers legacy `.conf` and unique `.conf.*` archives. Result is secret-bearing; never log it. |
+| `backup.sh` | No app arguments. | Versioned coherent server config, capture date and full retained revoked records; existing interface/config/count fields remain. | Requires owned regular state and holds the interface lock through snapshot acquisition. Result is secret-bearing; never log it. |
 | `uninstall.sh` | Required `--confirm`, optional `--purge-packages`. | Uninstalled/backup/packagesPurged. | Ownership, service/config absence and requested package absence checked. Partial package effects may prevent restoration. |
 
 Do not use invented success fixtures to hide producer/consumer drift. Add fixtures from actual script responses and explicit assertions for intentional compatibility changes. Preserve unrelated server state and global forwarding; validate ownership and inputs before privileged writes.
 
 Plan runs without root. `willOverwriteConfig` observes a visible regular file; restricted path access can hide an existing config. It is not overwrite approval or an exact install feasibility result. The force flag only changes install's replacement permission after ownership checks.
+
+### Managed server snapshot — #196
+
+`backup.sh` returns the existing string `interface`, string `config` and decimal-string `revokedCount`, with integer `snapshotVersion:1`, second-resolution UTC `capturedAtUtc` (`YYYY-MM-DDTHH:MM:SSZ`) and required `revoked` array. Each revoked entry has string `archiveName` and string `config`; count and array length must agree. Names are opaque basenames matching `[A-Za-z0-9_-]{1,32}\.conf(\.[A-Za-z0-9]{6})?`. Both legacy names and current unique six-character suffixes are supported. Multiple archives for the same peer name remain separate; duplicate archive names are invalid. Empty revocation history is an empty array/count zero, never an omitted field. Android requires version 1 and the packaged matching scripts; older unversioned responses are intentionally rejected.
+
+The existing interface `flock` covers ownership revalidation, config and complete revoked-directory reads. Directory enumeration checks command/pipeline success and consumes NUL-delimited exact names before publishing any result; failed or partial enumeration is never reported as empty history. Symlinks, nonregular files, nested/hidden/unrecognized entries, failed reads, invalid UTF-8 and NUL bytes fail without partial success output. Valid text retains trailing newlines, CR, tabs and other non-NUL controls through JSON escaping. The primary config must retain the exact managed-marker line. Limits are 262,144 bytes per primary config, 16,384 bytes per revoked body, 1,024 revoked files and 786,432 bytes for the complete UTF-8 JSON response, including its final newline. The final encoded limit includes escaping and metadata, below SSH's 1,048,576-byte stdout ceiling. Excess state fails with `backup_limit`; it is never silently truncated or omitted. The Android parser independently checks bounded shape/text, version/date/interface/name/count consistency and rejects trailing response content. Snapshot/revoked model diagnostic strings redact their contents.
+
+The result captures saved server identity, endpoint/port/subnet/DNS metadata, active peer blocks and retained revoked blocks. It does not read SSH credentials, host pins, app settings or client private profiles. Archived hooks remain data and are never executed by backup. External writers bypassing the existing lock remain outside coherence guarantees. This source slice creates no portable encrypted file, restore command, destination mutation or backup UI; [#196](https://github.com/novakin/vpn0wn-android/issues/196) retains those gates. Raw managed server grammar is not an Android client profile. A later restore must validate supported fields, preserve keys/revocation and regenerate destination rules; neither `Config.parse` nor replaying raw hooks establishes safe restoration.
 
 ## Result, error and cancellation meaning
 
@@ -270,7 +278,7 @@ Plan runs without root. `willOverwriteConfig` observes a visible regular file; r
 
 `RootShell.run()` preserves returned stdout, marker framing and exit status without logging commands or stream payloads. Root startup diagnostics also omit raw UID/error output. Provisioning command failures log only their exit code/category. `ProvisioningJson` guards the full response, including nested arrays and peer rows; shape/parser failures carry no output or parser cause. Cleanup warnings omit exception payloads and preserve the completed result. [C1 evidence](development.md#c1-secret-safe-logging--2026-10-06) retains its historical scope; [C4 evidence](development.md#c4-provisioning-contracts-and-observed-health--2026-10-06) covers strict schemas and remote errors. C9 now applies payload-free failures to the disposable harness; future transport diagnostics still need handling at their owner.
 
-JSON requires an actual `ok` Boolean. Consumed success strings, Booleans, arrays and nested objects are required and strictly typed, except optional `cleanupPath` and remove-only `archive` strings. Revoked success requires a nonblank archive string. Plan requires `supported:true`; peer mutation requires `removed:true`; uninstall requires `uninstalled:true`. Unknown extra fields are ignored. Numeric counters are decimal strings bounded by signed Long; `revokedCount` is bounded by signed Int. Running and peer handshake/RX/TX fields require Boolean/decimal-string or explicit null as appropriate. Null means unavailable observation, zero means an observed zero; missing fields and invalid/negative/overflow values are invalid responses.
+JSON requires one complete object and an actual `ok` Boolean; trailing content is invalid. Consumed success strings, Booleans, arrays and nested objects are required and strictly typed, except optional `cleanupPath` and remove-only `archive` strings. Revoked success requires a nonblank archive string. Plan requires `supported:true`; peer mutation requires `removed:true`; uninstall requires `uninstalled:true`. Unknown extra fields are ignored. Numeric counters are decimal strings bounded by signed Long; snapshot `revokedCount` also follows its smaller count/array limit above. Running and peer handshake/RX/TX fields require Boolean/decimal-string or explicit null as appropriate. Null means unavailable observation, zero means an observed zero; missing fields and invalid/negative/overflow values are invalid responses.
 
 Legacy string-only mutation results are intentionally rejected. The app uploads its packaged bundle per operation; pair the parser and scripts from the same reviewed revision.
 

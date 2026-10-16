@@ -20,9 +20,11 @@ Optional:
 
 from __future__ import annotations
 
+import datetime
 import json
 import os
 import pathlib
+import re
 import shlex
 import subprocess
 import sys
@@ -216,6 +218,19 @@ def install_cycle(label: str, final: bool = False) -> None:
     require_postcondition(f"{label}-backup-interface", backup.get("interface") == "wg0")
     require_postcondition(f"{label}-backup-config", isinstance(backup.get("config"), str) and bool(backup["config"]))
     require_postcondition(f"{label}-backup-revoked-count", backup.get("revokedCount") == "1")
+    require_postcondition(f"{label}-backup-version", type(backup.get("snapshotVersion")) is int and backup["snapshotVersion"] == 1)
+    captured_at = backup.get("capturedAtUtc")
+    try:
+        valid_date = isinstance(captured_at, str) and datetime.datetime.strptime(captured_at, "%Y-%m-%dT%H:%M:%SZ").strftime("%Y-%m-%dT%H:%M:%SZ") == captured_at
+    except ValueError:
+        valid_date = False
+    require_postcondition(f"{label}-backup-date", valid_date)
+    revoked = backup.get("revoked")
+    require_postcondition(f"{label}-backup-revoked", isinstance(revoked, list) and len(revoked) == 1 and isinstance(revoked[0], dict))
+    archive_name = revoked[0].get("archiveName")
+    require_postcondition(f"{label}-backup-revoked-name", isinstance(archive_name, str) and re.fullmatch(r"android-test-1\.conf\.[A-Za-z0-9]{6}", archive_name) is not None)
+    archived_config = revoked[0].get("config")
+    require_postcondition(f"{label}-backup-revoked-config", isinstance(archived_config, str) and f"PublicKey = {peer1['publicKey']}" in archived_config.splitlines())
     log(f"{label}-backup")
 
 

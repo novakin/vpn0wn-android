@@ -716,7 +716,11 @@ test_fixture_legacy_file_commands() {
 
 check_contract_fixture() {
   local name=$1 expected="$REPO_DIR/ui/src/test/resources/provisioning/$1.json"
-  sed -E "s|$TEST_ROOT|/fixture|g; s/\\.conf\\.[A-Za-z0-9]{6}/.conf.synthetic/g" "$TEST_ROOT/response" > "$TEST_ROOT/normalized"
+  if [[ "$name" == backup ]]; then
+    sed -E 's/\.conf\.[A-Za-z0-9]{6}/.conf.ABC123/g; s/"capturedAtUtc":"[^"]+"/"capturedAtUtc":"2026-10-16T00:00:00Z"/' "$TEST_ROOT/response" > "$TEST_ROOT/normalized"
+  else
+    sed -E "s|$TEST_ROOT|/fixture|g; s/\\.conf\\.[A-Za-z0-9]{6}/.conf.synthetic/g" "$TEST_ROOT/response" > "$TEST_ROOT/normalized"
+  fi
   if [[ ${TUNNL_UPDATE_CONTRACT_FIXTURES:-0} == 1 ]]; then
     mkdir -p "$(dirname "$expected")"
     /bin/cp "$TEST_ROOT/normalized" "$expected"
@@ -845,6 +849,215 @@ test_c4_stopped_observation() {
   assert_no_mutations
 }
 
+test_backup_complete_snapshot() {
+  owned_config
+  mkdir -p "$TUNNL_DIR/revoked"
+  printf '# quoted "comment" \\ path\t\r\n# UTF-8: café\n\n' >> "$WG_CONF"
+  for name in alice.conf alice.conf.AAAAAA alice.conf.BBBBBB; do
+    printf '# BEGIN_PEER alice\n[Peer]\nPresharedKey = synthetic-private-psk\n# END_PEER alice\n\n' > "$TUNNL_DIR/revoked/$name"
+  done
+  run_script backup
+  assert_success
+  python3 - "$WG_CONF" "$TUNNL_DIR/revoked" "$TEST_ROOT/response" <<'PY'
+import datetime
+import json
+import pathlib
+import sys
+config, revoked, response = map(pathlib.Path, sys.argv[1:])
+snapshot = json.loads(response.read_text())
+assert snapshot['snapshotVersion'] == 1
+datetime.datetime.strptime(snapshot['capturedAtUtc'], '%Y-%m-%dT%H:%M:%SZ')
+assert snapshot['interface'] == 'wg0'
+assert snapshot['config'].encode() == config.read_bytes()
+assert snapshot['revokedCount'] == '3'
+assert {entry['archiveName']: entry['config'].encode() for entry in snapshot['revoked']} == {
+    file.name: file.read_bytes() for file in revoked.iterdir()
+}
+PY
+  assert_no_mutations
+}
+
+test_backup_json_controls() {
+  owned_config
+  for ((code=1; code<32; code++)); do
+    printf '%b' "\\$(printf '%03o' "$code")" >> "$WG_CONF"
+  done
+  run_script backup
+  assert_success
+  python3 - "$WG_CONF" "$TEST_ROOT/response" <<'PY'
+import json
+import pathlib
+import sys
+assert json.loads(pathlib.Path(sys.argv[2]).read_text())['config'].encode() == pathlib.Path(sys.argv[1]).read_bytes()
+PY
+  assert_no_mutations
+}
+
+test_backup_empty_revoked() {
+  owned_config
+  for state in absent directory; do
+    [[ "$state" != directory ]] || mkdir -p "$TUNNL_DIR/revoked"
+    run_script backup
+    assert_success
+    [[ "$RESPONSE" == *'"revokedCount":"0"'* && "$RESPONSE" == *'"revoked":[]'* ]]
+  done
+  assert_no_mutations
+}
+
+test_backup_ownership() {
+  printf '[Interface]\nPrivateKey = synthetic-secret\n' > "$WG_CONF"
+  run_script backup
+  assert_failure unmanaged_config
+  /bin/mv "$WG_CONF" "$TEST_ROOT/external.conf"
+  ln -s "$TEST_ROOT/external.conf" "$WG_CONF"
+  run_script backup
+  assert_failure unmanaged_config
+  assert_no_mutations
+}
+
+test_backup_rejects_unsafe_revoked_entries() {
+  owned_config
+  mkdir -p "$TUNNL_DIR/revoked"
+  for kind in symlink directory fifo hidden unsupported newline; do
+    case "$kind" in
+      symlink) ln -s "$WG_CONF" "$TUNNL_DIR/revoked/alice.conf" ;;
+      directory) mkdir "$TUNNL_DIR/revoked/alice.conf" ;;
+      fifo) mkfifo "$TUNNL_DIR/revoked/alice.conf" ;;
+      hidden) printf x > "$TUNNL_DIR/revoked/.hidden" ;;
+      unsupported) printf x > "$TUNNL_DIR/revoked/alice.conf.longer-suffix" ;;
+      newline) printf x > "$TUNNL_DIR/revoked/"$'alice.conf\nbob.conf' ;;
+    esac
+    run_script backup
+    if [[ "$kind" == hidden || "$kind" == unsupported || "$kind" == newline ]]; then assert_failure invalid_config; else assert_failure unsafe_path; fi
+    /bin/rm -rf -- "$TUNNL_DIR/revoked"
+    mkdir "$TUNNL_DIR/revoked"
+  done
+  /bin/rm -rf -- "$TUNNL_DIR/revoked"
+  ln -s "$TEST_ROOT" "$TUNNL_DIR/revoked"
+  run_script backup
+  assert_failure unsafe_path
+  assert_no_mutations
+}
+
+test_backup_rejects_binary_and_invalid_utf8() {
+  owned_config
+  printf '\000synthetic-secret' >> "$WG_CONF"
+  run_script backup
+  assert_failure invalid_config
+  owned_config
+  printf '\377' >> "$WG_CONF"
+  run_script backup
+  assert_failure invalid_config
+  assert_no_mutations
+}
+
+test_backup_limits() {
+  owned_config
+  head -c 262145 /dev/zero | tr '\000' x >> "$WG_CONF"
+  run_script backup
+  assert_failure backup_limit
+  owned_config
+  mkdir -p "$TUNNL_DIR/revoked"
+  head -c 16385 /dev/zero | tr '\000' x > "$TUNNL_DIR/revoked/alice.conf"
+  run_script backup
+  assert_failure backup_limit
+  for ((number=0; number<1025; number++)); do printf x > "$TUNNL_DIR/revoked/peer$number.conf"; done
+  run_script backup
+  assert_failure backup_limit
+  assert_no_mutations
+}
+
+test_backup_encoded_response_limit() {
+  owned_config
+  mkdir -p "$TUNNL_DIR/revoked"
+  for ((number=0; number<8; number++)); do
+    head -c 16384 /dev/zero | tr '\000' '\001' > "$TUNNL_DIR/revoked/peer$number.conf"
+  done
+  run_script backup
+  assert_failure backup_limit
+  [[ "$RESPONSE" != *'"ok":true'* && ${#RESPONSE} -lt 1024 ]]
+  assert_no_mutations
+}
+
+test_backup_late_read_failure_emits_no_partial_snapshot() {
+  owned_config
+  mkdir -p "$TUNNL_DIR/revoked"
+  printf synthetic-private-psk > "$TUNNL_DIR/revoked/alice.conf"
+  cat > "$TEST_ROOT/bin/cat" <<'SH'
+#!/usr/bin/env bash
+if [[ "${*: -1}" == */revoked/* ]]; then printf synthetic-secret-read-error >&2; exit 1; fi
+exec /bin/cat "$@"
+SH
+  chmod 700 "$TEST_ROOT/bin/cat"
+  run_script backup
+  assert_failure backup_failed
+  [[ "$RESPONSE" != *'"ok":true'* && "$RESPONSE" != *synthetic-private-psk* ]]
+  ! grep -q synthetic-secret-read-error "$TEST_ROOT/stderr"
+  assert_no_mutations
+}
+
+test_backup_failed_revoked_enumeration() {
+  owned_config
+  mkdir -p "$TUNNL_DIR/revoked"
+  printf synthetic-private-psk > "$TUNNL_DIR/revoked/alice.conf"
+  cat > "$TEST_ROOT/bin/find" <<'SH'
+#!/usr/bin/env bash
+[[ ! -f "$TEST_STATE/partial-enumeration" ]] || printf '%s\0' "$TUNNL_DIR/revoked/alice.conf"
+printf synthetic-secret-enumeration-error >&2
+exit 1
+SH
+  chmod 700 "$TEST_ROOT/bin/find"
+  for state in empty partial; do
+    [[ "$state" != partial ]] || touch "$TEST_STATE/partial-enumeration"
+    run_script backup
+    assert_failure backup_failed
+    [[ "$RESPONSE" != *'"ok":true'* && "$RESPONSE" != *synthetic-private-psk* ]]
+    ! grep -q synthetic-secret-enumeration-error "$TEST_ROOT/stderr"
+  done
+  assert_no_mutations
+}
+
+test_backup_waits_and_holds_interface_lock() {
+  owned_config
+  mkfifo "$TEST_ROOT/backup-lock-entered"
+  cat > "$TEST_ROOT/bin/flock" <<'SH'
+#!/usr/bin/env bash
+printf entered > "$TEST_ROOT/backup-lock-entered"
+exec /usr/bin/flock "$@"
+SH
+  cat > "$TEST_ROOT/bin/cat" <<'SH'
+#!/usr/bin/env bash
+if [[ "${*: -1}" == "$WG_CONF" || "${*: -1}" == "$TUNNL_DIR"/revoked/* ]]; then
+  if /usr/bin/flock -n "$WG_LOCK_FILE" true; then exit 1; fi
+fi
+exec /bin/cat "$@"
+SH
+  chmod 700 "$TEST_ROOT/bin/flock" "$TEST_ROOT/bin/cat"
+  export TEST_ROOT
+  exec {held_lock}>"$WG_LOCK_FILE"
+  /usr/bin/flock "$held_lock"
+  bash "$SCRIPTS/backup.sh" > "$TEST_ROOT/response" 2> "$TEST_ROOT/stderr" &
+  backup_pid=$!
+  timeout 5 /bin/cat "$TEST_ROOT/backup-lock-entered" >/dev/null
+  [[ ! -s "$TEST_ROOT/response" ]]
+  mkdir -p "$TUNNL_DIR/revoked"
+  printf '# archived old peer\n' > "$TUNNL_DIR/revoked/existing.conf"
+  sed -i '/# BEGIN_PEER existing/,/# END_PEER existing/d' "$WG_CONF"
+  /usr/bin/flock -u "$held_lock"
+  exec {held_lock}>&-
+  wait "$backup_pid"
+  python3 - "$WG_CONF" "$TEST_ROOT/response" <<'PY'
+import json
+import pathlib
+import sys
+snapshot = json.loads(pathlib.Path(sys.argv[2]).read_text())
+assert snapshot['config'].encode() == pathlib.Path(sys.argv[1]).read_bytes()
+assert '# BEGIN_PEER existing' not in snapshot['config']
+assert snapshot['revoked'] == [{'archiveName': 'existing.conf', 'config': '# archived old peer\n'}]
+PY
+  assert_no_mutations
+}
+
 if [[ ${1-} == --case ]]; then
   setup
   "$2"
@@ -852,6 +1065,10 @@ if [[ ${1-} == --case ]]; then
 fi
 
 tests=(
+  test_backup_complete_snapshot test_backup_json_controls test_backup_empty_revoked
+  test_backup_ownership test_backup_rejects_unsafe_revoked_entries test_backup_rejects_binary_and_invalid_utf8
+  test_backup_limits test_backup_encoded_response_limit test_backup_late_read_failure_emits_no_partial_snapshot
+  test_backup_failed_revoked_enumeration test_backup_waits_and_holds_interface_lock
   test_c4_force_plan test_c4_remove_schema test_c4_revoke_schema
   test_c4_unknown_observation test_c4_stopped_observation
   test_c4_response_fixtures test_c4_native_observation test_c4_missing_counters test_c4_invalid_counters

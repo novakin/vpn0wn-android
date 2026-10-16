@@ -1,6 +1,6 @@
 # vpn0wn WireGuard provisioning scripts
 
-Last updated: 2026-10-11 (Europe/Paris).
+Last updated: 2026-10-16 (Europe/Paris).
 
 These vpn0wn-owned Bash commands adapt the [pinned upstream reference](../UPSTREAM.md) into a non-interactive server surface. Android uses these scripts rather than the upstream interactive installer. Concrete Android SSH transport and live UI actions remain unfinished.
 
@@ -23,14 +23,14 @@ Plan/install require a single hostname/IPv4 token or bracketed IPv6 endpoint and
 | `remove-peer.sh` | Removes one ordered, unambiguous block and checks disk/live peer removal. Absent names fail. Success emits `name`, `removed:true` and `revoked:false`. |
 | `revoke-peer.sh` | Shares removal under the same lock, then publishes a unique private archive. Success emits `name`, `removed:true`, `revoked:true` and `archive`. Archive includes the PSK and server peer metadata, not the full client profile. |
 | `sync-status.sh` | Returns saved peer metadata and observed runtime handshake/transfer counters. Shared `observe_runtime` checks native interface presence: true/false/null for running/stopped/unobservable. Missing/failed dump, missing rows and invalid/out-of-range counters produce null, not zero. Interface presence is independent of systemd activity and does not prove connectivity. |
-| `backup.sh` | Emits JSON containing full server config and revoked count. It does not write an archive or safe backup file; protect the secret-bearing result. |
+| `backup.sh` | Returns snapshot version 1 with exact server config, UTC capture date and every supported retained revoked body under the interface lock. Existing interface/config/count fields remain; ownership, safe regular files, valid text and bounded encoded output are required. No encrypted file or restore command exists yet. Protect the secret-bearing result; [snapshot schema](../../../docs/backend-contracts.md#managed-server-snapshot--196) owns fields and limits. |
 | `uninstall.sh` | Requires `--confirm` and ownership, writes a unique private backup before stop/disable/delete, and verifies absence. Optional purge refuses other config/live interfaces and checks named package absence. No autoremove runs. Global forwarding stays unchanged; its managed file stays when another interface/config exists. |
 
 ## Ownership, locking and recovery
 
 Mutations require a regular non-symlink config containing the exact existing `# TUNNL_MANAGED 1` marker. Missing config fails peer/uninstall commands. Forwarding replacement/removal accepts only the exact legacy `net.ipv4.ip_forward=1` file or its marked equivalent. Config/forwarding checks run before lock/filesystem/service/package effects and are repeated under lock. Fresh install also observes interfaces under lock before state writes/packages and rejects a collision without owned config, even when `wg` is absent. The marker is an ownership convention, not authentication against another root process.
 
-All writers take a stable per-interface `flock` at `/run/lock/tunnl-wireguard-$WG_IFACE.lock`. Install/uninstall first take `/run/lock/tunnl-wireguard-host.lock` for shared packages/forwarding, then the interface lock. Locks are never deleted by uninstall. Readers such as sync/backup do not lock; readback can race a writer. External tools that bypass these locks remain outside serialization.
+All writers take a stable per-interface `flock` at `/run/lock/tunnl-wireguard-$WG_IFACE.lock`. Install/uninstall first take `/run/lock/tunnl-wireguard-host.lock` for shared packages/forwarding, then the interface lock. Locks are never deleted by uninstall. Backup uses the same interface lock through config and revoked-history acquisition; sync remains unlocked and can race a writer. External tools that bypass these locks remain outside serialization.
 
 Private recovery directories live on the config filesystem with mode 0700; configs, runtime snapshots, backups and revoke archives use 0600. Candidates pass checked `wg-quick strip` before atomic rename. A running peer mutation uses `wg syncconf`, falls back to restart on command failure, then checks server key/port and exact peer keys/routes/PSKs. A stopped interface receives persistent config only and must remain absent; this is not live revocation proof. Strip extracts wg-quick fields; it is not a complete native validator for a stopped interface.
 
@@ -42,7 +42,7 @@ After operation postconditions and archive publication commit, cleanup does not 
 
 ## Output and safety boundaries
 
-Normal responses and explicit failures use JSON on stdout. Mutating-command diagnostics omit raw package/tool output. Value-taking options in plan/install/peer commands reject missing values. Detect/sync/backup and pre-transaction shell failures are not a uniformly guarded error protocol; shared JSON escaping also does not cover every control character. Commands are non-interactive but not uniformly idempotent: duplicate add, absent remove and existing install can fail.
+Normal responses and explicit failures use JSON on stdout. Mutating-command diagnostics omit raw package/tool output. Value-taking options in plan/install/peer commands reject missing values. Backup checks root, ownership, `iconv`, complete NUL-delimited directory enumeration, reads and bounds before publishing one complete result; NUL in file contents is unsupported because Bash cannot retain it. Enumeration failure cannot become empty revocation history. Shared JSON escaping now preserves other control characters, including CR. Detect/sync and pre-transaction shell failures are not a uniformly guarded error protocol. Commands are non-interactive but not uniformly idempotent: duplicate add, absent remove and existing install can fail.
 
 Never log or publish generated configs, backup payloads, private keys or PSKs. Shell-quoted arguments do not validate WireGuard config content. No script manages SSH configuration or intentionally edits SSH port rules; this is not a guarantee about all host firewall/package effects.
 

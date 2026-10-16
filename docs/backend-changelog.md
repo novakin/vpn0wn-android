@@ -1,6 +1,6 @@
 # Backend & Functional Changelog
 
-Last updated: 2026-10-15 (Europe/Paris).
+Last updated: 2026-10-16 (Europe/Paris).
 
 Tracks non-UI changes: backend logic, data layer, permissions, networking, build config, and any functional behavior changes. Separate from `ui-redesign-roadmap.md` which covers visual/layout work only.
 
@@ -58,6 +58,8 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 - [x] Add opt-in destructive end-to-end test path against a disposable Ubuntu/Debian VPS.
 
 ## Done
+
+- **Coherent managed server snapshot source — #196 (2026-10-16, Europe/Paris):** `backup.sh` now reuses interface admission and owned regular-state checks to capture exact primary config plus all supported retained revoked files in one bounded version-1 JSON response. `common.sh:json_escape` preserves CR and non-NUL control characters; backup rejects binary/invalid UTF-8, unsafe entries and oversize output before success. Checked NUL-delimited enumeration rejects empty/partial directory-read failures before publishing a snapshot. `ProvisioningJson.parseBackup` validates version/date/text/names/counts/limits, result diagnostics redact contents and the existing command/client signature remains. Eleven new offline controls pass with the existing 69 safety cases; matching script fixture and Android parser/request controls are updated. The disposable harness checks version/date and the revoked key body through injected offline responses. Android unit/static acceptance belongs to the current PR; no restore, encryption, UI, APK/device or real-server proof is included. [The snapshot contract](backend-contracts.md#managed-server-snapshot--196) owns limits; #196 remains open.
 
 - **Native saved-credential storage proof — #143 (2026-10-15, Europe/Paris):** The same isolated debug acceptance APK passes seven named Android Keystore/store/filesystem controls on fresh owned API-24 and API-28 Google APIs x86_64 guests. The [acceptance record](reviews/2026-10-15-native-ssh-credential-storage-acceptance.md) binds source/artifact/runner/results, preserves the earlier runner-launch failure and records uninstall/guest termination. This adds no product behavior or SSH/UI/backup/crash/physical acceptance; #143 remains open.
 

@@ -10,11 +10,19 @@ WG_HOST_LOCK_FILE="${WG_HOST_LOCK_FILE:-/run/lock/tunnl-wireguard-host.lock}"
 FORWARD_CONF="${FORWARD_CONF:-/etc/sysctl.d/99-tunnl-wireguard-forward.conf}"
 
 json_escape() {
-  local s=${1-}
+  local s=${1-} controls control escaped index
+  controls=$'\001\002\003\004\005\006\007\010\011\012\013\014\015\016\017\020\021\022\023\024\025\026\027\030\031\032\033\034\035\036\037'
   s=${s//\\/\\\\}
   s=${s//\"/\\\"}
   s=${s//$'\n'/\\n}
-  s=${s//$'\r'/}
+  s=${s//$'\r'/\\r}
+  s=${s//$'\t'/\\t}
+  for ((index=0; index<${#controls}; index++)); do
+    control=${controls:index:1}
+    [[ "$s" == *"$control"* ]] || continue
+    printf -v escaped '\\u%04x' "'$control"
+    s=${s//"$control"/"$escaped"}
+  done
   printf '%s' "$s"
 }
 

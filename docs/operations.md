@@ -1,6 +1,6 @@
 # Operations and recovery
 
-Last updated: 2026-10-15 (Europe/Paris).
+Last updated: 2026-10-16 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -152,6 +152,12 @@ The app-facing server scripts exist under `third_party/wireguard-install/vpn0wn/
 The C2–C3 source repair rejects unmanaged state/config injection and adds serialized writes, checked runtime results and recovery. C4 aligns Android/script responses and safe errors, and persists observed health. [C2–C3 evidence](development.md#c2c3-offline-provisioning-safety--2026-10-06), [C4 evidence](development.md#c4-provisioning-contracts-and-observed-health--2026-10-06) and synthetic SSH transport controls establish no real-server reliability. Live UI integration and authorized disposable-server acceptance remain unfinished. Installing or deleting server state is outside an ordinary source/docs task.
 
 Fleet ONLINE now requires a recent observed running interface; a fresh stopped observation is OFFLINE, and unknown/stale/future observations need ATTENTION. Legacy records retain their connection metadata with unknown health until status is observed. Recent sync and running are separate checks. These labels do not prove handshake, NAT, routing or connectivity; [backend contracts](backend-contracts.md#persistence-and-presentation) owns exact age thresholds.
+
+## Managed server backup status
+
+The [version-1 server snapshot](backend-contracts.md#managed-server-snapshot--196) captures an owned saved server config and complete supported revoked history together under the existing interface lock. It preserves server/peer keys and configuration text, with bounded secret-bearing JSON and fixed failures. It is not the Settings app-data transfer ZIP and does not include SSH credentials, host trust, personal app settings or missing client private profiles. No encrypted backup file, restore button or server deployment from backup is implemented in this slice; [#196](https://github.com/novakin/vpn0wn-android/issues/196) remains open. Do not save or share raw command output as a public attachment.
+
+Future restore needs independent destination SSH authentication and host verification. A changed public endpoint or UDP port needs an explicit client endpoint update and updated server metadata for later user creation; stable hostnames still require external DNS/cutover and fresh reconnection checks. Older snapshots cannot reveal later revocations. Source and replacement must not silently become independent writable authorities. Restoring server peer records cannot reconstruct client private keys that were never retained. These remain acceptance requirements, not delivered recovery behavior or authorization to mutate a VPS.
 
 ## Provisioning mutation recovery
 
