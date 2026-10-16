@@ -14,6 +14,7 @@ import android.widget.ImageButton
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.graphics.ColorUtils
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.ViewModel
@@ -167,6 +168,8 @@ class VpsProvisioningLayoutTest {
                     measure(root, width, height)
                     assertEquals("Requested layout direction", requestedDirection, root.layoutDirection)
                     val add = text(root, activity.getString(R.string.vpn0wn_add_server).removePrefix("+ ").trim())
+                    assertTrue("Enabled Add label has readable contrast", ColorUtils.calculateContrast(
+                        add.currentTextColor, activity.getColor(R.color.vpn0wn_paper)) >= 4.5)
                     assertEquals("Localized fleet icon names", setOf(activity.getString(R.string.vpn0wn_navigate_back),
                         activity.getString(R.string.vpn0wn_logs_title), activity.getString(R.string.settings)),
                         descendants(root).filterIsInstance<ImageButton>().map { it.contentDescription.toString() }.toSet())

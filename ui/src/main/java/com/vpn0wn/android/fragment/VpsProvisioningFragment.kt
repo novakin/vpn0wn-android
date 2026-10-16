@@ -995,10 +995,10 @@ class VpsProvisioningFragment : BaseFragment() {
             if (icon != null) {
                 addView(ImageView(requireContext()).apply {
                     setImageDrawable(AppCompatResources.getDrawable(requireContext(), icon))
-                    setColorFilter(color(stroke))
+                    setColorFilter(color(R.color.vpn0wn_ink_3))
                 }, LinearLayout.LayoutParams(dp(14), dp(14)).apply { marginEnd = dp(8) })
             }
-            addView(mono(text.removePrefix("+ ").trim(), 11, stroke).apply {
+            addView(mono(text.removePrefix("+ ").trim(), 11, R.color.vpn0wn_ink_3).apply {
                 letterSpacing = 0.08f
                 gravity = Gravity.CENTER
             })
