@@ -334,6 +334,65 @@ class VpsProvisioningWorkflowTest {
         } finally { fixture.close() }
     }
 
+    @Test fun manualStatusKeepsPeersAcrossStoreEmissionsAndRecreation() = runTest {
+        val fixture = fixture()
+        try {
+            fillAccess(fixture)
+            click(fixture, R.string.vpn0wn_continue)
+            fixture.model.state.first { !it.busy && it.detect != null }
+            fixture.model.leave()
+            settle()
+            clickServer(fixture)
+            assertTrue(text(fixture.root, fixture.activity.getString(R.string.vpn0wn_peers_unavailable)).isShown)
+            fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status).performClick()
+            fixture.model.state.first { !it.busy && it.statusSnapshots.isNotEmpty() }
+            settle()
+            assertTrue(text(fixture.root, "phone").isShown)
+            val saved = Vpn0wnApplication.getVpsServerStore().servers.first().single()
+            Vpn0wnApplication.getVpsServerStore().upsert(saved.copy(id = "unrelated", name = "unrelated"))
+            settle()
+            assertTrue(text(fixture.root, "phone").isShown)
+            val snapshot = fixture.model.state.value.statusSnapshots.getValue(saved.id)
+            fixture.controller.recreate()
+            settle()
+            clickServer(fixture)
+            assertTrue(text(fixture.root, "phone").isShown)
+            assertSame(snapshot, fixture.model.state.value.statusSnapshots.getValue(saved.id))
+            assertEquals(2, fixture.peer.connections.size)
+            assertEquals(2, fixture.peer.closes.get())
+        } finally { fixture.close() }
+    }
+
+    @Test fun busyStatusCanCancelAndARealPeerCannotExportAPlaceholderProfile() = runTest {
+        val fixture = fixture()
+        try {
+            fillAccess(fixture)
+            click(fixture, R.string.vpn0wn_continue)
+            fixture.model.state.first { !it.busy && it.detect != null }
+            fixture.model.leave()
+            settle()
+            clickServer(fixture)
+            fixture.peer.blockStatus = CompletableDeferred()
+            fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status).performClick()
+            fixture.peer.statusEntered.await()
+            settle()
+            assertTrue(text(fixture.root, fixture.activity.getString(R.string.vpn0wn_cancel_check)).isShown)
+            fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status).performClick()
+            fixture.model.state.first { !it.busy }
+            fixture.peer.blockStatus = null
+            settle()
+            fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status).performClick()
+            fixture.model.state.first { !it.busy && it.statusSnapshots.isNotEmpty() }
+            settle()
+            clickableAncestor(text(fixture.root, "phone")).performClick()
+            settle()
+            assertNotNull(text(fixture.root, "synthetic-peer-public-key"))
+            click(fixture, R.string.vpn0wn_action_show_qr)
+            assertNotNull(text(fixture.activity.window.decorView, fixture.activity.getString(R.string.vpn0wn_profile_unavailable)))
+            assertFalse(fixture.peer.commands.any { it.contains("./'add-peer.sh'") || it.contains("./'backup.sh'") })
+        } finally { fixture.close() }
+    }
+
     // A failed setup must drain Android, ViewModel and DataStore owners before resetting Main.
     @Suppress("TooGenericExceptionCaught")
     private suspend fun TestScope.fixture(immediateMain: Boolean = false): Fixture {
@@ -364,6 +423,7 @@ class VpsProvisioningWorkflowTest {
         } catch (failure: Throwable) {
             withContext(NonCancellable) {
                 peer.blockDetect?.complete(Unit)
+                peer.blockStatus?.complete(Unit)
                 try { controller.pause().stop().destroy() } catch (cleanup: Throwable) {
                     if (cleanup !== failure) failure.addSuppressed(cleanup)
                 }
@@ -441,6 +501,7 @@ class VpsProvisioningWorkflowTest {
         val root get() = activity.supportFragmentManager.fragments.filterIsInstance<VpsProvisioningFragment>().single().requireView()
         suspend fun close() = withContext(NonCancellable) {
             peer.blockDetect?.complete(Unit)
+            peer.blockStatus?.complete(Unit)
             try { controller.pause().stop().destroy() } finally {
                 try { modelJob.cancelAndJoin() } finally { environment.close() }
             }

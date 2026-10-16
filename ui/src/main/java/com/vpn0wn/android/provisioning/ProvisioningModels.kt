@@ -200,6 +200,8 @@ object ProvisioningJson {
 
     fun parseStatus(stdout: String): VpsServerStatus = parse(stdout) { json ->
         val peers = json.getJSONArray("peers")
+        val names = mutableSetOf<String>()
+        val keys = mutableSetOf<String>()
         VpsServerStatus(
             interfaceName = json.string("interface"),
             running = json.nullableBoolean("running"),
@@ -209,9 +211,13 @@ object ProvisioningJson {
             dns = json.string("dns"),
             peers = (0 until peers.length()).map { index ->
                 val peer = peers.getJSONObject(index)
+                val name = peer.string("name")
+                val key = peer.string("publicKey")
+                if (name.isBlank() || key.isBlank() || !names.add(name) || !keys.add(key))
+                    throw JSONException("Ambiguous peer identity")
                 VpsPeerStatus(
-                    name = peer.string("name"),
-                    publicKey = peer.string("publicKey"),
+                    name = name,
+                    publicKey = key,
                     allowedIps = peer.string("allowedIps"),
                     latestHandshake = peer.nullableCounter("latestHandshake"),
                     rxBytes = peer.nullableCounter("rxBytes"),

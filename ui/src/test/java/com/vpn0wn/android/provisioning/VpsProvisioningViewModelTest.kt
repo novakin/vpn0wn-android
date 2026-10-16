@@ -24,9 +24,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -65,6 +67,7 @@ class VpsProvisioningViewModelTest {
     @After fun tearDown() = runTest {
         try {
             peer.blockDetect?.complete(Unit)
+            peer.blockStatus?.complete(Unit)
             owners.forEach(ViewModelStore::clear)
         } finally {
             withContext(NonCancellable) {
@@ -467,10 +470,219 @@ class VpsProvisioningViewModelTest {
         assertTrue(model.draft.passphrase.isEmpty())
     }
 
+    @Test fun manualStatusCommitsObservedMetadataAndRetainsPeersWithoutRefreshingTime() = runTest {
+        val model = detected()
+        model.leave()
+        val saved = store.servers.first().single()
+        requireNotNull(model.syncStatus(saved)).join()
+        val current = store.servers.first().single()
+        val snapshot = model.state.value.statusSnapshots.getValue(saved.id)
+        assertFalse(model.state.value.active)
+        assertEquals(1_710_000_012L, current.lastSyncEpochSeconds)
+        assertEquals(current, snapshot.server)
+        assertEquals(1_710_000_012L, snapshot.observedAtEpochSeconds)
+        assertEquals("phone", snapshot.status.peers.single().name)
+        model.retainCurrentServers(listOf(current, current.copy(id = "unrelated")))
+        assertSame(snapshot, model.state.value.statusSnapshots.getValue(saved.id))
+        assertEquals(2, peer.closes.get())
+        assertTrue((peer.connections.last().credential as VpsCredential.Password).value.all { it == '\u0000' })
+        assertFalse(peer.commands.any { it.contains("./'install.sh'") || it.contains("./'add-peer.sh'") })
+    }
+
+    @Test fun failedRefreshPreservesEarlierObservationWithoutClaimingNewSuccess() = runTest {
+        val model = detected()
+        model.leave()
+        requireNotNull(model.syncStatus(store.servers.first().single())).join()
+        val before = store.servers.first().single()
+        val snapshot = model.state.value.statusSnapshots.getValue(before.id)
+        peer.failure = ProvisioningException("synthetic-secret-failure")
+        requireNotNull(model.syncStatus(before)).join()
+        assertEquals(Problem.CONNECTION_FAILED, model.state.value.problem)
+        assertEquals(before, store.servers.first().single())
+        assertSame(snapshot, model.state.value.statusSnapshots.getValue(before.id))
+        assertEquals(3, peer.closes.get())
+    }
+
+    @Test fun missingSavedAccessCannotStartStatusConnection() = runTest {
+        val model = detected()
+        model.leave()
+        val saved = store.servers.first().single()
+        store.clearCredential(saved.id)
+        requireNotNull(model.syncStatus(saved)).join()
+        assertEquals(Problem.ACCESS_MISSING, model.state.value.problem)
+        assertTrue(model.state.value.statusSnapshots.isEmpty())
+        assertEquals(1, peer.connections.size)
+        assertEquals(saved, store.servers.first().single())
+    }
+
+    @Test fun removedOrReplacedServerRejectsDelayedStatusWithoutRepublishingPeers() = runTest {
+        for (replacement in listOf(false, true)) {
+            val model = detected()
+            model.leave()
+            val saved = store.servers.first().last()
+            peer.statusEntered = CompletableDeferred()
+            peer.blockStatus = CompletableDeferred()
+            val refresh = requireNotNull(model.syncStatus(saved))
+            peer.statusEntered.await()
+            store.remove(saved.id)
+            if (replacement) store.upsert(saved.copy(host = "198.51.100.99"))
+            model.retainCurrentServers(store.servers.first())
+            peer.blockStatus!!.complete(Unit)
+            refresh.join()
+            assertEquals(Problem.CONNECTION_CHANGED, model.state.value.problem)
+            assertFalse(saved.id in model.state.value.statusSnapshots)
+            assertFalse(store.servers.first().any { it.id == saved.id && it.lastSyncEpochSeconds > 0L })
+        }
+    }
+
+    @Test fun cancelledStatusDrainsClientAndLeavesMetadataUnchanged() = runTest {
+        val model = detected()
+        model.leave()
+        val saved = store.servers.first().single()
+        peer.blockStatus = CompletableDeferred()
+        val refresh = requireNotNull(model.syncStatus(saved))
+        peer.statusEntered.await()
+        assertNull(model.syncStatus(saved))
+        model.cancelOperation()
+        refresh.join()
+        assertEquals(Problem.CANCELLED, model.state.value.problem)
+        assertFalse(model.state.value.busy)
+        assertEquals(saved, store.servers.first().single())
+        assertTrue(model.state.value.statusSnapshots.isEmpty())
+        assertEquals(2, peer.closes.get())
+        assertTrue((peer.connections.last().credential as VpsCredential.Password).value.all { it == '\u0000' })
+    }
+
+    @Test fun snapshotInvalidationDropsRemovedAndChangedSshIdentities() = runTest {
+        val model = detected()
+        model.leave()
+        requireNotNull(model.syncStatus(store.servers.first().single())).join()
+        val saved = store.servers.first().single()
+        model.retainCurrentServers(listOf(saved.copy(host = "198.51.100.99")))
+        assertTrue(model.state.value.statusSnapshots.isEmpty())
+        requireNotNull(model.syncStatus(saved)).join()
+        model.retainCurrentServers(emptyList())
+        assertTrue(model.state.value.statusSnapshots.isEmpty())
+    }
+
+    @Test fun newerDetectOnTheSameSshHostInvalidatesTheOlderPeerSnapshot() = runTest {
+        val model = detected()
+        model.leave()
+        requireNotNull(model.syncStatus(store.servers.first().single())).join()
+        val observed = store.servers.first().single()
+        val snapshot = model.state.value.statusSnapshots.getValue(observed.id)
+        peer.detectedEndpoint = "198.51.100.77"
+        requireNotNull(model.reuse(observed)).join()
+        val detected = store.servers.first().single()
+        assertEquals(observed.host, detected.host)
+        assertEquals("198.51.100.77", detected.endpoint)
+        assertFalse(snapshot.matches(detected))
+        model.retainCurrentServers(listOf(detected))
+        assertTrue(model.state.value.statusSnapshots.isEmpty())
+    }
+
+    @Test fun statusFeedbackDoesNotCarryAnotherServersSavedOrClearedNotice() = runTest {
+        val model = detected()
+        model.leave()
+        val first = store.servers.first().single()
+        val second = first.copy(id = "server-b", name = "second server")
+        store.upsert(second)
+        assertEquals(SavedAccess.SAVED, model.state.value.savedAccess)
+        requireNotNull(model.syncStatus(second)).join()
+        assertEquals(Problem.ACCESS_MISSING, model.state.value.problem)
+        assertEquals(SavedAccess.NONE, model.state.value.savedAccess)
+        store.saveCredential(second, pin, VpsCredential.Password("synthetic-b-password".toCharArray()))
+        requireNotNull(model.clearSavedAccess(first)).join()
+        assertEquals(SavedAccess.CLEARED, model.state.value.savedAccess)
+        requireNotNull(model.syncStatus(second)).join()
+        assertNull(model.state.value.problem)
+        assertEquals(second.id, model.state.value.serverId)
+        assertEquals(SavedAccess.NONE, model.state.value.savedAccess)
+        assertTrue(second.id in model.state.value.statusSnapshots)
+    }
+
+    @Test fun cancelledStatusWaitingForStoreAdmissionNeverWritesAfterTheGateOpens() = runTest {
+        detected().leave()
+        val saved = store.servers.first().single()
+        val blockerEntered = CompletableDeferred<Unit>()
+        val releaseBlocker = CompletableDeferred<Unit>()
+        val statusObserved = CompletableDeferred<Unit>()
+        var holdNextEdit = false
+        val blockedPreferences = object : DataStore<Preferences> {
+            override val data = preferences.data
+            override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences {
+                if (holdNextEdit) {
+                    holdNextEdit = false
+                    blockerEntered.complete(Unit)
+                    releaseBlocker.await()
+                }
+                return preferences.updateData(transform)
+            }
+        }
+        val blockedStore = VpsServerStore(blockedPreferences, credentialFileForTest(credentialFile))
+        val model = model(blockedStore) { statusObserved.complete(Unit); 1_710_000_012L }
+        peer.blockStatus = CompletableDeferred()
+        val refresh = requireNotNull(model.syncStatus(saved))
+        peer.statusEntered.await()
+        holdNextEdit = true
+        val blocker = launch { blockedStore.upsert(saved.copy(id = "unrelated")) }
+        try {
+            blockerEntered.await()
+            peer.blockStatus!!.complete(Unit)
+            statusObserved.await()
+            model.cancelOperation()
+            runCurrent()
+            assertTrue("Cancellation must settle without waiting for unrelated store admission", refresh.isCompleted)
+            assertTrue(model.state.value.statusSnapshots.isEmpty())
+        } finally {
+            releaseBlocker.complete(Unit)
+            withContext(NonCancellable) { blocker.join(); refresh.join() }
+        }
+        assertEquals(saved, store.servers.first().first { it.id == saved.id })
+        assertEquals(Problem.CANCELLED, model.state.value.problem)
+        assertTrue((peer.connections.last().credential as VpsCredential.Password).value.all { it == '\u0000' })
+    }
+
+    @Test fun cancellationAfterStatusCommitAdmissionSettlesMetadataWithoutInventingPeerPublication() = runTest {
+        detected().leave()
+        val saved = store.servers.first().single()
+        val committed = CompletableDeferred<Unit>()
+        val release = CompletableDeferred<Unit>()
+        val blockedPreferences = object : DataStore<Preferences> {
+            override val data = preferences.data
+            override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences {
+                val updated = preferences.updateData(transform)
+                committed.complete(Unit)
+                release.await()
+                return updated
+            }
+        }
+        val blockedStore = VpsServerStore(blockedPreferences, credentialFileForTest(credentialFile))
+        val model = model(blockedStore)
+        val refresh = requireNotNull(model.syncStatus(saved))
+        try {
+            committed.await()
+            model.cancelOperation()
+            runCurrent()
+            assertTrue(model.state.value.busy)
+            assertEquals(1_710_000_012L, store.servers.first().single().lastSyncEpochSeconds)
+        } finally {
+            release.complete(Unit)
+            withContext(NonCancellable) { refresh.join() }
+        }
+        assertFalse(model.state.value.busy)
+        assertEquals(Problem.CANCELLED, model.state.value.problem)
+        assertTrue(model.state.value.statusSnapshots.isEmpty())
+        assertTrue((peer.connections.last().credential as VpsCredential.Password).value.all { it == '\u0000' })
+    }
+
     private suspend fun detected(): VpsProvisioningViewModel = model().also { ready(it); requireNotNull(it.detect()).join() }
 
-    private fun model(serverStore: VpsServerStore = store): VpsProvisioningViewModel = VpsProvisioningViewModel(
-        ApplicationProvider.getApplicationContext(), serverStore, peer,
+    private fun model(
+        serverStore: VpsServerStore = store,
+        now: () -> Long = { 1_710_000_012L },
+    ): VpsProvisioningViewModel = VpsProvisioningViewModel(
+        ApplicationProvider.getApplicationContext(), serverStore, peer, now,
     ).also { model ->
         modelJobs.add(requireNotNull(model.viewModelScope.coroutineContext[Job]))
         owners.add(ViewModelStore().apply { put("owner", model) })

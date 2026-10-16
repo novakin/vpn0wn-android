@@ -1,6 +1,6 @@
 # vpn0wn improvement plan
 
-Last updated: 2026-10-15 (Europe/Paris).
+Last updated: 2026-10-16 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Agent/process and delivery pointers updated 2026-10-06 (Europe/Paris); initial runtime assessment remains historical.
 
@@ -74,7 +74,7 @@ This file owns the improvement priorities and action states. The UI roadmap owns
 | 2 | C1–C3 privacy and provisioning safety | Merged in PRs #6/#19; issues #5/#10/#11 closed | Reproduce each defect with synthetic inputs or controlled failure injection. | Secrets stay out of the repaired logging paths; unmanaged state survives; mutations report honest outcomes and preserve recovery. |
 | 3 | C4–C6 contracts and state/lifecycle | C4 and #13/#14/#15 merged with offline proof | Affected behavior and compatibility requirements are traced. | C4 aligns schemas, safe failures and observed health; #13 repairs manager/detail/userspace lifecycle; #14 preserves failed profile replacement; #15 completes kernel transitions in merged PR #27; device/native proof remains separate. |
 | 4 | C7–C10 UI correctness and proof | C7 locally verified; C8 QR/import partly repaired; scoped phone repairs merged in #29 | Relevant behavior fixes and deterministic fixtures are available. | Focused regressions pass; affected output is checked at supported sizes and configurations. |
-| 5 | C11–C12 real SSH and feature wiring | Partial source slices; tracked in open [#143](https://github.com/novakin/vpn0wn-android/issues/143) | Bounded JSch, protected credentials and read-only Detect/Plan wizard implemented, with [scoped C12 local verification](qa-test-plan.md#scoped-c12-local-verification--2026-10-15); scoped [API-24/28 storage proof](reviews/2026-10-15-native-ssh-credential-storage-acceptance.md) recorded; Android wizard/transport runtime proof, mutation/profile wiring and UI/live acceptance pending. | Real transport owns deadlines/cancellation; UI and QR/import use actual validated results. |
+| 5 | C11–C12 real SSH and feature wiring | Partial source slices; tracked in open [#143](https://github.com/novakin/vpn0wn-android/issues/143) | Bounded JSch, protected credentials, read-only Detect/Plan and manual status-refresh source implemented, with [scoped C12 local verification](qa-test-plan.md#scoped-c12-local-verification--2026-10-15); scoped [API-24/28 storage proof](reviews/2026-10-15-native-ssh-credential-storage-acceptance.md) recorded; Android wizard/transport runtime proof, mutation/profile wiring and UI/live acceptance pending. | Real transport owns deadlines/cancellation; UI and QR/import use actual validated results. |
 | Throughout | Maintain D1/D2 with affected changes | Ongoing | An owning fact or workflow changes. | Source, tests and owning documentation agree in the same change. |
 
 Minimal process work comes first. Urgent safety fixes need not wait for the entire documentation set. Tests and documentation travel with each fix rather than becoming a later cleanup phase.

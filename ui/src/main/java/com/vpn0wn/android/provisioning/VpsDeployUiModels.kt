@@ -38,6 +38,7 @@ data class VpsDeployServer(
     val lastSync: String,
     val health: List<VpsDeployHealthCheck>,
     val users: MutableList<VpsDeployUser> = mutableListOf(),
+    val usersKnown: Boolean = false,
 )
 
 data class VpsDeployUser(

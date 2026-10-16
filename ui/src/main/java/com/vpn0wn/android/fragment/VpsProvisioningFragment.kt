@@ -48,7 +48,6 @@ import com.vpn0wn.android.Application
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.vpn0wn.android.R
-import com.vpn0wn.android.databinding.BindingAdapters
 import com.vpn0wn.android.model.ObservableTunnel
 import com.vpn0wn.android.provisioning.VpsDeployAction
 import com.vpn0wn.android.provisioning.VpsDeployHealthCheck
@@ -65,7 +64,6 @@ import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.SavedAccess
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.State
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Step
 import com.vpn0wn.android.util.vpn0wnStyle
-import com.vpn0wn.android.widget.VpsQrCodeView
 import com.vpn0wn.android.widget.VpsSectionHeaderLayout
 import com.vpn0wn.android.widget.VpsCornerLayout
 import com.vpn0wn.android.widget.VpsTerminalStreamView
@@ -79,7 +77,6 @@ class VpsProvisioningFragment : BaseFragment() {
     private lateinit var root: FrameLayout
     private var screen: Screen = Screen.Fleet
     private var filter: VpsDeployServerStatus? = null
-    private var qrUser: VpsDeployUser? = null
     private val provision by viewModels<VpsProvisioningViewModel>()
     private val provisionState get() = provision.state.value
     private val provisionForm get() = provision.draft
@@ -163,6 +160,7 @@ class VpsProvisioningFragment : BaseFragment() {
     override fun onSelectedTunnelChanged(oldTunnel: ObservableTunnel?, newTunnel: ObservableTunnel?) = Unit
 
     private fun render() {
+        updateServerProjection(TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()))
         root.removeAllViews()
         root.addView(
             when (val current = screen) {
@@ -178,12 +176,7 @@ class VpsProvisioningFragment : BaseFragment() {
             FrameLayout.LayoutParams(-1, -1),
         )
         renderedProvisionState = if (screen is Screen.Provision) provisionState else null
-        val user = qrUser
-        val currentScreen = screen
-        if (user != null && currentScreen is Screen.User) {
-            val server = server(currentScreen.serverId) ?: return
-            root.addView(qrOverlay(server, user), FrameLayout.LayoutParams(-1, -1))
-        }
+
     }
 
     private fun collectServers() {
@@ -193,16 +186,25 @@ class VpsProvisioningFragment : BaseFragment() {
                 this@VpsProvisioningFragment.storedServers.clear()
                 this@VpsProvisioningFragment.storedServers.addAll(storedServers)
                 val now = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())
-                servers.clear()
-                servers.addAll(storedServers.map { VpsDeployMapper.fromStored(it, now) })
+                provision.retainCurrentServers(storedServers)
+                updateServerProjection(now)
                 if (::root.isInitialized && screen !is Screen.Provision) render()
             }
         }
     }
 
+    private fun updateServerProjection(now: Long) {
+        servers.clear()
+        servers.addAll(storedServers.map { stored ->
+            provisionState.statusSnapshots[stored.id]?.takeIf { it.matches(stored) }?.let { snapshot ->
+                VpsDeployMapper.fromStatus(stored, snapshot.status, now, snapshot.observedAtEpochSeconds)
+            } ?: VpsDeployMapper.fromStored(stored, now)
+        })
+    }
+
     private fun fleetScreen(): View {
         val container = vertical()
-        container.addView(topBar(title = str(R.string.vpn0wn_servers_title).lowercase(Locale.ROOT), sub = str(R.string.vpn0wn_servers_summary, servers.size, servers.sumOf { it.users.size }), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { goBack() }, right = listOf(iconButton(R.drawable.ic_vpn0wn_logs, str(R.string.vpn0wn_logs_title)) { toast(str(R.string.vpn0wn_server_logs_pending)) }, iconButton(R.drawable.ic_vpn0wn_settings, str(R.string.settings)) { toast(str(R.string.vpn0wn_server_settings_pending)) }), big = true))
+        container.addView(topBar(title = str(R.string.vpn0wn_servers_title).lowercase(Locale.ROOT), sub = str(if (servers.all { it.usersKnown }) R.string.vpn0wn_servers_summary else R.string.vpn0wn_servers_summary_partial, servers.size, servers.sumOf { it.users.size }), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { goBack() }, right = listOf(iconButton(R.drawable.ic_vpn0wn_logs, str(R.string.vpn0wn_logs_title)) { toast(str(R.string.vpn0wn_server_logs_pending)) }, iconButton(R.drawable.ic_vpn0wn_settings, str(R.string.settings)) { toast(str(R.string.vpn0wn_server_settings_pending)) }), big = true))
         container.addView(statusTiles())
         val (scrollView, scroll) = scrollContent()
         scroll.addView(sectionHeader(1, str(R.string.vpn0wn_server_fleet), filter?.let { str(it.shortLabelRes) } ?: str(R.string.vpn0wn_self_hosted)))
@@ -273,7 +275,7 @@ class VpsProvisioningFragment : BaseFragment() {
             addView(label("${server.provider.uppercase(Locale.ROOT)} · ${server.region.uppercase(Locale.ROOT)}"))
         })
         body.addView(mono(server.name, 16, R.color.vpn0wn_ink, Typeface.BOLD).apply { setPadding(0, dp(8), 0, 0) })
-        body.addView(mono(str(R.string.vpn0wn_server_card_summary, "${server.endpoint}:${server.port}", server.users.size, server.engine), 10, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(4), 0, dp(10)) })
+        body.addView(mono(if (server.usersKnown) str(R.string.vpn0wn_server_card_summary, "${server.endpoint}:${server.port}", server.users.size, server.engine) else str(R.string.vpn0wn_server_card_summary_unknown, "${server.endpoint}:${server.port}", server.engine), 10, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(4), 0, dp(10)) })
         body.addView(metricRow(listOf(str(R.string.vpn0wn_metric_cidr) to server.cidr, str(R.string.vpn0wn_metric_uptime) to server.uptime, str(R.string.vpn0wn_metric_sync) to server.lastSync)))
         body.addView(horizontalWrap(server.health.map { healthBadge(it) }).apply { setPadding(0, dp(10), 0, 0) })
         railRow.addView(body, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
@@ -302,10 +304,10 @@ class VpsProvisioningFragment : BaseFragment() {
             addView(label(str(R.string.vpn0wn_checks)).apply { setPadding(dp(14), dp(10), dp(14), dp(6)) })
             addView(horizontalWrap(server.health.map { healthBadge(it) }).apply { setPadding(dp(14), 0, dp(14), dp(10)) })
         })
-        scroll.addView(sectionHeader(2, str(R.string.vpn0wn_section_vpn_users), str(R.string.vpn0wn_peers_count, server.users.size)))
+        scroll.addView(sectionHeader(2, str(R.string.vpn0wn_section_vpn_users), if (server.usersKnown) str(R.string.vpn0wn_peers_count, server.users.size) else str(R.string.vpn0wn_pending_live_data)))
         scroll.addView(panel {
             if (server.users.isEmpty()) {
-                addView(mono(str(R.string.vpn0wn_no_peers_yet), 11, R.color.vpn0wn_ink_3).apply { setPadding(dp(14), dp(14), dp(14), dp(14)) })
+                addView(mono(str(if (server.usersKnown) R.string.vpn0wn_no_peers_yet else R.string.vpn0wn_peers_unavailable), 11, R.color.vpn0wn_ink_3).apply { setPadding(dp(14), dp(14), dp(14), dp(14)) })
             } else {
                 server.users.forEachIndexed { index, user -> addView(userRow(server, user, index)) }
             }
@@ -328,6 +330,12 @@ class VpsProvisioningFragment : BaseFragment() {
             VpsDeployAction(R.drawable.ic_vpn0wn_trash, str(R.string.vpn0wn_action_uninstall), str(R.string.vpn0wn_action_uninstall_sub), R.color.vpn0wn_error) { toast(str(R.string.vpn0wn_uninstall_requires_confirmation)) },
         )))
         storedServers.find { it.id == server.id }?.let { stored ->
+            scroll.addView(rowButton(str(if (provisionState.busy && provisionState.serverId == stored.id) R.string.vpn0wn_cancel_check else R.string.vpn0wn_refresh_server)) {
+                if (provisionState.busy) provision.cancelOperation() else provision.syncStatus(stored)
+            }.apply {
+                id = R.id.vpn0wn_vps_refresh_status
+                isEnabled = !provisionState.busy || provisionState.serverId == stored.id
+            })
             scroll.addView(sectionHeader(5, str(R.string.vpn0wn_section_ssh_access), str(R.string.vpn0wn_hint_local)))
             scroll.addView(panel {
                 addView(rowButton(str(R.string.vpn0wn_reuse_saved_ssh)) { provision.reuse(stored) })
@@ -496,7 +504,7 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun userScreen(server: VpsDeployServer, user: VpsDeployUser): View {
         val container = vertical()
-        container.addView(topBar(title = user.name, sub = str(R.string.vpn0wn_user_subtitle, server.name.uppercase(Locale.ROOT)), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { screen = Screen.Detail(server.id); render() }, right = listOf(iconButton(R.drawable.ic_vpn0wn_share, str(R.string.vpn0wn_action_export)) { toast(str(R.string.vpn0wn_profile_exported)) })))
+        container.addView(topBar(title = user.name, sub = str(R.string.vpn0wn_user_subtitle, server.name.uppercase(Locale.ROOT)), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { screen = Screen.Detail(server.id); render() }, right = listOf(iconButton(R.drawable.ic_vpn0wn_share, str(R.string.vpn0wn_action_export)) { toast(str(R.string.vpn0wn_profile_unavailable)) })))
         val (scrollView, scroll) = scrollContent()
         scroll.addView(card(user.status.colorRes).apply {
             setPadding(dp(14), dp(14), dp(14), dp(10))
@@ -508,20 +516,20 @@ class VpsProvisioningFragment : BaseFragment() {
         scroll.addView(sectionHeader(1, str(R.string.vpn0wn_section_profile), str(R.string.vpn0wn_hint_wireguard)))
         scroll.addView(panel {
             configLine(str(R.string.vpn0wn_label_server), server.name)
-            configLine(str(R.string.vpn0wn_label_public_key), BindingAdapters.shortKey(user.key), copy = true)
+            configLine(str(R.string.vpn0wn_label_public_key), user.key, copy = true)
             configLine(str(R.string.vpn0wn_label_endpoint), "${server.endpoint}:${server.port}")
             configLine(str(R.string.vpn0wn_label_dns), server.dns)
             configLine(str(R.string.vpn0wn_label_allowed), user.allowedIps)
         })
         scroll.addView(sectionHeader(2, str(R.string.vpn0wn_section_actions), str(R.string.vpn0wn_hint_device)))
         scroll.addView(actionGrid(listOf(
-            VpsDeployAction(R.drawable.ic_vpn0wn_qr, str(R.string.vpn0wn_action_show_qr), str(R.string.vpn0wn_action_show_qr_sub), R.color.vpn0wn_signal_deep, user.status == VpsDeployUserStatus.REVOKED) { qrUser = user; render() },
-            VpsDeployAction(R.drawable.ic_vpn0wn_share, str(R.string.vpn0wn_action_export), str(R.string.vpn0wn_action_export_sub), R.color.vpn0wn_ink) { toast(str(R.string.vpn0wn_profile_exported)) },
+            VpsDeployAction(R.drawable.ic_vpn0wn_qr, str(R.string.vpn0wn_action_show_qr), str(R.string.vpn0wn_action_show_qr_sub), R.color.vpn0wn_signal_deep, user.status == VpsDeployUserStatus.REVOKED) { toast(str(R.string.vpn0wn_profile_unavailable)) },
+            VpsDeployAction(R.drawable.ic_vpn0wn_share, str(R.string.vpn0wn_action_export), str(R.string.vpn0wn_action_export_sub), R.color.vpn0wn_ink) { toast(str(R.string.vpn0wn_profile_unavailable)) },
             VpsDeployAction(R.drawable.ic_vpn0wn_refresh, str(R.string.vpn0wn_action_rotate_key), str(R.string.vpn0wn_action_rotate_key_sub), R.color.vpn0wn_ink, user.status == VpsDeployUserStatus.REVOKED) {
-                toast(str(R.string.vpn0wn_live_add_peer_required))
+                toast(str(R.string.vpn0wn_peer_mutation_unavailable))
             },
             VpsDeployAction(R.drawable.ic_vpn0wn_trash, str(R.string.vpn0wn_action_revoke), str(R.string.vpn0wn_action_revoke_sub), R.color.vpn0wn_error, user.status == VpsDeployUserStatus.REVOKED) {
-                toast(str(R.string.vpn0wn_live_add_peer_required))
+                toast(str(R.string.vpn0wn_peer_mutation_unavailable))
             },
         )))
         container.addView(scrollView, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -634,7 +642,7 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     private fun addUser() {
-        toast(str(R.string.vpn0wn_live_add_peer_required))
+        toast(str(R.string.vpn0wn_peer_mutation_unavailable))
     }
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
@@ -689,63 +697,6 @@ class VpsProvisioningFragment : BaseFragment() {
             addView(mono(spec.label, 12, spec.colorRes, Typeface.BOLD))
             addView(mono(spec.sub, 10, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(3), 0, 0) })
         }
-    }
-
-    // Local layout/drawing dimensions and paint values preserve the visual specification.
-    @Suppress("MagicNumber")
-    private fun qrOverlay(server: VpsDeployServer, user: VpsDeployUser): View {
-        return FrameLayout(requireContext()).apply {
-            setBackgroundColor(Color.argb(235, 5, 10, 18))
-            setOnClickListener {
-                qrUser = null
-                render()
-            }
-            val modal = vertical().apply {
-                background = rounded(R.color.vpn0wn_paper, R.color.vpn0wn_rule, dp(14))
-                setPadding(dp(20))
-                setOnClickListener { }
-                addView(horizontal(Gravity.CENTER_VERTICAL).apply {
-                    addView(vertical().apply {
-                        addView(label(str(R.string.vpn0wn_scan_to_pair)))
-                        addView(mono(user.name, 13, R.color.vpn0wn_ink).apply { setPadding(0, dp(2), 0, 0) })
-                    }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-                    addView(iconButton(R.drawable.ic_vpn0wn_close, str(R.string.vpn0wn_close)) {
-                        qrUser = null
-                        render()
-                    })
-                })
-                addView(VpsQrCodeView(requireContext()).apply { bind("${server.endpoint}:${server.port}#${user.key}") }, LinearLayout.LayoutParams(dp(282), dp(282)).apply { topMargin = dp(14) })
-                addView(qrInfoGrid(server, user))
-                addView(mono(str(R.string.vpn0wn_qr_footer), 10, R.color.vpn0wn_ink_3).apply {
-                    gravity = Gravity.CENTER
-                    setPadding(0, dp(12), 0, 0)
-                })
-            }
-            addView(modal, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.CENTER))
-        }
-    }
-
-    // Local layout/drawing dimensions and paint values preserve the visual specification.
-    @Suppress("MagicNumber")
-    private fun qrInfoGrid(server: VpsDeployServer, user: VpsDeployUser): View {
-        return vertical().apply {
-            setPadding(0, dp(14), 0, 0)
-            addView(horizontal().apply {
-                addView(qrInfoCell(str(R.string.vpn0wn_label_server), server.name), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { marginEnd = dp(10) })
-                addView(qrInfoCell(str(R.string.vpn0wn_label_ip), user.ip), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-            })
-            addView(qrInfoCell(str(R.string.vpn0wn_label_endpoint), "${server.endpoint}:${server.port}").withMargins(top = 10))
-        }
-    }
-
-    // Local layout/drawing dimensions and paint values preserve the visual specification.
-    @Suppress("MagicNumber")
-    private fun qrInfoCell(title: String, value: String): View = vertical().apply {
-        addView(label(title).apply { textSize = 9f })
-        addView(mono(value, 11, R.color.vpn0wn_ink).apply {
-            setPadding(0, dp(2), 0, 0)
-            setSingleLine(false)
-        })
     }
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
@@ -1199,11 +1150,6 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     private fun goBack() {
-        if (qrUser != null) {
-            qrUser = null
-            render()
-            return
-        }
         when (val current = screen) {
             Screen.Fleet -> {
                 parentFragmentManager.popBackStack()

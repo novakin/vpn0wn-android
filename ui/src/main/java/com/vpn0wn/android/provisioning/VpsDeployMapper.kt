@@ -6,9 +6,6 @@ package com.vpn0wn.android.provisioning
 
 import java.util.concurrent.TimeUnit
 import com.vpn0wn.android.util.QuantityFormatter
-import java.time.Instant
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
 import kotlin.math.max
 
 object VpsDeployMapper {
@@ -44,22 +41,23 @@ object VpsDeployMapper {
         stored: StoredVpsServer,
         status: VpsServerStatus,
         nowEpochSeconds: Long,
+        observedAtEpochSeconds: Long = nowEpochSeconds,
     ): VpsDeployServer {
-        return fromStored(
-            stored.copy(
-                endpoint = status.endpoint,
-                listenPort = status.listenPort,
-                cidr = status.cidr,
-                dns = status.dns,
-                lastSyncEpochSeconds = nowEpochSeconds,
-                running = status.running,
-            ),
-            nowEpochSeconds,
-        ).copy(
+        val observed = stored.copy(
+            endpoint = status.endpoint,
+            listenPort = status.listenPort,
+            cidr = status.cidr,
+            dns = status.dns,
+            lastSyncEpochSeconds = observedAtEpochSeconds,
+            running = status.running,
+        )
+        val currentRunning = if (hasRecentSync(observed, nowEpochSeconds)) status.running else null
+        return fromStored(observed, nowEpochSeconds).copy(
             engine = stored.engine.ifBlank { status.interfaceName },
             users = status.peers.mapIndexed { index, peer ->
-                peer.toDeployUser(index, nowEpochSeconds, status.running)
+                peer.toDeployUser(index, nowEpochSeconds, currentRunning)
             }.toMutableList(),
+            usersKnown = true,
         )
     }
 
@@ -72,7 +70,7 @@ object VpsDeployMapper {
             name = name.ifBlank { "Device ${(index + 1).toString().padStart(2, '0')}" },
             device = name.ifBlank { "device" },
             ip = allowedIps.substringBefore(',').ifBlank { "—" },
-            allowedIps = allowedIps.ifBlank { "0.0.0.0/0, ::/0" },
+            allowedIps = allowedIps.ifBlank { "—" },
             status = when {
                 running != true || !validHandshake -> VpsDeployUserStatus.IDLE
                 handshakeAge > STALE_HANDSHAKE_SECONDS -> VpsDeployUserStatus.IDLE
@@ -81,7 +79,7 @@ object VpsDeployMapper {
             rx = rxBytes?.let { QuantityFormatter.formatBytes(it) } ?: "—",
             tx = txBytes?.let { QuantityFormatter.formatBytes(it) } ?: "—",
             handshake = if (validHandshake) formatDuration(handshakeAge) else "—",
-            created = if (validHandshake) DateTimeFormatter.ISO_LOCAL_DATE.format(Instant.ofEpochSecond(handshake).atZone(ZoneOffset.UTC)) else "—",
+            created = "—",
             key = publicKey,
         )
     }

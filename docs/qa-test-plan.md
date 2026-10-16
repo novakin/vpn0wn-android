@@ -1,6 +1,6 @@
 # vpn0wn QA Test Plan
 
-Last updated: 2026-10-15 (Europe/Paris).
+Last updated: 2026-10-16 (Europe/Paris).
 
 This document tracks the automated and manual QA coverage required for the vpn0wn Android redesign.
 
@@ -518,6 +518,14 @@ The settled-error control uses a thread-bound immediate Main dispatcher with the
 On 2026-10-15 (Europe/Paris), the integrated draft based on `2055a57a4a1507a165bd57b84d4fac3acfee611f`, with PR #194's layout delta from `6524e3c3d1b88879805e9d081da51908d0baf0b7`, passed 68 focused tests and retained zero-finding Detekt for unchanged inputs. The broader invocation reused the Detekt result from the preceding focused run. The set comprises `VpsProvisioningViewModelTest`, `VpsProvisioningWorkflowTest`, `VpsNavigationTest`, `HomeSelectionTest`, `VpsProvisioningLayoutTest` and `VpsSectionHeaderLayoutTest`; all reports have zero failures/errors. Its six native SDK-28 wizard/header layout tests also passed in the preceding focused run. The retained command logs are `20261015-224526-006-89c35f9d847e4bc08881f2973fecef52.log` and `20261015-223519-969-0e10e46b25dd46ef8600c11d0ae6e382.log` under ignored `.artifacts/codex-command-logs/` in the C12 worktree. Production/test inputs stayed frozen during both runs; the tested Fragment SHA-256 is `bcfc318c02af57d7b6da4ec67239a3d0f5dd248e8de5596bffae040a7c52cee4`, and the shared header remains byte-identical to PR #194 at `f1815f2cc06187b91c793a366719a60279d32815324f993d18e01936ec00fcbc`.
 
 This is scoped local JVM/native-view proof of the retained draft. It includes injected client Detect/Plan, disabled Apply, Home navigation/bounds, error/input ownership, credential fixtures and all-stage tracker geometry at its renderer. Fresh original PNGs of the integrated saving wizard, independent output review, physical IME/insets/TalkBack, API-24 transport/routing and live-server postconditions remain separate gates. The earlier non-saving preview screenshots retain their original scope. The PR acceptance record must identify the published head, final review and applicable CI; these local results do not establish publication, merge or deployment.
+
+### Manual status refresh controls — #143
+
+Source slice dated 2026-10-16 (Europe/Paris); Kotlin, rendered/native and live execution remain pending until recorded by its PR. Focused targets are `VpsServerStoreTest`, `VpsServerCredentialTest`, `VpsProvisioningViewModelTest`, `VpsPlanningTestPeer`, `VpsProvisioningWorkflowTest`, `VpsDeployMapperTest` and `ProvisioningJsonTest`. Verify actual injected sync dispatch, expected-record conflict on removal/replacement/newer edit, cancellation before queued store admission and settlement after admitted commit, newer Detect invalidation on the same SSH host, server-specific saved-access feedback, unrelated metadata and credential preservation, valid empty/stopped/unknown results, unknown inventory, failed/cancelled refresh, owned-client drain/password clearing, retained peers across fleet emissions/recreation, fixed observation timestamps, stale/future age boundaries, unique peer identity and unknown creation time. User QR/export must not produce placeholder configs or success feedback.
+
+Executed offline here: `bash -n` on the status script and safety fixture, then `unshare --user --map-root-user bash scripts/tests/provisioning_safety_test.sh`: **71 passed, zero failed**, using only synthetic private fixtures/fake privileged commands. The new controls hold the real existing interface lock, admit the status reader, update fixture config/runtime under that lock, then verify the post-lock metadata/counters; unmanaged and ambiguous config are refused without privileged mutations. No host root, SSH, APK, ADB or live server operation ran. Logs remain under the status worktree’s ignored `.artifacts/codex-command-logs`.
+
+Required later proof: focused JVM/static gates and source review; actual small/large-text/RTL/status/error rendering; Android saved-access transport/routing/cancellation; explicitly authorized disposable-server sync and mutation postconditions. Prior Detect/Plan/storage evidence retains its own revision and scope. No live-server, connectivity or production-readiness claim follows from offline observations.
 
 ## Next Implementation Roadmap
 

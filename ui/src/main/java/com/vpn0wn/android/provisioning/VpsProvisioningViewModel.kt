@@ -12,6 +12,7 @@ import com.vpn0wn.config.InetAddresses
 import com.vpn0wn.config.ParseException
 import java.io.IOException
 import java.util.UUID
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
@@ -26,6 +27,7 @@ class VpsProvisioningViewModel internal constructor(
     application: Application,
     private val store: VpsServerStore,
     factory: RemoteShellClientFactory,
+    private val nowEpochSeconds: () -> Long = { TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()) },
 ) : AndroidViewModel(application) {
     constructor(application: Application) : this(application, Vpn0wnApplication.getVpsServerStore(), JschRemoteShellClientFactory())
 
@@ -61,7 +63,12 @@ class VpsProvisioningViewModel internal constructor(
         val detect: VpsDetectResult? = null,
         val plan: VpsPlanResult? = null,
         val problem: Problem? = null,
+        val statusSnapshots: Map<String, StatusSnapshot> = emptyMap(),
     )
+
+    data class StatusSnapshot(val server: StoredVpsServer, val status: VpsServerStatus, val observedAtEpochSeconds: Long) {
+        fun matches(current: StoredVpsServer): Boolean = server == current
+    }
 
     private val client = Vpn0wnProvisioningClient(application.applicationContext, factory)
     private val mutableState = MutableStateFlow(State())
@@ -75,13 +82,44 @@ class VpsProvisioningViewModel internal constructor(
     private var endpointOverridden = false
     private var operation: Job? = null
 
+    fun retainCurrentServers(servers: List<StoredVpsServer>) {
+        val current = servers.associateBy { it.id }
+        val retained = mutableState.value.statusSnapshots.filter { (id, snapshot) -> current[id]?.let(snapshot::matches) == true }
+        if (retained != mutableState.value.statusSnapshots)
+            mutableState.value = mutableState.value.copy(statusSnapshots = retained)
+    }
+
+    fun syncStatus(savedServer: StoredVpsServer): Job? = operate(requireActive = false) {
+        mutableState.value = mutableState.value.copy(serverId = savedServer.id, savedAccess = SavedAccess.NONE)
+        val connection = try {
+            store.loadConnection(savedServer) ?: run {
+                mutableState.value = mutableState.value.copy(problem = Problem.ACCESS_MISSING)
+                return@operate
+            }
+        } catch (_: VpsServerStore.CredentialConflictException) {
+            mutableState.value = mutableState.value.copy(problem = Problem.CONNECTION_CHANGED)
+            return@operate
+        }
+        try {
+            val status = client.syncStatus(connection)
+            val observedAt = nowEpochSeconds()
+            currentCoroutineContext().ensureActive()
+            val committed = store.updateStatus(savedServer, status, observedAt)
+            mutableState.value = mutableState.value.copy(
+                statusSnapshots = mutableState.value.statusSnapshots + (savedServer.id to StatusSnapshot(committed, status, observedAt)),
+            )
+        } finally {
+            (connection.credential as? VpsCredential.Password)?.clear()
+        }
+    }
+
     fun begin() {
         if (mutableState.value.busy) return
         clearDraft()
         server = null
         newServerId = UUID.randomUUID().toString()
         invalidateVerification()
-        mutableState.value = State(active = true, serverId = newServerId)
+        mutableState.value = State(active = true, serverId = newServerId, statusSnapshots = mutableState.value.statusSnapshots)
     }
 
     fun edit(next: Draft) {
@@ -200,6 +238,8 @@ class VpsProvisioningViewModel internal constructor(
         mutableState.value = mutableState.value.copy(active = false, detect = null, plan = null, usingSavedAccess = false)
     }
 
+    fun cancelOperation() { operation?.cancel() }
+
     fun clearSavedAccess(savedServer: StoredVpsServer): Job? = operate(requireActive = false) {
         withContext(NonCancellable) {
             mutableState.value = mutableState.value.copy(serverId = savedServer.id, savedAccess = SavedAccess.UNKNOWN)
@@ -236,6 +276,14 @@ class VpsProvisioningViewModel internal constructor(
                     else -> Problem.CONNECTION_FAILED
                 }
                 mutableState.value = mutableState.value.copy(problem = problem)
+            } catch (_: VpsServerStore.ServerChangedException) {
+                mutableState.value = mutableState.value.copy(problem = Problem.CONNECTION_CHANGED)
+            } catch (_: VpsServerStore.InvalidTransferMetadataException) {
+                mutableState.value = mutableState.value.copy(problem = Problem.STORAGE_FAILED)
+            } catch (_: IOException) {
+                mutableState.value = mutableState.value.copy(problem = Problem.STORAGE_FAILED)
+            } catch (_: SecurityException) {
+                mutableState.value = mutableState.value.copy(problem = Problem.STORAGE_FAILED)
             } finally {
                 operation = null
                 mutableState.value = mutableState.value.copy(busy = false)
