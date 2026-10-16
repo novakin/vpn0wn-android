@@ -180,6 +180,39 @@ class VpsProvisioningWorkflowTest {
         } finally { fixture.close() }
     }
 
+    @Test fun reconciliationShowsObservedNetworkRatherThanAnEditedAdvisoryPlan() = runTest {
+        val fixture = fixture()
+        try {
+            fillAccess(fixture)
+            requireNotNull(fixture.model.detect()).join()
+            requireNotNull(fixture.model.plan()).join()
+            fixture.model.reviewApply()
+            fixture.peer.installFailure = ProvisioningException("lost reply")
+            val confirmation = requireNotNull(fixture.model.requestInstallConfirmation())
+            requireNotNull(fixture.model.confirmInstall(confirmation)).join()
+            fixture.peer.installFailure = null
+            val next = fixture.peer.planRequest.copy(endpoint = "203.0.113.9", port = 51821, cidr = "10.9.0.0/24", dns = "9.9.9.9")
+            fixture.model.edit(fixture.model.draft.copy(endpoint = next.endpoint, port = next.port.toString(), cidr = next.cidr, dns = next.dns))
+            fixture.peer.planRequest = next
+            requireNotNull(fixture.model.plan()).join()
+            fixture.model.reviewApply()
+            settle()
+            assertTrue(text(fixture.root, next.port.toString()).isShown)
+            requireNotNull(fixture.model.reconcileInstall()).join()
+            settle()
+            assertTrue(text(fixture.root, fixture.activity.getString(R.string.vpn0wn_apply_observed)).isShown)
+            for (actual in listOf("198.51.100.42", "51820", "10.8.0.0/24", "1.1.1.1, 1.0.0.1"))
+                assertTrue(text(fixture.root, actual).isShown)
+            val shownValues = descendants(fixture.root).filterIsInstance<TextView>().map { it.text.toString() }.toSet()
+            for (advisory in listOf(next.endpoint, next.port.toString(), next.cidr, next.dns))
+                assertFalse("Advisory value must not appear as observed: $advisory", advisory in shownValues)
+            assertEquals(VpsProvisioningViewModel.Installation.OBSERVED, fixture.model.state.value.installation)
+            assertEquals("51820", Vpn0wnApplication.getVpsServerStore().servers.first().single().listenPort)
+            assertFalse(fixture.model.state.value.pendingInstall)
+            assertEquals(1, fixture.peer.commands.count { it.contains("./'install.sh'") })
+        } finally { fixture.close() }
+    }
+
     @Test fun rotationRetainsOperationAndDraftWithoutSecretSavedState() = runTest {
         val fixture = fixture()
         try {

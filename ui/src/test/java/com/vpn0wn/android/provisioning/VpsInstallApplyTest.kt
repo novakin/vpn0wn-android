@@ -150,6 +150,13 @@ class VpsInstallApplyTest {
 
     @Test fun lostResponseSurvivesNewOwnerAndReconciliationDoesNotInventInstallSuccess() = runTest {
         val model = planned()
+        val defaultRequest = peer.planRequest
+        val admittedRequest = defaultRequest.copy(endpoint = "203.0.113.9", port = 51821, cidr = "10.9.0.0/24", dns = "9.9.9.9")
+        model.edit(model.draft.copy(endpoint = admittedRequest.endpoint, port = admittedRequest.port.toString(),
+            cidr = admittedRequest.cidr, dns = admittedRequest.dns))
+        peer.planRequest = admittedRequest
+        requireNotNull(model.plan()).join()
+        model.reviewApply()
         peer.installFailure = ProvisioningException("synthetic-secret-transport-failure")
         apply(model).join()
         val saved = store.servers.first().single()
@@ -158,6 +165,9 @@ class VpsInstallApplyTest {
         assertNotNull(store.pendingInstall(saved))
         assertFalse(model.state.value.toString().contains("synthetic-secret-transport-failure"))
         peer.installFailure = null
+        peer.planRequest = defaultRequest
+        peer.statusOutput = JSONObject(status(port = admittedRequest.port.toString())).put("endpoint", admittedRequest.endpoint)
+            .put("cidr", admittedRequest.cidr).put("dns", admittedRequest.dns).toString()
         val restored = model()
         requireNotNull(restored.reuse(saved)).join()
         assertTrue(restored.state.value.pendingInstall)
@@ -166,6 +176,13 @@ class VpsInstallApplyTest {
         assertFalse(restored.canInstall)
         requireNotNull(restored.reconcileInstall()).join()
         assertEquals(Installation.OBSERVED, restored.state.value.installation)
+        assertEquals(defaultRequest.port.toString(), restored.state.value.plan?.port)
+        val observation = restored.state.value.statusSnapshots.getValue(saved.id)
+        assertEquals(admittedRequest.endpoint, observation.status.endpoint)
+        assertEquals(admittedRequest.port.toString(), observation.status.listenPort)
+        assertEquals(admittedRequest.cidr, observation.status.cidr)
+        assertEquals(admittedRequest.dns, observation.status.dns)
+        assertEquals(admittedRequest.port.toString(), store.servers.first().single().listenPort)
         assertEquals(1, peer.commands.count(::isInstall))
         assertNull(store.pendingInstall(store.servers.first().single()))
         assertFalse(restored.canInstall)

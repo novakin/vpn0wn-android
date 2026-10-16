@@ -506,11 +506,19 @@ class VpsProvisioningFragment : BaseFragment() {
         parent.addView(panel {
             configLine(str(R.string.vpn0wn_label_host), provisionForm.host)
             configLine(str(R.string.vpn0wn_ssh_fingerprint), provisionForm.fingerprint, wrap = true)
-            provisionState.plan?.let { plan ->
-                configLine(str(R.string.vpn0wn_label_endpoint), plan.endpoint)
-                configLine(str(R.string.vpn0wn_label_listen_port), plan.port)
-                configLine(str(R.string.vpn0wn_metric_cidr), plan.cidr)
-                configLine(str(R.string.vpn0wn_label_dns), plan.dns)
+            when (provisionState.installation) {
+                Installation.INSTALLED, Installation.OBSERVED -> provisionState.statusSnapshots[provisionState.serverId]?.status?.let { status ->
+                    configLine(str(R.string.vpn0wn_label_endpoint), status.endpoint)
+                    configLine(str(R.string.vpn0wn_label_listen_port), status.listenPort)
+                    configLine(str(R.string.vpn0wn_metric_cidr), status.cidr)
+                    configLine(str(R.string.vpn0wn_label_dns), status.dns)
+                }
+                else -> provisionState.plan?.let { plan ->
+                    configLine(str(R.string.vpn0wn_label_endpoint), plan.endpoint)
+                    configLine(str(R.string.vpn0wn_label_listen_port), plan.port)
+                    configLine(str(R.string.vpn0wn_metric_cidr), plan.cidr)
+                    configLine(str(R.string.vpn0wn_label_dns), plan.dns)
+                }
             }
             val message = when (provisionState.installation) {
                 Installation.NONE -> when {
