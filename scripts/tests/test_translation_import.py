@@ -64,6 +64,16 @@ class TranslationImportTest(unittest.TestCase):
         self.assertNotEqual(0, result.returncode)
         self.assertEqual('<resources>', (self.resources / 'values-invalid/strings.xml').read_text())
 
+    def test_empty_trailing_newline_directory_preserves_populated_sibling(self):
+        populated = '<resources><string name="sample">value</string></resources>'
+        result = self.import_resources({
+            'values-sibling': populated,
+            'values-sibling\n': '<resources/>',
+        })
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertFalse((self.resources / 'values-sibling\n').exists())
+        self.assertEqual(populated, (self.resources / 'values-sibling/strings.xml').read_text())
+
     def test_invalid_archive_stops_before_cleanup(self):
         empty = self.resources / 'values-empty/strings.xml'
         empty.parent.mkdir()

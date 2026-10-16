@@ -12,7 +12,7 @@ find ui/src/main/res -name strings.xml -exec bash -ec '
 	for resource do
 		count=$(xmllint --xpath "count(//resources/*)" "$resource")
 		if [[ "$count" -eq 0 ]]; then
-			rm -rf -- "$(dirname -- "$resource")"
+			rm -rf -- "${resource%/*}"
 		fi
 	done
 ' bash {} +
