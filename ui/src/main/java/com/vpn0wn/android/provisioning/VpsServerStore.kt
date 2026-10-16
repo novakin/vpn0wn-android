@@ -51,6 +51,7 @@ class VpsServerStore internal constructor(
     internal class InvalidTransferMetadataException : IllegalArgumentException("Invalid VPS fleet metadata")
     class CredentialConflictException : IllegalStateException("Saved SSH credentials do not match the current server; remove them before changing SSH settings")
     class ServerChangedException : IllegalStateException("Server changed while status was being read")
+    class InstallPendingException : IllegalStateException("An earlier installation needs reconciliation")
     class IncompleteCredentialRecoveryException : IOException("Server change failed; saved SSH credentials could not be restored")
     private val mutationMutex = Mutex()
 
@@ -113,9 +114,63 @@ class VpsServerStore internal constructor(
         }
     }
 
+    suspend fun pendingInstall(expected: StoredVpsServer): PendingVpsInstall? = mutate {
+        requireCurrent(expected)
+        PendingVpsInstall.decode(dataStore.data.first()[PENDING_INSTALLS].orEmpty()).firstOrNull { it.matches(expected) }
+    }
+
+    suspend fun admitInstall(expected: StoredVpsServer, request: VpsInstallRequest): PendingVpsInstall = mutate {
+        require(!request.force)
+        val attempt = PendingVpsInstall(expected.id, VpsEndpoint(expected.host, expected.sshPort, expected.sshUser), request)
+        dataStore.edit { preferences ->
+            val servers = decodeServersForMutation(preferences[SERVERS].orEmpty())
+            if (servers.singleOrNull { it.id == expected.id } != expected) throw ServerChangedException()
+            val attempts = PendingVpsInstall.decode(preferences[PENDING_INSTALLS].orEmpty())
+            if (attempts.any { it.matches(expected) }) throw InstallPendingException()
+            preferences[PENDING_INSTALLS] = PendingVpsInstall.encode(attempts + attempt)
+        }
+        attempt
+    }
+
+    suspend fun settleInstall(expected: StoredVpsServer, attempt: PendingVpsInstall, status: VpsServerStatus, syncedAtEpochSeconds: Long): StoredVpsServer = mutate {
+        val updated = observedRecord(expected, status, syncedAtEpochSeconds)
+        dataStore.edit { preferences ->
+            val servers = decodeServersForMutation(preferences[SERVERS].orEmpty())
+            if (servers.singleOrNull { it.id == expected.id } != expected) throw ServerChangedException()
+            val attempts = PendingVpsInstall.decode(preferences[PENDING_INSTALLS].orEmpty())
+            if (attempt !in attempts || !attempt.matches(expected) ||
+                attempt.ssh != VpsEndpoint(expected.host, expected.sshPort, expected.sshUser)) throw InstallPendingException()
+            preferences[SERVERS] = encodeServers(servers.map { if (it.id == expected.id) updated else it })
+            preferences[PENDING_INSTALLS] = PendingVpsInstall.encode(attempts - attempt)
+        }
+        updated
+    }
+
+    suspend fun clearFailedInstall(expected: StoredVpsServer, attempt: PendingVpsInstall) = mutate {
+        dataStore.edit { preferences ->
+            val servers = decodeServersForMutation(preferences[SERVERS].orEmpty())
+            if (servers.singleOrNull { it.id == expected.id } != expected) throw ServerChangedException()
+            val attempts = PendingVpsInstall.decode(preferences[PENDING_INSTALLS].orEmpty())
+            if (attempt !in attempts || attempt.ssh != VpsEndpoint(expected.host, expected.sshPort, expected.sshUser))
+                throw InstallPendingException()
+            preferences[PENDING_INSTALLS] = PendingVpsInstall.encode(attempts - attempt)
+        }
+        Unit
+    }
+
     suspend fun updateStatus(expected: StoredVpsServer, status: VpsServerStatus, syncedAtEpochSeconds: Long): StoredVpsServer = mutate {
+        val updated = observedRecord(expected, status, syncedAtEpochSeconds)
+        dataStore.edit { preferences ->
+            val servers = decodeServersForMutation(preferences[SERVERS].orEmpty())
+            if (servers.singleOrNull { it.id == expected.id } != expected) throw ServerChangedException()
+            preferences[SERVERS] = encodeServers(servers.map { if (it.id == expected.id) updated else it })
+        }
+        updated
+    }
+
+    private fun observedRecord(expected: StoredVpsServer, status: VpsServerStatus, syncedAtEpochSeconds: Long): StoredVpsServer {
         require(syncedAtEpochSeconds > 0L)
-        val updated = expected.copy(
+        return expected.copy(
             endpoint = status.endpoint,
             listenPort = status.listenPort,
             cidr = status.cidr,
@@ -123,12 +178,6 @@ class VpsServerStore internal constructor(
             lastSyncEpochSeconds = syncedAtEpochSeconds,
             running = status.running,
         )
-        dataStore.edit { preferences ->
-            val servers = decodeServersForMutation(preferences[SERVERS].orEmpty())
-            if (servers.singleOrNull { it.id == expected.id } != expected) throw ServerChangedException()
-            preferences[SERVERS] = encodeServers(servers.map { if (it.id == expected.id) updated else it })
-        }
-        updated
     }
 
     suspend fun saveCredential(server: StoredVpsServer, fingerprint: String, credential: VpsCredential) = mutate {
@@ -302,6 +351,7 @@ class VpsServerStore internal constructor(
         )
         private const val TAG = "vpn0wn/VpsServerStore"
         internal val SERVERS = stringPreferencesKey("vps_servers")
+        private val PENDING_INSTALLS = stringPreferencesKey("vps_pending_installs")
 
         internal fun encodeServers(servers: List<StoredVpsServer>): String {
             val array = JSONArray()
