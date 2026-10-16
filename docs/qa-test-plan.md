@@ -8,6 +8,16 @@ The layer lists below are target requirements, not a passing coverage report. [S
 
 ## Test Layers
 
+### Config read publication controls — #211
+
+On 2026-10-17 (Europe/Paris), the `:ui:testDebugUnitTest` selectors `TunnelConfigPublicationTest`, `TunnelManagerTest`, `AppDataTransferManagerTest`, `TunnelStatisticsTest` and `TunnelRecoveryTest` pass 103 tests with zero failures/errors/skips; `:ui:detekt` has zero findings. The nine new publication cases use actual manager/model owners and finite synthetic-store I/O barriers: ordinary load, later save consumed by connect/export, rename, rename-away/back, delete/same-name replacement, concurrent reads, read cancellation, failed save and admitted-save cancellation. The earlier audit's failing late-publication probe remains historical evidence. These are WSL/JVM/Robolectric controls, not a new APK, physical VPN, packet or storage power-loss run. Final-head CI, independent ultra review and issue closure belong to the PR.
+
+### Translation archive import controls — #209
+
+On 2026-10-17 (Europe/Paris), `python3 -m unittest discover -s scripts/tests -p 'test_translation_import.py' -v` passes five controls under WSL UID 1000. The actual helper imports synthetic ZIP archives through Debian bsdtar and inspects XML through xmllint, using locally extracted distribution packages without workstation elevation. Cases cover literal spaces/quotes/substitution/backticks/metacharacters/newlines, intended empty-directory removal with surviving populated resources and siblings (including a trailing-newline parent), malformed-XML preservation with failure, and extraction failure stopping before cleanup. The initial four-control run against the old helper records three expected failures, including unsafe paths and malformed-XML deletion; its extraction-failure control passes. That evidence remains private and separate from the final five-control suite. These are host import controls, not Android/root enforcement or arbitrary-archive security certification. CI installs `libarchive-tools`/`libxml2-utils` and executes the same suite; local missing tools produce explicit skips rather than a passing execution claim.
+
+Locked artwork dependencies and `node docs/assets/vpnown-brand/generate.mjs --android` were also executed in the correction worktree. Every tracked generated reference/Android output remains byte-identical; all six inherited XML declarations/copyright/SPDX/modification notices survive. No geometry, font, palette, layout, APK or device output changed. Final-head CI and independent ultra delivery acceptance belong to the PR.
+
 The [2026-10-06 phone follow-up](development.md#phone-ui-and-throughput-follow-up--2026-10-06) records a scoped physical Android 16 run. It does not install an Espresso/screenshot framework or replace the full support matrix below. Keep captures local: real profiles can expose private metadata even with secret fields masked. Before automation, confirm the current package/screen and protect unsaved user drafts; use synthetic inputs for writes. Restore temporary device settings and per-app locales after checks.
 
 ### CI coverage and APK boundary
