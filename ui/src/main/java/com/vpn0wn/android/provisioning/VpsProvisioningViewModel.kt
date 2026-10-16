@@ -253,6 +253,8 @@ class VpsProvisioningViewModel internal constructor(
             .also { installConfirmation = it }
     }
 
+    // Input, receipt and pre-admission transport failures retain distinct recovery semantics.
+    @Suppress("ThrowsCount")
     fun confirmInstall(confirmation: InstallConfirmation): Job? {
         if (!canInstall || installConfirmation !== confirmation || mutableState.value.plan !== confirmation.plan ||
             server != confirmation.server || persistedDetection != confirmation.server) return null
@@ -314,6 +316,8 @@ class VpsProvisioningViewModel internal constructor(
         }
     }
 
+    // Unknown admission, changed target and remote failure must not collapse into a retryable outcome.
+    @Suppress("ThrowsCount")
     fun reconcileInstall(): Job? {
         val expected = server ?: return null
         if (!mutableState.value.pendingInstall) return null
