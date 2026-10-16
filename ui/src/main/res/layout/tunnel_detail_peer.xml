@@ -66,8 +66,13 @@
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/public_key_row"
                 style="@style/Vpn0wnDetailRow"
-                android:orientation="vertical">
+                android:contentDescription="@string/public_key"
+                android:foreground="?attr/selectableItemBackground"
+                android:minHeight="48dp"
+                android:orientation="vertical"
+                app:copyText="@{item.publicKey.toBase64}">
 
                 <TextView
                     style="@style/Vpn0wnConfigRowLabel"
@@ -77,7 +82,6 @@
                     android:id="@+id/public_key_text"
                     style="@style/Vpn0wnConfigRowValue"
                     android:text="@{BindingAdapters.shortKey(item.publicKey.toBase64)}"
-                    app:copyText="@{item.publicKey.toBase64}"
                     tools:text="kLn9iJ…Nx5UI=" />
             </LinearLayout>
 
@@ -128,7 +132,7 @@
                     android:id="@+id/persistent_keepalive_text"
                     style="@style/Vpn0wnConfigRowValue"
                     android:onClick="@{ClipboardUtils::copyTextView}"
-                    android:text="@{@plurals/persistent_keepalive_seconds_unit(item.persistentKeepalive.orElse(0), item.persistentKeepalive.orElse(0))}"
+                    android:text="@{item == null ? `` : @plurals/persistent_keepalive_seconds_unit(item.persistentKeepalive.orElse(0), item.persistentKeepalive.orElse(0))}"
                     tools:text="every 25 seconds" />
             </LinearLayout>
 

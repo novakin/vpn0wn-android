@@ -1,6 +1,6 @@
 # vpn0wn QA Test Plan
 
-Last updated: 2026-10-15 (Europe/Paris).
+Last updated: 2026-10-16 (Europe/Paris).
 
 This document tracks the automated and manual QA coverage required for the vpn0wn Android redesign.
 
@@ -142,7 +142,9 @@ For [#48](https://github.com/novakin/vpn0wn-android/issues/48), `TunnelStatistic
 
 ### Detail public-key copy controls — #180
 
-`DetailPublicKeyCopyTest` inflates both actual Detail layouts on APIs 28 and 33 with synthetic keys. Require complete base64 clipboard values that differ from unchanged `shortKey` display and match the current interface/peer after config rebinding, peer replacement and a newly inflated Detail view. Interface copying must not return its private key. Clearing config must preserve a sentinel clipboard instead of copying `—` and remove peer rows; retain clipboard labels, row typefaces, pre-Android-13 Snackbar and Android 13+ system-feedback delegation. Run the existing `AddPeerPresentationTest` RX/TX copy controls and focused binding/lifecycle tests with Detekt. These checks do not establish Android paste, system feedback or physical output.
+2026-10-16 (Europe/Paris): the row-target/null-peer repair passed 40 focused controls across `DetailPublicKeyCopyTest`, `AddPeerPresentationTest`, `BindingAdaptersTest` and `TunnelDetailLifecycleTest`, with zero Detekt findings. This local source verification does not establish native paste, rendered feedback or spoken accessibility; the enhanced isolated harness still needs a fresh run.
+
+`DetailPublicKeyCopyTest` inflates both actual Detail layouts on APIs 28 and 33 with synthetic keys. Require complete base64 clipboard values that differ from unchanged `shortKey` display and match the current interface/peer after config rebinding, peer replacement and a newly inflated Detail view. The existing public-key row owns the click, localized `public_key` description, keyboard focus and selectable foreground; measure its minimum 48dp height while keeping the compact value TextView free of its own copy listener. Assert clipboard labels and pre-Android-13 confirmation against the localized resource independently of the bound description. Interface copying must not return its private key. Empty payloads and disabled targets must lose listener, clickability and focusability when bound and preserve a sentinel clipboard; clearing config also removes peer rows. Peer rebinding must retain localized configured/absent keepalive text and row visibility; clearing the peer must empty/hide keepalive without a generated-binding null-unboxing failure. Retain value typefaces, pre-Android-13 Snackbar and Android 13+ system-feedback delegation. Run the existing `AddPeerPresentationTest` RX/TX copy controls and focused binding/lifecycle tests with Detekt. These source controls do not establish Android paste, rendered focus/press feedback, spoken accessibility or physical output; the row-target follow-up still needs fresh native acceptance.
 
 For separately authorized Android clipboard/paste proof, use only synthetic interface/peer keys and compare pasted values with their complete fixture values, including selection/view changes. Preserve and restore original clipboard state where the platform permits it; disclose unavailable restoration or device proof. Retain the existing RX/TX displayed-value contract and private-key authorization boundary. [#180](https://github.com/novakin/vpn0wn-android/issues/180) owns final review, checks and delivery.
 

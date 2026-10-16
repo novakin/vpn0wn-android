@@ -72,8 +72,11 @@ import java.util.WeakHashMap
 object BindingAdapters {
     @JvmStatic
     @BindingAdapter("copyText")
-    fun setCopyText(view: TextView, text: CharSequence?) {
-        view.setOnClickListener { ClipboardUtils.copyText(view, text) }
+    fun setCopyText(view: View, text: CharSequence?) {
+        val canCopy = view.isEnabled && !text.isNullOrEmpty()
+        view.setOnClickListener(if (canCopy) View.OnClickListener { ClipboardUtils.copyText(view, text) } else null)
+        view.isClickable = canCopy
+        view.isFocusable = canCopy
     }
 
     @JvmStatic

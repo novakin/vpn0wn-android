@@ -1,6 +1,6 @@
 # vpn0wn UI Redesign Roadmap
 
-Last updated: 2026-10-15 (Europe/Paris).
+Last updated: 2026-10-16 (Europe/Paris).
 
 ## Design Source
 
@@ -499,6 +499,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
+- [x] **Detail public-key row copy targets — [#180](https://github.com/novakin/vpn0wn-android/issues/180), source 2026-10-15:** The existing public-key rows in `tunnel_detail_fragment.xml` and `tunnel_detail_peer.xml` own complete-key copying with a local 48dp minimum height, native selectable foreground and keyboard focus. Their localized `public_key` descriptions supply clipboard labels and pre-Android-13 confirmation; null payloads and disabled targets lose copy action/focus when bound. Clearing the bound peer also safely empties its hidden keepalive value. Value IDs, compact text, fonts and row padding remain unchanged. Existing copy tests now target and measure the rows, independently check localized labels and cover rebinding, replacement, configured/absent keepalive and unavailable actions; focused execution passes under the [2026-10-16 QA record](qa-test-plan.md#detail-public-key-copy-controls--180); fresh native output and spoken-accessibility acceptance remain pending.
+
 - [x] **Detail full public-key copy source repair — [#180](https://github.com/novakin/vpn0wn-android/issues/180), 2026-10-14:** Both Detail public-key cells bind their complete key through `BindingAdapters.setCopyText` while retaining compact `shortKey` display and existing row typography. Clipboard feedback stays with `ClipboardUtils`; [QA controls](qa-test-plan.md#detail-public-key-copy-controls--180) keep synthetic JVM proof separate from Android paste and delivery acceptance.
 
 - [x] **SSH setup preview copy — #143, 2026-10-15:** English/French key/password notes state that the current preview does not save input. The private-key hint uses the supported traditional RSA PEM header, and the password hint no longer promises bootstrap-only retention. Existing fonts, colors, spacing and controls remain. The selected encrypted saved-password backend policy is documented separately; capture/reuse and Android runtime acceptance remain pending.
@@ -691,7 +693,7 @@ This is a historical implementation ledger, not newly executed build/device proo
 - [ ] Add Share button to detail toolbar (Edit icon already exists — place Share + More alongside it in the redesigned TopBar above).
 - [ ] Add More button to detail toolbar with the existing `ic_vpn0wn_more` drawable (vertical `⋮`, three dots); wire to `MoreSheet`.
 - [ ] **Status card subtitle = session timer** — JSX shows `session MM:SS` counting up from when the tunnel went UP (`LiveTimer` component, 1s interval). Android `setDetailStatusSubtitleTunnel` shows `tunnelHandshake()` = handshake age. Different data. Implementation: track `tunnelUpSince: Long?` in `TunnelDetailFragment`; set to `SystemClock.elapsedRealtime()` when `tunnel.state` transitions to `UP`; launch a 1s coroutine in `onResume` that formats `(now - tunnelUpSince)` as `MM:SS` and sets `binding.tunnelStatusSubtitle.text = "session $formatted"`; cancel in `onPause`. When not UP, fall back to current `setDetailStatusSubtitleTunnel` binding.
-- [ ] **Copy icon button UX** — JSX `ConfigRow` with `copy` prop renders a dedicated 28×28 icon button (right-aligned) that flashes `vpn0wn_signal` background for 1100ms on press. Android copies by tapping the value `TextView` itself (no dedicated copy indicator); public-key cells bind the full payload separately from compact text. Consider adding a small copy icon `ImageView` to `Vpn0wnDetailRow` style rows or at minimum a ripple + `Vpn0wnSnackbar` confirmation consistent with existing snackbar styling.
+- [ ] **Copy icon button UX** — JSX `ConfigRow` with `copy` prop renders a dedicated 28×28 icon button (right-aligned) that flashes `vpn0wn_signal` background for 1100ms on press. Android public-key rows own the complete-key copy action with a 48dp minimum target, keyboard focus and native selectable foreground; other copy cells retain value-TextView ownership. The dedicated copy indicator remains absent. Consider adding a small copy icon `ImageView` to `Vpn0wnDetailRow` style rows; fresh output and accessibility acceptance remain separate from the source repair.
 - [ ] **PSK badge lock icon** — `tunnel_detail_peer.xml` shows plain `PSK` text. JSX shows `<IconLock size={10}/> PSK` pill badge. Add `ic_vpn0wn_lock` (or use existing Material lock drawable) as a leading `ImageView` inside the PSK badge container.
 - [ ] `MoreSheet` bottom sheet (see §8).
 - [ ] `ShareSheet` bottom sheet (see §8).

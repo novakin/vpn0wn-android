@@ -34,8 +34,7 @@ object ClipboardUtils {
         if (text.isNullOrEmpty()) return
         val label = when (view) {
             is TextInputEditText -> view.hint
-            is TextView -> view.contentDescription
-            else -> return
+            else -> view.contentDescription
         }
         val service = view.context.getSystemService<ClipboardManager>() ?: return
         service.setPrimaryClip(ClipData.newPlainText(label, text))
