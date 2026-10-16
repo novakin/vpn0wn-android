@@ -36,6 +36,7 @@ import com.vpn0wn.android.backend.WgQuickBackend
 import com.vpn0wn.android.configStore.ConfigStore
 import com.vpn0wn.android.databinding.ObservableSortedKeyedArrayList
 import com.vpn0wn.android.util.ErrorMessages
+import com.vpn0wn.android.util.RootShell.RootShellException
 import com.vpn0wn.android.util.AppDataTransfer
 import com.vpn0wn.android.util.UserKnobs
 import com.vpn0wn.android.util.applicationScope
@@ -565,7 +566,15 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
                     else -> return@launch
                 }
                 val tunnelName = intent.getStringExtra("tunnel") ?: return@launch
-                val tunnels = manager.getTunnels()
+                val tunnels = try {
+                    manager.getTunnels()
+                } catch (e: IOException) {
+                    Toast.makeText(context, ErrorMessages[e], Toast.LENGTH_LONG).show()
+                    return@launch
+                } catch (e: RootShellException) {
+                    Toast.makeText(context, ErrorMessages[e], Toast.LENGTH_LONG).show()
+                    return@launch
+                }
                 val tunnel = tunnels[tunnelName] ?: return@launch
                 try {
                     manager.setTunnelState(tunnel, state)
