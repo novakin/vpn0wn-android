@@ -35,6 +35,21 @@ public class KeyPair {
         publicKey = Key.generatePublicKey(privateKey);
     }
 
+    @Override
+    public boolean equals(final Object obj) {
+        if (obj == this)
+            return true;
+        if (obj == null || obj.getClass() != getClass())
+            return false;
+        final KeyPair other = (KeyPair) obj;
+        return privateKey.equals(other.privateKey);
+    }
+
+    @Override
+    public int hashCode() {
+        return privateKey.hashCode();
+    }
+
     /**
      * Returns the private key from the key pair.
      *

@@ -1,6 +1,6 @@
 # Backend and provisioning contracts
 
-Last updated: 2026-10-16 (Europe/Paris).
+Last updated: 2026-10-17 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -72,6 +72,14 @@ The prior Java socket owner's TrafficStats tag isolation is historical behavior 
 In retained baseline logs, `UDP preflight sent` means the protected Java socket accepted a local send. It does not acknowledge delivery or DPI resistance. Native warm-up adds no per-packet success log or server acknowledgment and leaves the WireGuard protocol unchanged. Socket continuity and authenticated loopback traffic do not establish hardware deep suspend, broader unchanged kernel-server compatibility or DPI benefit. The maintainer's 2026-10-08 report of sleep/wake recovery without manual action is not new measured packet/timing proof; the earlier 195-second forced Doze trial retains its own scope in [the experiment record](reviews/2026-10-07-protocol-preflight-experiment.md#forced-deep-doze-recovery--2026-10-07). The [G4 investigation](reviews/2026-10-07-g4-preflight-investigation.md) retains its separate incident/port-change scope. No DPI, speed or battery gain is established.
 
 `WgQuickBackend` serializes the entire transition on its existing instance: observed state, config snapshot, prior-tunnel shutdown, apply, rollback, map update and callback. Running-name reads and multiple-tunnel preference changes share that monitor. Application collects those mode changes on IO, so waiting behind a root transition leaves the main thread free. Disabled multiple mode admits one app-owned active tunnel; enabled mode retains supported simultaneous tunnels. Failed apply/shutdown attempts restoration where applicable; restoration failures attach to the primary exception and observed running names remain queryable. RootShell still serializes individual commands; the backend monitor additionally protects the whole transition. This does not coordinate another backend instance or external root tools, turn multi-command changes into kernel transactions, or guarantee observation after an unreachable shell. #15 has controlled command-level JVM proof; device/kernel traffic and partial native effects remain separate.
+
+### Editor/config value corrections — #213/#214/#206
+
+`PeerProxy.setInterfaceDns` uses the existing numeric-only `InetAddresses.parse` to derive IPv4 DNS `/32` routes for Exclude private IPs. Search domains never become routes or trigger resolution; numeric IPv6 DNS and existing IPv6 AllowedIPs remain unchanged. DNS edits while exclusion is active replace the previously derived IPv4 routes, while the Interface parser retains complete numeric/search-domain values and owns invalid-DNS diagnostics.
+
+`KeyPair.equals/hashCode` use immutable private-key bytes through the existing `Key` value methods; the public key remains derived. Distinct private bytes stay unequal even when X25519 clamping derives the same public key. Consequently, independently parsed equivalent `Interface`/`Config` values reach `ObservableTunnel.setConfigAsync`'s existing no-op guard, preserving the committed object and avoiding backend/store writes even while active. Meaningfully changed profiles retain normal save and failed-save recovery.
+
+`Interface.Builder.setMtu` reports negative direct/parsed values at `Location.MTU`, selecting MTU context and positive-number guidance. Zero still means automatic/absent; positive values and ListenPort validation retain their existing contracts. These are source/JVM corrections; [focused QA](qa-test-plan.md#editorconfig-value-controls--213214206) does not establish device traffic, DNS leakage or energy effects.
 
 ### VPN consent continuation — #177
 
