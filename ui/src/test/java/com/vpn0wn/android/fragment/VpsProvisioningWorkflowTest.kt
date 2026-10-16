@@ -112,6 +112,8 @@ class VpsProvisioningWorkflowTest {
             settle()
             val dialog = ShadowDialog.getLatestDialog() as AlertDialog
             assertTrue(dialog.isShowing)
+            assertEquals(fixture.activity.getString(R.string.vpn0wn_apply_install_button),
+                dialog.getButton(DialogInterface.BUTTON_POSITIVE).text.toString())
             assertTrue(dialog.findViewById<TextView>(android.R.id.message)!!.text.contains("198.51.100.42"))
             dialog.getButton(DialogInterface.BUTTON_NEGATIVE).performClick()
             assertFalse(fixture.peer.commands.any { it.contains("./'install.sh'") || it.contains("./'add-peer.sh'") })

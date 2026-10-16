@@ -425,6 +425,7 @@
     <string name="vpn0wn_apply_fresh_only">NOUVELLE INSTALLATION UNIQUEMENT</string>
     <string name="vpn0wn_apply_current_record_required">L’installation nécessite une fiche enregistrée pour le serveur actuel. Relancez la détection, vérifiez le résultat de l’enregistrement, puis générez un nouveau plan.</string>
     <string name="vpn0wn_close_connection">fermer la connexion</string>
+    <string name="vpn0wn_apply_install_button">Installer</string>
     <string name="vpn0wn_apply_confirmation">Installer sur %1$s@%2$s:%3$d ?\nEmpreinte SSH : %4$s\nPoint de terminaison VPN : %5$s:%6$s\nSous-réseau : %7$s\nDNS : %8$s\n\nCette opération installe les paquets WireGuard, active le transfert IP et démarre le service VPN. Aucune configuration existante ne sera remplacée. Annuler ne peut pas interrompre une opération distante déjà admise.</string>
     <string name="vpn0wn_apply_running_note">Installation ou vérification de l’état réel du serveur. Annuler ferme cette connexion ; une opération distante peut continuer et nécessiter une vérification.</string>
     <string name="vpn0wn_apply_verified">L’installation a réussi et la configuration active a été observée. Cela ne prouve pas la connexion d’un client. Les profils utilisateur ne sont pas encore disponibles.</string>

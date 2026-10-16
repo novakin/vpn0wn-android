@@ -499,6 +499,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
+- [x] **Explicit native installation action — #143, 2026-10-16:** the destination-confirmation dialog keeps its reviewed title and details, while its positive action now says Install/Installer in EN/FR. This names the actual operation and avoids the repeated long title as button copy. Material's native scrolling/stacking footer, fonts, palette, 48dp targets and mutation gates remain unchanged. Actual Fragment label coverage is added; fresh output must verify each action's native scroll/focus reachability, including narrow large-text RTL, without assuming both stacked actions are visible simultaneously.
+
 - [x] **Current install-recovery feedback — #143, 2026-10-16:** public wizard Detect and both marker settlements now discard earlier recovery receipts, preventing stale unchanged/restored feedback or eligibility from leaking into another attempt. Direct same-attempt reconciliation retains its known-failure path. Existing layouts, fonts, copy and tokens are unchanged; focused execution, affected independent review and fresh install-state output remain required.
 
 - [x] **Observed Apply network facts — #143, 2026-10-16:** verified/observed Apply shows the validated retained status endpoint/port/CIDR/DNS, preserving a later Plan as separate advisory review. Missing observation cannot fall back to unrelated plan values. Existing fonts, tokens, layout and confirmation gates remain unchanged. Edited-plan Fragment and recreated-owner source regressions are added; execution, fresh output inspection and independent review remain pending.

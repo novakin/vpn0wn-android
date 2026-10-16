@@ -548,7 +548,7 @@ class VpsProvisioningFragment : BaseFragment() {
                 confirmation.ssh.user, sshHost, confirmation.ssh.port, confirmation.fingerprint,
                 plan.endpoint, plan.port, plan.cidr, plan.dns))
             .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(R.string.vpn0wn_confirm_apply, null)
+            .setPositiveButton(R.string.vpn0wn_apply_install_button, null)
             .create()
         installDialog?.dismiss()
         installDialog = dialog
