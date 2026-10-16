@@ -85,6 +85,14 @@ Home, saved-selection restoration, TV startup and initial tile clicks handle exp
 
 The remote-control receiver also catches only expected I/O/root failures during initial inventory lookup, shows its existing Toast and returns before a transition. A later authorized SET intent retries initialization; cancellation, unexpected runtime defects and Errors from that lookup remain failures. The existing preference/action/name admission, legacy REFRESH alias and transition error handler are unchanged. Direct receiver host controls do not establish manifest permission enforcement or ordinary-UID access.
 
+### Editor/config value corrections — #213/#214/#206
+
+`PeerProxy.setInterfaceDns` uses the existing numeric-only `InetAddresses.parse` to derive IPv4 DNS `/32` routes for Exclude private IPs. Search domains never become routes or trigger resolution; numeric IPv6 DNS and existing IPv6 AllowedIPs remain unchanged. DNS edits while exclusion is active replace the previously derived IPv4 routes, while the Interface parser retains complete numeric/search-domain values and owns invalid-DNS diagnostics.
+
+`KeyPair.equals/hashCode` use immutable private-key bytes through the existing `Key` value methods; the public key remains derived. Distinct private bytes stay unequal even when X25519 clamping derives the same public key. Consequently, independently parsed equivalent `Interface`/`Config` values reach `ObservableTunnel.setConfigAsync`'s existing no-op guard, preserving the committed object and avoiding backend/store writes even while active. Meaningfully changed profiles retain normal save and failed-save recovery.
+
+`Interface.Builder.setMtu` reports negative direct/parsed values at `Location.MTU`, selecting MTU context and positive-number guidance. Zero still means automatic/absent; positive values and ListenPort validation retain their existing contracts. These are source/JVM corrections; [focused QA](qa-test-plan.md#editorconfig-value-controls--213214206) does not establish device traffic, DNS leakage or energy effects.
+
 ### VPN consent continuation — #177
 
 `BaseFragment.setTunnelState` uses Android's existing userspace VPN preparation and activity-result path. Preparation belongs to the fragment's `lifecycleScope`; permanent removal cancels a backend-initialization waiter before it can launch consent. A Fragment-scoped `VpnPermissionViewModel` retains an immutable request containing the original managed `ObservableTunnel` object and requested Boolean direction across in-process Activity/Fragment configuration recreation. The callback takes and clears it before acting; only `Activity.RESULT_OK` submits that direction through `ObservableTunnel.setStateAsync` and the existing serialized manager. Selection changes cannot retarget it, and the manager rejects deleted models or same-name replacements.

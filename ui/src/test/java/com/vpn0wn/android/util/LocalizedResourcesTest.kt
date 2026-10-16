@@ -68,6 +68,21 @@ class LocalizedResourcesTest {
     }
 
     @Test
+    @Config(qualifiers = "en")
+    fun negativeParsedMtuUsesMtuContextAndGuidance() {
+        val failure = assertThrows(BadConfigException::class.java) {
+            com.vpn0wn.config.Interface.Builder().parseMtu("-1")
+        }
+        val resources = Application.get().resources
+        val message = ErrorMessages[failure]
+
+        assertTrue(message.contains("MTU"))
+        assertFalse(message.contains("ListenPort"))
+        assertTrue(message.endsWith(resources.getString(R.string.bad_config_explanation_positive_number)))
+        assertFalse(message.endsWith(resources.getString(R.string.bad_config_explanation_udp_port)))
+    }
+
+    @Test
     fun everyLocaleExplainsTheSupportedKeepaliveBounds() {
         val application = Application.get()
         val locales = listOf(

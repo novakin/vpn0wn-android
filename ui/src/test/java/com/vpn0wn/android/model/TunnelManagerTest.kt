@@ -182,6 +182,47 @@ class TunnelManagerTest {
     }
 
     @Test
+    fun unchangedActiveConfigDoesNotReachBackendOrStore() = runTest {
+        val env = environment()
+        try {
+            val previous = TunnelTestEnvironment.profile()
+            val tunnel = env.manager.create("one", previous)
+            tunnel.setStateAsync(Tunnel.State.UP)
+            env.backend.failUp = true
+            env.store.failSave = true
+            val unchanged = com.vpn0wn.config.Config.parse(previous.toWgQuickString().byteInputStream())
+
+            assertNotSame(previous, unchanged)
+            assertSame(previous, tunnel.setConfigAsync(unchanged))
+            assertSame(previous, env.backend.appliedConfigs[tunnel])
+            assertSame(previous, env.store.configs["one"])
+            assertSame(previous, tunnel.peekConfig())
+            assertEquals(Tunnel.State.UP, tunnel.state)
+        } finally {
+            env.close()
+        }
+    }
+
+    @Test
+    fun changedActiveConfigUpdatesBackendAndStore() = runTest {
+        val env = environment()
+        try {
+            val previous = TunnelTestEnvironment.profile()
+            val tunnel = env.manager.create("one", previous)
+            tunnel.setStateAsync(Tunnel.State.UP)
+            val replacement = TunnelTestEnvironment.profile(51821)
+
+            assertSame(replacement, tunnel.setConfigAsync(replacement))
+            assertSame(replacement, env.backend.appliedConfigs[tunnel])
+            assertSame(replacement, env.store.configs["one"])
+            assertSame(replacement, tunnel.peekConfig())
+            assertEquals(Tunnel.State.UP, tunnel.state)
+        } finally {
+            env.close()
+        }
+    }
+
+    @Test
     fun downRequestQueuesBehindUpBeforeAdmission() = runTest {
         val env = environment()
         val blocker = env.manager.create("blocker", TunnelTestEnvironment.profile())
