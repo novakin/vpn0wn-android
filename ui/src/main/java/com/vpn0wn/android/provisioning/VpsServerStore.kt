@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import org.json.JSONException
@@ -58,7 +59,7 @@ class VpsServerStore internal constructor(
 
     val servers: Flow<List<StoredVpsServer>> = dataStore.data.map { preferences ->
         decodeServers(preferences[SERVERS].orEmpty())
-    }
+    }.distinctUntilChanged()
 
     suspend fun upsert(server: StoredVpsServer) = mutate {
         decodeTransferServers(encodeServers(listOf(server)))

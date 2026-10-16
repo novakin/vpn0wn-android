@@ -852,9 +852,10 @@ class VpsProvisioningFragment : BaseFragment() {
     // Literal insets preserve the existing operation-status layout.
     @Suppress("MagicNumber")
     private fun addUserCreationStatus(parent: LinearLayout) {
-        val owner = provisionState.creationOwner
-        val current = owner?.let { captured -> storedServers.singleOrNull { it.id == captured.id } }
-        val creation = if (owner != null && owner == current) provisionState.creation else UserCreation.NONE
+        val owner = provisionState.creationOwner ?: return
+        if ((screen as? Screen.Detail)?.serverId != owner.id || provisionState.serverId != owner.id ||
+            storedServers.singleOrNull { it.id == owner.id } != owner) return
+        val creation = provisionState.creation
         val message = when (creation) {
             UserCreation.NONE -> if (provisionState.pendingAdd) R.string.vpn0wn_user_add_pending else null
             UserCreation.RUNNING -> R.string.vpn0wn_user_creating

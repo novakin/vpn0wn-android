@@ -157,7 +157,11 @@ class VpsProvisioningViewModel internal constructor(
 
     // Input, pending owners and stale observations have distinct admission failures.
     @Suppress("ThrowsCount")
-    fun requestAddUserConfirmation(savedServer: StoredVpsServer, name: String): Job? = operate(requireActive = false) {
+    fun requestAddUserConfirmation(savedServer: StoredVpsServer, name: String): Job? = operate(
+        requireActive = false,
+        initialState = mutableState.value.copy(serverId = savedServer.id, addConfirmation = null,
+            pendingAdd = false, creation = UserCreation.NONE, creationOwner = savedServer),
+    ) {
         receivedUser?.let { retainReceivedUser(it) }
         mutableState.value = mutableState.value.copy(serverId = savedServer.id, addConfirmation = null,
             pendingAdd = false, creation = UserCreation.NONE, creationOwner = savedServer)
@@ -672,9 +676,9 @@ class VpsProvisioningViewModel internal constructor(
         }
     }
 
-    private fun operate(requireActive: Boolean = true, action: suspend () -> Unit): Job? {
+    private fun operate(requireActive: Boolean = true, initialState: State = mutableState.value, action: suspend () -> Unit): Job? {
         if (mutableState.value.busy || requireActive && !mutableState.value.active) return null
-        mutableState.value = mutableState.value.copy(busy = true, problem = null)
+        mutableState.value = initialState.copy(busy = true, problem = null)
         return viewModelScope.launch {
             try {
                 action()

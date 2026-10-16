@@ -27,10 +27,20 @@ import com.vpn0wn.android.R
 import com.vpn0wn.android.model.TunnelTestEnvironment
 import com.vpn0wn.android.provisioning.VpsCredential
 import com.vpn0wn.android.provisioning.ProvisioningException
+import com.vpn0wn.android.provisioning.StoredVpsServer
+import com.vpn0wn.android.provisioning.VpsCredentialFileTest
 import com.vpn0wn.android.provisioning.VpsPlanningTestPeer
+import com.vpn0wn.android.provisioning.VpsProfileFixture
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Step
+import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.UserCreation
+import com.vpn0wn.android.provisioning.VpsUserProfileFile
+import com.vpn0wn.android.provisioning.VpsUserProfileFileTest
+import com.vpn0wn.android.provisioning.VpsUserProfileStore
+import java.io.File
+import java.io.IOException
 import java.util.Base64
+import javax.crypto.KeyGenerator
 import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
@@ -56,6 +66,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
+import org.json.JSONArray
+import org.json.JSONObject
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
@@ -606,6 +618,139 @@ class VpsProvisioningWorkflowTest {
         } finally { fixture.close() }
     }
 
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class])
+    fun otherServerReviewShowsReceiptRetentionFailureOnTheSelectedServer() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        var failSync = true
+        val profiles = profileStore { if (failSync) throw IOException("synthetic profile sync failure") }
+        val fixture = fixture(immediateMain = true, profiles = profiles)
+        try {
+            val (first, second) = prepareUnsavedUserAndSelectOtherServer(fixture)
+            val store = Vpn0wnApplication.getVpsServerStore()
+            val pending = requireNotNull(store.pendingAdd(first))
+            val busyOwners = mutableListOf<String?>()
+            val collecting = backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                fixture.model.state.collect { if (it.busy) busyOwners.add(it.serverId) }
+            }
+            requestUserReview(fixture, "second-phone")
+            fixture.model.state.first { !it.busy && it.problem == VpsProvisioningViewModel.Problem.STORAGE_FAILED }
+            settle()
+            collecting.cancelAndJoin()
+            assertEquals(second.id, busyOwners.first())
+            assertEquals(second.id, fixture.model.state.value.serverId)
+            assertEquals(fixture.activity.getString(R.string.vpn0wn_saved_ssh_failed),
+                fixture.root.findViewById<TextView>(R.id.vpn0wn_vps_operation_problem).text.toString())
+            assertNull(fixture.model.state.value.addConfirmation)
+            assertNull(fixture.root.findViewById<View>(R.id.vpn0wn_vps_user_creation_status))
+            assertNull(fixture.root.findViewById<View>(R.id.vpn0wn_vps_reconcile_user))
+            assertEquals(pending, store.pendingAdd(first))
+            assertNull(store.pendingAdd(second))
+            assertNull(profiles.load(first, PROFILE_SERVER_KEY, PROFILE_CLIENT_KEY))
+            failSync = false
+            fixture.peer.statusOutput = profileStatus(first, withPeer = true)
+            requireNotNull(fixture.model.reconcileAddUser(first)).join()
+            assertEquals(UserCreation.CREATED, fixture.model.state.value.creation)
+            assertNotNull(profiles.load(first, PROFILE_SERVER_KEY, PROFILE_CLIENT_KEY))
+            assertNull(profiles.load(second, PROFILE_SERVER_KEY, PROFILE_CLIENT_KEY))
+            assertEquals(1, fixture.peer.commands.count { it.contains("./'add-peer.sh'") })
+        } finally { fixture.close() }
+    }
+
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class])
+    fun otherServerFirstReviewSurvivesRetainingThePreviousServersReceipt() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        var failSync = true
+        val profiles = profileStore { if (failSync) throw IOException("synthetic profile sync failure") }
+        val fixture = fixture(immediateMain = true, profiles = profiles)
+        try {
+            val (first, second) = prepareUnsavedUserAndSelectOtherServer(fixture)
+            failSync = false
+            requestUserReview(fixture, "second-phone")
+            fixture.model.state.first { !it.busy && it.addConfirmation != null }
+            settle()
+            val confirmation = requireNotNull(fixture.model.state.value.addConfirmation)
+            val review = ShadowDialog.getLatestDialog() as AlertDialog
+            assertTrue("First Review opens confirmation after the marker-only fleet write", review.isShowing)
+            assertEquals(second, confirmation.server)
+            assertEquals("second-phone", confirmation.request.name)
+            val message = review.findViewById<TextView>(android.R.id.message)!!.text.toString()
+            assertTrue(message.contains(second.host))
+            assertTrue(message.contains("second-phone"))
+            assertEquals(UserCreation.NONE, fixture.model.state.value.creation)
+            assertNull(fixture.root.findViewById<View>(R.id.vpn0wn_vps_user_creation_status))
+            assertEquals(VpsProfileFixture.profile().payload(),
+                requireNotNull(profiles.load(first, PROFILE_SERVER_KEY, PROFILE_CLIENT_KEY)).payload())
+            assertNull(profiles.load(second, PROFILE_SERVER_KEY, PROFILE_CLIENT_KEY))
+            val store = Vpn0wnApplication.getVpsServerStore()
+            assertEquals(PROFILE_CLIENT_KEY, requireNotNull(store.pendingAdd(first)).clientPublicKey)
+            assertNull(store.pendingAdd(second))
+            assertEquals(1, fixture.peer.commands.count { it.contains("./'add-peer.sh'") })
+            review.getButton(DialogInterface.BUTTON_NEGATIVE).performClick()
+            settle()
+            assertNull(fixture.model.state.value.addConfirmation)
+            assertEquals(1, fixture.peer.commands.count { it.contains("./'add-peer.sh'") })
+        } finally { fixture.close() }
+    }
+
+    private fun profileStore(beforeSync: () -> Unit): VpsUserProfileStore {
+        val key = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
+        return VpsUserProfileStore(VpsUserProfileFile(File(folder.newFolder(), "profiles"), { key }, sync = {
+            beforeSync()
+            it.fd.sync()
+        }))
+    }
+
+    private suspend fun TestScope.prepareUnsavedUserAndSelectOtherServer(fixture: Fixture): Pair<StoredVpsServer, StoredVpsServer> {
+        val store = Vpn0wnApplication.getVpsServerStore()
+        val first = VpsProfileFixture.server
+        val second = first.copy(id = "server-2", name = "Second server", host = "203.0.113.11", endpoint = "203.0.113.11")
+        for (server in listOf(first, second)) {
+            store.upsert(server)
+            store.saveCredential(server, PROFILE_PIN, VpsCredential.Password(PASSWORD.toCharArray()))
+            fixture.peer.statusOutput = profileStatus(server)
+            requireNotNull(fixture.model.syncStatus(server)).join()
+        }
+        settle()
+        clickableAncestor(text(fixture.root, first.name)).performClick()
+        settle()
+        requestUserReview(fixture, "phone")
+        fixture.model.state.first { !it.busy && it.addConfirmation != null }
+        settle()
+        fixture.peer.addOutput = VpsProfileFixture.result().let {
+            JSONObject().put("ok", true).put("name", it.name).put("address", it.address)
+                .put("publicKey", it.publicKey).put("config", it.config).toString()
+        }
+        (ShadowDialog.getLatestDialog() as AlertDialog).getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+        fixture.model.state.first { !it.busy && it.creation == UserCreation.UNSAVED }
+        settle()
+        fixture.activity.onBackPressedDispatcher.onBackPressed()
+        settle()
+        clickableAncestor(text(fixture.root, second.name)).performClick()
+        settle()
+        assertNull(fixture.root.findViewById<View>(R.id.vpn0wn_vps_user_creation_status))
+        val servers = store.servers.first()
+        return servers.single { it.id == first.id } to servers.single { it.id == second.id }
+    }
+
+    private fun TestScope.requestUserReview(fixture: Fixture, name: String) {
+        fixture.root.findViewById<View>(R.id.vpn0wn_vps_add_user).performClick()
+        settle()
+        val form = ShadowDialog.getLatestDialog() as AlertDialog
+        form.findViewById<EditText>(R.id.vpn0wn_vps_peer_name)!!.setText(name)
+        form.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+    }
+
+    private fun profileStatus(server: StoredVpsServer, withPeer: Boolean = false): String = JSONObject()
+        .put("ok", true).put("interface", "wg0").put("running", true)
+        .put("endpoint", server.endpoint).put("listenPort", server.listenPort).put("cidr", server.cidr)
+        .put("dns", server.dns).put("serverPublicKey", PROFILE_SERVER_KEY)
+        .put("peers", JSONArray().apply {
+            if (withPeer) put(JSONObject().put("name", "phone").put("publicKey", PROFILE_CLIENT_KEY).put("allowedIps", "10.8.0.2/32")
+                .put("latestHandshake", JSONObject.NULL).put("rxBytes", JSONObject.NULL).put("txBytes", JSONObject.NULL))
+        }).toString()
+
     private suspend fun TestScope.prepareUserCreation(fixture: Fixture, confirmedIdentity: Boolean = true) {
         fillAccess(fixture)
         click(fixture, R.string.vpn0wn_continue)
@@ -636,7 +781,7 @@ class VpsProvisioningWorkflowTest {
 
     // A failed setup must drain Android, ViewModel and DataStore owners before resetting Main.
     @Suppress("TooGenericExceptionCaught")
-    private suspend fun TestScope.fixture(immediateMain: Boolean = false): Fixture {
+    private suspend fun TestScope.fixture(immediateMain: Boolean = false, profiles: VpsUserProfileStore? = null): Fixture {
         val scheduled = StandardTestDispatcher(testScheduler)
         Dispatchers.setMain(if (immediateMain) ThreadBoundMainDispatcher(Thread.currentThread(), scheduled) else scheduled)
         val environment = TunnelTestEnvironment(folder.newFolder(), backgroundScope)
@@ -647,7 +792,8 @@ class VpsProvisioningWorkflowTest {
             Vpn0wnApplication.getVpsServerStore().servers.first()
             controller.get().setTheme(R.style.AppTheme)
             controller.setup()
-            val model = VpsProvisioningViewModel(controller.get().application, Vpn0wnApplication.getVpsServerStore(), peer)
+            val model = VpsProvisioningViewModel(controller.get().application, Vpn0wnApplication.getVpsServerStore(), peer,
+                profiles = profiles ?: VpsUserProfileStore(controller.get().application))
             val createdModelJob = requireNotNull(model.viewModelScope.coroutineContext[Job])
             modelJob = createdModelJob
             controller.get().supportFragmentManager.registerFragmentLifecycleCallbacks(object : FragmentManager.FragmentLifecycleCallbacks() {
@@ -765,5 +911,8 @@ class VpsProvisioningWorkflowTest {
 
     private companion object {
         const val PASSWORD = "synthetic-rotation-password"
+        val PROFILE_SERVER_KEY = VpsProfileFixture.serverKey.publicKey.toBase64()
+        val PROFILE_CLIENT_KEY = VpsProfileFixture.client.publicKey.toBase64()
+        val PROFILE_PIN = "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(ByteArray(32) { it.toByte() })
     }
 }
