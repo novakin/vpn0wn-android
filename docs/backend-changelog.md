@@ -1,6 +1,6 @@
 # Backend & Functional Changelog
 
-Last updated: 2026-10-16 (Europe/Paris).
+Last updated: 2026-10-17 (Europe/Paris).
 
 Tracks non-UI changes: backend logic, data layer, permissions, networking, build config, and any functional behavior changes. Separate from `ui-redesign-roadmap.md` which covers visual/layout work only.
 
@@ -67,6 +67,8 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 - [x] Add opt-in destructive end-to-end test path against a disposable Ubuntu/Debian VPS.
 
 ## Done
+
+- **Translation import and generated notices — #209/#71 (2026-10-17, Europe/Paris):** `sync-crowdin.sh` passes archive-derived paths through positional arguments to its existing cleanup owner; XML failure propagates without deleting that directory. Four actual bsdtar/xmllint synthetic archive controls pass, preserving populated resources/siblings and intended empty-directory cleanup. The Android brand generator's shared notice now preserves the six current inherited XML notices; locked-dependency regeneration changes no tracked output bytes. CI runs the archive controls with their declared tools. [QA](qa-test-plan.md#translation-archive-import-controls--209) owns execution/limits; source changes do not certify arbitrary archives, build an APK or close #71.
 
 - **Settings membership fixture startup — #34/#85 follow-up (2026-10-16, Europe/Paris):** `SettingsActivityTest` installs membership DataStore fixtures after synchronous preference inflation and before STARTED so the lifecycle collector cannot subscribe to the original store and bypass the fixture's first-emission signal. Initial preference reads keep their original store. A forced early-dispatch control reproduced the CI timeout before repair. Existing stale-success/removal, loading/error and reopened-Settings assertions remain; no production code, timeout or membership policy changes. [QA](qa-test-plan.md#jvm-unit-tests) records the failure and final-head acceptance boundary.
 
