@@ -1,6 +1,6 @@
 # Architecture and maintenance boundaries
 
-Last updated: 2026-10-16 (Europe/Paris).
+Last updated: 2026-10-17 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -84,6 +84,16 @@ These are required maintenance invariants, not guarantees that all current owner
 See [backend contracts](backend-contracts.md) for known divergences and [the plan](improvement-plan.md) for repair ownership.
 
 ## Consequential decisions
+
+### Stage pinned native source for supported Go overlays — #215, 2026-10-17
+
+**Problem:** the former Go 1.24.3 runtime/module pins are outside the selected supported release lines and retain advisory version matches. Go 1.26 rejects the existing overlay's module-cache targets. Updating the compiler alone therefore breaks the native build and host ownership controls.
+
+**Decision/status:** the authorized #215 maintenance source selects Go 1.26.9, `x/crypto v0.58.0`, `x/net v0.61.0` and `x/sys v0.49.0`. The WireGuard pin and runtime patch remain unchanged. Extend the existing overlay generator: validate the original exact pin/reject original replacements, refresh a per-output copy of upstream source, then generate private module files with one relative local replacement. Apply the same exact-match overlays to that stage. Android Make and host tests pass the generated module file explicitly; production per-ABI stages and the host stage remain distinct. Go's standard package cache handles rebuilds without the old module-index override.
+
+**Alternatives and consequences:** a compiler-only upgrade cannot keep module-cache overlays working. Vendoring would expand the maintained generated source/module tree beyond this adaptation. Selecting Go 1.26 preserves its macOS 12 minimum; Go 1.27 raises that minimum to macOS 13. The staged-source approach adds an owned disposable copy without changing tracked dependency source or shared cache bytes. A generated local replacement omits the original dependency h1 from embedded Go metadata, although the required version remains. Keep original `go.sum`, verified download identity and explicit source/cache comparisons as provenance. `go mod verify` passed in this run; ordinary product builds do not execute it on every invocation. Relative replacement metadata avoids embedding an absolute workstation path.
+
+**Verification and limits:** [the dated maintenance record](reviews/2026-10-17-native-toolchain-maintenance.md) owns the native race/JNI, four-ABI, unchanged patch, incremental, notice and exact-artifact scanner evidence. Separate-package API24 x86_64 activation, authenticated loopback traffic, retained-session rebind and explicit DOWN pass there. The packaged stripped arm64 library has no scanner symbol inventory; its byte-matched unstripped counterpart provides bounded symbol evidence. Full repository gates and final-head acceptance remain pending. Darwin execution, hardware suspend, external peers, signed distribution, DPI and energy gains are unverified. No packet scheduling, port policy, JNI lifetime, recovery algorithm or protocol change is selected. Existing #61/#73 and release/distribution gates remain separate.
 
 ### Capture managed server state before portable recovery — 2026-10-16
 
