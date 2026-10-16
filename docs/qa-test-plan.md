@@ -140,6 +140,14 @@ For [#48](https://github.com/novakin/vpn0wn-android/issues/48), `TunnelStatistic
   - active with fresh handshake
   - no signal with stale handshake
 
+### Translation resource contracts — #195
+
+Run `./gradlew :ui:testDebugUnitTest --tests com.vpn0wn.android.util.LocalizedResourcesTest --tests com.vpn0wn.android.util.QuantityFormatterTest --tests com.vpn0wn.android.util.BiometricAuthenticatorTest :ui:detekt --console=plain` for the first bounded translation-safety slice. `LocalizedResourcesTest` adds six API-28 controls for the actual Portuguese (Brazil) zero-argument TUN failure path, French binary transfer totals, private-transfer warning/count formatting, inventory plurals/actions, Persian numeric quick-tile failure results and Arabic dual plurals with intentionally unused numeric arguments. Existing authentication controls retain the actual prompt/credential policy. These are required commands and source controls; execution remains pending for this slice until recorded by its PR.
+
+Use the platform resource formatter rather than a new home-grown complete format parser. This deliberately targeted regression scope catches the confirmed failure contracts without rejecting legitimate plural-category omissions; it does not certify every resource placeholder, locale or semantic translation. Run applicable Android lint and resource checks for the later integrated #195 audit. `MissingTranslation` and `ImpliedQuantity` remain warnings in `ui/build.gradle.kts`, and ordinary CI does not run lint. No warning setting or English fallback establishes complete translation coverage.
+
+French now defines the 17 resources absent before this slice, including authentication/private-key warnings and import conflict/recovery messages. This does not establish full French semantic or rendered acceptance. Most other locales still fall back for fork-specific text, and hardcoded natural-language labels remain in Detail/editor/topology owners. Complete the final provisioning/install/user/profile wording before the full 35-locale semantic review. Inspect affected compact portrait/landscape, normal/enlarged text, both themes, RTL and accessible output separately; no APK/device/live proof is supplied by this source slice. Keep #195 open for those gates and the final locale/qualifier inventory.
+
 ### Robolectric View Tests
 
 `AddPeerPresentationTest.nativeTopologyHeaderKeepsCompleteLabelsSeparatedAtSmallWidthsAndLargeText` inflates the actual bound Detail header with UP and CONNECTING states. Native raster/layout controls cover 320dp portrait at 1×/2× text, the observed 411dp RTL portrait at 2× text and 480dp short landscape at 2× text, in LTR/Arabic RTL and both system themes. Require complete title/status text, no ellipsis or clipping, and at least 4dp between rendered lines sharing vertical space. Inspect the generated `topology-*.png` files under ignored `.artifacts/add-peer-previews`; measured JVM output does not establish physical or spoken-accessibility acceptance.
@@ -461,6 +469,7 @@ The separate [Bash provisioning safety suite](../scripts/tests/provisioning_safe
 - `VpsServerStoreTest`
 - `BindingAdaptersTest`
 - `QuantityFormatterTest`
+- `LocalizedResourcesTest` — #195 bounded resource/formatter regressions; [translation controls](#translation-resource-contracts--195) retain broader semantic/rendered limits.
 - `FileConfigStoreTest`
 - `TunnelManagerTest`, `ApplicationBackendLifecycleTest`, `TunnelDetailLifecycleTest`, `KernelModuleEnablerPreferenceTest`, `GoBackendLifecycleTest` — scoped #13 owner/lifecycle regressions.
 - `TunnelStatisticsTest` — #48 shared model reads, session validity, cancellation/failure settlement, retry and continued visible polling, as described under [JVM unit tests](#jvm-unit-tests).

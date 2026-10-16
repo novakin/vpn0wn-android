@@ -1,6 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Modified for vpn0wn. -->
 <resources>
+    <string name="app_data_transfer_export_title">Exporter les données de l’application</string>
+    <string name="app_data_transfer_export_summary">Profils, paramètres et serveurs enregistrés. Le ZIP contient des clés privées ; gardez-le confidentiel.</string>
+    <string name="app_data_transfer_export_success">ZIP de transfert privé enregistré : %1$s</string>
+    <string name="app_data_transfer_auth_title">Exporter les données privées de l’application</string>
+    <string name="app_data_transfer_import_title">Importer les données de l’application</string>
+    <string name="app_data_transfer_import_summary">Restaurer un ZIP de transfert complet sans remplacer les profils ni les serveurs existants.</string>
+    <string name="app_data_transfer_confirm_title">Importer les données de l’application ?</string>
+    <string name="app_data_transfer_confirm_message">Profils : %1$d. Serveurs enregistrés : %2$d. Les paramètres seront aussi importés. Ils peuvent activer le contrôle à distance et la restauration au démarrage. Les nouveaux profils restent désactivés. Des données différentes portant un nom de profil ou un identifiant de serveur existant seront refusées. Le choix du backend noyau et les autorisations Android restent inchangés.</string>
+    <string name="app_data_transfer_import_success">Données de l’application importées : %1$d nouveaux profils</string>
+    <string name="app_data_transfer_error">Échec du transfert des données de l’application. Vérifiez le ZIP, l’espace de stockage disponible et les données existantes. Aucun profil existant n’a été remplacé.</string>
+    <string name="app_data_transfer_recovery_error">Échec de l’importation ; certains nouveaux profils n’ont pas pu être supprimés. Vérifiez la liste des tunnels avant de réessayer ; les profils existants ont été préservés.</string>
+    <string name="app_data_transfer_use_settings">Pour ce ZIP de transfert complet, utilisez Paramètres → Importer les données de l’application.</string>
+    <plurals name="n_tunnels">
+        <item quantity="one">CONFIGURÉS : %1$d · ACTIFS : %2$d</item>
+        <item quantity="other">CONFIGURÉS : %1$d · ACTIFS : %2$d</item>
+    </plurals>
+    <string name="peers">pairs</string>
+    <plurals name="n_peers">
+        <item quantity="one">%d CONFIGURÉ</item>
+        <item quantity="other">%d CONFIGURÉS</item>
+    </plurals>
+    <string name="refresh">Actualiser</string>
+    <string name="search">Rechercher</string>
     <plurals name="delete_error">
         <item quantity="one">Impossible de supprimer %d tunnel : %s</item>
         <item quantity="other">Impossible de supprimer %d tunnels : %s</item>
@@ -233,11 +256,11 @@
     <string name="tools_unavailable_error">Outils requis indisponibles</string>
     <string name="transfer">Données transférées</string>
     <string name="transfer_bytes">%d Octets</string>
-    <string name="transfer_gibibytes">%.2f Go</string>
-    <string name="transfer_kibibytes">%.2f Ko</string>
-    <string name="transfer_mibibytes">%.2f Mo</string>
+    <string name="transfer_gibibytes">%.2f Gio</string>
+    <string name="transfer_kibibytes">%.2f Kio</string>
+    <string name="transfer_mibibytes">%.2f Mio</string>
     <string name="transfer_rx_tx">rx: %1$s, tx: %2$s</string>
-    <string name="transfer_tibibytes">%.2f To</string>
+    <string name="transfer_tibibytes">%.2f Tio</string>
     <string name="tun_create_error">Impossible de créer le périphérique tun</string>
     <string name="tunnel_config_error">Impossible de configurer le tunnel (wg-quick a retourné %d)</string>
     <string name="tunnel_create_error">Impossible de créer le tunnel : %s</string>

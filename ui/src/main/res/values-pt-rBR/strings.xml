@@ -214,7 +214,7 @@
     <string name="transfer_mibibytes">%.2f MiB</string>
     <string name="transfer_rx_tx">rx: %1$s, tx: %2$s</string>
     <string name="transfer_tibibytes">%.2f TiB</string>
-    <string name="tun_create_error">Não foi possível criar o túnel: %s</string>
+    <string name="tun_create_error">Não foi possível criar o dispositivo TUN</string>
     <string name="tunnel_config_error">Não foi possível configurar o túnel (wg-quick retornou %d)</string>
     <string name="tunnel_create_error">Não foi possível criar o túnel: %s</string>
     <string name="tunnel_create_success">Túnel criado com sucesso “%s”</string>
