@@ -14,10 +14,13 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.databinding.DataBindingUtil
+import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.edit
 import com.vpn0wn.android.activity.BaseActivity
 import com.vpn0wn.android.activity.MainActivity
 import com.vpn0wn.android.activity.TvMainActivity
 import com.vpn0wn.android.backend.Backend
+import com.vpn0wn.android.backend.Tunnel
 import com.vpn0wn.android.databinding.TunnelListFragmentBinding
 import com.vpn0wn.android.databinding.TvActivityBinding
 import com.vpn0wn.android.fragment.TunnelListFragment
@@ -25,9 +28,12 @@ import com.vpn0wn.android.model.ObservableTunnel
 import com.vpn0wn.android.model.TunnelManager
 import com.vpn0wn.android.model.TunnelTestEnvironment
 import com.vpn0wn.android.util.RootShell.RootShellException
+import com.vpn0wn.android.util.ErrorMessages
+import com.vpn0wn.config.Config as TunnelConfig
 import java.io.IOException
 import java.io.File
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -206,7 +212,107 @@ class TunnelInventoryFailureTest {
         }
     }
 
-    private fun TestScope.environment(failure: Exception): Pair<TunnelTestEnvironment, InventoryBackend> {
+    @Test fun remoteControlReportsExpectedInventoryFailureAndNextIntentCanRetry() = runTest {
+        for (failure in expectedFailures()) {
+            for (state in listOf(Tunnel.State.UP, Tunnel.State.DOWN)) {
+                ShadowToast.reset()
+                val (env, backend) = environment(failure)
+                try {
+                    enableRemoteControl()
+                    val request = remoteIntent(state)
+                    receive(env, request)
+                    assertEquals(ErrorMessages[failure], ShadowToast.getTextOfLatestToast())
+                    assertTrue(backend.transitions.isEmpty())
+                    assertEquals(setOf("one"), env.store.configs.keys)
+                    assertTrue(env.store.deleteAttempts.isEmpty())
+                    backend.failure = null
+                    ShadowToast.reset()
+                    receive(env, request)
+                    assertEquals(state, env.manager.getTunnels()["one"]!!.state)
+                    assertEquals(if (state == Tunnel.State.UP) listOf(state) else emptyList<Tunnel.State>(), backend.transitions)
+                    assertNull(ShadowToast.getTextOfLatestToast())
+                    assertEquals(setOf("one"), env.store.configs.keys)
+                } finally {
+                    env.close()
+                }
+            }
+        }
+    }
+
+    @Test fun remoteControlPreservesInventoryCancellationWithoutFeedbackOrTransition() = runTest {
+        val (env, backend) = environment(CancellationException("Injected inventory cancellation"))
+        try {
+            enableRemoteControl()
+            receive(env, remoteIntent(Tunnel.State.UP))
+            assertNull(ShadowToast.getTextOfLatestToast())
+            assertTrue(backend.transitions.isEmpty())
+            assertEquals(setOf("one"), env.store.configs.keys)
+            backend.failure = null
+            receive(env, remoteIntent(Tunnel.State.UP))
+            assertEquals(listOf(Tunnel.State.UP), backend.transitions)
+        } finally {
+            env.close()
+        }
+    }
+
+    @Test fun remoteControlDoesNotConvertUnexpectedInventoryFailuresToFeedback() {
+        for (failure in listOf(IllegalStateException("Injected inventory defect"), AssertionError("Injected inventory Error"))) {
+            val propagated = assertThrows(failure.javaClass) {
+                runTest {
+                    val (env, backend) = environment(failure)
+                    try {
+                        enableRemoteControl()
+                        receive(env, remoteIntent(Tunnel.State.UP))
+                        assertNull(ShadowToast.getTextOfLatestToast())
+                        assertTrue(backend.transitions.isEmpty())
+                        assertEquals(setOf("one"), env.store.configs.keys)
+                    } finally {
+                        env.close()
+                    }
+                }
+            }
+            assertTrue("Expected original ${failure.javaClass.simpleName}", propagated === failure || propagated.cause === failure)
+        }
+    }
+
+    @Test fun remoteControlAdmissionStillRejectsDisabledAndMalformedRequests() = runTest {
+        val (env, backend) = environment(IOException("Injected observation failure"))
+        try {
+            receive(env, remoteIntent(Tunnel.State.UP))
+            enableRemoteControl()
+            receive(env, Intent("com.wireguard.android.action.SET_TUNNEL_UP").putExtra("tunnel", "one"))
+            receive(env, Intent("com.vpn0wn.android.action.SET_TUNNEL_UP"))
+            receive(env, Intent())
+            assertNull(ShadowToast.getTextOfLatestToast())
+            assertEquals(0, backend.observations)
+            assertTrue(backend.transitions.isEmpty())
+            assertEquals(setOf("one"), env.store.configs.keys)
+            backend.failure = null
+            receive(env, remoteIntent(Tunnel.State.UP).putExtra("tunnel", "missing"))
+            assertTrue(backend.transitions.isEmpty())
+            assertNull(ShadowToast.getTextOfLatestToast())
+        } finally {
+            env.close()
+        }
+    }
+
+    private suspend fun enableRemoteControl() {
+        com.vpn0wn.android.Application.getPreferencesDataStore().edit {
+            it[booleanPreferencesKey("allow_remote_control_intents")] = true
+        }
+    }
+
+    private fun remoteIntent(state: Tunnel.State) =
+        Intent("com.vpn0wn.android.action.SET_TUNNEL_${state.name}").putExtra("tunnel", "one")
+
+    private suspend fun TestScope.receive(env: TunnelTestEnvironment, intent: Intent) {
+        val previousJobs = env.applicationScope.coroutineContext[Job]!!.children.toSet()
+        TunnelManager.IntentReceiver().onReceive(env.application, intent)
+        env.applicationScope.coroutineContext[Job]!!.children.single { it !in previousJobs }.join()
+        settleInventory(env)
+    }
+
+    private fun TestScope.environment(failure: Throwable): Pair<TunnelTestEnvironment, InventoryBackend> {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val env = TunnelTestEnvironment(folder.newFolder(), backgroundScope)
         env.store.configs["one"] = TunnelTestEnvironment.profile()
@@ -251,10 +357,17 @@ class TunnelInventoryFailureTest {
     }
 
     private class InventoryBackend(private val backend: Backend) : Backend by backend {
-        var failure: Exception? = null
+        var failure: Throwable? = null
+        var observations = 0
+        val transitions = mutableListOf<Tunnel.State>()
         override fun getRunningTunnelNames(): Set<String> {
+            observations++
             failure?.let { throw it }
             return backend.runningTunnelNames
+        }
+        override fun setState(tunnel: Tunnel, state: Tunnel.State, config: TunnelConfig?): Tunnel.State {
+            transitions += state
+            return backend.setState(tunnel, state, config)
         }
     }
 
