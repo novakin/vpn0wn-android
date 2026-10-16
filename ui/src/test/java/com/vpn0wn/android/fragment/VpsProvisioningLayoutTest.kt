@@ -14,6 +14,7 @@ import android.widget.ImageButton
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.graphics.ColorUtils
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.ViewModel
@@ -22,6 +23,11 @@ import androidx.lifecycle.viewModelScope
 import com.vpn0wn.android.Application as Vpn0wnApplication
 import com.vpn0wn.android.R
 import com.vpn0wn.android.model.TunnelTestEnvironment
+import com.vpn0wn.android.provisioning.VpsDeployFixtureData
+import com.vpn0wn.android.provisioning.VpsDeployMapper
+import com.vpn0wn.android.provisioning.VpsDeployServer
+import com.vpn0wn.android.provisioning.VpsDeployUser
+import com.vpn0wn.android.provisioning.VpsDeployUserStatus
 import com.vpn0wn.android.provisioning.VpsPlanningTestPeer
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Step
@@ -76,6 +82,77 @@ class VpsProvisioningLayoutTest {
 
     @Test fun allFiveTrackerStagesFitEnlargedTextAtTheRenderer() = verifyTrackerLayout(2f)
 
+    @Test fun peerHeadersKeepLogicalEdgesAndSpaceAtNormalText() = verifyPeerHeaders(1f)
+
+    @Test fun peerHeadersKeepLogicalEdgesAndSpaceAtEnlargedText() = verifyPeerHeaders(2f)
+
+    @Test fun serverDetailsKeepOsReleaseOutOfEngineRows() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val fixture = provisioningLayoutFixture(folder, View.LAYOUT_DIRECTION_LTR)
+        try {
+            val server = VpsDeployMapper.fromStored(VpsDeployFixtureData.storedServers().first(), VpsDeployFixtureData.NOW)
+            val factory = VpsProvisioningFragment::class.java.getDeclaredMethod("detailScreen", VpsDeployServer::class.java)
+                .apply { isAccessible = true }
+            val detail = factory.invoke(fixture.fragment, server) as View
+            val engineLabels = descendants(detail).filterIsInstance<TextView>().filter {
+                it.text.toString() == fixture.activity.getString(R.string.vpn0wn_label_engine).uppercase(Locale.ROOT)
+            }.toList()
+            assertEquals("Health and network engine rows", 2, engineLabels.size)
+            for (label in engineLabels) {
+                val values = descendants(label.parent as View).filterIsInstance<TextView>().filter { it !== label }
+                    .map { it.text.toString() }.toList()
+                assertEquals("No OS release presented as engine version", listOf(server.engine), values)
+            }
+        } finally {
+            fixture.close()
+        }
+    }
+
+    private fun verifyPeerHeaders(fontScale: Float) = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        for (locale in listOf("en", "fr")) for (night in listOf("night", "notnight")) {
+            for (direction in listOf("ldltr", "ldrtl")) for ((width, height) in listOf(320 to 640, 640 to 320)) {
+                val orientation = if (width > height) "land" else "port"
+                RuntimeEnvironment.setQualifiers("$locale-$direction-w${width}dp-h${height}dp-$orientation-$night-mdpi")
+                RuntimeEnvironment.setFontScale(fontScale)
+                val rtl = direction == "ldrtl"
+                val fixture = provisioningLayoutFixture(folder, if (rtl) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR)
+                try {
+                    val server = VpsDeployMapper.fromStored(VpsDeployFixtureData.storedServers().first(), VpsDeployFixtureData.NOW)
+                    val factory = VpsProvisioningFragment::class.java.getDeclaredMethod("userRow",
+                        VpsDeployServer::class.java, VpsDeployUser::class.java, Int::class.javaPrimitiveType).apply { isAccessible = true }
+                    for (state in VpsDeployUserStatus.entries) {
+                        val user = VpsDeployUser("peer", "peer", "phone", "10.8.0.2/32", "0.0.0.0/0", state,
+                            "0 B", "0 B", "—", "—", "synthetic-public-key")
+                        val row = factory.invoke(fixture.fragment, server, user, 0) as ViewGroup
+                        fixture.root.removeAllViews()
+                        fixture.root.addView(row, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT))
+                        measure(fixture.root, width, height)
+                        val index = text(row, fixture.activity.getString(R.string.vpn0wn_user_index, "01").uppercase(Locale.ROOT))
+                        val status = text(row, fixture.activity.getString(state.labelRes).uppercase(Locale.ROOT))
+                        assertTextFits(index)
+                        assertTextFits(status)
+                        val indexPosition = IntArray(2).also(index::getLocationInWindow)
+                        val statusPosition = IntArray(2).also(status::getLocationInWindow)
+                        val indexLayout = requireNotNull(index.layout)
+                        val statusLayout = requireNotNull(status.layout)
+                        val indexStart = indexPosition[0] + index.compoundPaddingLeft + (0 until indexLayout.lineCount).minOf(indexLayout::getLineLeft)
+                        val indexEnd = indexPosition[0] + index.compoundPaddingLeft + (0 until indexLayout.lineCount).maxOf(indexLayout::getLineRight)
+                        val statusStart = statusPosition[0] + status.compoundPaddingLeft + (0 until statusLayout.lineCount).minOf(statusLayout::getLineLeft)
+                        val statusEnd = statusPosition[0] + status.compoundPaddingLeft + (0 until statusLayout.lineCount).maxOf(statusLayout::getLineRight)
+                        val gap = if (rtl) indexStart - statusEnd else statusStart - indexEnd
+                        assertTrue("Peer labels retain at least 8dp separation", gap >= 8 * row.resources.displayMetrics.density)
+                        if (rtl) assertEquals("Index starts at logical right", (indexPosition[0] + index.width - index.compoundPaddingRight).toFloat(), indexEnd, 0.5f)
+                        else assertEquals("Index starts at logical left", (indexPosition[0] + index.compoundPaddingLeft).toFloat(), indexStart, 0.5f)
+                    }
+                } finally {
+                    fixture.close()
+                }
+            }
+        }
+    }
+
     private fun verifyCredentialLayout(fontScale: Float) = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         for (locale in listOf("en", "fr")) for (night in listOf("night", "notnight")) {
@@ -91,6 +168,13 @@ class VpsProvisioningLayoutTest {
                     measure(root, width, height)
                     assertEquals("Requested layout direction", requestedDirection, root.layoutDirection)
                     val add = text(root, activity.getString(R.string.vpn0wn_add_server).removePrefix("+ ").trim())
+                    assertTrue("Enabled Add label has readable contrast", ColorUtils.calculateContrast(
+                        add.currentTextColor, activity.getColor(R.color.vpn0wn_paper)) >= 4.5)
+                    val filterTile = clickableAncestor(text(root, activity.getString(R.string.vpn0wn_filter_all).uppercase(Locale.ROOT))) as ViewGroup
+                    for (value in descendants(filterTile).filterIsInstance<TextView>()) {
+                        assertTextFits(value)
+                        assertInside(value, filterTile)
+                    }
                     assertEquals("Localized fleet icon names", setOf(activity.getString(R.string.vpn0wn_navigate_back),
                         activity.getString(R.string.vpn0wn_logs_title), activity.getString(R.string.settings)),
                         descendants(root).filterIsInstance<ImageButton>().map { it.contentDescription.toString() }.toSet())
@@ -267,7 +351,9 @@ class VpsProvisioningLayoutTest {
         val density = view.resources.displayMetrics.density
         assertTrue("Android action target", view.width >= 48 * density && view.height >= 48 * density)
         assertTrue("Keyboard focusable action", view.isFocusable)
-        assertTrue("Native pressed/focus feedback", view.foreground != null && view.foreground.isStateful)
+        assertTrue("Native pressed/focus feedback behind content", view.background != null && view.background.isStateful)
+        assertEquals("Feedback cannot cover content", null, view.foreground)
+        if (view is TextView) assertEquals("Shared mono font features", "ss01, zero, tnum", view.fontFeatureSettings)
         val node = view.createAccessibilityNodeInfo()
         try {
             assertEquals("Native action role", role, node.className.toString())
@@ -366,7 +452,7 @@ class VpsProvisioningLayoutTest {
 
 internal class VpsProvisioningLayoutFixture(
     private val environment: TunnelTestEnvironment,
-    private val controller: ActivityController<VpsProvisioningLayoutHostActivity>,
+    val controller: ActivityController<VpsProvisioningLayoutHostActivity>,
     val fragment: VpsProvisioningFragment,
     val peer: VpsPlanningTestPeer,
     val model: VpsProvisioningViewModel,

@@ -195,7 +195,7 @@ class VpsServerCredentialTest {
         val display = server.copy(name = "new display")
         store.upsert(display)
         val status = ProvisioningJson.parseStatus(javaClass.getResourceAsStream("/provisioning/status-running.json")!!.bufferedReader().use { it.readText() })
-        store.updateStatus(server.id, status, 1234L)
+        store.updateStatus(display, status, 1234L)
         assertEquals(0, attempts)
         val failure = expect<VpsCredentialStorageException> { store.loadConnection(display) }
         assertEquals(VpsCredentialStorageException.Category.KEY_UNAVAILABLE, failure.category)

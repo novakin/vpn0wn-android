@@ -523,4 +523,10 @@
     <string name="vpn0wn_close">Fermer</string>
     <string name="vpn0wn_copy_value">Copier %1$s</string>
     <string name="vpn0wn_more_actions">Autres actions</string>
+    <string name="vpn0wn_refresh_server">actualiser l’état du serveur</string>
+    <string name="vpn0wn_servers_summary_partial">%1$d CONFIGURÉS · %2$d PAIRS OBSERVÉS</string>
+    <string name="vpn0wn_server_card_summary_unknown">%1$s · PAIRS INCONNUS · %2$s</string>
+    <string name="vpn0wn_peers_unavailable">Liste des pairs indisponible. Actualisez l’état du serveur pour la consulter.</string>
+    <string name="vpn0wn_profile_unavailable">Cette observation ne contient aucun profil client privé. QR et export indisponibles.</string>
+    <string name="vpn0wn_peer_mutation_unavailable">La gestion des utilisateurs VPN n’est pas encore connectée.</string>
 </resources>

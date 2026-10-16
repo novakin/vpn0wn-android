@@ -555,4 +555,10 @@
     <string name="vpn0wn_close">Close</string>
     <string name="vpn0wn_copy_value">Copy %1$s</string>
     <string name="vpn0wn_more_actions">More actions</string>
+    <string name="vpn0wn_refresh_server">refresh server status</string>
+    <string name="vpn0wn_servers_summary_partial">%1$d CONFIGURED · %2$d OBSERVED PEERS</string>
+    <string name="vpn0wn_server_card_summary_unknown">%1$s · PEERS UNKNOWN · %2$s</string>
+    <string name="vpn0wn_peers_unavailable">Peer inventory unavailable. Refresh server status to observe it.</string>
+    <string name="vpn0wn_profile_unavailable">This observation contains no private client profile. QR and export are unavailable.</string>
+    <string name="vpn0wn_peer_mutation_unavailable">VPN user changes are not connected yet.</string>
 </resources>

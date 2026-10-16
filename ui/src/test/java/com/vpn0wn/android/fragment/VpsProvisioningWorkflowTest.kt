@@ -6,14 +6,17 @@ import android.content.DialogInterface
 import android.os.Bundle
 import android.os.Looper
 import android.os.Parcel
+import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
+import android.widget.Button
 import android.widget.TextView
 import android.widget.ScrollView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.res.ResourcesCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.ViewModel
@@ -67,6 +70,26 @@ class VpsProvisioningWorkflowTest {
     @get:Rule val folder = TemporaryFolder()
 
     @After fun tearDown() { Dispatchers.resetMain() }
+
+    @Test
+    @Config(sdk = [24, 28])
+    fun technicalLabelsUseBundledRegularFontAcrossSupportedApis() = runTest {
+        val fixture = fixture()
+        try {
+            val title = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_servers_title).lowercase(java.util.Locale.ROOT))
+            assertFalse("Existing title omits extra font padding", title.includeFontPadding)
+            val add = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_add_server).removePrefix("+ ").trim())
+            assertTrue(clickableAncestor(add).performClick())
+            settle()
+            val label = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_label_host).uppercase(java.util.Locale.ROOT))
+            assertEquals("Bundled regular face", ResourcesCompat.getFont(fixture.activity, R.font.jetbrains_mono_regular), label.typeface)
+            assertEquals("Shared mono features", "ss01, zero, tnum", label.fontFeatureSettings)
+            assertFalse("Existing label omits extra font padding", label.includeFontPadding)
+            assertTrue(fixture.peer.connections.isEmpty())
+        } finally {
+            fixture.close()
+        }
+    }
 
     @Test fun actualActionsPublishDetectAndPlanButCannotInstall() = runTest {
         val fixture = fixture()
@@ -334,6 +357,86 @@ class VpsProvisioningWorkflowTest {
         } finally { fixture.close() }
     }
 
+    @Test fun manualStatusKeepsPeersAcrossStoreEmissionsAndRecreation() = runTest {
+        val fixture = fixture()
+        try {
+            fillAccess(fixture)
+            click(fixture, R.string.vpn0wn_continue)
+            fixture.model.state.first { !it.busy && it.detect != null }
+            fixture.model.leave()
+            settle()
+            clickServer(fixture)
+            assertTrue(text(fixture.root, fixture.activity.getString(R.string.vpn0wn_peers_unavailable)).isShown)
+            fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status).performClick()
+            fixture.model.state.first { !it.busy && it.statusSnapshots.isNotEmpty() }
+            settle()
+            assertTrue(text(fixture.root, "phone").isShown)
+            val saved = Vpn0wnApplication.getVpsServerStore().servers.first().single()
+            Vpn0wnApplication.getVpsServerStore().upsert(saved.copy(id = "unrelated", name = "unrelated"))
+            settle()
+            assertTrue(text(fixture.root, "phone").isShown)
+            val snapshot = fixture.model.state.value.statusSnapshots.getValue(saved.id)
+            fixture.controller.recreate()
+            settle()
+            clickServer(fixture)
+            assertTrue(text(fixture.root, "phone").isShown)
+            assertSame(snapshot, fixture.model.state.value.statusSnapshots.getValue(saved.id))
+            assertEquals(2, fixture.peer.connections.size)
+            assertEquals(2, fixture.peer.closes.get())
+        } finally { fixture.close() }
+    }
+
+    @Config(sdk = [24, 28])
+    @Test fun busyStatusCanCancelAndARealPeerCannotExportAPlaceholderProfile() = runTest {
+        val fixture = fixture()
+        try {
+            fillAccess(fixture)
+            click(fixture, R.string.vpn0wn_continue)
+            fixture.model.state.first { !it.busy && it.detect != null }
+            fixture.model.leave()
+            settle()
+            clickServer(fixture)
+            fixture.peer.blockStatus = CompletableDeferred()
+            val refresh = fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status)
+            assertButtonAction(refresh)
+            assertTrue(refresh.requestFocus())
+            assertTrue(refresh.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER)))
+            assertTrue(refresh.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER)))
+            fixture.peer.statusEntered.await()
+            settle()
+            assertTrue(text(fixture.root, fixture.activity.getString(R.string.vpn0wn_cancel_check)).isShown)
+            val cancel = fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status)
+            assertButtonAction(cancel)
+            cancel.performClick()
+            fixture.model.state.first { !it.busy }
+            fixture.peer.blockStatus = null
+            settle()
+            fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status).performClick()
+            fixture.model.state.first { !it.busy && it.statusSnapshots.isNotEmpty() }
+            settle()
+            clickableAncestor(text(fixture.root, "phone")).performClick()
+            settle()
+            assertNotNull(text(fixture.root, "synthetic-peer-public-key"))
+            click(fixture, R.string.vpn0wn_action_show_qr)
+            assertNotNull(text(fixture.activity.window.decorView, fixture.activity.getString(R.string.vpn0wn_profile_unavailable)))
+            assertFalse(fixture.peer.commands.any { it.contains("./'add-peer.sh'") || it.contains("./'backup.sh'") })
+        } finally { fixture.close() }
+    }
+
+    private fun assertButtonAction(view: View) {
+        assertTrue(view.isFocusable)
+        assertTrue(view.background != null && view.background.isStateful)
+        assertNull(view.foreground)
+        val node = view.createAccessibilityNodeInfo()
+        try {
+            assertEquals(Button::class.java.name, node.className.toString())
+            assertTrue(node.isClickable)
+            assertTrue(node.isEnabled)
+        } finally {
+            node.recycle()
+        }
+    }
+
     // A failed setup must drain Android, ViewModel and DataStore owners before resetting Main.
     @Suppress("TooGenericExceptionCaught")
     private suspend fun TestScope.fixture(immediateMain: Boolean = false): Fixture {
@@ -364,6 +467,7 @@ class VpsProvisioningWorkflowTest {
         } catch (failure: Throwable) {
             withContext(NonCancellable) {
                 peer.blockDetect?.complete(Unit)
+                peer.blockStatus?.complete(Unit)
                 try { controller.pause().stop().destroy() } catch (cleanup: Throwable) {
                     if (cleanup !== failure) failure.addSuppressed(cleanup)
                 }
@@ -441,6 +545,7 @@ class VpsProvisioningWorkflowTest {
         val root get() = activity.supportFragmentManager.fragments.filterIsInstance<VpsProvisioningFragment>().single().requireView()
         suspend fun close() = withContext(NonCancellable) {
             peer.blockDetect?.complete(Unit)
+            peer.blockStatus?.complete(Unit)
             try { controller.pause().stop().destroy() } finally {
                 try { modelJob.cancelAndJoin() } finally { environment.close() }
             }

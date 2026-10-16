@@ -5,7 +5,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=common.sh
 . "$SCRIPT_DIR/common.sh"
 
-[[ -r "$WG_CONF" ]] || fail_json "not_installed" "$WG_CONF does not exist." 72
+require_root
+require_owned_config
+lock_interface
+require_owned_config
+validate_peer_markers || fail_json "invalid_config" "Peer metadata is ambiguous." 73
 
 endpoint=$(conf_value ENDPOINT || true)
 cidr=$(conf_value TUNNL_CIDR || true)

@@ -10,6 +10,7 @@ import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
 import android.text.InputType
 import android.view.Gravity
@@ -48,10 +49,8 @@ import com.vpn0wn.android.Application
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.vpn0wn.android.R
-import com.vpn0wn.android.databinding.BindingAdapters
 import com.vpn0wn.android.model.ObservableTunnel
 import com.vpn0wn.android.provisioning.VpsDeployAction
-import com.vpn0wn.android.provisioning.VpsDeployHealthCheck
 import com.vpn0wn.android.provisioning.VpsDeployServer
 import com.vpn0wn.android.provisioning.VpsDeployServerStatus
 import com.vpn0wn.android.provisioning.VpsDeployUser
@@ -65,8 +64,8 @@ import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.SavedAccess
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.State
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Step
 import com.vpn0wn.android.util.vpn0wnStyle
-import com.vpn0wn.android.widget.VpsQrCodeView
 import com.vpn0wn.android.widget.VpsSectionHeaderLayout
+import com.vpn0wn.android.widget.VpsHealthChecksLayout
 import com.vpn0wn.android.widget.VpsCornerLayout
 import com.vpn0wn.android.widget.VpsTerminalStreamView
 import com.vpn0wn.android.widget.VpsTopologyView
@@ -79,7 +78,6 @@ class VpsProvisioningFragment : BaseFragment() {
     private lateinit var root: FrameLayout
     private var screen: Screen = Screen.Fleet
     private var filter: VpsDeployServerStatus? = null
-    private var qrUser: VpsDeployUser? = null
     private val provision by viewModels<VpsProvisioningViewModel>()
     private val provisionState get() = provision.state.value
     private val provisionForm get() = provision.draft
@@ -93,8 +91,8 @@ class VpsProvisioningFragment : BaseFragment() {
     private val cachedMonoTypeface by lazy {
         ResourcesCompat.getFont(requireContext(), R.font.jetbrains_mono_regular) ?: Typeface.MONOSPACE
     }
-    private val cachedBoldMonoTypeface by lazy {
-        Typeface.create(cachedMonoTypeface, Typeface.BOLD)
+    private val cachedMediumMonoTypeface by lazy {
+        ResourcesCompat.getFont(requireContext(), R.font.jetbrains_mono_medium) ?: cachedMonoTypeface
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -163,6 +161,7 @@ class VpsProvisioningFragment : BaseFragment() {
     override fun onSelectedTunnelChanged(oldTunnel: ObservableTunnel?, newTunnel: ObservableTunnel?) = Unit
 
     private fun render() {
+        updateServerProjection(TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()))
         root.removeAllViews()
         root.addView(
             when (val current = screen) {
@@ -178,12 +177,7 @@ class VpsProvisioningFragment : BaseFragment() {
             FrameLayout.LayoutParams(-1, -1),
         )
         renderedProvisionState = if (screen is Screen.Provision) provisionState else null
-        val user = qrUser
-        val currentScreen = screen
-        if (user != null && currentScreen is Screen.User) {
-            val server = server(currentScreen.serverId) ?: return
-            root.addView(qrOverlay(server, user), FrameLayout.LayoutParams(-1, -1))
-        }
+
     }
 
     private fun collectServers() {
@@ -193,16 +187,25 @@ class VpsProvisioningFragment : BaseFragment() {
                 this@VpsProvisioningFragment.storedServers.clear()
                 this@VpsProvisioningFragment.storedServers.addAll(storedServers)
                 val now = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis())
-                servers.clear()
-                servers.addAll(storedServers.map { VpsDeployMapper.fromStored(it, now) })
+                provision.retainCurrentServers(storedServers)
+                updateServerProjection(now)
                 if (::root.isInitialized && screen !is Screen.Provision) render()
             }
         }
     }
 
+    private fun updateServerProjection(now: Long) {
+        servers.clear()
+        servers.addAll(storedServers.map { stored ->
+            provisionState.statusSnapshots[stored.id]?.takeIf { it.matches(stored) }?.let { snapshot ->
+                VpsDeployMapper.fromStatus(stored, snapshot.status, now, snapshot.observedAtEpochSeconds)
+            } ?: VpsDeployMapper.fromStored(stored, now)
+        })
+    }
+
     private fun fleetScreen(): View {
         val container = vertical()
-        container.addView(topBar(title = str(R.string.vpn0wn_servers_title).lowercase(Locale.ROOT), sub = str(R.string.vpn0wn_servers_summary, servers.size, servers.sumOf { it.users.size }), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { goBack() }, right = listOf(iconButton(R.drawable.ic_vpn0wn_logs, str(R.string.vpn0wn_logs_title)) { toast(str(R.string.vpn0wn_server_logs_pending)) }, iconButton(R.drawable.ic_vpn0wn_settings, str(R.string.settings)) { toast(str(R.string.vpn0wn_server_settings_pending)) }), big = true))
+        container.addView(topBar(title = str(R.string.vpn0wn_servers_title).lowercase(Locale.ROOT), sub = str(if (servers.all { it.usersKnown }) R.string.vpn0wn_servers_summary else R.string.vpn0wn_servers_summary_partial, servers.size, servers.sumOf { it.users.size }), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { goBack() }, right = listOf(iconButton(R.drawable.ic_vpn0wn_logs, str(R.string.vpn0wn_logs_title)) { toast(str(R.string.vpn0wn_server_logs_pending)) }, iconButton(R.drawable.ic_vpn0wn_settings, str(R.string.settings)) { toast(str(R.string.vpn0wn_server_settings_pending)) }), big = true))
         container.addView(statusTiles())
         val (scrollView, scroll) = scrollContent()
         scroll.addView(sectionHeader(1, str(R.string.vpn0wn_server_fleet), filter?.let { str(it.shortLabelRes) } ?: str(R.string.vpn0wn_self_hosted)))
@@ -240,7 +243,7 @@ class VpsProvisioningFragment : BaseFragment() {
                     filter = if (filter == status) null else status
                     render()
                 },
-                LinearLayout.LayoutParams(0, dp(62), 1f),
+                LinearLayout.LayoutParams(0, MATCH_PARENT, 1f),
             )
         }
         return vertical().apply {
@@ -260,6 +263,7 @@ class VpsProvisioningFragment : BaseFragment() {
             else -> R.color.vpn0wn_rule
         }
         val card = card(stroke).apply {
+            actionAccessibility(Button::class.java.name)
             setOnClickListener {
                 screen = Screen.Detail(server.id)
                 render()
@@ -272,10 +276,10 @@ class VpsProvisioningFragment : BaseFragment() {
             addView(label(str(meta.labelRes), meta.colorRes), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             addView(label("${server.provider.uppercase(Locale.ROOT)} · ${server.region.uppercase(Locale.ROOT)}"))
         })
-        body.addView(mono(server.name, 16, R.color.vpn0wn_ink, Typeface.BOLD).apply { setPadding(0, dp(8), 0, 0) })
-        body.addView(mono(str(R.string.vpn0wn_server_card_summary, "${server.endpoint}:${server.port}", server.users.size, server.engine), 10, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(4), 0, dp(10)) })
+        body.addView(mono(server.name, 16, R.color.vpn0wn_ink).apply { setPadding(0, dp(8), 0, 0) })
+        body.addView(mono(if (server.usersKnown) str(R.string.vpn0wn_server_card_summary, "${server.endpoint}:${server.port}", server.users.size, server.engine) else str(R.string.vpn0wn_server_card_summary_unknown, "${server.endpoint}:${server.port}", server.engine), 10, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(4), 0, dp(10)) })
         body.addView(metricRow(listOf(str(R.string.vpn0wn_metric_cidr) to server.cidr, str(R.string.vpn0wn_metric_uptime) to server.uptime, str(R.string.vpn0wn_metric_sync) to server.lastSync)))
-        body.addView(horizontalWrap(server.health.map { healthBadge(it) }).apply { setPadding(0, dp(10), 0, 0) })
+        body.addView(VpsHealthChecksLayout(requireContext(), server.health).apply { setPadding(0, dp(10), 0, 0) })
         railRow.addView(body, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
         card.addView(railRow)
         return card.withMargins(bottom = 10)
@@ -296,16 +300,16 @@ class VpsProvisioningFragment : BaseFragment() {
         scroll.addView(panel {
             configLine(str(R.string.vpn0wn_label_endpoint), "${server.endpoint}:${server.port}", copy = true)
             configLine(str(R.string.vpn0wn_label_distro), server.distro)
-            configLine(str(R.string.vpn0wn_label_engine), "${server.engine} · ${server.version}")
+            configLine(str(R.string.vpn0wn_label_engine), server.engine)
             configLine(str(R.string.vpn0wn_label_uptime), server.uptime)
             configLine(str(R.string.vpn0wn_label_last_sync), server.lastSync)
             addView(label(str(R.string.vpn0wn_checks)).apply { setPadding(dp(14), dp(10), dp(14), dp(6)) })
-            addView(horizontalWrap(server.health.map { healthBadge(it) }).apply { setPadding(dp(14), 0, dp(14), dp(10)) })
+            addView(VpsHealthChecksLayout(requireContext(), server.health).apply { setPadding(dp(14), 0, dp(14), dp(10)) })
         })
-        scroll.addView(sectionHeader(2, str(R.string.vpn0wn_section_vpn_users), str(R.string.vpn0wn_peers_count, server.users.size)))
+        scroll.addView(sectionHeader(2, str(R.string.vpn0wn_section_vpn_users), if (server.usersKnown) str(R.string.vpn0wn_peers_count, server.users.size) else str(R.string.vpn0wn_pending_live_data)))
         scroll.addView(panel {
             if (server.users.isEmpty()) {
-                addView(mono(str(R.string.vpn0wn_no_peers_yet), 11, R.color.vpn0wn_ink_3).apply { setPadding(dp(14), dp(14), dp(14), dp(14)) })
+                addView(mono(str(if (server.usersKnown) R.string.vpn0wn_no_peers_yet else R.string.vpn0wn_peers_unavailable), 11, R.color.vpn0wn_ink_3).apply { setPadding(dp(14), dp(14), dp(14), dp(14)) })
             } else {
                 server.users.forEachIndexed { index, user -> addView(userRow(server, user, index)) }
             }
@@ -328,6 +332,14 @@ class VpsProvisioningFragment : BaseFragment() {
             VpsDeployAction(R.drawable.ic_vpn0wn_trash, str(R.string.vpn0wn_action_uninstall), str(R.string.vpn0wn_action_uninstall_sub), R.color.vpn0wn_error) { toast(str(R.string.vpn0wn_uninstall_requires_confirmation)) },
         )))
         storedServers.find { it.id == server.id }?.let { stored ->
+            val checking = provisionState.busy && provisionState.serverId == stored.id
+            scroll.addView(rowButton(str(if (checking) R.string.vpn0wn_cancel_check else R.string.vpn0wn_refresh_server),
+                if (checking) R.drawable.ic_vpn0wn_close else R.drawable.ic_vpn0wn_refresh) {
+                if (provisionState.busy) provision.cancelOperation() else provision.syncStatus(stored)
+            }.apply {
+                id = R.id.vpn0wn_vps_refresh_status
+                isEnabled = !provisionState.busy || provisionState.serverId == stored.id
+            })
             scroll.addView(sectionHeader(5, str(R.string.vpn0wn_section_ssh_access), str(R.string.vpn0wn_hint_local)))
             scroll.addView(panel {
                 addView(rowButton(str(R.string.vpn0wn_reuse_saved_ssh)) { provision.reuse(stored) })
@@ -496,32 +508,32 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun userScreen(server: VpsDeployServer, user: VpsDeployUser): View {
         val container = vertical()
-        container.addView(topBar(title = user.name, sub = str(R.string.vpn0wn_user_subtitle, server.name.uppercase(Locale.ROOT)), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { screen = Screen.Detail(server.id); render() }, right = listOf(iconButton(R.drawable.ic_vpn0wn_share, str(R.string.vpn0wn_action_export)) { toast(str(R.string.vpn0wn_profile_exported)) })))
+        container.addView(topBar(title = user.name, sub = str(R.string.vpn0wn_user_subtitle, server.name.uppercase(Locale.ROOT)), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { screen = Screen.Detail(server.id); render() }, right = listOf(iconButton(R.drawable.ic_vpn0wn_share, str(R.string.vpn0wn_action_export)) { toast(str(R.string.vpn0wn_profile_unavailable)) })))
         val (scrollView, scroll) = scrollContent()
         scroll.addView(card(user.status.colorRes).apply {
             setPadding(dp(14), dp(14), dp(14), dp(10))
             addView(label(str(user.status.labelRes), user.status.colorRes))
-            addView(mono(user.ip, 22, R.color.vpn0wn_ink, Typeface.BOLD).apply { setPadding(0, dp(8), 0, 0) })
+            addView(mono(user.ip, 22, R.color.vpn0wn_ink, medium = true).apply { setPadding(0, dp(8), 0, 0) })
             addView(mono("${user.device} · created ${user.created}", 11, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(4), 0, dp(10)) })
             addView(metricRow(listOf(str(R.string.vpn0wn_label_rx) to user.rx, str(R.string.vpn0wn_label_tx) to user.tx, str(R.string.vpn0wn_handshake) to user.handshake)))
         }.withMargins(bottom = 14))
         scroll.addView(sectionHeader(1, str(R.string.vpn0wn_section_profile), str(R.string.vpn0wn_hint_wireguard)))
         scroll.addView(panel {
             configLine(str(R.string.vpn0wn_label_server), server.name)
-            configLine(str(R.string.vpn0wn_label_public_key), BindingAdapters.shortKey(user.key), copy = true)
+            configLine(str(R.string.vpn0wn_label_public_key), user.key, copy = true)
             configLine(str(R.string.vpn0wn_label_endpoint), "${server.endpoint}:${server.port}")
             configLine(str(R.string.vpn0wn_label_dns), server.dns)
             configLine(str(R.string.vpn0wn_label_allowed), user.allowedIps)
         })
         scroll.addView(sectionHeader(2, str(R.string.vpn0wn_section_actions), str(R.string.vpn0wn_hint_device)))
         scroll.addView(actionGrid(listOf(
-            VpsDeployAction(R.drawable.ic_vpn0wn_qr, str(R.string.vpn0wn_action_show_qr), str(R.string.vpn0wn_action_show_qr_sub), R.color.vpn0wn_signal_deep, user.status == VpsDeployUserStatus.REVOKED) { qrUser = user; render() },
-            VpsDeployAction(R.drawable.ic_vpn0wn_share, str(R.string.vpn0wn_action_export), str(R.string.vpn0wn_action_export_sub), R.color.vpn0wn_ink) { toast(str(R.string.vpn0wn_profile_exported)) },
+            VpsDeployAction(R.drawable.ic_vpn0wn_qr, str(R.string.vpn0wn_action_show_qr), str(R.string.vpn0wn_action_show_qr_sub), R.color.vpn0wn_signal_deep, user.status == VpsDeployUserStatus.REVOKED) { toast(str(R.string.vpn0wn_profile_unavailable)) },
+            VpsDeployAction(R.drawable.ic_vpn0wn_share, str(R.string.vpn0wn_action_export), str(R.string.vpn0wn_action_export_sub), R.color.vpn0wn_ink) { toast(str(R.string.vpn0wn_profile_unavailable)) },
             VpsDeployAction(R.drawable.ic_vpn0wn_refresh, str(R.string.vpn0wn_action_rotate_key), str(R.string.vpn0wn_action_rotate_key_sub), R.color.vpn0wn_ink, user.status == VpsDeployUserStatus.REVOKED) {
-                toast(str(R.string.vpn0wn_live_add_peer_required))
+                toast(str(R.string.vpn0wn_peer_mutation_unavailable))
             },
             VpsDeployAction(R.drawable.ic_vpn0wn_trash, str(R.string.vpn0wn_action_revoke), str(R.string.vpn0wn_action_revoke_sub), R.color.vpn0wn_error, user.status == VpsDeployUserStatus.REVOKED) {
-                toast(str(R.string.vpn0wn_live_add_peer_required))
+                toast(str(R.string.vpn0wn_peer_mutation_unavailable))
             },
         )))
         container.addView(scrollView, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -540,7 +552,7 @@ class VpsProvisioningFragment : BaseFragment() {
         row.addView(label(sub).apply { setPadding(dp(8), 0, 0, 0) }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
         right.forEach { row.addView(it) }
         bar.addView(row)
-        bar.addView(mono(title, if (big) 26 else 18, R.color.vpn0wn_ink, Typeface.BOLD).apply { setPadding(0, dp(8), 0, 0) })
+        bar.addView(mono(title, if (big) 26 else 18, R.color.vpn0wn_ink, medium = true).apply { setPadding(0, dp(8), 0, 0) })
         bar.addView(View(requireContext()).apply { setBackgroundColor(color(R.color.vpn0wn_rule)) }, LinearLayout.LayoutParams(-1, dp(1)).apply { topMargin = dp(12) })
         return bar
     }
@@ -562,6 +574,7 @@ class VpsProvisioningFragment : BaseFragment() {
             else -> false
         }
         return TextView(requireContext()).apply {
+            setTextAppearance(R.style.Vpn0wnMonoSubText)
             id = R.id.vpn0wn_vps_bottom_action
             text = label
             typeface = monoTypeface()
@@ -569,7 +582,6 @@ class VpsProvisioningFragment : BaseFragment() {
             gravity = Gravity.CENTER
             minHeight = dp(48)
             isEnabled = canAdvance
-            actionAccessibility(Button::class.java.name)
             setTextColor(color(if (canAdvance) R.color.vpn0wn_paper else R.color.vpn0wn_ink_3))
             background = rounded(
                 when {
@@ -581,6 +593,7 @@ class VpsProvisioningFragment : BaseFragment() {
                     else -> R.color.vpn0wn_ink
                 },
             )
+            actionAccessibility(Button::class.java.name)
             setPadding(dp(13))
             setOnClickListener {
                 when {
@@ -634,13 +647,15 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     private fun addUser() {
-        toast(str(R.string.vpn0wn_live_add_peer_required))
+        toast(str(R.string.vpn0wn_peer_mutation_unavailable))
     }
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
     private fun userRow(server: VpsDeployServer, user: VpsDeployUser, index: Int): View {
         val row = horizontal(Gravity.CENTER_VERTICAL).apply {
+            minimumHeight = dp(48)
+            actionAccessibility(Button::class.java.name)
             setPadding(0, 0, 0, 0)
             setOnClickListener {
                 screen = Screen.User(server.id, user.id)
@@ -650,8 +665,12 @@ class VpsProvisioningFragment : BaseFragment() {
         row.addView(View(requireContext()).apply { setBackgroundColor(color(user.status.colorRes)) }, LinearLayout.LayoutParams(dp(3), -1))
         val body = vertical().apply { setPadding(dp(12), dp(10), dp(12), dp(10)) }
         body.addView(horizontal().apply {
-            addView(label(str(R.string.vpn0wn_user_index, (index + 1).toString().padStart(2, '0'))), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-            addView(label(str(user.status.labelRes), user.status.colorRes))
+            addView(label(str(R.string.vpn0wn_user_index, (index + 1).toString().padStart(2, '0'))).apply {
+                textAlignment = View.TEXT_ALIGNMENT_VIEW_START
+            }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+            addView(label(str(user.status.labelRes), user.status.colorRes), LinearLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT).apply {
+                marginStart = dp(8)
+            })
         })
         body.addView(mono(user.name, 14, R.color.vpn0wn_ink).apply { setPadding(0, dp(5), 0, 0) })
         body.addView(mono(str(R.string.vpn0wn_user_row_summary, user.ip, user.rx, user.tx, user.handshake), 10, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(3), 0, 0) })
@@ -665,8 +684,10 @@ class VpsProvisioningFragment : BaseFragment() {
         val grid = vertical()
         actions.chunked(2).forEach { pair ->
             val row = horizontal()
-            pair.forEach { spec ->
-                row.addView(actionTile(spec), LinearLayout.LayoutParams(0, dp(104), 1f).apply { marginEnd = dp(10) })
+            pair.forEachIndexed { index, spec ->
+                row.addView(actionTile(spec), LinearLayout.LayoutParams(0, MATCH_PARENT, 1f).apply {
+                    marginEnd = if (index < pair.lastIndex) dp(10) else 0
+                })
             }
             grid.addView(row, LinearLayout.LayoutParams(-1, WRAP_CONTENT).apply { bottomMargin = dp(10) })
         }
@@ -676,9 +697,12 @@ class VpsProvisioningFragment : BaseFragment() {
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
     private fun actionTile(spec: VpsDeployAction): View {
-        return vertical().apply {
+        val border = if (spec.colorRes == R.color.vpn0wn_ink) R.color.vpn0wn_rule else spec.colorRes
+        return card(border).apply {
             alpha = if (spec.disabled) 0.45f else 1f
-            background = rounded(R.color.vpn0wn_paper_2, spec.colorRes)
+            isEnabled = !spec.disabled
+            minimumHeight = dp(104)
+            actionAccessibility(Button::class.java.name)
             setPadding(dp(12))
             if (!spec.disabled) setOnClickListener { spec.onClick() }
             addView(ImageView(requireContext()).apply {
@@ -686,66 +710,9 @@ class VpsProvisioningFragment : BaseFragment() {
                 setColorFilter(color(spec.colorRes))
             }, LinearLayout.LayoutParams(dp(20), dp(20)))
             addView(Space(requireContext()), LinearLayout.LayoutParams(1, 0, 1f))
-            addView(mono(spec.label, 12, spec.colorRes, Typeface.BOLD))
+            addView(mono(spec.label, 12, spec.colorRes, medium = true))
             addView(mono(spec.sub, 10, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(3), 0, 0) })
         }
-    }
-
-    // Local layout/drawing dimensions and paint values preserve the visual specification.
-    @Suppress("MagicNumber")
-    private fun qrOverlay(server: VpsDeployServer, user: VpsDeployUser): View {
-        return FrameLayout(requireContext()).apply {
-            setBackgroundColor(Color.argb(235, 5, 10, 18))
-            setOnClickListener {
-                qrUser = null
-                render()
-            }
-            val modal = vertical().apply {
-                background = rounded(R.color.vpn0wn_paper, R.color.vpn0wn_rule, dp(14))
-                setPadding(dp(20))
-                setOnClickListener { }
-                addView(horizontal(Gravity.CENTER_VERTICAL).apply {
-                    addView(vertical().apply {
-                        addView(label(str(R.string.vpn0wn_scan_to_pair)))
-                        addView(mono(user.name, 13, R.color.vpn0wn_ink).apply { setPadding(0, dp(2), 0, 0) })
-                    }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-                    addView(iconButton(R.drawable.ic_vpn0wn_close, str(R.string.vpn0wn_close)) {
-                        qrUser = null
-                        render()
-                    })
-                })
-                addView(VpsQrCodeView(requireContext()).apply { bind("${server.endpoint}:${server.port}#${user.key}") }, LinearLayout.LayoutParams(dp(282), dp(282)).apply { topMargin = dp(14) })
-                addView(qrInfoGrid(server, user))
-                addView(mono(str(R.string.vpn0wn_qr_footer), 10, R.color.vpn0wn_ink_3).apply {
-                    gravity = Gravity.CENTER
-                    setPadding(0, dp(12), 0, 0)
-                })
-            }
-            addView(modal, FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.CENTER))
-        }
-    }
-
-    // Local layout/drawing dimensions and paint values preserve the visual specification.
-    @Suppress("MagicNumber")
-    private fun qrInfoGrid(server: VpsDeployServer, user: VpsDeployUser): View {
-        return vertical().apply {
-            setPadding(0, dp(14), 0, 0)
-            addView(horizontal().apply {
-                addView(qrInfoCell(str(R.string.vpn0wn_label_server), server.name), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f).apply { marginEnd = dp(10) })
-                addView(qrInfoCell(str(R.string.vpn0wn_label_ip), user.ip), LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
-            })
-            addView(qrInfoCell(str(R.string.vpn0wn_label_endpoint), "${server.endpoint}:${server.port}").withMargins(top = 10))
-        }
-    }
-
-    // Local layout/drawing dimensions and paint values preserve the visual specification.
-    @Suppress("MagicNumber")
-    private fun qrInfoCell(title: String, value: String): View = vertical().apply {
-        addView(label(title).apply { textSize = 9f })
-        addView(mono(value, 11, R.color.vpn0wn_ink).apply {
-            setPadding(0, dp(2), 0, 0)
-            setSingleLine(false)
-        })
     }
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
@@ -796,6 +763,7 @@ class VpsProvisioningFragment : BaseFragment() {
                             setBackgroundColor(color(if (index <= current) R.color.vpn0wn_signal_deep else R.color.vpn0wn_rule))
                         }, LinearLayout.LayoutParams(0, dp(1), 1f))
                         addView(TextView(requireContext()).apply {
+                            setTextAppearance(R.style.Vpn0wnMonoSubText)
                             text = if (done) "✓" else (index + 1).toString().padStart(2, '0')
                             gravity = Gravity.CENTER
                             typeface = monoTypeface()
@@ -840,11 +808,11 @@ class VpsProvisioningFragment : BaseFragment() {
         return VpsSectionHeaderLayout(
             requireContext(),
             label("§${index.toString().padStart(2, '0')}", R.color.vpn0wn_rule_strong),
-            mono(title, 12, R.color.vpn0wn_ink, Typeface.BOLD).apply { setPadding(dp(8), 0, dp(8), 0) },
+            mono(title, 13, R.color.vpn0wn_ink, medium = true).apply { setPadding(dp(10), 0, dp(10), 0) },
             View(requireContext()).apply { setBackgroundColor(color(R.color.vpn0wn_rule)) },
             label(hint).apply { setPaddingRelative(dp(8), 0, 0, 0) },
         ).apply {
-            setPadding(0, dp(14), 0, dp(8))
+            setPadding(0, dp(22), 0, dp(10))
         }
     }
 
@@ -898,6 +866,7 @@ class VpsProvisioningFragment : BaseFragment() {
             setPadding(dp(14), dp(12), dp(14), dp(10))
             addView(label(title).apply { labelFor = fieldId; setPadding(0, 0, 0, dp(8)) })
             addView(EditText(requireContext()).apply {
+                setTextAppearance(R.style.Vpn0wnEditorField)
                 id = fieldId
                 setText(value)
                 this.hint = hint
@@ -931,6 +900,7 @@ class VpsProvisioningFragment : BaseFragment() {
         setPadding(dp(14), dp(8), dp(14), dp(10))
         addView(label(title).apply { labelFor = fieldId })
         addView(EditText(requireContext()).apply {
+            setTextAppearance(R.style.Vpn0wnEditorField)
             id = fieldId
             setText(value)
             this.hint = hint
@@ -959,15 +929,16 @@ class VpsProvisioningFragment : BaseFragment() {
             background = rounded(R.color.vpn0wn_paper_2, R.color.vpn0wn_rule_strong, dp(6))
             options.forEach { (key, text) ->
                 addView(TextView(requireContext()).apply {
+                    setTextAppearance(R.style.Vpn0wnMonoSubText)
                     this.text = text
                     gravity = Gravity.CENTER
                     minHeight = dp(48)
                     typeface = monoTypeface()
                     textSize = 10f
                     isSelected = key == selected
-                    actionAccessibility(RadioButton::class.java.name, key == selected)
                     setTextColor(color(if (key == selected) R.color.vpn0wn_paper else R.color.vpn0wn_ink_3))
                     background = if (key == selected) rounded(R.color.vpn0wn_ink, R.color.vpn0wn_ink, dp(6)) else null
+                    actionAccessibility(RadioButton::class.java.name, key == selected)
                     setPadding(dp(8))
                     setOnClickListener { onSelect(key) }
                     isEnabled = !provisionState.busy
@@ -980,11 +951,14 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun statTile(title: String, value: String, dot: String, colorRes: Int, active: Boolean, onClick: () -> Unit): View {
         return vertical().apply {
+            minimumHeight = dp(62)
             setBackgroundColor(color(if (active) R.color.vpn0wn_paper_3 else R.color.vpn0wn_paper_2))
+            isSelected = active
+            actionAccessibility(Button::class.java.name)
             setPadding(dp(14), dp(10), dp(14), 0)
             setOnClickListener { onClick() }
             addView(label("$dot $title".trim(), if (active) colorRes else R.color.vpn0wn_ink_3).apply { textSize = 9f })
-            addView(mono(value, 20, if (active) colorRes else R.color.vpn0wn_ink, Typeface.BOLD).apply { setPadding(0, dp(1), 0, 0) })
+            addView(mono(value, 20, if (active) colorRes else R.color.vpn0wn_ink, medium = true).apply { setPadding(0, dp(1), 0, 0) })
             addView(Space(requireContext()), LinearLayout.LayoutParams(1, 0, 1f))
             addView(View(requireContext()).apply { setBackgroundColor(if (active) color(colorRes) else Color.TRANSPARENT) }, LinearLayout.LayoutParams(-1, dp(2)))
         }
@@ -1011,36 +985,6 @@ class VpsProvisioningFragment : BaseFragment() {
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
-    private fun horizontalWrap(items: List<View>): View {
-        val hsv = HorizontalScrollView(requireContext()).apply { isHorizontalScrollBarEnabled = false }
-        val row = horizontal()
-        items.forEach { row.addView(it, LinearLayout.LayoutParams(WRAP_CONTENT, dp(28)).apply { marginEnd = dp(6) }) }
-        hsv.addView(row)
-        return hsv
-    }
-
-    // Local layout/drawing dimensions and paint values preserve the visual specification.
-    @Suppress("MagicNumber")
-    private fun healthBadge(check: VpsDeployHealthCheck): View {
-        val res = when (check.ok) {
-            true -> R.color.vpn0wn_signal_deep
-            false -> R.color.vpn0wn_error
-            null -> R.color.vpn0wn_warn
-        }
-        val glyph = when (check.ok) {
-            true -> "◆"
-            false -> "✕"
-            null -> "◑"
-        }
-        return label("$glyph ${check.label}", res).apply {
-            gravity = Gravity.CENTER
-            setPadding(dp(8), 0, dp(8), 0)
-            background = rounded(R.color.vpn0wn_paper_3, res, dp(999))
-        }
-    }
-
-    // Local layout/drawing dimensions and paint values preserve the visual specification.
-    @Suppress("MagicNumber")
     private fun dashedButton(text: String, stroke: Int = R.color.vpn0wn_rule_strong, icon: Int? = R.drawable.ic_vpn0wn_plus, onClick: () -> Unit): View {
         return horizontal(Gravity.CENTER).apply {
             background = rounded(R.color.vpn0wn_paper, stroke, dash = true)
@@ -1052,10 +996,10 @@ class VpsProvisioningFragment : BaseFragment() {
             if (icon != null) {
                 addView(ImageView(requireContext()).apply {
                     setImageDrawable(AppCompatResources.getDrawable(requireContext(), icon))
-                    setColorFilter(color(stroke))
+                    setColorFilter(color(R.color.vpn0wn_ink_3))
                 }, LinearLayout.LayoutParams(dp(14), dp(14)).apply { marginEnd = dp(8) })
             }
-            addView(mono(text.removePrefix("+ ").trim(), 11, stroke).apply {
+            addView(mono(text.removePrefix("+ ").trim(), 11, R.color.vpn0wn_ink_3).apply {
                 letterSpacing = 0.08f
                 gravity = Gravity.CENTER
             })
@@ -1066,15 +1010,16 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun smallOutlineButton(text: String, onClick: () -> Unit): View {
         return TextView(requireContext()).apply {
+            setTextAppearance(R.style.Vpn0wnMonoSubText)
             this.text = text.uppercase(Locale.ROOT)
             gravity = Gravity.CENTER
             typeface = monoTypeface()
             textSize = 10f
             minHeight = dp(48)
-            actionAccessibility(Button::class.java.name)
             letterSpacing = 0.06f
             setTextColor(color(R.color.vpn0wn_ink_2))
             background = rounded(R.color.vpn0wn_paper_2, R.color.vpn0wn_rule_strong, dp(4))
+            actionAccessibility(Button::class.java.name)
             setPadding(dp(12), dp(7), dp(12), dp(7))
             setOnClickListener { onClick() }
         }
@@ -1082,10 +1027,12 @@ class VpsProvisioningFragment : BaseFragment() {
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
-    private fun rowButton(text: String, onClick: () -> Unit): View = horizontal(Gravity.CENTER_VERTICAL).apply {
+    private fun rowButton(text: String, icon: Int = R.drawable.ic_vpn0wn_plus, onClick: () -> Unit): View = horizontal(Gravity.CENTER_VERTICAL).apply {
+        minimumHeight = dp(48)
+        actionAccessibility(Button::class.java.name)
         setPadding(dp(14), dp(12), dp(14), dp(12))
         addView(ImageView(requireContext()).apply {
-            setImageDrawable(AppCompatResources.getDrawable(requireContext(), R.drawable.ic_vpn0wn_plus))
+            setImageDrawable(AppCompatResources.getDrawable(requireContext(), icon))
             setColorFilter(color(R.color.vpn0wn_ink_3))
         }, LinearLayout.LayoutParams(dp(14), dp(14)).apply { marginEnd = dp(10) })
         addView(mono(text.removePrefix("+ ").trim(), 11, R.color.vpn0wn_ink_3).apply { letterSpacing = 0.06f })
@@ -1108,7 +1055,14 @@ class VpsProvisioningFragment : BaseFragment() {
     private fun View.actionAccessibility(role: String, checked: Boolean? = null) {
         isFocusable = true
         context.withStyledAttributes(attrs = intArrayOf(android.R.attr.selectableItemBackground)) {
-            foreground = getDrawable(0)
+            val feedback = getDrawable(0)
+            val surface = background
+            foreground = null
+            background = if (surface != null && feedback != null) {
+                LayerDrawable(arrayOf(surface, feedback))
+            } else {
+                feedback ?: surface
+            }
         }
         accessibilityDelegate = object : View.AccessibilityDelegate() {
             override fun onInitializeAccessibilityNodeInfo(host: View, info: AccessibilityNodeInfo) {
@@ -1163,24 +1117,20 @@ class VpsProvisioningFragment : BaseFragment() {
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
     private fun label(text: String, colorRes: Int = R.color.vpn0wn_ink_3): TextView = TextView(requireContext()).apply {
-        this.text = text.uppercase(Locale.ROOT)
+        setTextAppearance(R.style.Vpn0wnLabelText)
         typeface = monoTypeface()
-        textSize = 10f
-        letterSpacing = 0.08f
-        setTextColor(color(colorRes))
         includeFontPadding = false
+        this.text = text.uppercase(Locale.ROOT)
+        setTextColor(color(colorRes))
     }
 
-    private fun mono(text: String, size: Int, colorRes: Int, style: Int = Typeface.NORMAL): TextView = TextView(requireContext()).apply {
+    private fun mono(text: String, size: Int, colorRes: Int, medium: Boolean = false): TextView = TextView(requireContext()).apply {
+        setTextAppearance(R.style.Vpn0wnMonoValueText)
         this.text = text
-        typeface = when (style) {
-            Typeface.NORMAL -> monoTypeface()
-            Typeface.BOLD -> cachedBoldMonoTypeface
-            else -> Typeface.create(monoTypeface(), style)
-        }
+        typeface = if (medium) cachedMediumMonoTypeface else monoTypeface()
+        includeFontPadding = false
         textSize = size.toFloat()
         setTextColor(color(colorRes))
-        includeFontPadding = false
     }
 
     private fun View.withMargins(left: Int = 0, top: Int = 0, right: Int = 0, bottom: Int = 0): View = apply {
@@ -1199,11 +1149,6 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     private fun goBack() {
-        if (qrUser != null) {
-            qrUser = null
-            render()
-            return
-        }
         when (val current = screen) {
             Screen.Fleet -> {
                 parentFragmentManager.popBackStack()

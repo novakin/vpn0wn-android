@@ -11,6 +11,9 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
     val commands = Collections.synchronizedList(mutableListOf<String>())
     val closes = AtomicInteger()
     val detectEntered = CompletableDeferred<Unit>()
+    var statusEntered = CompletableDeferred<Unit>()
+    var blockStatus: CompletableDeferred<Unit>? = null
+    var statusOutput: String? = null
     var blockDetect: CompletableDeferred<Unit>? = null
     var failure: ProvisioningException? = null
     var detectOutput: String? = null
@@ -33,6 +36,12 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
                         failure?.let { throw it }
                         ProvisioningCommandOutput(0, detectOutput ?: detectJson(), "")
                     }
+                    command.contains("./'sync-status.sh'") -> {
+                        statusEntered.complete(Unit)
+                        blockStatus?.await()
+                        failure?.let { throw it }
+                        ProvisioningCommandOutput(0, statusOutput ?: statusJson(), "")
+                    }
                     command.contains("./'plan.sh'") -> {
                         failure?.let { throw it }
                         ProvisioningCommandOutput(0, planJson(), "")
@@ -51,6 +60,16 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
         .put("packageManager", "apt").put("firewall", "iptables").put("wireGuardInstalled", false)
         .put("configExists", false).put("interface", "wg0").put("endpoint", detectedEndpoint).put("listenPort", "")
         .put("cidr", "").put("ipv4Forwarding", "0").toString()
+
+    private fun statusJson(): String = JSONObject()
+        .put("ok", true).put("interface", "wg0").put("running", true)
+        .put("endpoint", "198.51.100.42").put("listenPort", "51820")
+        .put("cidr", "10.8.0.0/24").put("dns", "1.1.1.1, 1.0.0.1")
+        .put("peers", org.json.JSONArray().put(JSONObject()
+            .put("name", "phone").put("publicKey", "synthetic-peer-public-key")
+            .put("allowedIps", "10.8.0.2/32").put("latestHandshake", "1710000000")
+            .put("rxBytes", "1024").put("txBytes", "2048")))
+        .toString()
 
     private fun planJson(): String = JSONObject()
         .put("ok", true).put("supported", true).put("endpoint", planRequest.endpoint)
