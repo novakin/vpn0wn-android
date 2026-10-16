@@ -78,7 +78,7 @@ class VpsUserProfile private constructor(val identity: VpsUserProfileIdentity, v
                 val addressBytes = address.address
                 if (network.mask != PREFIX_BITS || networkBytes.size != IPV4_BYTES || addressBytes.size != IPV4_BYTES ||
                     networkBytes.last().toInt() != 0 || !networkBytes.copyOf(PREFIX_BYTES).contentEquals(addressBytes.copyOf(PREFIX_BYTES)) ||
-                    (addressBytes.last().toInt() and 0xff) !in FIRST_CLIENT..LAST_CLIENT) invalidProfile()
+                    addressBytes.last().toUByte().toInt() !in FIRST_CLIENT..LAST_CLIENT) invalidProfile()
                 val actual = profile.config
                 val expectedInterface = Interface.Builder().setKeyPair(actual.`interface`.keyPair)
                     .parseAddresses("${result.address}/32").parseDnsServers(request.dns?.takeUnless { it.isEmpty() } ?: server.dns).build()

@@ -146,6 +146,8 @@ class VpsUserProfileFileTest {
     }
 
     @Test
+    // Separate I/O fault points must retain their independent preservation and cleanup checks.
+    @Suppress("ThrowsCount")
     fun openPartialWriteSyncCloseAndRenameFailuresPreservePreviousFileAndUnrelatedEvidence() {
         val unrelated = File(folder.root, "unrelated.tmp").apply { writeText("retained") }
         storage().write(byteArrayOf(1))
