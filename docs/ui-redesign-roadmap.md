@@ -499,7 +499,7 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
-- [x] **Scalable fleet count strip — #143, source 2026-10-16:** `statusTiles` now uses content-driven equal tile heights with the existing 62dp minimum. The normal strip height is preserved; enlarged labels/counts can grow instead of clipping against a fixed parent height. The existing actual-control font-scale/direction/theme/locale matrix checks complete label/value bounds; affected execution/output remains pending.
+- [x] **Scalable fleet count strip — #143, source 2026-10-16:** `statusTiles` now uses content-driven equal tile heights with the existing 62dp minimum. The normal strip height is preserved; enlarged labels/counts can grow instead of clipping against a fixed parent height. Seven layout controls, zero-finding Detekt and fresh 144-image controls output pass; [the QA record](qa-test-plan.md#final-typography-and-control-output--2026-10-16) accepts the reproduced empty-fleet case and preserves populated-filter/device limits.
 
 - [x] **Readable VPS Add action — #143, 2026-10-16:** `VpsProvisioningFragment.dashedButton` uses the approved `ink_3` token for its enabled label/icon while retaining the dashed `rule_strong` border. The native control render exposed the former border-colored text at 2.66:1 contrast; the existing actual-control matrix now requires at least 4.5:1. Seven affected layout controls, Detekt and fresh 144-image control output pass; [the QA record](qa-test-plan.md#final-typography-and-control-output--2026-10-16) owns revisions, inspected output and remaining limits.
 
