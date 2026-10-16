@@ -1,6 +1,6 @@
 # Operations and recovery
 
-Last updated: 2026-10-15 (Europe/Paris).
+Last updated: 2026-10-16 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -38,7 +38,7 @@ The QR naming dialog retains the scanned profile and an editable error after an 
 
 Name and key fields support correcting one character or replacing selected text at their configured maximum lengths. Existing name/key limits and final-key padding rules still apply.
 
-Detail interface and peer public-key values stay compact on screen; tapping either value copies its complete base64 public key. RX/TX cells continue copying their displayed values. The [#180 source repair and QA controls](qa-test-plan.md#detail-public-key-copy-controls--180) retain separate Android paste and delivery gates; an older installed APK may still copy the displayed ellipsis. Never paste an ellipsis as a WireGuard key.
+Detail interface and peer public-key values stay compact on screen; tapping either value copies its complete base64 public key. RX/TX cells continue copying their displayed values. [Scoped API-28/36 acceptance](reviews/2026-10-16-detail-public-key-copy-acceptance.md) verifies synthetic complete-key pastes and representative native feedback; physical and full accessibility proof remain separate. PR #183 owns delivery state; an older installed APK may still copy the displayed ellipsis. Never paste an ellipsis as a WireGuard key.
 
 Export tunnels requests `vpn0wn-export.zip` in Downloads and restores its control after loading, acquisition or write failure and cancellation. The saver closes and attempts to remove an owned incomplete output; rejected or zero-result cleanup stays attached to the primary error. Check Downloads after failure and remove any incomplete private export through your file manager. A cancelled operation can still leave a complete export if cancellation arrives after writing; it does not report success. Same-name export overwrites the previous copy and does not restore it after failure. Older `wireguard-export.zip` copies remain untouched by the filename rename. See [the export contract](backend-contracts.md#import-ordering-and-export) and [synthetic verification limits](development.md#downloads-output-ownership--2026-10-07); actual storage-provider acceptance remains in G4.
 
