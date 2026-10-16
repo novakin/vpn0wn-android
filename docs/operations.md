@@ -161,6 +161,14 @@ The C2–C3 source repair rejects unmanaged state/config injection and adds seri
 
 Fleet ONLINE now requires a recent observed running interface; a fresh stopped observation is OFFLINE, and unknown/stale/future observations need ATTENTION. Legacy records retain their connection metadata with unknown health until status is observed. Recent sync and running are separate checks. These labels do not prove handshake, NAT, routing or connectivity; [backend contracts](backend-contracts.md#persistence-and-presentation) owns exact age thresholds.
 
+### Retained generated user profiles
+
+The maintainer selected encrypted on-phone retention on 2026-10-16 (Europe/Paris). The separate [profile vault source foundation](backend-contracts.md#retained-generated-user-profiles--143) can retain a fully validated successful add-peer response for later QR/export/import. User actions are not wired to it yet; current observed-user QR/export remains unavailable. Public status or a server backup cannot reconstruct a missing client private profile after a lost add response.
+
+The vault uses a device Keystore key and no-backup file, separate from saved SSH access. It is excluded from app-data transfer and Android backup; uninstall, app-ID change or key loss can make it unrecoverable. An ordinary explicitly imported tunnel still follows existing plaintext app-private config storage. Portable password-protected server backups remain separate #196 work.
+
+Fleet removal or remote revocation does not automatically erase a retained profile or imported tunnel. Later explicit profile access must check the current server/credential identity; local cleanup must compare the complete retained record. This source slice adds no phone, export, remote or lifecycle acceptance.
+
 ## Provisioning mutation recovery
 
 Read [script ownership and recovery](../third_party/wireguard-install/vpn0wn/README.md#ownership-locking-and-recovery) before an authorized server mutation. `--force` permits replacement of owned config only. Installation stops an old running unit before replacing its config/hooks. Uninstall backs up owned config before stopping/deleting, preserves global forwarding and refuses package purge while another config/live interface exists.

@@ -133,7 +133,9 @@ data class VpsAddPeerResult(
     val publicKey: String,
     val config: String,
     val cleanupPath: String = "",
-)
+) {
+    override fun toString(): String = "VpsAddPeerResult(redacted)"
+}
 
 data class VpsPeerMutationResult(
     val name: String,

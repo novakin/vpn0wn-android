@@ -1,6 +1,6 @@
 # Architecture and maintenance boundaries
 
-Last updated: 2026-10-15 (Europe/Paris).
+Last updated: 2026-10-16 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -238,6 +238,16 @@ Alternatives include embedding all server management in Android or invoking the 
 **Alternatives/consequences:** an extra encrypted-preferences library or general vault/provider framework adds no required capability. Per-use biometric authorization would change reconnect/session behavior and is not introduced. Atomicity across the existing settings file and the new ciphertext is not claimed. Vault-first deletion, positively checked recovery and rejection of new-ID orphan collisions prevent automatic credential reassociation without adding a second persisted binding-token schema. Corrupt/key-lost protection remains observable and is never replaced automatically. Unrelated settings/profile exports and safe status/display updates do not require credential decryption.
 
 **Verification and migration limits:** tests use real JVM AES-GCM with injected keys/commit failures and existing DataStore/transfer controls. Those source controls do not establish Android runtime. The separate [native API-24/28 storage record](reviews/2026-10-15-native-ssh-credential-storage-acceptance.md) passes seven scoped Keystore/store/filesystem checks on an isolated acceptance artifact; process-restart Keystore lifecycle, backup/OEM behavior and power-loss durability remain unverified. There is no prior credential file to migrate; stored fleet and transfer schemas remain unchanged. Read-only capture/reuse/removal wiring is described below; native verification of that UI integration, Android transport, mutation and generated-profile acceptance keep #143 open. Revisit the policy before adding another process that writes fleet/credential state or changing recovery behavior.
+
+### Retain generated user profiles in a separate device vault — 2026-10-16
+
+**Problem and selection:** the add-peer response is the only copy of a generated client's private profile; public status and server backups cannot recreate its private key. On 2026-10-16 (Europe/Paris), the maintainer selected encrypted retention on this phone so later QR/export can reopen a successfully received profile. The same selection chose user-password protection for future portable server backups; that separate #196 format is not implemented here.
+
+**Decision/status:** one Application-owned `VpsUserProfileStore` serializes a separate strict profile schema and uses native AndroidKeyStore AES-256-GCM through `VpsUserProfileFile`. Its purpose header, key alias and no-backup ciphertext file are distinct from SSH credentials. Generated profiles pass existing WireGuard parsing plus request/result/config correlation before persistence. Identity is the exact fleet ID, textual SSH host/port/user and both server/client WireGuard public keys; names are labels. Identical saves are idempotent; differing content under the same identity conflicts. Checked deletion compares the complete retained profile and supports deliberate orphan cleanup without looking up current fleet membership.
+
+**Alternatives and consequences:** session-only retention loses reopening after process death. Ordinary tunnel import writes through the existing plaintext `FileConfigStore`, which does not meet this retention choice. Adding profile fields to the SSH schema would mix purpose and lifecycle. A separate small ciphertext owner follows the existing credential-file pattern without a generic vault framework or dependency. Vault admission settles its own writes before cancellation; it neither mutates fleet metadata nor promises a transaction across files. Later actual-action integration must reuse current fleet/credential admission before publishing or disclosing profiles. Revocation/fleet removal does not automatically delete a retained profile or imported tunnel.
+
+**Verification and migration impact:** focused test sources cover response correlation, identity isolation, strict schema, real JVM AES-GCM and injected storage/cancellation failures; executions and independent review remain required. This source foundation adds no QR/export/import UI and does not satisfy #143. Key loss, uninstall and app-ID change can make this device vault unrecoverable; no transfer or platform-backup migration is added. Existing SSH storage evidence does not verify this new key/file owner. [The contract](backend-contracts.md#retained-generated-user-profiles--143) owns limits and errors; [QA controls](qa-test-plan.md#retained-user-profile-controls--143) own pending native proof.
 
 ### Retain read-only SSH wizard ownership — 2026-10-15
 
