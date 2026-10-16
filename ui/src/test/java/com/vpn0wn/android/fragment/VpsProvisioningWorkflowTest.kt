@@ -91,7 +91,7 @@ class VpsProvisioningWorkflowTest {
         }
     }
 
-    @Test fun actualActionsPublishDetectAndPlanButCannotInstall() = runTest {
+    @Test fun actualActionsRequireExplicitConfirmationBeforeInstallation() = runTest {
         val fixture = fixture()
         try {
             fillAccess(fixture)
@@ -106,11 +106,112 @@ class VpsProvisioningWorkflowTest {
             assertTrue(text(fixture.root, fixture.activity.getString(R.string.vpn0wn_plan_advisory)).isShown)
             click(fixture, R.string.vpn0wn_review_apply)
             settle()
-            val apply = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_apply_unavailable), clickable = true)
-            assertFalse(apply.isEnabled)
+            val apply = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_apply_plan_button), clickable = true)
+            assertTrue(apply.isEnabled)
             apply.performClick()
+            settle()
+            val dialog = ShadowDialog.getLatestDialog() as AlertDialog
+            assertTrue(dialog.isShowing)
+            assertEquals(fixture.activity.getString(R.string.vpn0wn_apply_install_button),
+                dialog.getButton(DialogInterface.BUTTON_POSITIVE).text.toString())
+            assertTrue(dialog.findViewById<TextView>(android.R.id.message)!!.text.contains("198.51.100.42"))
+            dialog.getButton(DialogInterface.BUTTON_NEGATIVE).performClick()
             assertFalse(fixture.peer.commands.any { it.contains("./'install.sh'") || it.contains("./'add-peer.sh'") })
             assertEquals(Step.APPLY, fixture.model.state.value.step)
+        } finally { fixture.close() }
+    }
+
+    @Test fun detachedConfirmationAfterRotationCannotStartInstallButFreshConfirmationCan() = runTest {
+        val fixture = fixture()
+        try {
+            fillAccess(fixture)
+            requireNotNull(fixture.model.detect()).join()
+            requireNotNull(fixture.model.plan()).join()
+            fixture.model.reviewApply()
+            settle()
+            click(fixture, R.string.vpn0wn_apply_plan_button)
+            val oldDialog = ShadowDialog.getLatestDialog() as AlertDialog
+            fixture.controller.recreate()
+            settle()
+            oldDialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            assertFalse(fixture.peer.commands.any { it.contains("./'install.sh'") })
+            fixture.peer.statusOutput = """{"ok":true,"interface":"wg0","running":true,"endpoint":"198.51.100.42","listenPort":"51820","cidr":"10.8.0.0/24","dns":"1.1.1.1, 1.0.0.1","peers":[]}"""
+            click(fixture, R.string.vpn0wn_apply_plan_button)
+            val dialog = ShadowDialog.getLatestDialog() as AlertDialog
+            dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            fixture.model.state.first { !it.busy && it.installation == VpsProvisioningViewModel.Installation.INSTALLED }
+            settle()
+            assertEquals(1, fixture.peer.commands.count { it.contains("./'install.sh'") })
+            assertTrue(text(fixture.root, fixture.activity.getString(R.string.vpn0wn_apply_verified)).isShown)
+            assertFalse(fixture.peer.commands.any { it.contains("./'add-peer.sh'") })
+        } finally { fixture.close() }
+    }
+
+    @Test fun failedDetectSaveCanShowAPlanButApplyExplainsTheMissingCurrentRecord() = runTest {
+        val fixture = fixture()
+        try {
+            fillAccess(fixture)
+            click(fixture, R.string.vpn0wn_continue)
+            fixture.model.state.first { !it.busy && it.detect != null }
+            val original = Vpn0wnApplication.getVpsServerStore().servers.first().single()
+            fixture.model.back()
+            settle()
+            input(fixture.root, fixture.activity.getString(R.string.vpn0wn_host_placeholder)).setText("203.0.113.9")
+            input(fixture.root, "SHA256:…").setText("SHA256:" + Base64.getEncoder().withoutPadding()
+                .encodeToString(ByteArray(32) { (it + 1).toByte() }))
+            click(fixture, R.string.vpn0wn_continue)
+            fixture.model.state.first { !it.busy && it.detect != null }
+            assertEquals(VpsProvisioningViewModel.Problem.STORAGE_CONFLICT, fixture.model.state.value.problem)
+            assertFalse(requireNotNull(fixture.model.state.value.detect).configExists)
+            fixture.peer.planRequest = fixture.peer.planRequest.copy(endpoint = "203.0.113.9")
+            settle()
+            click(fixture, R.string.vpn0wn_generate_plan)
+            fixture.model.state.first { !it.busy && it.plan != null }
+            settle()
+            click(fixture, R.string.vpn0wn_review_apply)
+            settle()
+            assertTrue(text(fixture.root, fixture.activity.getString(R.string.vpn0wn_apply_current_record_required)).isShown)
+            val incorrectReason = fixture.activity.getString(R.string.vpn0wn_plan_existing_config)
+            assertFalse(descendants(fixture.root).filterIsInstance<TextView>().any { it.text.toString() == incorrectReason })
+            val action = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_apply_unavailable), clickable = true)
+            assertFalse(action.isEnabled)
+            assertFalse(fixture.model.state.value.pendingInstall)
+            assertFalse(fixture.peer.commands.any { it.contains("./'install.sh'") })
+            assertEquals(original, Vpn0wnApplication.getVpsServerStore().servers.first().single())
+            assertNull(Vpn0wnApplication.getVpsServerStore().pendingInstall(original))
+        } finally { fixture.close() }
+    }
+
+    @Test fun reconciliationShowsObservedNetworkRatherThanAnEditedAdvisoryPlan() = runTest {
+        val fixture = fixture()
+        try {
+            fillAccess(fixture)
+            requireNotNull(fixture.model.detect()).join()
+            requireNotNull(fixture.model.plan()).join()
+            fixture.model.reviewApply()
+            fixture.peer.installFailure = ProvisioningException("lost reply")
+            val confirmation = requireNotNull(fixture.model.requestInstallConfirmation())
+            requireNotNull(fixture.model.confirmInstall(confirmation)).join()
+            fixture.peer.installFailure = null
+            val next = fixture.peer.planRequest.copy(endpoint = "203.0.113.9", port = 51821, cidr = "10.9.0.0/24", dns = "9.9.9.9")
+            fixture.model.edit(fixture.model.draft.copy(endpoint = next.endpoint, port = next.port.toString(), cidr = next.cidr, dns = next.dns))
+            fixture.peer.planRequest = next
+            requireNotNull(fixture.model.plan()).join()
+            fixture.model.reviewApply()
+            settle()
+            assertTrue(text(fixture.root, next.port.toString()).isShown)
+            requireNotNull(fixture.model.reconcileInstall()).join()
+            settle()
+            assertTrue(text(fixture.root, fixture.activity.getString(R.string.vpn0wn_apply_observed)).isShown)
+            for (actual in listOf("198.51.100.42", "51820", "10.8.0.0/24", "1.1.1.1, 1.0.0.1"))
+                assertTrue(text(fixture.root, actual).isShown)
+            val shownValues = descendants(fixture.root).filterIsInstance<TextView>().map { it.text.toString() }.toSet()
+            for (advisory in listOf(next.endpoint, next.port.toString(), next.cidr, next.dns))
+                assertFalse("Advisory value must not appear as observed: $advisory", advisory in shownValues)
+            assertEquals(VpsProvisioningViewModel.Installation.OBSERVED, fixture.model.state.value.installation)
+            assertEquals("51820", Vpn0wnApplication.getVpsServerStore().servers.first().single().listenPort)
+            assertFalse(fixture.model.state.value.pendingInstall)
+            assertEquals(1, fixture.peer.commands.count { it.contains("./'install.sh'") })
         } finally { fixture.close() }
     }
 
@@ -468,6 +569,7 @@ class VpsProvisioningWorkflowTest {
             withContext(NonCancellable) {
                 peer.blockDetect?.complete(Unit)
                 peer.blockStatus?.complete(Unit)
+                peer.blockInstall?.complete(Unit)
                 try { controller.pause().stop().destroy() } catch (cleanup: Throwable) {
                     if (cleanup !== failure) failure.addSuppressed(cleanup)
                 }
@@ -546,6 +648,7 @@ class VpsProvisioningWorkflowTest {
         suspend fun close() = withContext(NonCancellable) {
             peer.blockDetect?.complete(Unit)
             peer.blockStatus?.complete(Unit)
+            peer.blockInstall?.complete(Unit)
             try { controller.pause().stop().destroy() } finally {
                 try { modelJob.cancelAndJoin() } finally { environment.close() }
             }

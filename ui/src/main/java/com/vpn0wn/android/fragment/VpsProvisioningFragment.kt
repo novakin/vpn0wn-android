@@ -34,6 +34,7 @@ import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.addCallback
 import androidx.appcompat.content.res.AppCompatResources
+import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.core.content.getSystemService
 import androidx.core.content.res.ResourcesCompat
@@ -63,6 +64,8 @@ import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Problem
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.SavedAccess
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.State
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Step
+import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Installation
+import com.vpn0wn.android.provisioning.ProvisioningRecovery
 import com.vpn0wn.android.util.vpn0wnStyle
 import com.vpn0wn.android.widget.VpsSectionHeaderLayout
 import com.vpn0wn.android.widget.VpsHealthChecksLayout
@@ -85,6 +88,7 @@ class VpsProvisioningFragment : BaseFragment() {
     private var backCallback: OnBackPressedCallback? = null
     private var storeJob: Job? = null
     private var renderedProvisionState: State? = null
+    private var installDialog: AlertDialog? = null
     private val servers = mutableListOf<VpsDeployServer>()
     private val storedServers = mutableListOf<StoredVpsServer>()
     private val serverStore by lazy { Application.getVpsServerStore() }
@@ -149,6 +153,8 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     override fun onDestroyView() {
+        installDialog?.dismiss()
+        installDialog = null
         storeJob?.cancel()
         storeJob = null
         backCallback?.remove()
@@ -496,12 +502,64 @@ class VpsProvisioningFragment : BaseFragment() {
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
     private fun applyStep(parent: LinearLayout) {
-        parent.addView(sectionHeader(4, str(R.string.vpn0wn_step_apply).lowercase(Locale.ROOT), str(R.string.vpn0wn_apply_unavailable)))
+        parent.addView(sectionHeader(4, str(R.string.vpn0wn_step_apply).lowercase(Locale.ROOT), str(R.string.vpn0wn_apply_fresh_only)))
         parent.addView(panel {
             configLine(str(R.string.vpn0wn_label_host), provisionForm.host)
             configLine(str(R.string.vpn0wn_ssh_fingerprint), provisionForm.fingerprint, wrap = true)
-            addView(mono(str(R.string.vpn0wn_apply_not_connected), 11, R.color.vpn0wn_warn).apply { setPadding(dp(14)) })
+            when (provisionState.installation) {
+                Installation.INSTALLED, Installation.OBSERVED -> provisionState.statusSnapshots[provisionState.serverId]?.status?.let { status ->
+                    configLine(str(R.string.vpn0wn_label_endpoint), status.endpoint)
+                    configLine(str(R.string.vpn0wn_label_listen_port), status.listenPort)
+                    configLine(str(R.string.vpn0wn_metric_cidr), status.cidr)
+                    configLine(str(R.string.vpn0wn_label_dns), status.dns)
+                }
+                else -> provisionState.plan?.let { plan ->
+                    configLine(str(R.string.vpn0wn_label_endpoint), plan.endpoint)
+                    configLine(str(R.string.vpn0wn_label_listen_port), plan.port)
+                    configLine(str(R.string.vpn0wn_metric_cidr), plan.cidr)
+                    configLine(str(R.string.vpn0wn_label_dns), plan.dns)
+                }
+            }
+            val message = when (provisionState.installation) {
+                Installation.NONE -> when {
+                    provisionState.busy -> R.string.vpn0wn_apply_running_note
+                    provision.canInstall -> R.string.vpn0wn_apply_review_note
+                    provisionState.detect?.configExists == true || provisionState.plan?.willOverwriteConfig == true -> R.string.vpn0wn_plan_existing_config
+                    provisionState.pendingInstall -> R.string.vpn0wn_apply_uncertain
+                    else -> R.string.vpn0wn_apply_current_record_required
+                }
+                Installation.RUNNING -> R.string.vpn0wn_apply_running_note
+                Installation.INSTALLED -> R.string.vpn0wn_apply_verified
+                Installation.OBSERVED -> R.string.vpn0wn_apply_observed
+                Installation.UNCERTAIN -> R.string.vpn0wn_apply_uncertain
+            }
+            addView(mono(str(message), 11, R.color.vpn0wn_ink_2).apply { setPadding(dp(14)) })
         })
+    }
+
+    private fun confirmInstallation() {
+        val confirmation = provision.requestInstallConfirmation() ?: return
+        val ownerView = view ?: return
+        val plan = confirmation.plan
+        val sshHost = confirmation.ssh.host.let { if (':' in it) "[$it]" else it }
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.vpn0wn_confirm_apply)
+            .setMessage(getString(R.string.vpn0wn_apply_confirmation,
+                confirmation.ssh.user, sshHost, confirmation.ssh.port, confirmation.fingerprint,
+                plan.endpoint, plan.port, plan.cidr, plan.dns))
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.vpn0wn_apply_install_button, null)
+            .create()
+        installDialog?.dismiss()
+        installDialog = dialog
+        dialog.setOnDismissListener { if (installDialog === dialog) installDialog = null }
+        dialog.show()
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            if (installDialog !== dialog || view !== ownerView || !dialog.isShowing ||
+                !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return@setOnClickListener
+            dialog.dismiss()
+            provision.confirmInstall(confirmation)
+        }
     }
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
@@ -561,9 +619,13 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun bottomAction(): View {
         val label = str(when {
+            provisionState.busy && provisionStep == APPLY_STEP -> R.string.vpn0wn_close_connection
             provisionState.busy -> R.string.vpn0wn_cancel_check
             provisionStep == DETECT_STEP -> R.string.vpn0wn_generate_plan
             provisionStep == PLAN_STEP -> R.string.vpn0wn_review_apply
+            provisionStep == APPLY_STEP && provisionState.pendingInstall -> R.string.vpn0wn_reconcile_install
+            provisionStep == APPLY_STEP && provision.canInstall -> R.string.vpn0wn_apply_plan_button
+            provisionStep == APPLY_STEP && provisionState.installation == Installation.INSTALLED -> R.string.vpn0wn_apply_complete
             provisionStep == APPLY_STEP -> R.string.vpn0wn_apply_unavailable
             else -> R.string.vpn0wn_continue
         })
@@ -571,6 +633,7 @@ class VpsProvisioningFragment : BaseFragment() {
             SSH_STEP -> true
             DETECT_STEP -> provisionState.detect?.supported == true
             PLAN_STEP -> provisionState.plan != null
+            APPLY_STEP -> provision.canInstall || provisionState.pendingInstall
             else -> false
         }
         return TextView(requireContext()).apply {
@@ -601,6 +664,8 @@ class VpsProvisioningFragment : BaseFragment() {
                     provisionStep == SSH_STEP -> provision.detect()
                     provisionStep == DETECT_STEP -> provision.plan()
                     provisionStep == PLAN_STEP -> provision.reviewApply()
+                    provisionStep == APPLY_STEP && provisionState.pendingInstall -> provision.reconcileInstall()
+                    provisionStep == APPLY_STEP -> confirmInstallation()
                 }
             }
         }.withMargins(left = 14, top = 12, right = 14, bottom = 12)
@@ -630,6 +695,8 @@ class VpsProvisioningFragment : BaseFragment() {
             Problem.STORAGE_FAILED -> R.string.vpn0wn_saved_ssh_failed
             Problem.STORAGE_CONFLICT -> R.string.vpn0wn_saved_ssh_conflict
             Problem.CANCELLED -> R.string.vpn0wn_ssh_cancelled
+            Problem.INSTALL_FAILED -> R.string.vpn0wn_apply_failed
+            Problem.INSTALL_PENDING -> R.string.vpn0wn_apply_uncertain
         }), 11, R.color.vpn0wn_warn).apply {
             id = R.id.vpn0wn_vps_operation_problem
             accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
@@ -644,6 +711,19 @@ class VpsProvisioningFragment : BaseFragment() {
             SavedAccess.CLEARED -> R.string.vpn0wn_saved_ssh_cleared
         }
         if (saved != null) parent.addView(mono(str(saved), 11, R.color.vpn0wn_ink_2).apply { setPadding(dp(14), dp(8), dp(14), dp(8)) })
+        provisionState.recovery?.let { recovery ->
+            parent.addView(mono(str(when (recovery) {
+                ProvisioningRecovery.UNCHANGED -> R.string.vpn0wn_recovery_unchanged
+                ProvisioningRecovery.RESTORED -> R.string.vpn0wn_recovery_restored
+                ProvisioningRecovery.INCOMPLETE, ProvisioningRecovery.UNKNOWN -> R.string.vpn0wn_recovery_incomplete
+            }), 11, R.color.vpn0wn_warn).apply { setPadding(dp(14), dp(8), dp(14), dp(8)) })
+        }
+        if (provisionState.cleanupRequired)
+            parent.addView(mono(str(R.string.vpn0wn_apply_cleanup), 11, R.color.vpn0wn_warn).apply { setPadding(dp(14)) })
+        if (provisionState.active && provisionState.pendingInstall && provisionState.step != Step.APPLY)
+            parent.addView(rowButton(str(R.string.vpn0wn_reconcile_install)) { provision.reconcileInstall() }.apply {
+                isEnabled = !provisionState.busy
+            })
     }
 
     private fun addUser() {
