@@ -194,6 +194,7 @@ class VpsProvisioningRequestTest {
     @Test
     fun peerMutationsRequireExactReceiptIdentityAndActionWithoutRetrying() = runBlocking {
         for (revoke in listOf(false, true)) {
+            val scriptName = if (revoke) "revoke-peer.sh" else "remove-peer.sh"
             val valid = JSONObject().put("ok", true).put("name", "phone").put("publicKey", REMOVE_PUBLIC_KEY)
                 .put("removed", true).put("revoked", revoke).put("archive", if (revoke) "/fixture/revoked.conf" else "")
                 .put("cleanupPath", "/fixture/private-residue")
@@ -212,14 +213,16 @@ class VpsProvisioningRequestTest {
                 val remote = object : RemoteShellClient {
                     override suspend fun execute(command: String): ProvisioningCommandOutput = when {
                         command.startsWith("mktemp ") -> ProvisioningCommandOutput(0, "/tmp/vpn0wn-provisioning.test01", "")
+                        command.startsWith("mkdir -p ") -> ProvisioningCommandOutput(0, "", "")
                         command.startsWith("rm -rf ") -> {
                             cleanups++
                             ProvisioningCommandOutput(0, "", "")
                         }
-                        else -> {
+                        command.startsWith("cd ") && command.contains("./'$scriptName'") -> {
                             mutations++
                             ProvisioningCommandOutput(0, response.toString(), "")
                         }
+                        else -> throw AssertionError("Unexpected provisioning command")
                     }
                     override suspend fun upload(path: String, content: String, mode: String) = ProvisioningCommandOutput(0, "", "")
                     override suspend fun close() {

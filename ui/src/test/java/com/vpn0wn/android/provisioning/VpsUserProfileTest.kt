@@ -20,7 +20,7 @@ class VpsUserProfileTest {
         assertEquals(VpsProfileFixture.client.publicKey.toBase64(), profile.identity.clientPublicKey)
         assertEquals(VpsProfileFixture.serverKey.publicKey.toBase64(), profile.identity.serverPublicKey)
         assertEquals("phone", profile.name)
-        assertEquals(profile.config, Config.parse(profile.payload().byteInputStream()))
+        assertEquals(profile.payload(), Config.parse(profile.payload().byteInputStream()).toWgQuickString())
         assertTrue(profile.payload().contains(VpsProfileFixture.client.privateKey.toBase64()))
         assertTrue(profile.payload().contains(VpsProfileFixture.psk.toBase64()))
         assertEquals("VpsUserProfile(redacted)", profile.toString())
@@ -33,8 +33,35 @@ class VpsUserProfileTest {
         val result = VpsProfileFixture.result().copy(config = VpsProfileFixture.text()
             .replace("1.1.1.1", "9.9.9.9").replace("0.0.0.0/0", "10.20.0.0/16, ::/0"))
         val profile = VpsProfileFixture.profile(request = request, result = result)
-        assertEquals(profile.config, Config.parse(profile.payload().byteInputStream()))
+        assertEquals(profile.payload(), Config.parse(profile.payload().byteInputStream()).toWgQuickString())
         invalid { VpsProfileFixture.profile(request = request) }
+    }
+
+    @Test
+    fun independentlyParsedProfilesCompareCompleteCanonicalContent() {
+        val profile = VpsProfileFixture.profile()
+        val reparsed = VpsUserProfile.decode(profile.identity, profile.name,
+            "# equivalent input\n" + profile.payload().replace(" = ", "  =  "))
+        assertNotSame(profile.config, reparsed.config)
+        assertNotSame(profile.config.`interface`.keyPair, reparsed.config.`interface`.keyPair)
+        assertTrue(profile.sameContent(reparsed))
+    }
+
+    @Test
+    fun matchingIdentityAndNameCannotHideChangedPrivatePayload() {
+        val profile = VpsProfileFixture.profile()
+        val changed = listOf(
+            profile.payload().replace(VpsProfileFixture.psk.toBase64(), Key.fromBytes(ByteArray(32) { 8 }).toBase64()),
+            profile.payload().replace("203.0.113.10:51820", "203.0.113.11:51820"),
+            profile.payload().replace("0.0.0.0/0", "10.8.0.0/24"),
+            profile.payload().replace("DNS = 1.1.1.1", "DNS = 9.9.9.9"),
+        )
+        changed.forEach { text ->
+            val different = VpsUserProfile.decode(profile.identity, profile.name, text)
+            assertEquals(profile.identity, different.identity)
+            assertEquals(profile.name, different.name)
+            assertFalse(profile.sameContent(different))
+        }
     }
 
     @Test

@@ -2,6 +2,7 @@
 package com.vpn0wn.android.provisioning
 
 import android.app.Application
+import com.vpn0wn.crypto.Key
 import com.vpn0wn.crypto.KeyPair
 import java.io.File
 import java.util.concurrent.CountDownLatch
@@ -85,6 +86,25 @@ class VpsUserProfileStoreTest {
         assertCategory(VpsUserProfileException.Category.CONFLICT, failedDelete)
         assertArrayEquals(previous, file.readBytes())
         assertTrue(profile.sameContent(load(storage())!!))
+    }
+
+    @Test
+    fun changedPresharedKeyConflictsWithoutRewritingEitherRetainedProfile() = runBlocking {
+        val store = storage()
+        val profile = save(store)
+        val otherServer = VpsProfileFixture.server.copy(id = "other")
+        val other = save(store, server = otherServer)
+        val previous = file.readBytes()
+        val result = VpsProfileFixture.result().copy(config = VpsProfileFixture.text()
+            .replace(VpsProfileFixture.psk.toBase64(), Key.fromBytes(ByteArray(32) { 8 }).toBase64()))
+        val different = VpsProfileFixture.profile(result = result)
+        assertEquals(profile.identity, different.identity)
+        assertEquals(profile.name, different.name)
+        assertCategory(VpsUserProfileException.Category.CONFLICT, runCatching { save(store, result = result) }.exceptionOrNull())
+        assertCategory(VpsUserProfileException.Category.CONFLICT, runCatching { store.delete(different) }.exceptionOrNull())
+        assertArrayEquals(previous, file.readBytes())
+        assertTrue(profile.sameContent(load(storage())!!))
+        assertTrue(other.sameContent(load(storage(), server = otherServer)!!))
     }
 
     @Test

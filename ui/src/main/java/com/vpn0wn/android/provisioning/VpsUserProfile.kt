@@ -51,7 +51,8 @@ data class VpsUserProfileIdentity(
 class VpsUserProfile private constructor(val identity: VpsUserProfileIdentity, val name: String, val config: Config) {
     fun payload(): String = config.toWgQuickString()
 
-    internal fun sameContent(other: VpsUserProfile): Boolean = identity == other.identity && name == other.name && config == other.config
+    internal fun sameContent(other: VpsUserProfile): Boolean =
+        identity == other.identity && name == other.name && payload() == other.payload()
 
     override fun toString(): String = "VpsUserProfile(redacted)"
 
