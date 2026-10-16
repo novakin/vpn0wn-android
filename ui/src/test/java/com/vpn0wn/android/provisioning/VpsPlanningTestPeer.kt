@@ -16,6 +16,12 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
     var installFailure: ProvisioningException? = null
     var installOutput: String? = null
     var installExitCode = 0
+    val addEntered = CompletableDeferred<Unit>()
+    var blockAdd: CompletableDeferred<Unit>? = null
+    var addFailure: ProvisioningException? = null
+    var addOutput: String? = null
+    var addExitCode = 0
+    var afterAdd: (() -> Unit)? = null
     var configExists = false
     var planOverwrites = false
     var statusEntered = CompletableDeferred<Unit>()
@@ -60,6 +66,13 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
                         blockInstall?.await()
                         installFailure?.let { throw it }
                         ProvisioningCommandOutput(installExitCode, installOutput ?: installJson(), "")
+                    }
+                    command.contains("./'add-peer.sh'") -> {
+                        addEntered.complete(Unit)
+                        blockAdd?.await()
+                        afterAdd?.invoke()
+                        addFailure?.let { throw it }
+                        ProvisioningCommandOutput(addExitCode, requireNotNull(addOutput), "")
                     }
                     else -> error("Unexpected provisioning command")
                 }

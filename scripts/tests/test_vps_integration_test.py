@@ -106,10 +106,11 @@ class OfflineHost:
             payload = {"name": name, "publicKey": key, "config": CONFIG, "nested": {"privateKey": PRIVATE_KEY}}
         elif script in ("revoke-peer.sh", "remove-peer.sh"):
             name = args[args.index("--name") + 1]
+            self.require(args[args.index("--expected-public-key") + 1] == self.peers[name])
             key = self.peers.pop(name)
             if f"{script}-live-residue" not in self.faults:
                 self.live_keys.remove(key)
-            payload = {"name": name, "removed": True, "revoked": script == "revoke-peer.sh", "archive": CONFIG}
+            payload = {"name": name, "publicKey": key, "removed": True, "revoked": script == "revoke-peer.sh", "archive": CONFIG}
         elif script == "backup.sh":
             payload = {"interface": "wg0", "config": CONFIG, "revokedCount": "1"}
         elif script == "uninstall.sh":
@@ -231,6 +232,7 @@ class HarnessTest(unittest.TestCase):
             ("revoke-peer.sh", {"name": "wrong"}), ("revoke-peer.sh", {"removed": False}),
             ("revoke-peer.sh", {"revoked": 1}), ("remove-peer.sh", {"removed": "true"}),
             ("remove-peer.sh", {"revoked": True}), ("remove-peer.sh", {"name": "wrong"}),
+            ("revoke-peer.sh", {"publicKey": "stale-key"}), ("remove-peer.sh", {"publicKey": None}),
             ("backup.sh", {"interface": "wrong"}), ("backup.sh", {"config": None}),
             ("backup.sh", {"config": ""}), ("backup.sh", {"revokedCount": "0"}),
             ("backup.sh", {"revokedCount": 1}), ("uninstall.sh", {"packagesPurged": 1}),

@@ -393,7 +393,7 @@
     <string name="vpn0wn_ssh_invalid_response">Le serveur a renvoyé un résultat invalide ou différent de la demande. Aucun résultat accepté.</string>
     <string name="vpn0wn_saved_ssh_missing">Aucun accès SSH enregistré pour ce serveur. Saisissez un accès vérifié pour continuer.</string>
     <string name="vpn0wn_ssh_connection_changed">L’identité SSH ou l’empreinte enregistrée a changé. Relancez la détection avant de planifier.</string>
-    <string name="vpn0wn_saved_ssh_failed">Échec du stockage local de l’accès SSH. L’état ci-dessous précise les données enregistrées. Aucun stockage illisible réinitialisé.</string>
+    <string name="vpn0wn_saved_ssh_failed">Impossible de lire ou de modifier les données locales. Les données illisibles n’ont pas été réinitialisées.</string>
     <string name="vpn0wn_saved_ssh_conflict">L’accès SSH enregistré ne correspond pas à la fiche actuelle. Effacez-le explicitement avant de changer l’identité SSH.</string>
     <string name="vpn0wn_ssh_cancelled">Vérification annulée. Toute sauvegarde locale admise a été terminée avant l’annulation ; consultez son état ci-dessous.</string>
     <string name="vpn0wn_saved_ssh_saved">Identifiant SSH et empreinte vérifiée enregistrés chiffrés sur cet appareil.</string>
@@ -542,6 +542,22 @@
     <string name="vpn0wn_servers_summary_partial">%1$d CONFIGURÉS · %2$d PAIRS OBSERVÉS</string>
     <string name="vpn0wn_server_card_summary_unknown">%1$s · PAIRS INCONNUS · %2$s</string>
     <string name="vpn0wn_peers_unavailable">Liste des pairs indisponible. Actualisez l’état du serveur pour la consulter.</string>
-    <string name="vpn0wn_profile_unavailable">Cette observation ne contient aucun profil client privé. QR et export indisponibles.</string>
-    <string name="vpn0wn_peer_mutation_unavailable">La gestion des utilisateurs VPN n’est pas encore connectée.</string>
+    <string name="vpn0wn_profile_unavailable">QR et export de profil indisponibles dans cette version. Les profils conservés restent chiffrés sur cet appareil.</string>
+    <string name="vpn0wn_user_create_title">Créer un utilisateur VPN</string>
+    <string name="vpn0wn_user_name">NOM DU PAIR</string>
+    <string name="vpn0wn_user_name_hint">telephone</string>
+    <string name="vpn0wn_user_name_invalid">Utilisez 1 à 32 lettres (a–z, A–Z), chiffres, tirets ou tirets bas, sans espaces.</string>
+    <string name="vpn0wn_user_create_note">Créez un pair sur ce serveur et conservez son profil privé chiffré sur cet appareil. Vérifiez l’identité du serveur et le routage avant la création. QR et export restent indisponibles.</string>
+    <string name="vpn0wn_user_review">Vérifier l’utilisateur VPN</string>
+    <string name="vpn0wn_user_confirm_create">Créer l’utilisateur</string>
+    <string name="vpn0wn_user_confirmation">Créer %1$s sur %2$s@%3$s:%4$d ?\nEmpreinte SSH : %5$s\nClé publique du serveur : %6$s\nRoutes autorisées : %7$s\nDNS : %8$s\n\nLe profil privé sera conservé chiffré sur cet appareil. Aucun tunnel ne sera importé. Annuler ne peut pas interrompre une création distante déjà admise. Une tentative incertaine doit être vérifiée avant toute nouvelle création.</string>
+    <string name="vpn0wn_user_identity_required">Actualisez l’état du serveur pour confirmer son identité WireGuard avant de créer un utilisateur. Une réponse sans identité confirmée ne permet pas la création.</string>
+    <string name="vpn0wn_user_creating">Création en cours. Le profil privé et l’état final du serveur ne sont pas encore confirmés.</string>
+    <string name="vpn0wn_user_retained">Profil privé conservé chiffré sur cet appareil. La vérification finale du serveur reste en attente ; vérifiez à nouveau cette tentative. QR et export restent indisponibles.</string>
+    <string name="vpn0wn_user_unsaved">Le serveur a renvoyé un profil privé, mais sa conservation chiffrée reste à confirmer. Vérifiez cette tentative pour réessayer la conservation locale ; ne recréez pas l’utilisateur. Fermer Serveurs ou redémarrer l’application peut faire perdre la copie non enregistrée.</string>
+    <string name="vpn0wn_user_add_uncertain">Résultat de création incertain. Vérifiez cette tentative ; ne recréez pas l’utilisateur. L’état du serveur ne peut pas récupérer un profil privé perdu.</string>
+    <string name="vpn0wn_user_add_pending">Une création précédente doit être vérifiée avant de créer un autre utilisateur. Une réponse privée perdue ne peut pas être reconstruite depuis l’état du serveur.</string>
+    <string name="vpn0wn_user_created">Utilisateur créé et profil privé conservé chiffré sur cet appareil. L’état du serveur confirme le pair. Le trafic VPN reste non vérifié. QR et export restent indisponibles.</string>
+    <string name="vpn0wn_user_reconcile">vérifier la création précédente</string>
+    <string name="vpn0wn_peer_mutation_unavailable">La révocation et la rotation des clés ne sont pas encore connectées.</string>
 </resources>

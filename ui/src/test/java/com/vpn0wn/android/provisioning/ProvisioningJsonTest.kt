@@ -128,12 +128,41 @@ class ProvisioningJsonTest {
         assertEquals("10.8.0.0/24", result.cidr)
         assertEquals("1.1.1.1", result.dns)
         assertEquals(1, result.peers.size)
+        assertEquals(null, result.serverPublicKey)
         assertEquals("phone", result.peers.single().name)
         assertEquals("phone-key", result.peers.single().publicKey)
         assertEquals("10.8.0.2/32", result.peers.single().allowedIps)
         assertEquals(1710000000L, result.peers.single().latestHandshake)
         assertEquals(1024L, result.peers.single().rxBytes)
         assertEquals(2048L, result.peers.single().txBytes)
+    }
+
+    @Test
+    fun statusServerIdentityAcceptsCanonicalKeysAndKeepsLegacyOrNullUnknown() {
+        val json = JSONObject(fixture("status-running"))
+        val key = "UFVCTElDLTIgICAgICAgICAgICAgICAgICAgICAgICA="
+        assertEquals(key, ProvisioningJson.parseStatus(json.put("serverPublicKey", key).toString()).serverPublicKey)
+        assertEquals(null, ProvisioningJson.parseStatus(json.put("serverPublicKey", JSONObject.NULL).toString()).serverPublicKey)
+        json.remove("serverPublicKey")
+        assertEquals(null, ProvisioningJson.parseStatus(json.toString()).serverPublicKey)
+    }
+
+    @Test
+    fun statusServerIdentityRejectsMalformedSuppliedValuesWithoutPayloadDiagnostics() {
+        for (value in listOf("", " ", "synthetic-shape-secret", "A".repeat(42) + "B=", true, 42, JSONObject())) {
+            val json = JSONObject(fixture("status-running")).put("serverPublicKey", value)
+            assertInvalid { ProvisioningJson.parseStatus(json.toString()) }
+        }
+    }
+
+    @Test
+    fun serverIdentityDriftIsAConflict() {
+        val failure = assertThrows(ProvisioningException::class.java) {
+            ProvisioningJson.parseAddPeer("""{"ok":false,"error":"server_identity_mismatch","message":"synthetic-shape-secret"}""")
+        }
+        assertEquals(ProvisioningFailureCategory.CONFLICT, failure.category)
+        assertEquals("server_identity_mismatch", failure.remoteCode)
+        assertFalse(failure.stackTraceToString().contains("synthetic-shape-secret"))
     }
 
     @Test
@@ -163,6 +192,7 @@ class ProvisioningJsonTest {
             {
               "ok": true,
               "name": "phone",
+              "publicKey": "UFVCTElDLTIgICAgICAgICAgICAgICAgICAgICAgICA=",
               "removed": true,
               "revoked": false,
               "archive": "/etc/wireguard/revoked/phone.conf"
@@ -171,6 +201,7 @@ class ProvisioningJsonTest {
         )
 
         assertEquals("phone", result.name)
+        assertEquals("UFVCTElDLTIgICAgICAgICAgICAgICAgICAgICAgICA=", result.publicKey)
         assertTrue(result.removed)
         assertFalse(result.revoked)
         assertEquals("/etc/wireguard/revoked/phone.conf", result.archive)
@@ -267,9 +298,14 @@ class ProvisioningJsonTest {
         assertEquals(1, config.peers.size)
         val status = ProvisioningJson.parseStatus(fixture("status-running"))
         assertEquals(true, status.running)
+        assertEquals("UFVCTElDLTEgICAgICAgICAgICAgICAgICAgICAgICA=", status.serverPublicKey)
         assertEquals(1024L, status.peers.single().rxBytes)
-        assertEquals(false, ProvisioningJson.parseStatus(fixture("status-stopped")).running)
-        assertEquals(null, ProvisioningJson.parseStatus(fixture("status-unknown")).running)
+        val stopped = ProvisioningJson.parseStatus(fixture("status-stopped"))
+        assertEquals(false, stopped.running)
+        assertEquals("UFVCTElDLW9sZCAgICAgICAgICAgICAgICAgICAgICA=", stopped.serverPublicKey)
+        val unknown = ProvisioningJson.parseStatus(fixture("status-unknown"))
+        assertEquals(null, unknown.running)
+        assertEquals(null, unknown.serverPublicKey)
         assertEquals(null, ProvisioningJson.parseStatus(fixture("status-unknown")).peers.single().rxBytes)
         val runningUnknown = ProvisioningJson.parseStatus(fixture("status-running-unknown"))
         assertEquals(true, runningUnknown.running)
@@ -381,6 +417,37 @@ class ProvisioningJsonTest {
         }
         assertEquals("", ProvisioningJson.parsePeerMutation(fixture("remove-peer")).archive)
         assertTrue(ProvisioningJson.parsePeerMutation(fixture("revoke-peer")).archive.isNotBlank())
+    }
+
+    @Test
+    fun mutationRequiresCanonicalPublicKeyAndNonblankNameWithoutPayloadDiagnostics() {
+        for (fixtureName in listOf("remove-peer", "revoke-peer")) {
+            for (field in listOf("name", "publicKey")) {
+                assertInvalid { ProvisioningJson.parsePeerMutation(JSONObject(fixture(fixtureName)).apply { remove(field) }.toString()) }
+                for (value in listOf("", " ", JSONObject.NULL, JSONObject().put("secret", "synthetic-shape-secret"))) {
+                    assertInvalid { ProvisioningJson.parsePeerMutation(JSONObject(fixture(fixtureName)).put(field, value).toString()) }
+                }
+            }
+            for (key in listOf("synthetic-shape-secret", "A".repeat(42) + "B=", "A".repeat(43), "A".repeat(43) + "==")) {
+                assertInvalid { ProvisioningJson.parsePeerMutation(JSONObject(fixture(fixtureName)).put("publicKey", key).toString()) }
+            }
+        }
+    }
+
+    @Test
+    fun peerIdentityGuardFailuresUseExistingSafeCategories() {
+        val categories = listOf(
+            "invalid_public_key" to ProvisioningFailureCategory.INVALID_INPUT,
+            "peer_identity_mismatch" to ProvisioningFailureCategory.CONFLICT,
+        )
+        for ((code, category) in categories) {
+            val failure = runCatching {
+                ProvisioningJson.parsePeerMutation("""{"ok":false,"error":"$code","message":"synthetic-shape-secret"}""")
+            }.exceptionOrNull() as ProvisioningException
+            assertEquals(category, failure.category)
+            assertEquals(code, failure.remoteCode)
+            assertFalse(failure.stackTraceToString().contains("synthetic-shape-secret"))
+        }
     }
 
     @Test
