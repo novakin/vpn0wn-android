@@ -446,7 +446,7 @@
     <string name="vpn0wn_label_allowed_ips">IP AUTORISÉES</string>
     <string name="vpn0wn_label_keepalive">KEEPALIVE</string>
     <string name="vpn0wn_user_subtitle">UTILISATEUR · %s</string>
-    <string name="vpn0wn_profile_exported">Profil exporté</string>
+    <string name="vpn0wn_profile_exported">Profil privé enregistré dans %1$s. Conservez ce fichier en lieu sûr.</string>
     <string name="vpn0wn_label_rx">RX</string>
     <string name="vpn0wn_label_tx">TX</string>
     <string name="vpn0wn_section_profile">profil</string>
@@ -542,7 +542,16 @@
     <string name="vpn0wn_servers_summary_partial">%1$d CONFIGURÉS · %2$d PAIRS OBSERVÉS</string>
     <string name="vpn0wn_server_card_summary_unknown">%1$s · PAIRS INCONNUS · %2$s</string>
     <string name="vpn0wn_peers_unavailable">Liste des pairs indisponible. Actualisez l’état du serveur pour la consulter.</string>
-    <string name="vpn0wn_profile_unavailable">QR et export de profil indisponibles dans cette version. Les profils conservés restent chiffrés sur cet appareil.</string>
+    <string name="vpn0wn_profile_unavailable">Aucun profil conservé ne correspond à l’identité et aux paramètres actuels de ce serveur et de cet utilisateur. L’état public ne permet pas de récupérer une clé privée manquante.</string>
+    <string name="vpn0wn_profile_authenticate">Authentifiez-vous pour accéder au profil VPN</string>
+    <string name="vpn0wn_profile_import">Importer dans cette application</string>
+    <string name="vpn0wn_profile_import_note">Enregistrer un tunnel sur ce téléphone à partir du profil conservé et vérifié. Le tunnel reste déconnecté. Les tunnels importés utilisent le stockage local habituel des configurations de l’application.</string>
+    <string name="vpn0wn_profile_import_failed">Impossible d’enregistrer le tunnel. Vérifiez que le nom est valide et disponible, puis réessayez.</string>
+    <string name="vpn0wn_profile_output_failed">Échec de la sortie du profil. Aucune exportation réussie confirmée.</string>
+    <string name="vpn0wn_profile_qr_failed">Profil trop volumineux pour un code QR. Exportez plutôt son fichier .conf.</string>
+    <string name="vpn0wn_profile_qr_description">Code QR du profil WireGuard pour %1$s</string>
+    <string name="vpn0wn_profile_scan">Scanner pour associer</string>
+    <string name="vpn0wn_profile_checking">Vérification du profil actuel…</string>
     <string name="vpn0wn_user_create_title">Créer un utilisateur VPN</string>
     <string name="vpn0wn_user_name">NOM DU PAIR</string>
     <string name="vpn0wn_user_name_hint">telephone</string>

@@ -54,6 +54,18 @@ class VpsUserProfile private constructor(val identity: VpsUserProfileIdentity, v
     internal fun sameContent(other: VpsUserProfile): Boolean =
         identity == other.identity && name == other.name && payload() == other.payload()
 
+    internal fun matchesObserved(status: VpsServerStatus, peer: VpsPeerStatus): Boolean {
+        if (status.serverPublicKey != identity.serverPublicKey || peer.publicKey != identity.clientPublicKey || peer.name != name)
+            return false
+        return try {
+            val expected = Interface.Builder().setKeyPair(config.`interface`.keyPair)
+                .parseAddresses(peer.allowedIps).parseDnsServers(status.dns).build()
+            config.`interface` == expected && config.peers.single().endpoint.get().toString() == "${status.endpoint}:${status.listenPort}"
+        } catch (_: BadConfigException) {
+            false
+        }
+    }
+
     override fun toString(): String = "VpsUserProfile(redacted)"
 
     companion object {

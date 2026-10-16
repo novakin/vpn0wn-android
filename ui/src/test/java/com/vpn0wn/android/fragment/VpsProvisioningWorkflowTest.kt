@@ -2,15 +2,33 @@
 package com.vpn0wn.android.fragment
 
 import android.app.Application
+import android.app.Activity
+import android.Manifest
+import android.content.ContentProvider
+import android.content.ContentValues
+import android.content.Context
 import android.content.DialogInterface
+import android.content.Intent
+import android.content.RestrictionsManager
+import android.content.pm.ProviderInfo
+import android.content.pm.PackageManager
+import android.database.Cursor
+import android.database.MatrixCursor
+import android.graphics.drawable.BitmapDrawable
+import android.net.Uri
 import android.os.Bundle
+import android.os.Environment
 import android.os.Looper
 import android.os.Parcel
+import android.os.ParcelFileDescriptor
+import android.provider.MediaStore
 import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.Button
 import android.widget.TextView
 import android.widget.ScrollView
@@ -20,10 +38,14 @@ import androidx.core.content.res.ResourcesCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.vpn0wn.android.Application as Vpn0wnApplication
 import com.vpn0wn.android.R
+import com.vpn0wn.android.activity.AppDataTransferSettingsTest
+import com.vpn0wn.android.backend.Tunnel
+import com.vpn0wn.android.configStore.ConfigStore
 import com.vpn0wn.android.model.TunnelTestEnvironment
 import com.vpn0wn.android.provisioning.VpsCredential
 import com.vpn0wn.android.provisioning.ProvisioningException
@@ -38,6 +60,18 @@ import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.UserCreation
 import com.vpn0wn.android.provisioning.VpsUserProfileFile
 import com.vpn0wn.android.provisioning.VpsUserProfileFileTest
 import com.vpn0wn.android.provisioning.VpsUserProfileStore
+import com.vpn0wn.android.provisioning.VpsAddPeerResult
+import com.vpn0wn.android.util.BiometricAuthenticator
+import com.vpn0wn.android.util.TunnelImporter
+import com.vpn0wn.config.Config as TunnelConfig
+import com.google.android.material.textfield.TextInputLayout
+import com.google.zxing.BinaryBitmap
+import com.google.zxing.MultiFormatReader
+import com.google.zxing.RGBLuminanceSource
+import com.google.zxing.common.HybridBinarizer
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.WriterException
+import com.google.zxing.qrcode.QRCodeWriter
 import java.io.File
 import java.io.IOException
 import java.util.Base64
@@ -62,6 +96,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
+import org.junit.Before
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -75,6 +110,8 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.android.controller.ActivityController
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowDialog
+import org.robolectric.shadows.ShadowContentResolver
+import org.robolectric.shadows.ShadowEnvironment
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, sdk = [28])
@@ -83,6 +120,13 @@ class VpsProvisioningWorkflowTest {
     @get:Rule val folder = TemporaryFolder()
 
     @After fun tearDown() { Dispatchers.resetMain() }
+
+    @Before fun resetAuthentication() {
+        AppDataTransferSettingsTest.Authentication.calls = 0
+        AppDataTransferSettingsTest.Authentication.autoCancel = false
+        AppDataTransferSettingsTest.Authentication.expectedTitleRes = R.string.vpn0wn_profile_authenticate
+        AppDataTransferSettingsTest.Authentication.callbacks.clear()
+    }
 
     @Test
     @Config(sdk = [24, 28])
@@ -802,6 +846,579 @@ class VpsProvisioningWorkflowTest {
         assertEquals(present, descendants(fixture.root).filterIsInstance<TextView>().any {
             it.text.toString() == fixture.activity.getString(resource)
         })
+    }
+
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
+    fun profileFailedAuthenticationSampleCancelAndOldCallbackNeverDisclose() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        val profiles = profileStore {}
+        val fixture = fixture(profiles = profiles)
+        try {
+            openProfileUser(fixture, profiles)
+            click(fixture, R.string.vpn0wn_action_show_qr)
+            val callback = AppDataTransferSettingsTest.Authentication.callbacks.single()
+            callback(BiometricAuthenticator.Result.Failure(null, "synthetic failed sample"))
+            click(fixture, R.string.vpn0wn_action_show_qr)
+            assertEquals(1, AppDataTransferSettingsTest.Authentication.calls)
+            assertEquals(1, profileStatusCommands(fixture))
+            assertNull(profileDialog(fixture))
+            callback(BiometricAuthenticator.Result.Cancelled)
+            callback(BiometricAuthenticator.Result.Success(null))
+            settle()
+            assertEquals(1, profileStatusCommands(fixture))
+            assertNull(profileDialog(fixture))
+
+            click(fixture, R.string.vpn0wn_action_show_qr)
+            AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.Failure(1, "synthetic terminal failure"))
+            settle()
+            assertNull(profileDialog(fixture))
+            assertEquals(1, profileStatusCommands(fixture))
+            assertTrue(fixture.environment.store.configs.isEmpty())
+        } finally { fixture.close() }
+    }
+
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
+    fun profileAuthenticationCannotSurviveNavigationOrDestroyedView() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        val profiles = profileStore {}
+        val fixture = fixture(profiles = profiles)
+        try {
+            openProfileUser(fixture, profiles)
+            click(fixture, R.string.vpn0wn_action_show_qr)
+            val navigated = AppDataTransferSettingsTest.Authentication.callbacks.single()
+            fixture.activity.onBackPressedDispatcher.onBackPressed()
+            settle()
+            navigated(BiometricAuthenticator.Result.Success(null))
+            settle()
+            assertEquals(1, profileStatusCommands(fixture))
+            assertNull(profileDialog(fixture))
+
+            clickableAncestor(text(fixture.root, "phone")).performClick()
+            settle()
+            click(fixture, R.string.vpn0wn_action_show_qr)
+            val destroyed = AppDataTransferSettingsTest.Authentication.callbacks.last()
+            fixture.controller.recreate()
+            settle()
+            destroyed(BiometricAuthenticator.Result.Success(null))
+            settle()
+            assertEquals(1, profileStatusCommands(fixture))
+            assertNull(profileDialog(fixture))
+            assertTrue(fixture.environment.store.configs.isEmpty())
+        } finally { fixture.close() }
+    }
+
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
+    fun exportRestrictionIsCheckedBeforeAuthenticationAndAfterAuthenticationAndFreshStatus() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        val profiles = profileStore {}
+        val fixture = fixture(profiles = profiles)
+        try {
+            openProfileUser(fixture, profiles)
+            setProfileExportRestriction(fixture, true)
+            click(fixture, R.string.vpn0wn_action_show_qr)
+            click(fixture, R.string.vpn0wn_action_export)
+            assertEquals(0, AppDataTransferSettingsTest.Authentication.calls)
+            assertEquals(1, profileStatusCommands(fixture))
+            setProfileExportRestriction(fixture, false)
+            click(fixture, R.string.vpn0wn_action_show_qr)
+            setProfileExportRestriction(fixture, true)
+            AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.Success(null))
+            settle()
+            assertEquals(1, profileStatusCommands(fixture))
+            assertNull(profileDialog(fixture))
+
+            setProfileExportRestriction(fixture, false)
+            fixture.peer.statusEntered = CompletableDeferred()
+            fixture.peer.blockStatus = CompletableDeferred()
+            click(fixture, R.string.vpn0wn_action_show_qr)
+            AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.Success(null))
+            settle()
+            fixture.peer.statusEntered.await()
+            setProfileExportRestriction(fixture, true)
+            fixture.peer.blockStatus!!.complete(Unit)
+            finishProfileAction(fixture)
+            assertEquals(2, profileStatusCommands(fixture))
+            assertNull(profileDialog(fixture))
+            assertTrue(fixture.environment.store.configs.isEmpty())
+        } finally { fixture.close() }
+    }
+
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
+    fun profileQrDecodesFullCanonicalConfigAndClearsSecureDialogResourcesOnDismissal() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        val profiles = profileStore {}
+        val fixture = fixture(profiles = profiles)
+        try {
+            openProfileUser(fixture, profiles)
+            val originalFlags = fixture.activity.window.attributes.flags
+            click(fixture, R.string.vpn0wn_action_show_qr)
+            val callback = AppDataTransferSettingsTest.Authentication.callbacks.last()
+            callback(BiometricAuthenticator.Result.Success(null))
+            finishProfileAction(fixture)
+            val dialog = requireNotNull(profileDialog(fixture))
+            val image = dialog.findViewById<ImageView>(R.id.vpn0wn_vps_profile_qr)!!
+            val bitmap = (image.drawable as BitmapDrawable).bitmap
+            val pixels = IntArray(bitmap.width * bitmap.height)
+            bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+            val decoded = MultiFormatReader().decode(BinaryBitmap(HybridBinarizer(RGBLuminanceSource(bitmap.width, bitmap.height, pixels))))
+            assertEquals(VpsProfileFixture.profile().payload(), decoded.text)
+            assertTrue(dialog.window!!.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0)
+            assertEquals(originalFlags, fixture.activity.window.attributes.flags)
+            assertEquals(2, profileStatusCommands(fixture))
+            callback(BiometricAuthenticator.Result.Success(null))
+            finishProfileAction(fixture)
+            assertSame(dialog, profileDialog(fixture))
+            assertEquals(2, profileStatusCommands(fixture))
+            dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            settle()
+            assertFalse(dialog.isShowing)
+            assertNull(image.drawable)
+            assertTrue(bitmap.isRecycled)
+            assertNull(profileDialog(fixture))
+            assertEquals(originalFlags, fixture.activity.window.attributes.flags)
+        } finally { fixture.close() }
+    }
+
+    @Test
+    @Config(sdk = [29], shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
+    fun exportRestrictionAtOutputDeletesOwnedFileBeforeAnyProfileBytesAreWritten() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        val profiles = profileStore {}
+        val fixture = fixture(profiles = profiles)
+        try {
+            openProfileUser(fixture, profiles)
+            val output = ProfileOutputProvider(folder.newFile()).apply {
+                onOpened = { setProfileExportRestriction(fixture, true) }
+                attachInfo(fixture.activity, ProviderInfo().apply { authority = "media" })
+            }
+            ShadowContentResolver.registerProviderInternal("media", output)
+            click(fixture, R.string.vpn0wn_action_export)
+            AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.Success(null))
+            finishProfileAction(fixture)
+            assertEquals(1, output.inserts)
+            assertEquals(1, output.opens)
+            assertEquals(1, output.deletes)
+            assertEquals(0L, output.bytesAtDeletion)
+            assertFalse(output.file.exists())
+            assertTrue(output.name!!.endsWith(".conf"))
+            assertEquals(2, profileStatusCommands(fixture))
+        } finally { fixture.close() }
+    }
+
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
+    fun legacyProfileExportSettlesPermissionBeforeFreshStatusAndAllowsDeniedRetry() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        ShadowEnvironment.setExternalStoragePublicDirectory(folder.newFolder("downloads-storage").toPath())
+        @Suppress("DEPRECATION") val directory = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        directory.mkdirs()
+        val profiles = profileStore {}
+        val fixture = fixture(profiles = profiles)
+        try {
+            openProfileUser(fixture, profiles)
+            shadowOf(fixture.activity).denyPermissions(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            click(fixture, R.string.vpn0wn_action_export)
+            AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.Success(null))
+            settle()
+            assertEquals(1, profileStatusCommands(fixture))
+            assertTrue(directory.listFiles()!!.isEmpty())
+            dispatchProfileStoragePermission(fixture, PackageManager.PERMISSION_DENIED)
+            finishProfileAction(fixture)
+            assertEquals(1, profileStatusCommands(fixture))
+            assertTrue(directory.listFiles()!!.isEmpty())
+
+            click(fixture, R.string.vpn0wn_action_export)
+            AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.Success(null))
+            settle()
+            assertEquals(1, profileStatusCommands(fixture))
+            shadowOf(fixture.activity).grantPermissions(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            dispatchProfileStoragePermission(fixture, PackageManager.PERMISSION_GRANTED)
+            finishProfileAction(fixture)
+            assertEquals(2, profileStatusCommands(fixture))
+            val saved = directory.listFiles()!!.single()
+            assertTrue(saved.name.endsWith(".conf"))
+            assertEquals(VpsProfileFixture.profile().payload(), saved.readText())
+        } finally { fixture.close() }
+    }
+
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
+    fun localProfileImportPreservesDuplicateAndFailedSaveThenRetriesAsDown() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        val profiles = profileStore {}
+        val fixture = fixture(profiles = profiles)
+        try {
+            openProfileUser(fixture, profiles)
+            val original = TunnelTestEnvironment.profile()
+            fixture.environment.manager.create("phone", original)
+            setProfileExportRestriction(fixture, true)
+            fixture.root.findViewById<View>(R.id.vpn0wn_vps_profile_import).performClick()
+            AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.Success(null))
+            settle()
+            val dialog = requireNotNull(profileDialog(fixture))
+            val name = dialog.findViewById<EditText>(R.id.tunnel_name_text)!!
+            val layout = dialog.findViewById<TextInputLayout>(R.id.tunnel_name_text_layout)!!
+            assertEquals("phone", name.text.toString())
+            assertEquals(1, profileStatusCommands(fixture))
+            assertFalse(name.isSaveEnabled)
+            dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            finishProfileAction(fixture)
+            assertTrue(dialog.isShowing)
+            assertTrue(name.isEnabled)
+            assertTrue(dialog.getButton(DialogInterface.BUTTON_POSITIVE).isEnabled)
+            assertNotNull(layout.error)
+            assertEquals(original.toWgQuickString(), fixture.environment.store.configs.getValue("phone").toWgQuickString())
+
+            var rejectCreate = true
+            val store = fixture.environment.store
+            val controlled = object : ConfigStore by store {
+                override fun create(name: String, config: TunnelConfig): TunnelConfig {
+                    if (rejectCreate) throw IOException("synthetic create failure")
+                    return store.create(name, config)
+                }
+            }
+            fixture.environment.manager.javaClass.getDeclaredField("configStore").apply { isAccessible = true }
+                .set(fixture.environment.manager, controlled)
+            name.setText("imported")
+            dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            finishProfileAction(fixture)
+            assertTrue(dialog.isShowing)
+            assertEquals("imported", name.text.toString())
+            assertTrue(name.isEnabled)
+            assertNotNull(layout.error)
+            assertFalse(store.configs.containsKey("imported"))
+            rejectCreate = false
+            dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            finishProfileAction(fixture)
+            assertFalse(dialog.isShowing)
+            val imported = fixture.environment.manager.getTunnels().single { it.name == "imported" }
+            assertEquals(Tunnel.State.DOWN, imported.state)
+            assertEquals(VpsProfileFixture.profile().payload(), store.configs.getValue("imported").toWgQuickString())
+            assertEquals(setOf("phone", "imported"), store.configs.keys)
+            assertEquals(original.toWgQuickString(), store.configs.getValue("phone").toWgQuickString())
+            assertTrue(fixture.environment.backend.appliedConfigs.isEmpty())
+            assertEquals(4, profileStatusCommands(fixture))
+        } finally { fixture.close() }
+    }
+
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
+    fun savingImportStateContainsNoPrivateProfileAndPreventsStaleSubmission() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        val profiles = profileStore {}
+        val fixture = fixture(profiles = profiles)
+        try {
+            openProfileUser(fixture, profiles)
+            fixture.environment.manager.create("phone", TunnelTestEnvironment.profile())
+            fixture.root.findViewById<View>(R.id.vpn0wn_vps_profile_import).performClick()
+            AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.Success(null))
+            settle()
+            val dialog = requireNotNull(profileDialog(fixture))
+            dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            finishProfileAction(fixture)
+            assertNotNull(dialog.findViewById<TextInputLayout>(R.id.tunnel_name_text_layout)!!.error)
+            val input = dialog.findViewById<EditText>(R.id.tunnel_name_text)!!
+            input.setText("stale")
+            assertTrue(fixture.fragment.viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+            val savedState = Bundle()
+            fixture.controller.saveInstanceState(savedState)
+            assertFalse(fixture.fragment.viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+            val parcel = Parcel.obtain()
+            val bytes = try { parcel.writeBundle(savedState); parcel.marshall() } finally { parcel.recycle() }
+            for (charset in listOf(Charsets.UTF_8, Charsets.UTF_16LE)) {
+                assertFalse(bytes.toString(charset).contains(VpsProfileFixture.client.privateKey.toBase64()))
+                assertFalse(bytes.toString(charset).contains(VpsProfileFixture.psk.toBase64()))
+            }
+            dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            finishProfileAction(fixture)
+            assertEquals(2, profileStatusCommands(fixture))
+            assertEquals(setOf("phone"), fixture.environment.store.configs.keys)
+            assertTrue(fixture.environment.backend.appliedConfigs.isEmpty())
+        } finally { fixture.close() }
+    }
+
+    @Test
+    @Config(sdk = [29], shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
+    fun exportedProfilesWithShortOrThirtyTwoCharacterNamesRoundTripThroughFileImporter() = runTest {
+        for (peerName in listOf("phone", "p".repeat(32))) {
+            VpsUserProfileFileTest.resetNativeFiles()
+            val profiles = profileStore {}
+            val fixture = fixture(profiles = profiles)
+            try {
+                openProfileUser(fixture, profiles, result = VpsProfileFixture.result().copy(name = peerName))
+                val output = ProfileOutputProvider(folder.newFile()).apply {
+                    attachInfo(fixture.activity, ProviderInfo().apply { authority = "media" })
+                }
+                ShadowContentResolver.registerProviderInternal("media", output)
+                click(fixture, R.string.vpn0wn_action_export)
+                AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.Success(null))
+                finishProfileAction(fixture)
+                val exportedName = requireNotNull(output.name)
+                val tunnelName = exportedName.removeSuffix(".conf")
+                assertTrue(exportedName.endsWith(".conf"))
+                assertFalse(Tunnel.isNameInvalid(tunnelName))
+                assertTrue(tunnelName.length <= Tunnel.NAME_MAX_LENGTH)
+                assertEquals(VpsProfileFixture.profile().payload(), output.file.readText())
+                val messages = mutableListOf<CharSequence>()
+                TunnelImporter.importTunnel(fixture.activity.contentResolver, Uri.parse("content://media/external/downloads/1")) { messages.add(it) }
+                assertEquals(listOf(fixture.activity.getString(R.string.import_success, tunnelName)), messages.map { it.toString() })
+                val imported = fixture.environment.manager.getTunnels().single()
+                assertEquals(tunnelName, imported.name)
+                assertEquals(Tunnel.State.DOWN, imported.state)
+                assertEquals(VpsProfileFixture.profile().payload(), fixture.environment.store.configs.getValue(tunnelName).toWgQuickString())
+                assertTrue(fixture.environment.backend.appliedConfigs.isEmpty())
+            } finally { fixture.close() }
+        }
+    }
+
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
+    fun firstImportAttemptShowsFreshReadOrMissingProfileErrorInsideEditableNamingForm() = runTest {
+        val failures = listOf(
+            R.string.vpn0wn_ssh_connection_failed,
+            R.string.vpn0wn_ssh_invalid_response,
+            R.string.vpn0wn_profile_unavailable,
+        )
+        for ((index, expectedMessage) in failures.withIndex()) {
+            VpsUserProfileFileTest.resetNativeFiles()
+            val profiles = profileStore {}
+            val fixture = fixture(profiles = profiles)
+            try {
+                openProfileUser(fixture, profiles)
+                val stored = Vpn0wnApplication.getVpsServerStore().servers.first().single()
+                var creates = 0
+                val backing = fixture.environment.store
+                val controlled = object : ConfigStore by backing {
+                    override fun create(name: String, config: TunnelConfig): TunnelConfig {
+                        creates++
+                        return backing.create(name, config)
+                    }
+                }
+                fixture.environment.manager.javaClass.getDeclaredField("configStore").apply { isAccessible = true }
+                    .set(fixture.environment.manager, controlled)
+                fixture.root.findViewById<View>(R.id.vpn0wn_vps_profile_import).performClick()
+                AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.Success(null))
+                settle()
+                val dialog = requireNotNull(profileDialog(fixture))
+                val name = dialog.findViewById<EditText>(R.id.tunnel_name_text)!!
+                val layout = dialog.findViewById<TextInputLayout>(R.id.tunnel_name_text_layout)!!
+                val requestedName = "retry-$index"
+                name.setText(requestedName)
+                when (index) {
+                    0 -> fixture.peer.statusFailure = ProvisioningException("synthetic offline")
+                    1 -> fixture.peer.statusOutput = "not valid JSON"
+                    2 -> assertTrue(profiles.delete(requireNotNull(profiles.load(stored, PROFILE_SERVER_KEY, PROFILE_CLIENT_KEY))))
+                }
+                dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+                finishProfileAction(fixture)
+                assertTrue("First failed attempt keeps naming open", dialog.isShowing)
+                assertEquals(fixture.activity.getString(expectedMessage), layout.error.toString())
+                assertEquals(requestedName, name.text.toString())
+                assertTrue(name.isEnabled)
+                assertTrue(dialog.getButton(DialogInterface.BUTTON_POSITIVE).isEnabled)
+                assertEquals(0, creates)
+                assertTrue(backing.configs.isEmpty())
+                fixture.peer.statusFailure = null
+                fixture.peer.statusOutput = profileStatus(stored, withPeer = true)
+                if (index == 2)
+                    profiles.saveGenerated(stored, PROFILE_SERVER_KEY, VpsProfileFixture.request, VpsProfileFixture.result())
+                dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+                finishProfileAction(fixture)
+                assertFalse(dialog.isShowing)
+                assertEquals(1, creates)
+                assertEquals(Tunnel.State.DOWN, fixture.environment.manager.getTunnels().single().state)
+                assertEquals(setOf(requestedName), backing.configs.keys)
+            } finally { fixture.close() }
+        }
+    }
+
+    @Test
+    @Config(qualifiers = "fr", shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
+    fun oversizedValidProfileUsesRealQrFailureAndLocalizedGuidanceWithoutRetainingAnImage() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        val dns = (1..80).joinToString(", ") { "${"a".repeat(48)}$it.example.test" }
+        val stored = VpsProfileFixture.server.copy(dns = dns)
+        val result = VpsProfileFixture.result().copy(config = VpsProfileFixture.text().replace("DNS = 1.1.1.1", "DNS = $dns"))
+        val profile = VpsProfileFixture.profile(server = stored, result = result)
+        assertTrue(profile.payload().toByteArray(Charsets.UTF_8).size > 3_000)
+        assertThrows(WriterException::class.java) {
+            QRCodeWriter().encode(profile.payload(), BarcodeFormat.QR_CODE, 240, 240)
+        }
+        val profiles = profileStore {}
+        val fixture = fixture(profiles = profiles)
+        try {
+            openProfileUser(fixture, profiles, stored, result)
+            val previousCalls = AppDataTransferSettingsTest.Authentication.calls
+            repeat(2) {
+                click(fixture, R.string.vpn0wn_action_show_qr)
+                AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.Success(null))
+                finishProfileAction(fixture)
+                assertNull(profileDialog(fixture))
+                assertNull(fixture.activity.findViewById<ImageView>(R.id.vpn0wn_vps_profile_qr))
+                val message = fixture.activity.findViewById<TextView>(com.google.android.material.R.id.snackbar_text)
+                assertNotNull(message)
+                assertEquals(fixture.activity.getString(R.string.vpn0wn_profile_qr_failed), message!!.text.toString())
+            }
+            assertEquals(previousCalls + 2, AppDataTransferSettingsTest.Authentication.calls)
+            assertEquals(3, profileStatusCommands(fixture))
+            assertTrue(fixture.environment.store.configs.isEmpty())
+        } finally { fixture.close() }
+    }
+
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
+    fun blockedProfileReadShowsNativeProgressAndCurrentCancelSettlesOnlyItsOwnAction() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        val profiles = profileStore {}
+        val fixture = fixture(profiles = profiles)
+        try {
+            openProfileUser(fixture, profiles)
+            var oldCancel: View? = null
+            repeat(2) { attempt ->
+                fixture.peer.statusEntered = CompletableDeferred()
+                fixture.peer.blockStatus = CompletableDeferred()
+                click(fixture, R.string.vpn0wn_action_show_qr)
+                AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.Success(null))
+                fixture.peer.statusEntered.await()
+                settle()
+                measure(fixture.root, 320, 640)
+                assertEquals(View.ACCESSIBILITY_LIVE_REGION_POLITE,
+                    text(fixture.root, fixture.activity.getString(R.string.vpn0wn_profile_checking)).accessibilityLiveRegion)
+                val qrLabel = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_action_show_qr))
+                val qrTile = generateSequence(qrLabel as View) { it.parent as? View }.first { !it.isEnabled }
+                assertFalse(qrTile.createAccessibilityNodeInfo().isEnabled)
+                assertFalse(fixture.root.findViewById<View>(R.id.vpn0wn_vps_profile_import).isEnabled)
+                val cancel = clickableAncestor(text(fixture.root, fixture.activity.getString(R.string.vpn0wn_cancel_check)))
+                assertButtonAction(cancel)
+                assertTrue(cancel.height >= (48 * fixture.activity.resources.displayMetrics.density).toInt())
+                if (attempt > 0) {
+                    requireNotNull(oldCancel).performClick()
+                    settle()
+                    assertTrue(fixture.model.state.value.busy)
+                }
+                assertTrue(cancel.performClick())
+                fixture.model.state.first { !it.busy }
+                settle()
+                assertNull(profileDialog(fixture))
+                assertTrue(fixture.environment.store.configs.isEmpty())
+                oldCancel = cancel
+            }
+            assertEquals(3, profileStatusCommands(fixture))
+            assertEquals(3, fixture.peer.closes.get())
+            assertTrue(fixture.peer.commands.none { it.contains("./'add-peer.sh'") })
+            assertTrue(fixture.peer.connections.all { (it.credential as VpsCredential.Password).value.all { value -> value == '\u0000' } })
+        } finally { fixture.close() }
+    }
+
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
+    fun knownExportRestrictionRendersDisabledNativeControlsWhileLocalImportRemainsAvailable() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        val profiles = profileStore {}
+        val fixture = fixture(profiles = profiles)
+        try {
+            openProfileUser(fixture, profiles)
+            setProfileExportRestriction(fixture, true)
+            VpsProvisioningFragment::class.java.getDeclaredMethod("render").apply { isAccessible = true }.invoke(fixture.fragment)
+            for (resource in listOf(R.string.vpn0wn_action_show_qr, R.string.vpn0wn_action_export)) {
+                val label = text(fixture.root, fixture.activity.getString(resource))
+                val tile = generateSequence(label as View) { it.parent as? View }.first { !it.isEnabled }
+                val node = tile.createAccessibilityNodeInfo()
+                try {
+                    assertFalse(node.isEnabled)
+                    assertEquals(Button::class.java.name, node.className.toString())
+                    assertFalse(tile.performClick())
+                } finally { node.recycle() }
+            }
+            val export = descendants(fixture.root).filterIsInstance<android.widget.ImageButton>()
+                .single { it.contentDescription == fixture.activity.getString(R.string.vpn0wn_action_export) }
+            assertFalse(export.isEnabled)
+            assertButtonAction(fixture.root.findViewById(R.id.vpn0wn_vps_profile_import))
+            assertEquals(0, AppDataTransferSettingsTest.Authentication.calls)
+            assertEquals(1, profileStatusCommands(fixture))
+        } finally { fixture.close() }
+    }
+
+    private suspend fun TestScope.openProfileUser(fixture: Fixture, profiles: VpsUserProfileStore,
+        stored: StoredVpsServer = VpsProfileFixture.server, result: VpsAddPeerResult = VpsProfileFixture.result()) {
+        val store = Vpn0wnApplication.getVpsServerStore()
+        store.upsert(stored)
+        store.saveCredential(stored, PROFILE_PIN, VpsCredential.Password(PASSWORD.toCharArray()))
+        profiles.saveGenerated(stored, PROFILE_SERVER_KEY, VpsProfileFixture.request.copy(name = result.name), result)
+        fixture.peer.statusOutput = JSONObject(profileStatus(stored, withPeer = true)).apply {
+            getJSONArray("peers").getJSONObject(0).put("name", result.name)
+        }.toString()
+        requireNotNull(fixture.model.syncStatus(stored)).join()
+        settle()
+        openServer(fixture, store.servers.first().single())
+        clickableAncestor(text(fixture.root, result.name)).performClick()
+        settle()
+        assertNotNull(fixture.root.findViewById<View>(R.id.vpn0wn_vps_profile_import))
+    }
+
+    private fun profileStatusCommands(fixture: Fixture) = fixture.peer.commands.count { it.contains("./'sync-status.sh'") }
+
+    private fun dispatchProfileStoragePermission(fixture: Fixture, result: Int) {
+        val request = shadowOf(fixture.activity).lastRequestedPermission
+        assertNotNull(request)
+        val pending = Activity::class.java.getDeclaredField("mHasCurrentPermissionsRequest").apply { isAccessible = true }
+        assertTrue(pending.getBoolean(fixture.activity))
+        val data = Intent().putExtra("android.content.pm.extra.REQUEST_PERMISSIONS_NAMES", arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE))
+            .putExtra("android.content.pm.extra.REQUEST_PERMISSIONS_RESULTS", intArrayOf(result))
+        shadowOf(fixture.activity).internalCallDispatchActivityResult("@android:requestPermissions:", request.requestCode, Activity.RESULT_OK, data)
+        assertFalse(pending.getBoolean(fixture.activity))
+    }
+
+    private fun setProfileExportRestriction(fixture: Fixture, disabled: Boolean) {
+        val restrictions = fixture.environment.application.getSystemService(Context.RESTRICTIONS_SERVICE) as RestrictionsManager
+        shadowOf(restrictions).setApplicationRestrictions(Bundle().apply { putBoolean("disable_config_export", disabled) })
+    }
+
+    private fun profileDialog(fixture: Fixture): AlertDialog? = VpsProvisioningFragment::class.java.getDeclaredField("profileDialog")
+        .apply { isAccessible = true }.get(fixture.activity.supportFragmentManager.fragments.filterIsInstance<VpsProvisioningFragment>().single()) as? AlertDialog
+
+    private suspend fun TestScope.finishProfileAction(fixture: Fixture) {
+        settle()
+        val job = VpsProvisioningFragment::class.java.getDeclaredField("profileJob").apply { isAccessible = true }.get(fixture.fragment) as? Job
+        job?.join()
+        settle()
+    }
+
+    private class ProfileOutputProvider(val file: File) : ContentProvider() {
+        var inserts = 0
+        var opens = 0
+        var deletes = 0
+        var name: String? = null
+        var bytesAtDeletion: Long? = null
+        var onOpened: (() -> Unit)? = null
+        override fun onCreate() = true
+        override fun getType(uri: Uri) = "application/x-wireguard-profile"
+        override fun insert(uri: Uri, values: ContentValues?): Uri {
+            inserts++
+            name = values!!.getAsString(MediaStore.MediaColumns.DISPLAY_NAME)
+            return Uri.parse("content://media/external/downloads/1")
+        }
+        override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
+            opens++
+            val descriptor = ParcelFileDescriptor.open(file, if (mode == "r") ParcelFileDescriptor.MODE_READ_ONLY else ParcelFileDescriptor.MODE_WRITE_ONLY)
+            if (mode != "r") onOpened?.invoke()
+            return descriptor
+        }
+        override fun query(uri: Uri, projection: Array<out String>?, selection: String?, selectionArgs: Array<out String>?, sortOrder: String?): Cursor =
+            MatrixCursor(requireNotNull(projection)).apply {
+                addRow(projection.map { if (it == MediaStore.MediaColumns.DISPLAY_NAME) name else file.absolutePath })
+            }
+        override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int {
+            assertEquals(Uri.parse("content://media/external/downloads/1"), uri)
+            deletes++
+            bytesAtDeletion = file.length()
+            return if (file.delete()) 1 else 0
+        }
+        override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<out String>?) = 0
     }
 
     private fun TestScope.openServer(fixture: Fixture, server: StoredVpsServer) {

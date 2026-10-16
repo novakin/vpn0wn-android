@@ -39,7 +39,7 @@ class VpsProvisioningViewModel internal constructor(
     enum class Step { SSH, DETECT, PLAN, APPLY }
     enum class AuthMode { KEY, PASSWORD }
     enum class SavedAccess { NONE, SAVED, METADATA_ONLY, UNKNOWN, CLEARED }
-    enum class Problem { INVALID_INPUT, CONNECTION_FAILED, INVALID_RESPONSE, ACCESS_MISSING, CONNECTION_CHANGED, STORAGE_FAILED, STORAGE_CONFLICT, CANCELLED, INSTALL_FAILED, INSTALL_PENDING, ADD_PENDING, IDENTITY_UNAVAILABLE }
+    enum class Problem { INVALID_INPUT, CONNECTION_FAILED, INVALID_RESPONSE, ACCESS_MISSING, CONNECTION_CHANGED, STORAGE_FAILED, STORAGE_CONFLICT, CANCELLED, INSTALL_FAILED, INSTALL_PENDING, ADD_PENDING, IDENTITY_UNAVAILABLE, PROFILE_UNAVAILABLE }
     enum class Installation { NONE, RUNNING, INSTALLED, OBSERVED, UNCERTAIN }
     enum class UserCreation { NONE, RUNNING, RETAINED, UNSAVED, UNCERTAIN, CREATED }
 
@@ -156,6 +156,40 @@ class VpsProvisioningViewModel internal constructor(
             (connection.credential as? VpsCredential.Password)?.clear()
         }
     }
+
+    fun useUserProfile(savedServer: StoredVpsServer, clientPublicKey: String, consume: suspend (VpsUserProfile) -> Unit): Job? =
+        operate(requireActive = false, initialState = mutableState.value.copy(serverId = savedServer.id, savedAccess = SavedAccess.NONE)) {
+            val snapshot = mutableState.value.statusSnapshots[savedServer.id]?.takeIf { it.matches(savedServer) }
+            val serverKey = snapshot?.status?.serverPublicKey
+            val selectedPeer = snapshot?.status?.peers?.singleOrNull { it.publicKey == clientPublicKey }
+            if (serverKey == null || selectedPeer == null) {
+                mutableState.value = mutableState.value.copy(problem = Problem.PROFILE_UNAVAILABLE)
+                return@operate
+            }
+            val connection = store.loadConnection(savedServer) ?: run {
+                mutableState.value = mutableState.value.copy(problem = Problem.ACCESS_MISSING)
+                return@operate
+            }
+            val fingerprint = requireNotNull(connection.hostKeyFingerprint)
+            val status = try {
+                store.checkAddOwner(savedServer, fingerprint)
+                client.syncStatus(connection)
+            } finally {
+                (connection.credential as? VpsCredential.Password)?.clear()
+            }
+            store.checkAddOwner(savedServer, fingerprint)
+            val peer = status.peers.singleOrNull { it.publicKey == clientPublicKey && it.name == selectedPeer.name }
+            val profile = if (peer != null && status.serverPublicKey == serverKey && status.running != null &&
+                status.interfaceName == snapshot.status.interfaceName && status.cidr == snapshot.status.cidr)
+                profiles.load(savedServer, serverKey, clientPublicKey) else null
+            if (profile == null || !profile.matchesObserved(status, requireNotNull(peer))) {
+                mutableState.value = mutableState.value.copy(problem = Problem.PROFILE_UNAVAILABLE)
+                return@operate
+            }
+            store.checkAddOwner(savedServer, fingerprint)
+            currentCoroutineContext().ensureActive()
+            consume(profile)
+        }
 
     // Input, pending owners and stale observations have distinct admission failures.
     @Suppress("ThrowsCount")
