@@ -50,6 +50,7 @@ class VpsProvisioningViewModelTest {
     private lateinit var preferences: DataStore<Preferences>
     private lateinit var scope: CoroutineScope
     private lateinit var credentialFile: File
+    private lateinit var credentialStorage: VpsCredentialFile
     private lateinit var store: VpsServerStore
     private val owners = mutableListOf<ViewModelStore>()
     private val modelJobs = mutableListOf<Job>()
@@ -61,7 +62,8 @@ class VpsProvisioningViewModelTest {
         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         preferences = PreferenceDataStoreFactory.create(scope = scope) { File(folder.root, "settings.preferences_pb") }
         credentialFile = File(folder.root, "credentials")
-        store = VpsServerStore(preferences, credentialFileForTest(credentialFile))
+        credentialStorage = credentialFileForTest(credentialFile)
+        store = VpsServerStore(preferences, credentialStorage)
     }
 
     @After fun tearDown() = runTest {
@@ -619,7 +621,7 @@ class VpsProvisioningViewModelTest {
                 return preferences.updateData(transform)
             }
         }
-        val blockedStore = VpsServerStore(blockedPreferences, credentialFileForTest(credentialFile))
+        val blockedStore = VpsServerStore(blockedPreferences, credentialStorage)
         val model = model(blockedStore) { statusObserved.complete(Unit); 1_710_000_012L }
         peer.blockStatus = CompletableDeferred()
         val refresh = requireNotNull(model.syncStatus(saved))
@@ -657,7 +659,7 @@ class VpsProvisioningViewModelTest {
                 return updated
             }
         }
-        val blockedStore = VpsServerStore(blockedPreferences, credentialFileForTest(credentialFile))
+        val blockedStore = VpsServerStore(blockedPreferences, credentialStorage)
         val model = model(blockedStore)
         val refresh = requireNotNull(model.syncStatus(saved))
         try {
