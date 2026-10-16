@@ -39,6 +39,8 @@ object Vpn0wnSnackbar {
 
         val mono = ResourcesCompat.getFont(context, R.font.jetbrains_mono_regular)
         snackbar.view.findViewById<TextView>(com.google.android.material.R.id.snackbar_text)?.apply {
+            maxLines = Int.MAX_VALUE
+            ellipsize = null
             typeface = mono
             textSize = 12f
             letterSpacing = 0.02f
