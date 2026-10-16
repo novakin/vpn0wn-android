@@ -66,7 +66,7 @@ flowchart LR
     Fleet --> Screen[Fleet UI]
 ```
 
-The provisioning client, scripts, concrete transport and protected credential store connect to the read-only Detect/Plan wizard. Its retained ViewModel owns draft/operation lifetime and local save outcomes; the Fragment presents typed results and saved-access controls. Confirmed fresh installation extends the wizard through the existing owners; overwrite/reinstall and peer/profile wiring remain unavailable. Synthetic transport/owner controls establish no Android wizard/transport runtime acceptance, live deployment, user management or generated-profile QR acceptance. The separate [native API-24/28 storage record](reviews/2026-10-15-native-ssh-credential-storage-acceptance.md) adds seven bounded Keystore/store/filesystem controls on an isolated acceptance artifact.
+The provisioning client, scripts, concrete transport and protected credential store connect to the read-only Detect/Plan wizard. Its retained ViewModel owns draft/operation lifetime and local save outcomes; the Fragment presents typed results and saved-access controls. Confirmed fresh installation and guarded user creation with encrypted profile retention extend the existing owners. Overwrite/reinstall, revoke/remove/rotation UI and authenticated profile disclosure/import remain unavailable. Synthetic transport/owner controls establish no Android wizard/transport runtime acceptance, live deployment, user management or generated-profile QR acceptance. The separate [native API-24/28 storage record](reviews/2026-10-15-native-ssh-credential-storage-acceptance.md) adds seven bounded Keystore/store/filesystem controls on an isolated acceptance artifact.
 
 ## Boundaries and invariants
 
