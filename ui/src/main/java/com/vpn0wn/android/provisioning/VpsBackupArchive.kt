@@ -20,8 +20,6 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import org.bouncycastle.crypto.generators.Argon2BytesGenerator
 import org.bouncycastle.crypto.params.Argon2Parameters
-import org.json.JSONArray
-import org.json.JSONObject
 
 internal class VpsBackupArchiveException(val category: Category) : IOException(category.safeMessage) {
     enum class Category(val safeMessage: String) {
@@ -149,27 +147,10 @@ internal class VpsBackupArchive(private val random: SecureRandom = SecureRandom(
         return Header(salt, nonce)
     }
 
-    private fun serialize(snapshot: VpsBackupResult): ByteArray {
-        validateText(snapshot)
-        val revoked = JSONArray()
-        snapshot.revoked.forEach { revoked.put(JSONObject().put("archiveName", it.archiveName).put("config", it.config)) }
-        val json = JSONObject().put("ok", true).put("snapshotVersion", snapshot.snapshotVersion)
-            .put("capturedAtUtc", snapshot.capturedAtUtc).put("interface", snapshot.interfaceName)
-            .put("config", snapshot.config).put("revokedCount", snapshot.revokedCount.toString()).put("revoked", revoked).toString()
-        parseSnapshot(json)
-        return json.toByteArray(Charsets.UTF_8)
-    }
-
-    private fun validateText(snapshot: VpsBackupResult) {
-        val texts = sequenceOf(snapshot.interfaceName, snapshot.capturedAtUtc, snapshot.config) +
-            snapshot.revoked.asSequence().flatMap { sequenceOf(it.archiveName, it.config) }
-        var characters = 0L
-        if (snapshot.revoked.size > VpsBackupResult.MAX_REVOKED_FILES) fail(VpsBackupArchiveException.Category.SNAPSHOT)
-        for (text in texts) {
-            characters += text.length
-            if (characters > VpsBackupResult.MAX_RESPONSE_BYTES) fail(VpsBackupArchiveException.Category.SNAPSHOT)
-            if (!Charsets.UTF_8.newEncoder().canEncode(text)) fail(VpsBackupArchiveException.Category.SNAPSHOT)
-        }
+    private fun serialize(snapshot: VpsBackupResult): ByteArray = try {
+        ProvisioningJson.encodeBackup(snapshot)
+    } catch (_: ProvisioningException) {
+        fail(VpsBackupArchiveException.Category.SNAPSHOT)
     }
 
     private fun decode(plaintext: ByteArray): String = try {
@@ -180,7 +161,7 @@ internal class VpsBackupArchive(private val random: SecureRandom = SecureRandom(
     }
 
     private fun parseSnapshot(json: String): VpsBackupResult = try {
-        ProvisioningJson.parseBackup(json).also(::validateText)
+        ProvisioningJson.parseBackup(json)
     } catch (_: ProvisioningException) {
         fail(VpsBackupArchiveException.Category.SNAPSHOT)
     }
