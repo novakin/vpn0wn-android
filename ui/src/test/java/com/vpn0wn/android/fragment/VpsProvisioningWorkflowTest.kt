@@ -122,6 +122,41 @@ class VpsProvisioningWorkflowTest {
         } finally { fixture.close() }
     }
 
+    @Test fun failedDetectSaveCanShowAPlanButApplyExplainsTheMissingCurrentRecord() = runTest {
+        val fixture = fixture()
+        try {
+            fillAccess(fixture)
+            click(fixture, R.string.vpn0wn_continue)
+            fixture.model.state.first { !it.busy && it.detect != null }
+            val original = Vpn0wnApplication.getVpsServerStore().servers.first().single()
+            fixture.model.back()
+            settle()
+            input(fixture.root, fixture.activity.getString(R.string.vpn0wn_host_placeholder)).setText("203.0.113.9")
+            input(fixture.root, "SHA256:…").setText("SHA256:" + Base64.getEncoder().withoutPadding()
+                .encodeToString(ByteArray(32) { (it + 1).toByte() }))
+            click(fixture, R.string.vpn0wn_continue)
+            fixture.model.state.first { !it.busy && it.detect != null }
+            assertEquals(VpsProvisioningViewModel.Problem.STORAGE_CONFLICT, fixture.model.state.value.problem)
+            assertFalse(requireNotNull(fixture.model.state.value.detect).configExists)
+            fixture.peer.planRequest = fixture.peer.planRequest.copy(endpoint = "203.0.113.9")
+            settle()
+            click(fixture, R.string.vpn0wn_generate_plan)
+            fixture.model.state.first { !it.busy && it.plan != null }
+            settle()
+            click(fixture, R.string.vpn0wn_review_apply)
+            settle()
+            assertTrue(text(fixture.root, fixture.activity.getString(R.string.vpn0wn_apply_current_record_required)).isShown)
+            val incorrectReason = fixture.activity.getString(R.string.vpn0wn_plan_existing_config)
+            assertFalse(descendants(fixture.root).filterIsInstance<TextView>().any { it.text.toString() == incorrectReason })
+            val action = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_apply_unavailable), clickable = true)
+            assertFalse(action.isEnabled)
+            assertFalse(fixture.model.state.value.pendingInstall)
+            assertFalse(fixture.peer.commands.any { it.contains("./'install.sh'") })
+            assertEquals(original, Vpn0wnApplication.getVpsServerStore().servers.first().single())
+            assertNull(Vpn0wnApplication.getVpsServerStore().pendingInstall(original))
+        } finally { fixture.close() }
+    }
+
     @Test fun rotationRetainsOperationAndDraftWithoutSecretSavedState() = runTest {
         val fixture = fixture()
         try {

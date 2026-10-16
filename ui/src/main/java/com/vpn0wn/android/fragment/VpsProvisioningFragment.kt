@@ -512,7 +512,9 @@ class VpsProvisioningFragment : BaseFragment() {
                 Installation.NONE -> when {
                     provisionState.busy -> R.string.vpn0wn_apply_running_note
                     provision.canInstall -> R.string.vpn0wn_apply_review_note
-                    else -> R.string.vpn0wn_plan_existing_config
+                    provisionState.detect?.configExists == true || provisionState.plan?.willOverwriteConfig == true -> R.string.vpn0wn_plan_existing_config
+                    provisionState.pendingInstall -> R.string.vpn0wn_apply_uncertain
+                    else -> R.string.vpn0wn_apply_current_record_required
                 }
                 Installation.RUNNING -> R.string.vpn0wn_apply_running_note
                 Installation.INSTALLED -> R.string.vpn0wn_apply_verified

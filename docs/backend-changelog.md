@@ -60,6 +60,9 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
+- **Truthful Apply save-failure copy — #143 (2026-10-16, Europe/Paris)**
+  `VpsProvisioningFragment.applyStep` distinguishes an actually observed existing configuration or pending installation from a missing current persisted target. The latter asks for fresh Detect/save verification and a new Plan in EN/FR, without falsely claiming a remote blocker or changing admission gates. A real Fragment regression follows failed target save through Plan/Apply and checks the explanation, unchanged fleet and absent install/admission. Source checks, execution and final independent ultra review remain separate; no build/device/live operation was run.
+
 - **Confirmed-install review fixes — #143 (2026-10-16, Europe/Paris)**
   `VpsProvisioningViewModel` now requires the latest Detect to have persisted a matching record, freezes that full record in confirmation and rechecks its verified/current SSH target and pin before admission. `VpsServerStore.admitInstall` validates the actual connection target independently; `pendingInstall` uses full expected-record matching from one snapshot and reports stale ownership as `ServerChangedException`. Failed saves retain read-only results while blocking Apply; removal/replacement races settle as `CONNECTION_CHANGED` without success/publication or admission loss. New source regressions cover both review findings, including delayed status/reconciliation and resource cleanup. They remain unexecuted pending root-run checks and final independent ultra review; no build/device/live operation was run.
 
