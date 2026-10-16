@@ -21,18 +21,25 @@ import com.vpn0wn.android.R
 object ClipboardUtils {
     @JvmStatic
     fun copyTextView(view: View) {
-        val data = when (view) {
-            is TextInputEditText -> Pair(view.editableText, view.hint)
-            is TextView -> Pair(view.text, view.contentDescription)
-            else -> null
+        val text = when (view) {
+            is TextInputEditText -> view.editableText
+            is TextView -> view.text
+            else -> return
         }
-        if (data == null || data.first.isNullOrEmpty()) {
-            return
+        copyText(view, text)
+    }
+
+    @JvmStatic
+    fun copyText(view: View, text: CharSequence?) {
+        if (text.isNullOrEmpty()) return
+        val label = when (view) {
+            is TextInputEditText -> view.hint
+            else -> view.contentDescription
         }
         val service = view.context.getSystemService<ClipboardManager>() ?: return
-        service.setPrimaryClip(ClipData.newPlainText(data.second, data.first))
+        service.setPrimaryClip(ClipData.newPlainText(label, text))
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            Snackbar.make(view, view.context.getString(R.string.copied_to_clipboard, data.second), Snackbar.LENGTH_LONG)
+            Snackbar.make(view, view.context.getString(R.string.copied_to_clipboard, label), Snackbar.LENGTH_LONG)
                 .vpn0wnStyle()
                 .show()
         }

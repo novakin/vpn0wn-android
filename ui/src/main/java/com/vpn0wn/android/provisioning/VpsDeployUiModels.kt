@@ -30,7 +30,6 @@ data class VpsDeployServer(
     val port: Int,
     var status: VpsDeployServerStatus,
     val distro: String,
-    val version: String,
     val engine: String,
     val cidr: String,
     val dns: String,
@@ -38,6 +37,7 @@ data class VpsDeployServer(
     val lastSync: String,
     val health: List<VpsDeployHealthCheck>,
     val users: MutableList<VpsDeployUser> = mutableListOf(),
+    val usersKnown: Boolean = false,
 )
 
 data class VpsDeployUser(

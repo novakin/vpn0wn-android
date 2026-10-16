@@ -18,12 +18,6 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.EncodeHintType
-import com.google.zxing.WriterException
-import com.google.zxing.common.BitMatrix
-import com.google.zxing.qrcode.QRCodeWriter
-import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import com.vpn0wn.android.R
 import com.vpn0wn.android.provisioning.VpsDeployServer
 import com.vpn0wn.android.provisioning.VpsDeployServerStatus
@@ -147,60 +141,6 @@ class VpsTopologyView(context: Context) : View(context) {
         } else if (!animator.isStarted) {
             animator.start()
         }
-    }
-}
-
-class VpsQrCodeView(context: Context) : View(context) {
-    private val density = resources.displayMetrics.density
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val qrWriter = QRCodeWriter()
-    private var matrix: BitMatrix? = null
-
-    fun bind(value: String) {
-        matrix = try {
-            qrWriter.encode(
-                value,
-                BarcodeFormat.QR_CODE,
-                QR_SIZE,
-                QR_SIZE,
-                mapOf(
-                    EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M,
-                    EncodeHintType.MARGIN to 1,
-                ),
-            )
-        } catch (_: WriterException) {
-            null
-        }
-        invalidate()
-    }
-
-    // Local layout/drawing dimensions and paint values preserve the visual specification.
-    @Suppress("MagicNumber")
-    override fun onDraw(canvas: Canvas) {
-        val pad = dp(16).toFloat()
-        val matrix = matrix
-        paint.style = Paint.Style.FILL
-        paint.color = Color.rgb(249, 251, 255)
-        canvas.drawRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), dp(8).toFloat(), dp(8).toFloat(), paint)
-        if (matrix == null) return
-        val cell = minOf((width - pad * 2) / matrix.width, (height - pad * 2) / matrix.height)
-        val leftOffset = (width - cell * matrix.width) / 2f
-        val topOffset = (height - cell * matrix.height) / 2f
-        paint.color = Color.rgb(13, 25, 42)
-        for (row in 0 until matrix.height) {
-            for (col in 0 until matrix.width) {
-                if (!matrix[col, row]) continue
-                val left = leftOffset + col * cell
-                val top = topOffset + row * cell
-                canvas.drawRoundRect(RectF(left, top, left + cell - 1, top + cell - 1), 2f, 2f, paint)
-            }
-        }
-    }
-
-    private fun dp(value: Int) = (value * density).toInt()
-
-    private companion object {
-        private const val QR_SIZE = 29
     }
 }
 

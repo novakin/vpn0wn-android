@@ -477,6 +477,21 @@ class ProvisioningJsonTest {
         assertTrue(ProvisioningJson.parsePeerMutation(fixture("revoke-peer")).archive.isNotBlank())
     }
 
+    @Test
+    fun statusRejectsMissingOrDuplicatePeerIdentityWithoutPayloadDiagnostics() {
+        for (field in listOf("name", "publicKey")) {
+            val blank = JSONObject(fixture("status-running"))
+            blank.getJSONArray("peers").getJSONObject(0).put(field, " ")
+            assertInvalid { ProvisioningJson.parseStatus(blank.toString()) }
+            val duplicate = JSONObject(fixture("status-running"))
+            val peers = duplicate.getJSONArray("peers")
+            val first = peers.getJSONObject(0)
+            val second = JSONObject(first.toString()).put(if (field == "name") "publicKey" else "name", "synthetic-shape-secret")
+            duplicate.put("peers", org.json.JSONArray().put(first).put(second))
+            assertInvalid { ProvisioningJson.parseStatus(duplicate.toString()) }
+        }
+    }
+
     private fun assertInvalid(parse: () -> Any) {
         val failure = assertThrows(ProvisioningException::class.java) { parse() }
         assertEquals(ProvisioningFailureCategory.INVALID_RESPONSE, failure.category)

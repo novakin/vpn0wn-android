@@ -765,6 +765,52 @@ test_c4_response_fixtures() {
   check_contract_fixture uninstall
 }
 
+test_c12_status_serializes_with_existing_interface_lock() {
+  owned_config
+  export TEST_REAL_FLOCK
+  TEST_REAL_FLOCK=$(command -v flock)
+  exec {writer_lock}>"$WG_LOCK_FILE"
+  "$TEST_REAL_FLOCK" "$writer_lock"
+  mkfifo "$TEST_ROOT/lock-entered"
+  exec {lock_signal}<>"$TEST_ROOT/lock-entered"
+  export TEST_LOCK_SIGNAL="$TEST_ROOT/lock-entered"
+  cat > "$TEST_ROOT/bin/flock" <<'EOF'
+#!/usr/bin/env bash
+printf 'ready\n' > "$TEST_LOCK_SIGNAL"
+exec "$TEST_REAL_FLOCK" "$@"
+EOF
+  chmod 700 "$TEST_ROOT/bin/flock"
+  bash "$SCRIPTS/sync-status.sh" > "$TEST_ROOT/status" 2> "$TEST_ROOT/status.err" &
+  status_pid=$!
+  if ! read -r -t 5 ready <&"$lock_signal"; then
+    kill "$status_pid" 2>/dev/null || true
+    wait "$status_pid" 2>/dev/null || true
+    return 1
+  fi
+  [[ ! -s "$TEST_ROOT/status" ]]
+  sed -i 's/# ENDPOINT vpn.example/# ENDPOINT moved.example/' "$WG_CONF"
+  /bin/cp "$WG_CONF" "$TEST_STATE/runtime.conf"
+  "$TEST_REAL_FLOCK" -u "$writer_lock"
+  wait "$status_pid"
+  RESULT_CODE=0 RESPONSE=$(cat "$TEST_ROOT/status")
+  assert_success
+  [[ "$RESPONSE" == *'"endpoint":"moved.example"'* && "$RESPONSE" == *'"rxBytes":"1024"'* ]]
+  assert_no_mutations
+}
+
+test_c12_status_refuses_unowned_or_ambiguous_config() {
+  owned_config
+  sed -i '/# TUNNL_MANAGED 1/d' "$WG_CONF"
+  run_script sync-status
+  assert_failure unmanaged_config
+  assert_no_mutations
+  owned_config
+  printf '# BEGIN_PEER broken\n' >> "$WG_CONF"
+  run_script sync-status
+  assert_failure invalid_config
+  assert_no_mutations
+}
+
 test_c4_native_observation() {
   owned_config
   printf '*' > "$TEST_STATE/fail-systemctl-is-active"
@@ -1069,6 +1115,7 @@ tests=(
   test_backup_ownership test_backup_rejects_unsafe_revoked_entries test_backup_rejects_binary_and_invalid_utf8
   test_backup_limits test_backup_encoded_response_limit test_backup_late_read_failure_emits_no_partial_snapshot
   test_backup_failed_revoked_enumeration test_backup_waits_and_holds_interface_lock
+  test_c12_status_serializes_with_existing_interface_lock test_c12_status_refuses_unowned_or_ambiguous_config
   test_c4_force_plan test_c4_remove_schema test_c4_revoke_schema
   test_c4_unknown_observation test_c4_stopped_observation
   test_c4_response_fixtures test_c4_native_observation test_c4_missing_counters test_c4_invalid_counters

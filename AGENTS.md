@@ -1,6 +1,6 @@
 # vpn0wn — WireGuard Android fork
 
-Last updated: 2026-10-14 (Europe/Paris).
+Last updated: 2026-10-16 (Europe/Paris).
 
 ## Source of Truth — Prompt Instructions
 
@@ -28,6 +28,8 @@ vpn0wn ports the engineering-console UI in `.design/` onto WireGuard Android and
 2. Read README, the improvement plan and the owning guide. Read the UI roadmap for UI work and backend changelog for functional work; read both when the task spans both. For tracked work, read the relevant live issue/PR discussion, acceptance, approval and dependencies; disclose unavailable GitHub state instead of inferring no work or permission.
 3. Define the smallest useful outcome, compatibility requirements and acceptance checks. Trace the failing layer before editing.
 4. For UI work, read the relevant `.design/*.jsx`, identify the exact component/prop and check existing `ui/src/main/res/values/colors.xml` and `styles.xml` tokens first.
+
+For every UI/UX task, read and apply every relevant available UI/UX skill, preserving approved references, fonts and native Android conventions. Follow the [UI/UX review workflow](docs/development.md#uiux-review-workflow), including an explicit evidence-based satisfaction verdict, corrections and remaining limits.
 
 The JSX prototype owns visual intent, not runtime truth. Never treat demo data, rendered screens or planned actions as working integration.
 
@@ -154,8 +156,9 @@ docs/               architecture, development, operations, backend contracts, pl
 - State: `vpn0wn_warn`, `vpn0wn_error`
 
 **Fonts:**
-- UI labels, titles: `@font/inter_tight`
-- Data, keys, values, monospace fields: `@font/jetbrains_mono_regular` or `jetbrains_mono_medium`
+- General UI prose and controls use `@font/inter_tight` where the owning approved component specifies it.
+- Technical labels, section/deploy titles, tunnel/server names and data use their existing Mono component styles. Preserve explicit JSX/style exceptions; do not replace these roles wholesale with Inter Tight.
+- Reuse `jetbrains_mono_regular` and actual `jetbrains_mono_medium` assets with shared `ss01, zero, tnum` features. Do not synthesize bold where the approved role specifies regular or medium.
 
 **Styles** (`res/values/styles.xml`):
 - `Vpn0wnLabelText` — 10sp mono caps, ink_3 (field labels, section prefixes)

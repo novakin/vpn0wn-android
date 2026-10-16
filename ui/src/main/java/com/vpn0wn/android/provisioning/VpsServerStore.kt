@@ -50,6 +50,7 @@ class VpsServerStore internal constructor(
 ) {
     internal class InvalidTransferMetadataException : IllegalArgumentException("Invalid VPS fleet metadata")
     class CredentialConflictException : IllegalStateException("Saved SSH credentials do not match the current server; remove them before changing SSH settings")
+    class ServerChangedException : IllegalStateException("Server changed while status was being read")
     class IncompleteCredentialRecoveryException : IOException("Server change failed; saved SSH credentials could not be restored")
     private val mutationMutex = Mutex()
 
@@ -112,25 +113,22 @@ class VpsServerStore internal constructor(
         }
     }
 
-    suspend fun updateStatus(id: String, status: VpsServerStatus, syncedAtEpochSeconds: Long) = mutate {
+    suspend fun updateStatus(expected: StoredVpsServer, status: VpsServerStatus, syncedAtEpochSeconds: Long): StoredVpsServer = mutate {
+        require(syncedAtEpochSeconds > 0L)
+        val updated = expected.copy(
+            endpoint = status.endpoint,
+            listenPort = status.listenPort,
+            cidr = status.cidr,
+            dns = status.dns,
+            lastSyncEpochSeconds = syncedAtEpochSeconds,
+            running = status.running,
+        )
         dataStore.edit { preferences ->
-            val servers = decodeServersForMutation(preferences[SERVERS].orEmpty()).map { server ->
-                if (server.id != id) {
-                    server
-                } else {
-                    server.copy(
-                        endpoint = status.endpoint,
-                        listenPort = status.listenPort,
-                        cidr = status.cidr,
-                        dns = status.dns,
-                        lastSyncEpochSeconds = syncedAtEpochSeconds,
-                        running = status.running,
-                    )
-                }
-            }
-            preferences[SERVERS] = encodeServers(servers)
+            val servers = decodeServersForMutation(preferences[SERVERS].orEmpty())
+            if (servers.singleOrNull { it.id == expected.id } != expected) throw ServerChangedException()
+            preferences[SERVERS] = encodeServers(servers.map { if (it.id == expected.id) updated else it })
         }
-        Unit
+        updated
     }
 
     suspend fun saveCredential(server: StoredVpsServer, fingerprint: String, credential: VpsCredential) = mutate {

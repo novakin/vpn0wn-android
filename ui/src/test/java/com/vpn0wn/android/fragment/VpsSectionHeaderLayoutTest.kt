@@ -2,22 +2,17 @@ package com.vpn0wn.android.fragment
 
 import android.app.Application
 import android.graphics.Rect
-import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.TextView
-import androidx.appcompat.app.AppCompatActivity
-import com.vpn0wn.android.Application as Vpn0wnApplication
 import com.vpn0wn.android.R
-import com.vpn0wn.android.model.TunnelTestEnvironment
 import com.vpn0wn.android.widget.VpsSectionHeaderLayout
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -27,11 +22,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
-import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
-import org.robolectric.Shadows.shadowOf
-import org.robolectric.android.controller.ActivityController
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -58,39 +50,34 @@ class VpsSectionHeaderLayoutTest {
                 val orientation = if (width > height) "land" else "port"
                 RuntimeEnvironment.setQualifiers("$locale-$direction-w${width}dp-h${height}dp-$orientation-$night-mdpi")
                 RuntimeEnvironment.setFontScale(fontScale)
-                val environment = TunnelTestEnvironment(folder.newFolder(), backgroundScope)
-                var controller: ActivityController<HostActivity>? = null
+                val requestedDirection = if (direction == "ldrtl") View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
+                val fixture = provisioningLayoutFixture(folder, requestedDirection)
                 try {
-                    Vpn0wnApplication.getPreferencesDataStore().data.first()
-                    val host = Robolectric.buildActivity(HostActivity::class.java)
-                    controller = host
-                    host.get().setTheme(R.style.AppTheme)
-                    host.setup()
-                    host.get().window.decorView.layoutDirection = if (direction == "ldrtl") View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
-                    val fragment = VpsProvisioningFragment()
-                    host.get().supportFragmentManager.beginTransaction().add(android.R.id.content, fragment).commitNow()
-                    runCurrent()
-                    shadowOf(Looper.getMainLooper()).idle()
-                    val root = fragment.requireView() as FrameLayout
+                    val activity = fixture.activity
+                    val root = fixture.root
                     val factory = VpsProvisioningFragment::class.java.getDeclaredMethod("sectionHeader",
                         Int::class.javaPrimitiveType, String::class.java, String::class.java).apply { isAccessible = true }
                     val headers = listOf(
-                        R.string.vpn0wn_server_fleet to R.string.vpn0wn_self_hosted,
-                        R.string.vpn0wn_section_health to R.string.vpn0wn_status_online,
-                        R.string.vpn0wn_section_vpn_users to R.string.vpn0wn_hint_first_peer,
-                        R.string.vpn0wn_section_network to R.string.vpn0wn_hint_wireguard,
-                        R.string.vpn0wn_section_actions to R.string.vpn0wn_hint_remote,
-                        R.string.vpn0wn_section_ssh_access to R.string.vpn0wn_hint_no_cloud_relay,
-                        R.string.vpn0wn_step_detect to R.string.vpn0wn_hint_dry_run,
-                        R.string.vpn0wn_section_deployment_plan to R.string.vpn0wn_hint_review_before_apply,
-                        R.string.vpn0wn_step_apply to R.string.vpn0wn_apply_complete,
-                        R.string.vpn0wn_section_import_device to R.string.vpn0wn_hint_first_peer,
-                        R.string.vpn0wn_section_profile to R.string.vpn0wn_hint_wireguard,
-                        R.string.vpn0wn_section_actions to R.string.vpn0wn_hint_device,
+                        R.string.vpn0wn_server_fleet to activity.getString(R.string.vpn0wn_self_hosted),
+                        R.string.vpn0wn_section_health to activity.getString(R.string.vpn0wn_status_online),
+                        R.string.vpn0wn_section_vpn_users to activity.getString(R.string.vpn0wn_peers_count, 3),
+                        R.string.vpn0wn_section_network to "WG0",
+                        R.string.vpn0wn_section_actions to activity.getString(R.string.vpn0wn_hint_remote),
+                        R.string.vpn0wn_section_ssh_access to activity.getString(R.string.vpn0wn_hint_local),
+                        R.string.vpn0wn_section_ssh_access to activity.getString(R.string.vpn0wn_hint_no_cloud_relay),
+                        R.string.vpn0wn_step_detect to activity.getString(R.string.vpn0wn_hint_dry_run),
+                        R.string.vpn0wn_section_network to activity.getString(R.string.vpn0wn_hint_review_before_apply),
+                        R.string.vpn0wn_section_deployment_plan to activity.getString(R.string.vpn0wn_hint_review_before_apply),
+                        R.string.vpn0wn_step_apply to activity.getString(R.string.vpn0wn_apply_unavailable),
+                        R.string.vpn0wn_section_profile to activity.getString(R.string.vpn0wn_hint_wireguard),
+                        R.string.vpn0wn_section_actions to activity.getString(R.string.vpn0wn_hint_device),
                     )
-                    for ((titleResource, hintResource) in headers) {
-                        val header = factory.invoke(fragment, 1, host.get().getString(titleResource),
-                            host.get().getString(hintResource)) as VpsSectionHeaderLayout
+                    for ((titleResource, hintText) in headers) {
+                        val titleText = activity.getString(titleResource).let {
+                            if (titleResource == R.string.vpn0wn_step_detect || titleResource == R.string.vpn0wn_step_apply)
+                                it.lowercase(Locale.ROOT) else it
+                        }
+                        val header = factory.invoke(fixture.fragment, 1, titleText, hintText) as VpsSectionHeaderLayout
                         root.removeAllViews()
                         root.addView(header, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.WRAP_CONTENT).apply {
@@ -100,8 +87,7 @@ class VpsSectionHeaderLayoutTest {
                         root.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
                             View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY))
                         root.layout(0, 0, width, height)
-                        assertEquals("Actual requested direction", if (direction == "ldrtl") View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR,
-                            header.layoutDirection)
+                        assertEquals("Actual requested direction", requestedDirection, header.layoutDirection)
                         for (index in 0 until header.childCount) {
                             val child = header.getChildAt(index)
                             assertTrue("Child remains inside header", child.left >= 0 && child.right <= header.width &&
@@ -120,7 +106,8 @@ class VpsSectionHeaderLayoutTest {
                         assertTrue("Title retains positive space", title.width > title.compoundPaddingLeft + title.compoundPaddingRight)
                         if (direction == "ldrtl") assertTrue("Mirrored index/title order", index.left >= title.right)
                         else assertTrue("Index/title order", index.right <= title.left)
-                        if (locale == "en" && width == 320 && titleResource == R.string.vpn0wn_section_ssh_access) {
+                        if (locale == "en" && width == 320 && titleResource == R.string.vpn0wn_section_ssh_access &&
+                            hintText == activity.getString(R.string.vpn0wn_hint_no_cloud_relay)) {
                             if (fontScale == 1f) {
                                 assertTrue("Normal SSH header remains one row", hint.top < title.bottom && divider.width > 0)
                             } else {
@@ -128,13 +115,8 @@ class VpsSectionHeaderLayoutTest {
                             }
                         }
                     }
-                } finally {
-                    try {
-                        controller?.pause()?.stop()?.destroy()
-                    } finally {
-                        environment.close()
-                    }
-                }
+                    assertTrue("Header renderer never opens SSH", fixture.peer.connections.isEmpty())
+                } finally { fixture.close() }
             }
         }
     }
@@ -149,6 +131,4 @@ class VpsSectionHeaderLayoutTest {
             assertTrue("Text width: ${view.text}", layout.getLineLeft(line) >= 0 && layout.getLineRight(line) <= contentWidth)
         }
     }
-
-    class HostActivity : AppCompatActivity()
 }

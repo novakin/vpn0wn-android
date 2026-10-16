@@ -411,8 +411,13 @@
                     </LinearLayout>
 
                     <LinearLayout
+                        android:id="@+id/public_key_row"
                         style="@style/Vpn0wnDetailRow"
-                        android:orientation="vertical">
+                        android:contentDescription="@string/public_key"
+                        android:foreground="?attr/selectableItemBackground"
+                        android:minHeight="48dp"
+                        android:orientation="vertical"
+                        app:copyText="@{config.interface.keyPair.publicKey.toBase64}">
 
                         <TextView
                             style="@style/Vpn0wnConfigRowLabel"
@@ -422,7 +427,6 @@
                             android:id="@+id/public_key_text"
                             style="@style/Vpn0wnConfigRowValue"
                             android:maxLines="1"
-                            android:onClick="@{ClipboardUtils::copyTextView}"
                             android:text="@{BindingAdapters.shortKey(config.interface.keyPair.publicKey.toBase64)}"
                             tools:text="wOs2…BVkA" />
                     </LinearLayout>
