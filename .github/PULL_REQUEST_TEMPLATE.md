@@ -1,4 +1,4 @@
-<!-- Template last updated: 2026-10-14 (Europe/Paris). -->
+<!-- Template last updated: 2026-10-16 (Europe/Paris). -->
 
 ## Problem and resulting behavior
 
@@ -33,6 +33,8 @@ Identify the responsible owner, reused components and affected config/data/scrip
 Record only checks actually run. JVM/static success does not establish device, real SSH or live VPN behavior. Sanitize evidence; never attach keys, passwords or secret-bearing output.
 
 Author self-review verdict: no in-scope blockers / changes required / verification incomplete. Select and substantiate the actual verdict; self-review is not independent approval.
+
+For UI/UX work, follow the [skill and satisfaction review workflow](https://github.com/novakin/vpn0wn-android/blob/master/docs/development.md#uiux-review-workflow). Name the applied skills, actual output/configurations inspected, evidence-based satisfaction verdict, corrections and remaining limits.
 
 Independent review for cross-cutting agent/process changes: requested effort, findings/resolution and remaining limits, or why not applicable.
 

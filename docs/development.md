@@ -1,6 +1,6 @@
 # Development and contribution workflow
 
-Last updated: 2026-10-14 (Europe/Paris).
+Last updated: 2026-10-16 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Setup substantively updated 2026-10-11 (Europe/Paris); historical process/runtime evidence retains its original scope.
 
@@ -176,6 +176,23 @@ An explicit user request can authorize repeated work and scoped autonomous merge
 Before each merge, the published head must match the head accepted by independent review at the requested effort and covered by required verification. Record the actual local source tree/tested revision and applicable CI revision/run; source-equivalent pre-commit tests must be described accurately. Re-review and verify affected deltas after material edits; a review of an earlier head is not final acceptance. For documentation-only edits, use semantic/link/fence/date checks rather than unrelated runtime tests. Once CI is installed, verify its actual relevant final-revision results and any required checks; do not infer enforcement from a workflow file.
 
 Unavailable independent review, unresolved findings, failed required checks or an unreviewed material delta blocks merge. Continue independent authorized work where useful. Keep device/provider acceptance issues open when source-only integration does not meet their whole boundary. Confirm merge SHA, actual issue state and any non-closing reference afterwards, then update affected delivery summaries in the next owning change rather than committing prose only to embed its own SHA.
+
+## UI/UX review workflow
+
+For every UI/UX task, inspect the available skill catalog, read each applicable skill and use its relevant guidance. Naming skills alone is not a review. Apply every skill relevant to the task; do not run unrelated workflows merely because a skill is installed. Current complementary roles are:
+
+| Skill | Review role |
+| --- | --- |
+| UI/UX Pro Max | Accessibility, interaction, navigation, forms, feedback and motion. |
+| Interface Design | Product composition, hierarchy, alignment, spacing and density. |
+| Design System | Existing token use, typography roles, component states and theme consistency. |
+| Frontend Design | Deliberate visual direction and type/layout choices when creating or reshaping that direction. |
+
+These roles do not limit newly available relevant skills. Record unavailable applicable guidance and its effect on verification instead of claiming it was applied. Keep the task bounded by the approved read-only JSX/brand references, Inter Tight/JetBrains Mono roles, existing Android tokens and DataBinding/Fragment owners. Skill recommendations do not authorize redesigning that contract, adopting a web framework or generating another design source of truth. Web-only, bitmap and presentation workflows apply only when the task actually requires those artifacts.
+
+Inspect actual output at the affected sizes, orientations and supported themes, including relevant font-scale/RTL configurations under the [QA plan](qa-test-plan.md). Review hierarchy, alignment, spacing, typography, colors/contrast, touch/focus behavior, states and motion against the approved intent and native behavior. A prototype or JVM/static check does not establish Android output, accessibility or runtime acceptance.
+
+Before declaring completion, ask: **“Am I satisfied with this UI/UX result?”** Record a concise author verdict in the current PR acceptance record or unpublished handoff: skills applied, output/revision/configurations inspected, material findings/corrections and remaining limits. Fix material in-scope gaps and recheck the affected output before a satisfied verdict. If required output or proof is unavailable, state verification incomplete; do not replace missing evidence with an unsupported 100/100 claim. This self-review does not replace independent ultra review, required acceptance or merge authorization.
 
 ## Verification commands and ownership
 
