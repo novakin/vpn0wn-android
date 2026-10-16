@@ -1,6 +1,6 @@
 # Operations and recovery
 
-Last updated: 2026-10-16 (Europe/Paris).
+Last updated: 2026-10-17 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -83,6 +83,8 @@ VPN permission, camera access and document/export handling depend on the selecte
 While Android's userspace VPN consent screen is open, configuration recreation keeps the original tunnel and requested direction pending. Granting continues that request once; later selection or same-name replacement cannot receive it. Denial/cancellation restores its switch to current state for retry. A missing/denied consent activity reports an error without activation. Process death or permanent fragment removal drops pending consent and requires manual retry after inspecting state; it is not restored from a profile name. Ordinary navigation after approval keeps the accepted transition's existing Activity owner. Confirm resulting tunnel/service state and usable traffic separately. See [the #177 contract](backend-contracts.md#vpn-consent-continuation--177) and [remaining Android acceptance](qa-test-plan.md#vpn-consent-continuation-acceptance--177).
 
 Switching the kernel/backend preference drains earlier transitions and shuts down active tunnels before committing the setting and restarting. New mutations are rejected between commit and restart. Failed shutdown/restart restores the previous preference and usable control; already-stopped tunnels can remain down with profiles intact. Failed preference rollback keeps the admission reservation and needs diagnosis. PR #25 merged these repairs. #15 serializes whole root/kernel transitions; real device/kernel proof remains separate. Retain sanitized evidence after failure and verify the selected backend after restart. Never delete a profile merely to diagnose an unresolved transition.
+
+With the [#210 observation repair](backend-contracts.md#failed-kernel-observation--210), failure to read the kernel inventory does not mean that tunnels stopped. The operation reports the original root/tool/I/O failure; a requested disconnect, delete or backend switch must not treat that failure as a successful shutdown. Keep the saved recovery profile. Restore root/tool availability and reopen the affected screen or app to retry; an earlier installed APK may retain the old behavior. Initial Home loading failure withholds configured-count, protection and empty-list claims, while TV and saved-selection restoration use existing error feedback. A failed initial tile lookup opens the app without toggling a tunnel. An authorized remote-control request reports expected initial I/O/root failures through its existing Toast without changing the tunnel; resend the authorized request after restoring observation availability to retry. These source and [scoped host/View controls](qa-test-plan.md#failed-kernel-observation-controls--210) add no new rooted-device or connectivity proof.
 
 ## Android system VPN Settings
 

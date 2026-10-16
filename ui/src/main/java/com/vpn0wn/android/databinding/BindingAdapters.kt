@@ -368,8 +368,10 @@ object BindingAdapters {
 
     @JvmStatic
     fun homeHeaderSummary(context: Context, tunnels: Iterable<ObservableTunnel>?): String {
+        val wordmark = context.getString(R.string.vpn0wn_home_wordmark)
+        if (tunnels == null) return wordmark
         return context.getString(R.string.vpn0wn_home_header_summary,
-            context.getString(R.string.vpn0wn_home_wordmark), tunnels?.count() ?: 0)
+            wordmark, tunnels.count())
     }
 
     @JvmStatic
@@ -434,7 +436,7 @@ object BindingAdapters {
         artwork.setBounds(0, 0, width, height)
         view.contentDescription = summary.replace('ø', '0')
         val countLabel = summary.substring(wordmark.length).trimStart().replace(' ', '\u00a0')
-        view.text = SpannableString("$wordmark $countLabel").apply {
+        view.text = SpannableString("$wordmark $countLabel".trimEnd()).apply {
             setSpan(HomeWordmarkSpan(artwork),
                 0, wordmark.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }

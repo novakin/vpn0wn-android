@@ -67,6 +67,15 @@ class BindingAdaptersTest {
     }
 
     @Test
+    fun unavailableHomeInventoryKeepsBrandWithoutClaimingZeroConfigured() {
+        assertEquals("vpnøwn", BindingAdapters.homeHeaderSummary(context, null))
+        val header = TextView(context)
+        BindingAdapters.setHomeHeaderTunnels(header, null)
+        assertEquals("vpnøwn", header.text.toString())
+        assertEquals("vpn0wn", header.contentDescription.toString())
+    }
+
+    @Test
     fun homeWordmarkUsesArtworkWithoutReplacingLocalizedCountOrBrandDescription() {
         val header = TextView(context)
         BindingAdapters.setHomeHeaderTunnels(header, emptyList())
