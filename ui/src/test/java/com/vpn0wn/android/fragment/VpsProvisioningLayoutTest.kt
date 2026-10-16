@@ -239,7 +239,7 @@ class VpsProvisioningLayoutTest {
         assertTextFits(action)
         assertAccessibleAction(action, android.widget.Button::class.java.name)
         assertInside(action, fixture.root)
-        assertEquals("Only Apply stays unavailable", step != Step.APPLY, action.isEnabled)
+        assertTrue("Fresh verified Detect/Plan keeps each reviewed stage actionable", action.isEnabled)
     }
 
     private fun assertTrackerWidth(root: View, fontScale: Float) {

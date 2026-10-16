@@ -206,14 +206,14 @@ class VpsInstallApplyTest {
     }
 
     @Test fun leavingDuringDurableAdmissionCannotReopenTheWizardOrSendTheInstall() = runTest {
-        val entered = CompletableDeferred<Unit>()
+        val entered = CompletableDeferred<Thread>()
         val release = CompletableDeferred<Unit>()
         var blockAdmission = false
         val gatedPreferences = object : DataStore<Preferences> {
             override val data = preferences.data
             override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences {
                 if (blockAdmission) {
-                    entered.complete(Unit)
+                    entered.complete(Thread.currentThread())
                     release.await()
                 }
                 return preferences.updateData(transform)
@@ -222,10 +222,11 @@ class VpsInstallApplyTest {
         val gatedStore = VpsServerStore(gatedPreferences, credentialFileForTest(File(folder.root, "admission-credentials")))
         val model = planned(gatedStore)
         val saved = gatedStore.servers.first().single()
+        val ownerThread = Thread.currentThread()
         blockAdmission = true
         val operation = apply(model)
         try {
-            entered.await()
+            assertSame(ownerThread, entered.await())
             model.leave()
             assertFalse(model.state.value.active)
             assertNull(model.state.value.plan)
