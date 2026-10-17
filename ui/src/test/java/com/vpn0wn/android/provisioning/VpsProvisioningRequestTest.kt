@@ -5,6 +5,7 @@
 package com.vpn0wn.android.provisioning
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Test
 import android.app.Application
 import android.content.Context
@@ -37,6 +38,9 @@ class VpsProvisioningRequestTest {
         assertEquals(prefix + "--confirm", request.args("/tmp/private-input"))
         assertEquals(prefix + "--confirm", request.args("/tmp/private-input", checkOnly = false))
         assertEquals(prefix + "--check", request.args("/tmp/private-input", checkOnly = true))
+        assertEquals(prefix + "--verify", request.args("/tmp/private-input", verifyOnly = true))
+        assertEquals(prefix + "--confirm", request.args("/tmp/private-input", verifyOnly = false))
+        assertThrows(IllegalArgumentException::class.java) { request.args("/tmp/private-input", checkOnly = true, verifyOnly = true) }
     }
 
     @Test

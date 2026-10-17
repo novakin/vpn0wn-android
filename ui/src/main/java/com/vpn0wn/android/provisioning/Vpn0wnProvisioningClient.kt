@@ -194,6 +194,34 @@ class Vpn0wnProvisioningClient(
 
     suspend fun checkFreshRestore(connection: VpsConnection, snapshot: VpsBackupResult, request: VpsRestoreRequest): VpsRestoreCheckPlan {
         val owned = snapshot.copy(revoked = snapshot.revoked.toList())
+        val expected = expectedRestorePlan(owned, request)
+        return withClient(connection) { client, remoteDir ->
+            val inputDir = uploadRestoreInput(client, remoteDir, owned)
+            val result = ProvisioningJson.parseRestoreCheck(run(client, remoteDir, "restore.sh", request.args(inputDir, checkOnly = true)).stdout)
+            if (result != expected)
+                throw ProvisioningException(ProvisioningFailureCategory.INVALID_RESPONSE.safeMessage, category = ProvisioningFailureCategory.INVALID_RESPONSE)
+            result
+        }
+    }
+
+    suspend fun verifyFreshRestore(connection: VpsConnection, snapshot: VpsBackupResult, request: VpsRestoreRequest): VpsRestoreVerification {
+        val owned = snapshot.copy(revoked = snapshot.revoked.toList())
+        val plan = expectedRestorePlan(owned, request)
+        val expected = VpsRestoreVerification(
+            interfaceName = plan.interfaceName, endpoint = plan.endpoint, port = plan.port, cidr = plan.cidr,
+            dns = plan.dns, serverPublicKey = plan.serverPublicKey, peerCount = plan.peerCount, revokedCount = plan.revokedCount,
+            running = true, serviceEnabled = true,
+        )
+        return withClient(connection) { client, remoteDir ->
+            val inputDir = uploadRestoreInput(client, remoteDir, owned)
+            val result = ProvisioningJson.parseRestoreVerification(run(client, remoteDir, "restore.sh", request.args(inputDir, verifyOnly = true)).stdout)
+            if (result != expected)
+                throw ProvisioningException(ProvisioningFailureCategory.INVALID_RESPONSE.safeMessage, category = ProvisioningFailureCategory.INVALID_RESPONSE)
+            result
+        }
+    }
+
+    private fun expectedRestorePlan(owned: VpsBackupResult, request: VpsRestoreRequest): VpsRestoreCheckPlan {
         validateRestore(owned, request)
         val key = owned.config.lineSequence().mapNotNull { Attribute.parse(it.substringBefore('#').trim()).orElse(null) }
             .singleOrNull { it.key.equals("PrivateKey", ignoreCase = true) }?.value
@@ -203,19 +231,12 @@ class Vpn0wnProvisioningClient(
             null
         }
         if (serverPublicKey == null || serverPublicKey != request.expectedServerPublicKey) throw invalidInput()
-        val expected = VpsRestoreCheckPlan(
+        return VpsRestoreCheckPlan(
             interfaceName = owned.interfaceName, endpoint = request.endpoint, port = request.port.toString(),
             cidr = restoreMetadata(owned, "# TUNNL_CIDR "), dns = restoreMetadata(owned, "# TUNNL_DNS "),
             serverPublicKey = serverPublicKey, peerCount = owned.config.lineSequence().count { it == "[Peer]" },
             revokedCount = owned.revokedCount,
         )
-        return withClient(connection) { client, remoteDir ->
-            val inputDir = uploadRestoreInput(client, remoteDir, owned)
-            val result = ProvisioningJson.parseRestoreCheck(run(client, remoteDir, "restore.sh", request.args(inputDir, checkOnly = true)).stdout)
-            if (result != expected)
-                throw ProvisioningException(ProvisioningFailureCategory.INVALID_RESPONSE.safeMessage, category = ProvisioningFailureCategory.INVALID_RESPONSE)
-            result
-        }
     }
 
     private fun restoreMetadata(snapshot: VpsBackupResult, prefix: String): String =
@@ -383,8 +404,14 @@ data class VpsAddPeerRequest(
 }
 
 data class VpsRestoreRequest(val endpoint: String, val port: Int, val expectedServerPublicKey: String) {
-    fun args(inputDir: String, checkOnly: Boolean = false): List<String> = listOf(
-        "--input", inputDir, "--endpoint", endpoint, "--port", port.toString(),
-        "--expected-server-public-key", expectedServerPublicKey, if (checkOnly) "--check" else "--confirm",
-    )
+    fun args(inputDir: String, checkOnly: Boolean = false, verifyOnly: Boolean = false): List<String> {
+        require(!checkOnly || !verifyOnly) { "Restore modes are mutually exclusive" }
+        val mode = when {
+            checkOnly -> "--check"
+            verifyOnly -> "--verify"
+            else -> "--confirm"
+        }
+        return listOf("--input", inputDir, "--endpoint", endpoint, "--port", port.toString(),
+            "--expected-server-public-key", expectedServerPublicKey, mode)
+    }
 }
