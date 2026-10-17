@@ -6,9 +6,11 @@ package com.vpn0wn.android.provisioning
 
 import android.content.Context
 import android.util.Log
+import com.vpn0wn.config.Attribute
 import com.vpn0wn.crypto.Key
 import com.vpn0wn.crypto.KeyFormatException
 import java.io.IOException
+import com.vpn0wn.crypto.KeyPair
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -179,13 +181,7 @@ class Vpn0wnProvisioningClient(
             ?.removePrefix("# TUNNL_CIDR ") ?: throw invalidInput()
         val expectedPeerCount = owned.config.lineSequence().count { it == "[Peer]" }
         return withClient(connection) { client, remoteDir ->
-            val inputDir = "$remoteDir/restore-input"
-            val revokedDir = "$inputDir/revoked"
-            client.execute("umask 077 && mkdir -- ${inputDir.shellQuote()} ${revokedDir.shellQuote()}").requireSuccess()
-            client.upload("$inputDir/server.conf", owned.config, "0600").requireSuccess()
-            for (archive in owned.revoked) {
-                client.upload("$revokedDir/${archive.archiveName}", archive.config, "0600").requireSuccess()
-            }
+            val inputDir = uploadRestoreInput(client, remoteDir, owned)
             onAdmitted()
             val result = ProvisioningJson.parseRestore(run(client, remoteDir, "restore.sh", request.args(inputDir)).stdout)
             if (result.interfaceName != owned.interfaceName || result.endpoint != request.endpoint ||
@@ -194,6 +190,46 @@ class Vpn0wnProvisioningClient(
                 throw ProvisioningException(ProvisioningFailureCategory.INVALID_RESPONSE.safeMessage, category = ProvisioningFailureCategory.INVALID_RESPONSE)
             result
         }
+    }
+
+    suspend fun checkFreshRestore(connection: VpsConnection, snapshot: VpsBackupResult, request: VpsRestoreRequest): VpsRestoreCheckPlan {
+        val owned = snapshot.copy(revoked = snapshot.revoked.toList())
+        validateRestore(owned, request)
+        val key = owned.config.lineSequence().mapNotNull { Attribute.parse(it.substringBefore('#').trim()).orElse(null) }
+            .singleOrNull { it.key.equals("PrivateKey", ignoreCase = true) }?.value
+        val serverPublicKey = try {
+            key?.let { KeyPair(Key.fromBase64(it)).publicKey.toBase64() }
+        } catch (_: KeyFormatException) {
+            null
+        }
+        if (serverPublicKey == null || serverPublicKey != request.expectedServerPublicKey) throw invalidInput()
+        val expected = VpsRestoreCheckPlan(
+            interfaceName = owned.interfaceName, endpoint = request.endpoint, port = request.port.toString(),
+            cidr = restoreMetadata(owned, "# TUNNL_CIDR "), dns = restoreMetadata(owned, "# TUNNL_DNS "),
+            serverPublicKey = serverPublicKey, peerCount = owned.config.lineSequence().count { it == "[Peer]" },
+            revokedCount = owned.revokedCount,
+        )
+        return withClient(connection) { client, remoteDir ->
+            val inputDir = uploadRestoreInput(client, remoteDir, owned)
+            val result = ProvisioningJson.parseRestoreCheck(run(client, remoteDir, "restore.sh", request.args(inputDir, checkOnly = true)).stdout)
+            if (result != expected)
+                throw ProvisioningException(ProvisioningFailureCategory.INVALID_RESPONSE.safeMessage, category = ProvisioningFailureCategory.INVALID_RESPONSE)
+            result
+        }
+    }
+
+    private fun restoreMetadata(snapshot: VpsBackupResult, prefix: String): String =
+        snapshot.config.lineSequence().singleOrNull { it.startsWith(prefix) }?.removePrefix(prefix) ?: throw invalidInput()
+
+    private suspend fun uploadRestoreInput(client: RemoteShellClient, remoteDir: String, snapshot: VpsBackupResult): String {
+        val inputDir = "$remoteDir/restore-input"
+        val revokedDir = "$inputDir/revoked"
+        client.execute("umask 077 && mkdir -- ${inputDir.shellQuote()} ${revokedDir.shellQuote()}").requireSuccess()
+        client.upload("$inputDir/server.conf", snapshot.config, "0600").requireSuccess()
+        for (archive in snapshot.revoked) {
+            client.upload("$revokedDir/${archive.archiveName}", archive.config, "0600").requireSuccess()
+        }
+        return inputDir
     }
 
     private fun validateRestore(snapshot: VpsBackupResult, request: VpsRestoreRequest) {
@@ -347,8 +383,8 @@ data class VpsAddPeerRequest(
 }
 
 data class VpsRestoreRequest(val endpoint: String, val port: Int, val expectedServerPublicKey: String) {
-    fun args(inputDir: String): List<String> = listOf(
+    fun args(inputDir: String, checkOnly: Boolean = false): List<String> = listOf(
         "--input", inputDir, "--endpoint", endpoint, "--port", port.toString(),
-        "--expected-server-public-key", expectedServerPublicKey, "--confirm",
+        "--expected-server-public-key", expectedServerPublicKey, if (checkOnly) "--check" else "--confirm",
     )
 }

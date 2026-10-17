@@ -86,6 +86,11 @@ run_restore() {
     --expected-server-public-key "$RESTORE_PUBLIC_KEY" --confirm "$@"
 }
 
+run_restore_check() {
+  run_script restore --input "$RESTORE_INPUT" --endpoint restored.example --port 51900 \
+    --expected-server-public-key "$RESTORE_PUBLIC_KEY" --check "$@"
+}
+
 assert_fresh_restore_rolled_back() {
   [[ ! -e "$WG_CONF" && ! -e "$FORWARD_CONF" && ! -e "$TEST_STATE/runtime.conf" && ! -e "$TEST_STATE/enabled" && ! -e "$TEST_STATE/nat" ]]
   [[ "$RESPONSE" == *'"recovery":"restored"'* ]]
@@ -1749,6 +1754,69 @@ PY
   ! grep -Eq '^apt-get |^wg (genkey|genpsk) ' "$TEST_STATE/trace"
 }
 
+test_restore_check_public_plan_without_mutation() {
+  restore_source
+  restore_peer old archived 10.9.0.2 historical > "$RESTORE_INPUT/revoked/old.conf.00112233-4455-4677-8899-aabbccddeeff"
+  /bin/cp -a "$RESTORE_INPUT" "$TEST_ROOT/input-before"
+  run_restore_check
+  assert_success
+  python3 - "$TEST_ROOT/response" "$RESTORE_PUBLIC_KEY" <<'PY'
+import json
+import pathlib
+import sys
+assert json.loads(pathlib.Path(sys.argv[1]).read_text()) == {
+    'ok': True, 'checkOnly': True, 'plan': {
+        'interface': 'wg0', 'endpoint': 'restored.example', 'port': '51900',
+        'cidr': '10.8.0.0/24', 'dns': '1.1.1.1, 1.0.0.1',
+        'serverPublicKey': sys.argv[2], 'peerCount': 1, 'revokedCount': 1,
+    }
+}
+PY
+  [[ ! -e "$WG_CONF" && ! -e "$TUNNL_DIR" && ! -e "$FORWARD_CONF" ]]
+  [[ ! -e "$TEST_STATE/runtime.conf" && ! -e "$TEST_STATE/enabled" ]]
+  [[ $(cat "$TEST_STATE/forward-value") == 0 ]]
+  [[ -z $(find "$WG_DIR" -mindepth 1 -print -quit) ]]
+  diff -r "$TEST_ROOT/input-before" "$RESTORE_INPUT"
+  assert_no_mutations
+}
+
+test_restore_check_requires_one_explicit_mode() {
+  restore_source
+  run_restore_check --confirm
+  assert_failure invalid_arg
+  [[ ! -e "$WG_CONF" && ! -e "$TUNNL_DIR" ]]
+  assert_no_mutations
+  run_restore
+  assert_success
+}
+
+test_restore_check_uses_shared_validation() {
+  restore_source
+  /bin/cp "$RESTORE_INPUT/server.conf" "$TEST_ROOT/valid-source"
+  printf 'PostUp = arbitrary-command\n' >> "$RESTORE_INPUT/server.conf"
+  run_restore_check
+  assert_failure invalid_config
+  /bin/cp "$TEST_ROOT/valid-source" "$RESTORE_INPUT/server.conf"
+  RESTORE_PUBLIC_KEY=$(printf '%-32.32s' PUBLIC-different | base64 -w0)
+  run_restore_check
+  assert_failure server_identity_mismatch
+  assert_no_mutations
+}
+
+test_restore_check_preserves_conflicting_destination() {
+  restore_source
+  printf '# unrelated destination\n' > "$WG_CONF"
+  run_restore_check
+  assert_failure config_exists
+  [[ $(cat "$WG_CONF") == '# unrelated destination' ]]
+  /bin/rm "$WG_CONF"
+  printf 'UNCONN 0 0 0.0.0.0:51900 0.0.0.0:*\n' > "$TEST_STATE/udp-holders"
+  run_restore_check
+  assert_failure port_in_use
+  [[ ! -e "$WG_CONF" ]]
+  assert_no_mutations
+}
+
 test_restore_preserves_psk_and_historical_reuse() {
   restore_source
   printf '\n' >> "$RESTORE_INPUT/server.conf"
@@ -2141,6 +2209,7 @@ test_restore_rejects_revoked_identity_overlap() {
 }
 
 test_restore_rechecks_destination_under_locks() {
+  local restore_mode=${1:---confirm}
   restore_source
   export TEST_HELD_LOCK TEST_LOCK_SIGNAL
   TEST_LOCK_SIGNAL="$TEST_ROOT/restore-lock-entered"
@@ -2159,7 +2228,7 @@ SH
       exec {held_lock}>"$TEST_HELD_LOCK"
       /usr/bin/flock "$held_lock"
       bash "$SCRIPTS/restore.sh" --input "$RESTORE_INPUT" --endpoint restored.example --port 51900 \
-        --expected-server-public-key "$RESTORE_PUBLIC_KEY" --confirm > "$TEST_ROOT/response" 2> "$TEST_ROOT/stderr" &
+        --expected-server-public-key "$RESTORE_PUBLIC_KEY" "$restore_mode" > "$TEST_ROOT/response" 2> "$TEST_ROOT/stderr" &
       restore_pid=$!
       if ! read -r -t 5 ready <&"$lock_signal"; then
         kill "$restore_pid" 2>/dev/null || true
@@ -2195,6 +2264,10 @@ SH
     done
   done
   assert_no_mutations
+}
+
+test_restore_check_rechecks_destination_under_locks() {
+  test_restore_rechecks_destination_under_locks --check
 }
 
 test_restore_apply_failure_restores_absent_history() {
@@ -2657,6 +2730,9 @@ tests=(
   test_c143_runtime_inventory_observes_live_only_peers test_c143_failed_runtime_inventory_discards_partial_stdout
   test_c143_malformed_runtime_inventory_stays_unknown test_c143_remove_checks_server_identity_after_concurrent_owner
   test_restore_fresh_identity_and_receipt test_restore_preserves_psk_and_historical_reuse
+  test_restore_check_public_plan_without_mutation test_restore_check_requires_one_explicit_mode
+  test_restore_check_uses_shared_validation test_restore_check_preserves_conflicting_destination
+  test_restore_check_rechecks_destination_under_locks
   test_restore_requires_explicit_options test_restore_rejects_unsafe_input_paths
   test_restore_rejects_unsafe_revoked_entries test_restore_rejects_unsafe_destination_paths
   test_restore_rejects_existing_config_and_history test_restore_rejects_live_interface
