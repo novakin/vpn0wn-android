@@ -93,7 +93,17 @@ class Application : android.app.Application() {
         }
         if (backend == null) {
             backend = GoBackend(applicationContext)
-            GoBackend.setAlwaysOnCallback { get().applicationScope.launch { get().tunnelManager.restoreState(true) } }
+            GoBackend.setAlwaysOnCallback {
+                get().applicationScope.launch {
+                    try {
+                        get().tunnelManager.restoreState(true)
+                    } catch (failure: IOException) {
+                        Log.e(TAG, "Failed to restore always-on tunnel state", failure)
+                    } catch (failure: RootShellException) {
+                        Log.e(TAG, "Failed to restore always-on tunnel state", failure)
+                    }
+                }
+            }
         }
         return backend
     }

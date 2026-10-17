@@ -19,6 +19,7 @@ import androidx.appcompat.app.ActionBar
 import androidx.fragment.app.FragmentManager
 import androidx.fragment.app.FragmentTransaction
 import androidx.fragment.app.commit
+import com.vpn0wn.android.Application
 import com.vpn0wn.android.R
 import com.vpn0wn.android.fragment.TunnelDetailFragment
 import com.vpn0wn.android.fragment.TunnelEditorFragment
@@ -77,6 +78,7 @@ class MainActivity : BaseActivity(), FragmentManager.OnBackStackChangedListener 
         supportFragmentManager.addOnBackStackChangedListener(this)
         backPressedCallback = onBackPressedDispatcher.addCallback(this) { handleBackPressed() }
         onBackStackChanged()
+        Application.getTunnelManager().onActivityCreated()
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {

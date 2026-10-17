@@ -7,6 +7,7 @@ package com.vpn0wn.android
 
 import kotlinx.coroutines.CancellationException
 import android.app.PendingIntent
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -18,15 +19,18 @@ import android.provider.Settings
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.util.Log
+import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.databinding.Observable
 import androidx.databinding.Observable.OnPropertyChangedCallback
 import com.vpn0wn.android.activity.MainActivity
 import com.vpn0wn.android.activity.TunnelToggleActivity
 import com.vpn0wn.android.backend.Tunnel
+import com.vpn0wn.android.backend.BackendException
 import com.vpn0wn.android.model.ObservableTunnel
 import com.vpn0wn.android.util.applicationScope
 import com.vpn0wn.android.util.UserKnobs
+import com.vpn0wn.android.util.ErrorMessages
 import com.vpn0wn.android.util.RootShell.RootShellException
 import com.vpn0wn.android.widget.SlashDrawable
 import kotlinx.coroutines.launch
@@ -56,8 +60,6 @@ class QuickTileService : TileService() {
         return ret
     }
 
-    // Backend/ConfigStore expose Exception; this operation reports their failures while cancellation and Errors propagate.
-    @Suppress("TooGenericExceptionCaught")
     override fun onClick() {
         applicationScope.launch {
             if (tunnel == null) {
@@ -86,36 +88,56 @@ class QuickTileService : TileService() {
                 else -> {
                     unlockAndRun {
                         applicationScope.launch {
-                            try {
-                                tunnel.setStateAsync(Tunnel.State.TOGGLE)
-                                updateTile()
-                            } catch (e: CancellationException) {
-                                throw e
-                            } catch (e: Exception) {
-                                Log.d(TAG, "Failed to set state, so falling back", e)
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && !Settings.canDrawOverlays(this@QuickTileService)) {
-                                    Log.d(TAG, "Need overlay permissions")
-                                    val permissionIntent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
-                                    permissionIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    startActivityAndCollapse(
-                                        PendingIntent.getActivity(
-                                            this@QuickTileService,
-                                            0,
-                                            permissionIntent,
-                                            PendingIntent.FLAG_IMMUTABLE
-                                        )
-                                    )
-                                    return@launch
-                                }
-                                val toggleIntent = Intent(this@QuickTileService, TunnelToggleActivity::class.java)
-                                toggleIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                startActivity(toggleIntent)
-                            }
+                            val target = if (tunnel.state == Tunnel.State.UP) Tunnel.State.DOWN else Tunnel.State.UP
+                            setTunnelState(tunnel, target)
                         }
                     }
                 }
             }
         }
+    }
+
+    // Backend/ConfigStore expose Exception; this operation reports their failures while cancellation and Errors propagate.
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun setTunnelState(tunnel: ObservableTunnel, target: Tunnel.State) {
+        try {
+            tunnel.setStateAsync(target)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: BackendException) {
+            if (e.reason != BackendException.Reason.VPN_NOT_AUTHORIZED || target != Tunnel.State.UP) {
+                reportFailure(e)
+                return
+            }
+            try {
+                requestPermission(tunnel, target)
+            } catch (failure: SecurityException) {
+                reportFailure(failure)
+            } catch (failure: ActivityNotFoundException) {
+                reportFailure(failure)
+            }
+        } catch (e: Exception) {
+            reportFailure(e)
+        } finally {
+            updateTile()
+        }
+    }
+
+    private fun requestPermission(tunnel: ObservableTunnel, target: Tunnel.State) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE && !Settings.canDrawOverlays(this)) {
+            Log.d(TAG, "Need overlay permissions")
+            val permissionIntent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName"))
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivityAndCollapse(PendingIntent.getActivity(this, 0, permissionIntent, PendingIntent.FLAG_IMMUTABLE))
+            return
+        }
+        startActivity(TunnelToggleActivity.createIntent(this, tunnel, target))
+    }
+
+    private fun reportFailure(failure: Exception) {
+        val message = getString(R.string.toggle_error, ErrorMessages[failure])
+        Log.e(TAG, message, failure)
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
     }
 
     override fun onCreate() {
