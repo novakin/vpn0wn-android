@@ -1,1 +1,1 @@
-{"ok":true,"name":"tablet","removed":true,"revoked":true,"publicKey":"UFVCTElDLTMgICAgICAgICAgICAgICAgICAgICAgICA=","archive":"/fixture/wireguard/tunnl/revoked/tablet.conf.synthetic","cleanupPath":""}
+{"ok":true,"name":"tablet","removed":true,"revoked":true,"publicKey":"UFVCTElDLTMgICAgICAgICAgICAgICAgICAgICAgICA=","archive":"/fixture/wireguard/tunnl/revoked/tablet.conf.ABC123","archiveName":"tablet.conf.ABC123","operationId":null,"cleanupPath":""}

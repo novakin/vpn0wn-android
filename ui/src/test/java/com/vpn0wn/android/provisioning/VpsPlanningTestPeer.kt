@@ -30,6 +30,13 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
     var removeOutput: String? = null
     var removeExitCode = 0
     var afterRemove: (() -> Unit)? = null
+    val revokeEntered = CompletableDeferred<Unit>()
+    var blockRevoke: CompletableDeferred<Unit>? = null
+    var revokeFailure: ProvisioningException? = null
+    var revokeOutput: String? = null
+    var revokeExitCode = 0
+    var afterRevoke: (() -> Unit)? = null
+    var closeFailure: ProvisioningException? = null
     var configExists = false
     var planOverwrites = false
     var statusEntered = CompletableDeferred<Unit>()
@@ -89,6 +96,13 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
                         removeFailure?.let { throw it }
                         ProvisioningCommandOutput(removeExitCode, requireNotNull(removeOutput), "")
                     }
+                    command.contains("./'revoke-peer.sh'") -> {
+                        revokeEntered.complete(Unit)
+                        blockRevoke?.await()
+                        afterRevoke?.invoke()
+                        revokeFailure?.let { throw it }
+                        ProvisioningCommandOutput(revokeExitCode, requireNotNull(revokeOutput), "")
+                    }
                     else -> error("Unexpected provisioning command")
                 }
             }
@@ -98,7 +112,7 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
                 blockUpload?.await()
                 return ProvisioningCommandOutput(0, "", "")
             }
-            override suspend fun close() { closes.incrementAndGet() }
+            override suspend fun close() { closes.incrementAndGet(); closeFailure?.let { throw it } }
         }
     }
 

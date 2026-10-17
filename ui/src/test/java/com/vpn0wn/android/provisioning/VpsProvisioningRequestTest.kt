@@ -112,7 +112,7 @@ class VpsProvisioningRequestTest {
             client.install(connection, install)
             client.addPeer(connection, VpsAddPeerRequest(hostileValue, "0.0.0.0/0, ::/0", "1.1.1.1"), REMOVE_PUBLIC_KEY)
             client.removePeer(connection, "phone", REMOVE_PUBLIC_KEY, REMOVE_PUBLIC_KEY)
-            client.revokePeer(connection, "tablet", REVOKE_PUBLIC_KEY)
+            client.revokePeer(connection, "tablet", REVOKE_PUBLIC_KEY, REMOVE_PUBLIC_KEY, OPERATION_ID)
             client.syncStatus(connection)
             val backup = client.backup(connection)
             assertEquals(1, backup.snapshotVersion)
@@ -125,7 +125,8 @@ class VpsProvisioningRequestTest {
             assertEquals(listOf("--name", hostileValue, "--dns", "1.1.1.1", "--allowed-ips", "0.0.0.0/0, ::/0",
                 "--expected-server-public-key", REMOVE_PUBLIC_KEY), remote.arguments.getValue("add-peer.sh"))
             assertEquals(listOf("--name", "phone", "--expected-public-key", REMOVE_PUBLIC_KEY, "--expected-server-public-key", REMOVE_PUBLIC_KEY), remote.arguments.getValue("remove-peer.sh"))
-            assertEquals(listOf("--name", "tablet", "--expected-public-key", REVOKE_PUBLIC_KEY), remote.arguments.getValue("revoke-peer.sh"))
+            assertEquals(listOf("--name", "tablet", "--expected-public-key", REVOKE_PUBLIC_KEY,
+                "--expected-server-public-key", REMOVE_PUBLIC_KEY, "--operation-id", OPERATION_ID), remote.arguments.getValue("revoke-peer.sh"))
             assertEquals(emptyList<String>(), remote.arguments.getValue("sync-status.sh"))
             assertEquals(emptyList<String>(), remote.arguments.getValue("backup.sh"))
             assertEquals(listOf("--confirm", "--purge-packages"), remote.arguments.getValue("uninstall.sh"))
@@ -184,7 +185,7 @@ class VpsProvisioningRequestTest {
         for ((name, key) in invalidIdentities) {
             for (revoke in listOf(false, true)) {
                 val failure = runCatching {
-                    if (revoke) client.revokePeer(connection(), name, key) else client.removePeer(connection(), name, key, REMOVE_PUBLIC_KEY)
+                    if (revoke) client.revokePeer(connection(), name, key, REMOVE_PUBLIC_KEY, OPERATION_ID) else client.removePeer(connection(), name, key, REMOVE_PUBLIC_KEY)
                 }.exceptionOrNull()
                 assertTrue(failure is ProvisioningException)
                 assertEquals(ProvisioningFailureCategory.INVALID_INPUT, (failure as ProvisioningException).category)
@@ -201,6 +202,7 @@ class VpsProvisioningRequestTest {
             val valid = JSONObject().put("ok", true).put("name", "phone").put("publicKey", REMOVE_PUBLIC_KEY)
                 .put("removed", true).put("revoked", revoke).put("archive", if (revoke) "/fixture/revoked.conf" else "")
                 .put("cleanupPath", "/fixture/private-residue")
+            if (revoke) valid.put("archiveName", "phone.conf.$OPERATION_ID").put("operationId", OPERATION_ID)
             val responses = listOf(
                 valid,
                 JSONObject(valid.toString()).put("name", "reused-name"),
@@ -234,7 +236,7 @@ class VpsProvisioningRequestTest {
                 }
                 val result = runCatching {
                     val client = provisioningClient(remote)
-                    if (revoke) client.revokePeer(connection(), "phone", REMOVE_PUBLIC_KEY) else client.removePeer(connection(), "phone", REMOVE_PUBLIC_KEY, REMOVE_PUBLIC_KEY)
+                    if (revoke) client.revokePeer(connection(), "phone", REMOVE_PUBLIC_KEY, REMOVE_PUBLIC_KEY, OPERATION_ID) else client.removePeer(connection(), "phone", REMOVE_PUBLIC_KEY, REMOVE_PUBLIC_KEY)
                 }
                 if (index == 0) {
                     assertEquals(REMOVE_PUBLIC_KEY, result.getOrThrow().publicKey)
@@ -377,6 +379,7 @@ class VpsProvisioningRequestTest {
     private companion object {
         const val REMOVE_PUBLIC_KEY = "UFVCTElDLTIgICAgICAgICAgICAgICAgICAgICAgICA="
         const val REVOKE_PUBLIC_KEY = "UFVCTElDLTMgICAgICAgICAgICAgICAgICAgICAgICA="
+        const val OPERATION_ID = "00112233-4455-4677-8899-aabbccddeeff"
     }
 
     private class RecordingShell(directory: File, root: Boolean, private val failScript: Boolean = false) : RemoteShellClient {
@@ -427,7 +430,9 @@ class VpsProvisioningRequestTest {
                         name == "sync-status.sh" -> "status-running"
                         else -> name.removeSuffix(".sh")
                     }
-                    val payload = requireNotNull(javaClass.getResourceAsStream("/provisioning/$fixtureName.json")).bufferedReader().use { it.readText() }
+                    var payload = requireNotNull(javaClass.getResourceAsStream("/provisioning/$fixtureName.json")).bufferedReader().use { it.readText() }
+                    if (name == "revoke-peer.sh" && !failScript) payload = JSONObject(payload)
+                        .put("archiveName", "tablet.conf.$OPERATION_ID").put("operationId", OPERATION_ID).toString()
                     ProvisioningCommandOutput(if (failScript) 74 else 0, payload, "")
                 }
             }

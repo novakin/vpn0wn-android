@@ -8,6 +8,8 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## In Progress
 
+- **Correlated user revocation — #143 (2026-10-17, Europe/Paris; source candidate):** `PendingVpsRemove`, `VpsProvisioningViewModel`, the native Fragment, provisioning client and script now capture explicit REVOKE identity, canonical operation correlation, complete public archive observation and configured/live absence. `revoke-peer.sh` publishes, validates and flushes the private original peer block before apply and preserves it after incomplete recovery. Legacy REMOVE records/operator arguments and plain/six-character archive names remain readable; backup/restore readers add UUID names. Received typed rollback for either action and the three known actual revoke pretransaction rejections settle only the exact checked intent as FAILED without deleting a private profile or resending; validated-receipt markers exclude later cleanup/status failures. Owned pending revocation exposes its public operation ID and expected basename after recreation; foreign conflicts stay generic. Final native/unit acceptance remains in progress; no live or rotation acceptance is claimed.
+
 - **Translation delivery boundary — #195 (2026-10-16, Europe/Paris):** complete model reading and confirmed source repairs are recorded in the [dated review](reviews/2026-10-16-translation-review.md), with executed focused checks and synthetic native-view output. Substantial missing-key fallback, hardcoded copy, qualified speaker review, wider installed output/accessibility and final issue acceptance remain open. This is a bounded translation slice, not complete localization or the later whole-code/security review.
 
 

@@ -60,6 +60,7 @@ import com.vpn0wn.android.provisioning.VpsDeployUser
 import com.vpn0wn.android.provisioning.VpsDeployUserStatus
 import com.vpn0wn.android.provisioning.VpsDeployMapper
 import com.vpn0wn.android.provisioning.StoredVpsServer
+import com.vpn0wn.android.provisioning.PendingVpsRemove
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.AuthMode
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Problem
@@ -657,6 +658,9 @@ class VpsProvisioningFragment : BaseFragment() {
             VpsDeployAction(R.drawable.ic_vpn0wn_refresh, str(R.string.vpn0wn_action_rotate_key), str(R.string.vpn0wn_action_rotate_key_sub), R.color.vpn0wn_ink, user.status == VpsDeployUserStatus.REVOKED) {
                 toast(str(R.string.vpn0wn_peer_mutation_unavailable))
             },
+            VpsDeployAction(R.drawable.ic_vpn0wn_trash, str(R.string.vpn0wn_action_revoke), str(R.string.vpn0wn_action_revoke_sub), R.color.vpn0wn_error, !canManageUsers(server.id)) {
+                requestRemoveUser(server, user, PendingVpsRemove.Action.REVOKE)
+            },
             VpsDeployAction(R.drawable.ic_vpn0wn_trash, str(R.string.vpn0wn_action_remove_user), str(R.string.vpn0wn_action_remove_user_sub), R.color.vpn0wn_error, !canManageUsers(server.id)) {
                 requestRemoveUser(server, user)
             },
@@ -1073,10 +1077,13 @@ class VpsProvisioningFragment : BaseFragment() {
         Problem.INSTALL_FAILED -> R.string.vpn0wn_apply_failed
         Problem.INSTALL_PENDING -> R.string.vpn0wn_apply_uncertain
         Problem.ADD_PENDING -> R.string.vpn0wn_user_add_pending
-        Problem.REMOVE_PENDING -> R.string.vpn0wn_user_remove_uncertain
-        Problem.PEER_CHANGED -> R.string.vpn0wn_user_remove_changed
+        Problem.REMOVE_PENDING -> if (!ownsServerFeedback(provisionState.removalOwner)) R.string.vpn0wn_user_foreign_mutation_pending
+            else if (provisionState.removalAction == PendingVpsRemove.Action.REVOKE) R.string.vpn0wn_user_revoke_uncertain else R.string.vpn0wn_user_remove_uncertain
+        Problem.PEER_CHANGED -> if (provisionState.removalAction == PendingVpsRemove.Action.REVOKE) R.string.vpn0wn_user_revoke_changed else R.string.vpn0wn_user_remove_changed
         Problem.IDENTITY_UNAVAILABLE -> R.string.vpn0wn_user_identity_required
         Problem.PROFILE_UNAVAILABLE -> R.string.vpn0wn_profile_unavailable
+        Problem.ARCHIVE_UNAVAILABLE -> R.string.vpn0wn_user_revoke_archive_unavailable
+        Problem.ARCHIVE_FULL -> R.string.vpn0wn_user_revoke_archive_full
     })
 
     private fun ownsServerFeedback(owner: StoredVpsServer?): Boolean {
@@ -1094,15 +1101,19 @@ class VpsProvisioningFragment : BaseFragment() {
             !(provisionState.serverId == serverId && (provisionState.pendingAdd || provisionState.pendingInstall || provisionState.pendingRemove))
     }
 
-    private data class RemoveUserAction(val server: StoredVpsServer, val name: String, val publicKey: String)
+    private data class RemoveUserAction(val server: StoredVpsServer, val name: String, val publicKey: String, val action: PendingVpsRemove.Action)
 
-    private fun requestRemoveUser(server: VpsDeployServer, user: VpsDeployUser) {
+    private fun requestRemoveUser(server: VpsDeployServer, user: VpsDeployUser, action: PendingVpsRemove.Action = PendingVpsRemove.Action.REMOVE) {
         if (!canManageUsers(server.id)) return
         val stored = storedServers.singleOrNull { it.id == server.id } ?: return
         retireProfileAction()
         retireRemoveUserAction()
-        removeUserAction = RemoveUserAction(stored, user.name, user.key)
-        if (provision.requestRemoveUserConfirmation(stored, user.name, user.key) == null) retireRemoveUserAction()
+        removeUserAction = RemoveUserAction(stored, user.name, user.key, action)
+        val job = when (action) {
+            PendingVpsRemove.Action.REMOVE -> provision.requestRemoveUserConfirmation(stored, user.name, user.key)
+            PendingVpsRemove.Action.REVOKE -> provision.requestRevokeUserConfirmation(stored, user.name, user.key)
+        }
+        if (job == null) retireRemoveUserAction()
     }
 
     private fun ownsRemoveUserAction(action: RemoveUserAction, requireStarted: Boolean = true): Boolean =
@@ -1115,18 +1126,21 @@ class VpsProvisioningFragment : BaseFragment() {
         if (state.busy || removeUserDialog != null) return
         val confirmation = state.removeConfirmation
         if (!ownsRemoveUserAction(action) || confirmation == null || confirmation.server != action.server ||
-            confirmation.attempt.name != action.name || confirmation.attempt.clientPublicKey != action.publicKey) {
+            confirmation.attempt.name != action.name || confirmation.attempt.clientPublicKey != action.publicKey ||
+            confirmation.attempt.action != action.action) {
             retireRemoveUserAction()
             return
         }
         val attempt = confirmation.attempt
+        val revoke = attempt.action == PendingVpsRemove.Action.REVOKE
         val sshHost = attempt.ssh.host.let { if (':' in it) "[$it]" else it }
         val dialog = MaterialAlertDialogBuilder(requireContext())
-            .setTitle(R.string.vpn0wn_user_remove_title)
-            .setMessage(getString(R.string.vpn0wn_user_remove_confirmation, attempt.name, attempt.ssh.user,
-                sshHost, attempt.ssh.port, attempt.fingerprint, attempt.serverPublicKey, attempt.clientPublicKey))
+            .setTitle(if (revoke) R.string.vpn0wn_user_revoke_title else R.string.vpn0wn_user_remove_title)
+            .setMessage(getString(if (revoke) R.string.vpn0wn_user_revoke_confirmation else R.string.vpn0wn_user_remove_confirmation,
+                attempt.name, attempt.ssh.user, sshHost, attempt.ssh.port, attempt.fingerprint, attempt.serverPublicKey,
+                attempt.clientPublicKey, attempt.operationId))
             .setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(R.string.vpn0wn_user_confirm_remove, null)
+            .setPositiveButton(if (revoke) R.string.vpn0wn_user_confirm_revoke else R.string.vpn0wn_user_confirm_remove, null)
             .create()
         removeUserDialog = dialog
         dialog.setOnDismissListener { if (removeUserDialog === dialog) retireRemoveUserAction() }
@@ -1155,20 +1169,31 @@ class VpsProvisioningFragment : BaseFragment() {
         val owner = provisionState.removalOwner ?: return
         if (!ownsServerFeedback(owner) || provisionState.serverId != owner.id) return
         val running = provisionState.statusSnapshots[owner.id]?.status?.running
+        val revoke = provisionState.removalAction == PendingVpsRemove.Action.REVOKE
         val message = when (provisionState.removal) {
             UserRemoval.NONE -> null
-            UserRemoval.CHECKING -> R.string.vpn0wn_user_remove_checking
-            UserRemoval.RUNNING -> R.string.vpn0wn_user_removing
-            UserRemoval.UNCERTAIN -> R.string.vpn0wn_user_remove_uncertain
-            UserRemoval.REMOVED -> if (running == false) R.string.vpn0wn_user_removed_stopped else R.string.vpn0wn_user_removed
-            UserRemoval.OBSERVED -> if (running == false) R.string.vpn0wn_user_remove_observed_stopped else R.string.vpn0wn_user_remove_observed
+            UserRemoval.CHECKING -> if (revoke) R.string.vpn0wn_user_revoke_checking else R.string.vpn0wn_user_remove_checking
+            UserRemoval.RUNNING -> if (revoke) R.string.vpn0wn_user_revoking else R.string.vpn0wn_user_removing
+            UserRemoval.UNCERTAIN -> if (revoke) R.string.vpn0wn_user_revoke_uncertain else R.string.vpn0wn_user_remove_uncertain
+            UserRemoval.FAILED -> if (revoke) R.string.vpn0wn_user_revoke_failed else R.string.vpn0wn_user_remove_failed
+            UserRemoval.REMOVED -> if (revoke) {
+                if (running == false) R.string.vpn0wn_user_revoked_stopped else R.string.vpn0wn_user_revoked
+            } else if (running == false) R.string.vpn0wn_user_removed_stopped else R.string.vpn0wn_user_removed
+            UserRemoval.OBSERVED -> if (revoke) {
+                if (running == false) R.string.vpn0wn_user_revoke_observed_stopped else R.string.vpn0wn_user_revoke_observed
+            } else if (running == false) R.string.vpn0wn_user_remove_observed_stopped else R.string.vpn0wn_user_remove_observed
         }
         if (message != null) parent.addView(mono(str(message), 11, R.color.vpn0wn_ink_2).apply {
             id = R.id.vpn0wn_vps_user_removal_status
             accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
             setPadding(dp(14), dp(8), dp(14), dp(8))
         })
-        if (provisionState.pendingRemove) parent.addView(rowButton(str(R.string.vpn0wn_user_remove_reconcile), R.drawable.ic_vpn0wn_refresh) {
+        val attempt = provisionState.removalAttempt?.takeIf { it.owns(owner) && it.action == PendingVpsRemove.Action.REVOKE }
+        if (provisionState.pendingRemove && attempt != null) parent.addView(mono(
+            str(R.string.vpn0wn_user_revoke_pending_operation, requireNotNull(attempt.operationId), requireNotNull(attempt.archiveName)),
+            11, R.color.vpn0wn_ink_2,
+        ).apply { setTextIsSelectable(true); setPadding(dp(14), dp(8), dp(14), dp(8)) })
+        if (provisionState.pendingRemove) parent.addView(rowButton(str(if (revoke) R.string.vpn0wn_user_revoke_reconcile else R.string.vpn0wn_user_remove_reconcile), R.drawable.ic_vpn0wn_refresh) {
             storedServers.singleOrNull { it.id == owner.id }?.let { provision.reconcileRemoveUser(it) }
         }.apply { id = R.id.vpn0wn_vps_reconcile_removal; isEnabled = !provisionState.busy })
         if (provisionState.busy && provisionState.removal != UserRemoval.NONE)
