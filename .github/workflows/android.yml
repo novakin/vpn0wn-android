@@ -32,6 +32,8 @@ jobs:
           persist-credentials: false
       - name: Run offline VPS harness checks
         run: python3 -m unittest discover -s scripts/tests -p 'test_vps_integration_test.py'
+      - name: Check native Go runtime preparation
+        run: python3 -m unittest discover -s scripts/tests -p 'test_go_runtime_preparation.py'
       - name: Check translation archive handling
         run: |
           sudo apt-get update -qq
