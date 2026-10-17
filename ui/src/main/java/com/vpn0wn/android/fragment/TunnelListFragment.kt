@@ -10,12 +10,14 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import android.content.Intent
+import android.content.res.Configuration
 import android.app.Activity
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
@@ -154,6 +156,22 @@ class TunnelListFragment : BaseFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        val configuration = resources.configuration
+        if (configuration.orientation == Configuration.ORIENTATION_PORTRAIT &&
+            configuration.screenWidthDp < COMPACT_WINDOW_WIDTH_DP && configuration.fontScale >= ENLARGED_FONT_SCALE) {
+            binding?.apply {
+                homeStatusContainer.orientation = LinearLayout.VERTICAL
+                homeStatusDivider.visibility = View.GONE
+                for (group in listOf(homeConnectionGroup, homeEndpointGroup)) {
+                    group.layoutParams = (group.layoutParams as LinearLayout.LayoutParams).apply {
+                        width = ViewGroup.LayoutParams.MATCH_PARENT
+                        weight = 0f
+                    }
+                    group.setPaddingRelative(0, 0, 0, 0)
+                }
+                homeConnectionGroup.setPaddingRelative(0, 0, 0, resources.getDimensionPixelSize(R.dimen.normal_margin))
+            }
+        }
         backPressedCallback = requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner) {
             if (deleting) deleteJob?.cancel()
             else if (deleteSheet != null) deleteSheet?.dismiss()
@@ -566,6 +584,8 @@ class TunnelListFragment : BaseFragment() {
     }
 
     companion object {
+        private const val COMPACT_WINDOW_WIDTH_DP = 600
+        private const val ENLARGED_FONT_SCALE = 1.5f
         private const val SELECTION_MODE = "SELECTION_MODE"
         private const val SELECTED_NAMES = "SELECTED_NAMES"
         private const val TAG = "vpn0wn/TunnelListFragment"

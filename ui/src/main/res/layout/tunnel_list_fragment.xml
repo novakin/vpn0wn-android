@@ -238,6 +238,7 @@
                             android:paddingBottom="10dp">
 
                             <LinearLayout
+                                android:id="@+id/home_connection_group"
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
@@ -262,11 +263,13 @@
                             </LinearLayout>
 
                             <View
+                                android:id="@+id/home_status_divider"
                                 android:layout_width="1dp"
                                 android:layout_height="26dp"
                                 android:background="@color/vpn0wn_rule" />
 
                             <LinearLayout
+                                android:id="@+id/home_endpoint_group"
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
