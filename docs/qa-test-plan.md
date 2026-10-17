@@ -8,6 +8,10 @@ The layer lists below are target requirements, not a passing coverage report. [S
 
 ## Test Layers
 
+### Manager fixture lifetime follow-up — #196
+
+All `TunnelManagerTest` cases now drain their owned application job and real-I/O descendants through cancellation-safe `TunnelTestEnvironment.close()` before Main is reset. Blocking-worker release remains inside the fixture lifetime, with the outer drain reachable if worker cleanup fails. This corrects a confirmed test-lifetime contract breach; it does not establish the cause of PR #254 CI run `39075065215`'s empty persisted-running-set failure. Focused class, broader UI execution and final-head CI evidence belong to the PR acceptance record. Production transitions, persistence policy and assertions are unchanged.
+
 ### Caller-scoped restoration, rename and tile controls — #244–#247
 
 The manager baseline reproduced four failures in five startup controls and five failures in six rename controls. A separate tile baseline reproduced two failures in two controls: a successful UP or DOWN followed by observation failure launched another toggle activity. These are host/Robolectric reproductions, not phone reboot or field-frequency evidence.
