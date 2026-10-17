@@ -3,9 +3,12 @@ package com.vpn0wn.android.fragment
 import android.app.Application
 import android.content.ClipboardManager
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Rect
 import android.graphics.RectF
+import android.graphics.drawable.RippleDrawable
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
@@ -173,6 +176,92 @@ class AddPeerPresentationTest {
         binding.executePendingBindings()
         assertEquals(View.GONE, binding.transferGrid.visibility)
         assertEquals(View.VISIBLE, binding.latestHandshakeRow.visibility)
+    }
+
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun detailHeaderActionsKeepNativeTargetsNamesAndVisibleFeedbackAcrossConfigurations() = runTest {
+        environment = TunnelTestEnvironment(folder.root, backgroundScope)
+        val config = TunnelTestEnvironment.profile()
+        val tunnel = ObservableTunnel(environment.manager, "home-lab", config, Tunnel.State.DOWN)
+        val cases = listOf(
+            Preview("portrait", 320, 640, 1f, "en", false),
+            Preview("landscape", 480, 320, 1f, "fr", false),
+            Preview("large-portrait", 320, 640, 2f, "fr", false),
+            Preview("large-rtl-portrait", 320, 640, 2f, "ar", false),
+            Preview("large-rtl-landscape", 480, 320, 2f, "ar", false)
+        )
+        for (preview in cases) for (nightMode in listOf(false, true)) {
+            val case = preview.copy(name = "${preview.name}-${if (nightMode) "dark" else "light"}", night = nightMode)
+            val direction = if (case.locale == "ar") "ldrtl" else "ldltr"
+            val orientation = if (case.width > case.height) "land" else "port"
+            RuntimeEnvironment.setQualifiers("${case.locale}-$direction-w${case.width}dp-h${case.height}dp-$orientation-${if (case.night) "night" else "notnight"}")
+            RuntimeEnvironment.setFontScale(case.fontScale)
+            val activity = host()
+            val binding = TunnelDetailFragmentBinding.inflate(activity.layoutInflater)
+            activity.setContentView(binding.root)
+            binding.config = config
+            binding.tunnel = tunnel
+            binding.executePendingBindings()
+            var readyToDraw = false
+            repeat(3) {
+                binding.executePendingBindings()
+                measure(binding.root, case)
+                readyToDraw = !binding.root.viewTreeObserver.dispatchOnPreDraw()
+            }
+            assertTrue(case.name, readyToDraw)
+            measure(binding.root, case)
+            val header = binding.detailHeaderContainer
+            binding.root.isFocusableInTouchMode = true
+            assertTrue(binding.root.requestFocus())
+            val title = (binding.detailEditButton.parent as ViewGroup).getChildAt(0) as TextView
+            val expectedDirection = if (case.locale == "ar") View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
+            assertEquals(case.name, expectedDirection, binding.root.layoutDirection)
+            assertEquals(case.name, case.locale, binding.root.resources.configuration.locales[0].language)
+            assertEquals(case.name, case.fontScale, binding.root.resources.configuration.fontScale)
+            assertEquals(case.name, if (case.night) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO,
+                binding.root.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)
+            assertHeaderTextFits(title, case.name)
+            assertEquals("home-lab", title.text.toString())
+            val back = binding.detailBackButton
+            val edit = binding.detailEditButton
+            assertEquals(activity.getString(R.string.vpn0wn_navigate_back), back.contentDescription)
+            assertEquals(activity.getString(R.string.edit), edit.contentDescription)
+            val backBounds = Rect().also { back.getDrawingRect(it); header.offsetDescendantRectToMyCoords(back, it) }
+            val editBounds = Rect().also { edit.getDrawingRect(it); header.offsetDescendantRectToMyCoords(edit, it) }
+            assertFalse(case.name, Rect.intersects(backBounds, editBounds))
+            save(binding.root, "detail-header-${case.name}")
+            for ((button, name, glyphSize) in listOf(Triple(back, "back", 24), Triple(edit, "edit", 18))) {
+                val density = button.resources.displayMetrics.density
+                assertTrue(case.name, button.width >= 48 * density && button.height >= 48 * density)
+                val visibleBounds = Rect()
+                assertTrue(case.name, button.getGlobalVisibleRect(visibleBounds))
+                assertEquals(case.name, button.width, visibleBounds.width())
+                assertEquals(case.name, button.height, visibleBounds.height())
+                assertEquals(case.name, (glyphSize * density).toInt(), button.width - button.paddingLeft - button.paddingRight)
+                assertEquals(case.name, (glyphSize * density).toInt(), button.height - button.paddingTop - button.paddingBottom)
+                assertTrue(case.name, button.isClickable && button.isFocusable)
+                assertTrue(case.name, button.background is RippleDrawable)
+                val bounds = Rect(button.left, button.top, button.right, button.bottom)
+                val normalPixels = pixels(button)
+                assertTrue(case.name, button.requestFocusFromTouch())
+                button.refreshDrawableState()
+                button.jumpDrawablesToCurrentState()
+                assertFalse("${case.name}: $name focus feedback", normalPixels.contentEquals(pixels(button)))
+                save(header, "detail-header-${case.name}-$name-focus")
+                button.clearFocus()
+                assertTrue(binding.root.requestFocus())
+                button.jumpDrawablesToCurrentState()
+                assertTrue("${case.name}: $name focus cleared", normalPixels.contentEquals(pixels(button)))
+                button.isPressed = true
+                button.drawableHotspotChanged(button.width / 2f, button.height / 2f)
+                button.jumpDrawablesToCurrentState()
+                assertFalse("${case.name}: $name press feedback", normalPixels.contentEquals(pixels(button)))
+                save(header, "detail-header-${case.name}-$name-pressed")
+                assertEquals(case.name, bounds, Rect(button.left, button.top, button.right, button.bottom))
+                button.isPressed = false
+                button.jumpDrawablesToCurrentState()
+            }
+        }
     }
 
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -353,6 +442,15 @@ class AddPeerPresentationTest {
         val directory = File("../.artifacts/add-peer-previews").apply { mkdirs() }
         File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         bitmap.recycle()
+    }
+
+    private fun pixels(view: View): IntArray {
+        val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+        view.draw(Canvas(bitmap))
+        val pixels = IntArray(view.width * view.height)
+        bitmap.getPixels(pixels, 0, view.width, 0, 0, view.width, view.height)
+        bitmap.recycle()
+        return pixels
     }
 
     private data class Preview(val name: String, val width: Int, val height: Int, val fontScale: Float, val locale: String, val night: Boolean)

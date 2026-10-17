@@ -336,6 +336,8 @@ Two-row header. Row 1: `left` slot + `sub` label (10px mono caps) + `right` slot
 #### `IconBtn`
 32×32px touch target. Transparent background, no border; active state: `--paper-3` bg + `--rule-strong` border. Color: `--ink-2`.
 
+These are prototype dimensions. Native Detail Back/Edit use separate 48dp targets, existing glyph sizes and selectable platform feedback; [#193 controls](qa-test-plan.md#detail-header-action-controls--193) own their output and interaction verification.
+
 #### `SectionHeader`
 Engineering section label. `§NN` prefix in `--rule-strong` + mono section title + horizontal `1px --rule` divider. Hint text right-aligned.
 
@@ -498,6 +500,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 ## Progress
 
 ### Done
+
+- [x] **Detail header native action targets — #193, 2026-10-17:** `tunnel_detail_fragment.xml` gives Back/Edit separate 48×48dp bounds, reuses localized Back and native selectable feedback, and centers the title beside Edit. Existing 24dp/18dp icon viewports, artwork, fonts, palette and Fragment/DataBinding actions remain. [QA controls](qa-test-plan.md#detail-header-action-controls--193) cover compact portrait/landscape, both system modes, 2× French/Arabic RTL output and actual navigation; installed safe-area, physical and spoken-accessibility acceptance remain separate.
 
 - [x] **Guard application routing selection while loading — #212, 2026-10-17:** `AppListDialogFragment` disables/guards Apply and Toggle all until package inventory publishes successfully, retains Cancel and stops its spinner for a genuine empty result. The existing native Material dialog, tab/button styles, fonts and palette remain. View teardown cancels loading and clears detached controls; expected inventory errors emit no replacement. [QA](qa-test-plan.md#application-routing-selection-controls--212) records eight passing controls, zero Detekt findings, inspection of all twenty-four native-graphics originals and a separate API24 installed compact native-action scrolling check. Pending/loaded feedback and native compact action reachability are satisfactory within those scopes; the host cannot paint the spinner's animated arc. Final PR gates remain separate. No delayed physical package-enumeration, VPN packet or complete #35 acceptance is inferred.
 

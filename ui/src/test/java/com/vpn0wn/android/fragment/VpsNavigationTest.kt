@@ -2,7 +2,11 @@
 package com.vpn0wn.android.fragment
 
 import android.app.Application
+import android.graphics.Rect
 import android.os.Looper
+import android.os.SystemClock
+import android.view.KeyEvent
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
@@ -15,6 +19,7 @@ import androidx.lifecycle.viewModelScope
 import com.vpn0wn.android.Application as Vpn0wnApplication
 import com.vpn0wn.android.R
 import com.vpn0wn.android.activity.MainActivity
+import com.vpn0wn.android.databinding.TunnelDetailFragmentBinding
 import com.vpn0wn.android.databinding.TunnelListFragmentBinding
 import com.vpn0wn.android.model.ObservableTunnel
 import com.vpn0wn.android.model.TunnelTestEnvironment
@@ -186,6 +191,47 @@ class VpsNavigationTest {
                 } else {
                     assertNull(fixture.activity.selectedTunnel)
                     assertEquals(0, fixture.fragments.backStackEntryCount)
+                    assertTrue(fixture.fragments.findFragmentById(fixture.container) is TunnelListFragment)
+                }
+            } finally { fixture.close() }
+        }
+    }
+
+    @Test fun detailHeaderActionsRetainExistingPhoneAndTabletNavigation() = runTest {
+        for (tablet in listOf(false, true)) {
+            val fixture = fixture(tablet)
+            try {
+                selectRow(fixture, "bravo")
+                val detail = fixture.fragments.findFragmentById(fixture.container) as TunnelDetailFragment
+                val binding = requireNotNull(DataBindingUtil.getBinding<TunnelDetailFragmentBinding>(detail.requireView()))
+                binding.executePendingBindings()
+                val root = detail.requireView() as ViewGroup
+                val density = root.resources.displayMetrics.density
+                root.measure(View.MeasureSpec.makeMeasureSpec((320 * density).toInt(), View.MeasureSpec.EXACTLY),
+                    View.MeasureSpec.makeMeasureSpec((640 * density).toInt(), View.MeasureSpec.EXACTLY))
+                root.layout(0, 0, root.measuredWidth, root.measuredHeight)
+                assertEquals(if (tablet) View.INVISIBLE else View.VISIBLE, binding.detailBackButton.visibility)
+                val edit = binding.detailEditButton
+                assertTrue(edit.width >= 48 * density && edit.height >= 48 * density)
+                val bounds = Rect().also { edit.getDrawingRect(it); root.offsetDescendantRectToMyCoords(edit, it) }
+                val time = SystemClock.uptimeMillis()
+                for (action in listOf(MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP)) {
+                    val event = MotionEvent.obtain(time, time, action, bounds.right - 1f, bounds.bottom - 1f, 0)
+                    try { assertTrue(root.dispatchTouchEvent(event)) } finally { event.recycle() }
+                }
+                settle(fixture)
+                assertTrue(fixture.fragments.findFragmentById(fixture.container) is TunnelEditorFragment)
+                assertSame(fixture.tunnel("bravo"), fixture.activity.selectedTunnel)
+                fixture.activity.onBackPressedDispatcher.onBackPressed()
+                settle(fixture)
+                val restored = fixture.fragments.findFragmentById(fixture.container) as TunnelDetailFragment
+                if (!tablet) {
+                    val back = requireNotNull(DataBindingUtil.getBinding<TunnelDetailFragmentBinding>(restored.requireView())).detailBackButton
+                    assertTrue(back.requestFocus())
+                    assertTrue(back.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER)))
+                    assertTrue(back.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER)))
+                    settle(fixture)
+                    assertNull(fixture.activity.selectedTunnel)
                     assertTrue(fixture.fragments.findFragmentById(fixture.container) is TunnelListFragment)
                 }
             } finally { fixture.close() }
