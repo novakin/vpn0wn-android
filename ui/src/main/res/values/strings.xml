@@ -351,6 +351,12 @@
     <string name="vpn0wn_section_health">health</string>
     <string name="vpn0wn_label_endpoint">ENDPOINT</string>
     <string name="vpn0wn_label_distro">DISTRO</string>
+    <string name="vpn0wn_topology_udp">UDP %1$s</string>
+    <string name="vpn0wn_topology_peers_unknown">Peer count unknown</string>
+    <plurals name="vpn0wn_topology_peers">
+        <item quantity="one">%d peer</item>
+        <item quantity="other">%d peers</item>
+    </plurals>
     <string name="vpn0wn_label_engine">ENGINE</string>
     <string name="vpn0wn_label_uptime">UPTIME</string>
     <string name="vpn0wn_label_last_sync">LAST SYNC</string>

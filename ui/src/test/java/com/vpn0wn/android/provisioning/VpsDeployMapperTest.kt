@@ -132,6 +132,25 @@ class VpsDeployMapperTest {
     }
 
     @Test
+    fun observedPeerQuantityKeepsUnknownDistinctFromKnownZeroOneAndMany() {
+        val stored = storedServer(lastSyncEpochSeconds = NOW).copy(os = "", version = "", listenPort = "invalid")
+        val retained = VpsDeployMapper.fromStored(resources, stored, NOW)
+        assertEquals(false, retained.usersKnown)
+        assertEquals(0, retained.users.size)
+        assertEquals("Awaiting detect", retained.distro)
+        assertEquals(null, retained.port)
+        val status = VpsDeployFixtureData.onlineStatusWithPeers()
+        for (count in listOf(0, 1, 3)) {
+            val peers = List(count) { index -> status.peers.first().copy(name = "peer-$index", publicKey = "public-$index") }
+            val observed = VpsDeployMapper.fromStatus(resources, stored, status.copy(peers = peers, listenPort = "51821"), NOW)
+            assertEquals(true, observed.usersKnown)
+            assertEquals(count, observed.users.size)
+            assertEquals(51821, observed.port)
+            assertEquals("Awaiting detect", observed.distro)
+        }
+    }
+
+    @Test
     fun staleStoredServerMapsToAttentionUiState() {
         val server = VpsDeployMapper.fromStored(resources, storedServer(lastSyncEpochSeconds = NOW - 700L), NOW)
 

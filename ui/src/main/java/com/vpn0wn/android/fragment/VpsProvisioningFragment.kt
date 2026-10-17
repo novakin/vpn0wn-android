@@ -451,11 +451,13 @@ class VpsProvisioningFragment : BaseFragment() {
         val container = vertical()
         container.addView(topBar(title = server.name, sub = str(R.string.vpn0wn_server_subtitle, server.region.uppercase(Locale.ROOT)), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { screen = Screen.Fleet; render() }, right = listOf(iconButton(R.drawable.ic_vpn0wn_more, str(R.string.vpn0wn_more_actions)) { toast(str(R.string.vpn0wn_more_pending)) })))
         val (scrollView, scroll) = scrollContent()
-        scroll.addView(VpsTopologyView(requireContext()).apply {
-            bind(server)
-            minimumHeight = dp(164)
-            background = panelBg()
-        }.withMargins(bottom = 14))
+        scroll.addView(panel {
+            id = R.id.vpn0wn_vps_hero
+            addView(VpsTopologyView(requireContext()).apply { bind(server) }, LinearLayout.LayoutParams(MATCH_PARENT, dp(104)))
+            addView(View(requireContext()).apply { setBackgroundColor(color(R.color.vpn0wn_rule)) },
+                LinearLayout.LayoutParams(MATCH_PARENT, dp(1)))
+            addView(topologyMetadata(server))
+        })
         scroll.addView(sectionHeader(1, str(R.string.vpn0wn_section_health), str(server.status.labelRes)))
         scroll.addView(panel {
             configLine(str(R.string.vpn0wn_label_endpoint), server.endpointAddress ?: "—", copy = server.endpointAddress != null)
@@ -524,6 +526,45 @@ class VpsProvisioningFragment : BaseFragment() {
         }
         container.addView(scrollView, LinearLayout.LayoutParams(-1, 0, 1f))
         return container
+    }
+
+    // Typography and spacing retain the approved three-level HeroStat treatment.
+    @Suppress("MagicNumber")
+    private fun topologyMetadata(server: VpsDeployServer): View {
+        val stacked = resources.configuration.screenWidthDp < COMPACT_HERO_WIDTH_DP &&
+            resources.configuration.fontScale >= ENLARGED_HERO_FONT_SCALE
+        val peers = if (server.usersKnown) resources.getQuantityString(R.plurals.vpn0wn_topology_peers, server.users.size, server.users.size)
+            else str(R.string.vpn0wn_topology_peers_unknown)
+        val values = listOf(
+            Triple(str(R.string.vpn0wn_label_server), server.name, server.distro),
+            Triple(str(R.string.vpn0wn_label_endpoint), server.endpoint ?: "—",
+                str(R.string.vpn0wn_topology_udp, server.port?.toString() ?: "—")),
+            Triple(str(R.string.vpn0wn_metric_cidr), server.cidr, peers),
+        )
+        val valueIds = listOf(R.id.vpn0wn_vps_hero_server, R.id.vpn0wn_vps_hero_endpoint, R.id.vpn0wn_vps_hero_cidr)
+        val subIds = listOf(R.id.vpn0wn_vps_hero_distro, R.id.vpn0wn_vps_hero_udp, R.id.vpn0wn_vps_hero_peers)
+        return LinearLayout(requireContext()).apply {
+            id = R.id.vpn0wn_vps_hero_metadata
+            orientation = if (stacked) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
+            values.forEachIndexed { index, (title, value, sub) ->
+                if (index > 0) addView(View(requireContext()).apply { setBackgroundColor(color(R.color.vpn0wn_rule)) },
+                    LinearLayout.LayoutParams(if (stacked) MATCH_PARENT else dp(1), if (stacked) dp(1) else MATCH_PARENT))
+                addView(vertical().apply {
+                    setPadding(dp(10))
+                    addView(label(title).apply { textSize = 9f })
+                    addView(mono(value, 12, R.color.vpn0wn_ink).apply {
+                        id = valueIds[index]
+                        if (index > 0) textDirection = View.TEXT_DIRECTION_LTR
+                        setPadding(0, dp(3), 0, 0)
+                    })
+                    addView(mono(sub, 9, R.color.vpn0wn_ink_3).apply {
+                        id = subIds[index]
+                        if (index == 1) textDirection = View.TEXT_DIRECTION_LTR
+                        setPadding(0, dp(3), 0, 0)
+                    })
+                }, LinearLayout.LayoutParams(if (stacked) MATCH_PARENT else 0, WRAP_CONTENT, if (stacked) 0f else 1f))
+            }
+        }
     }
 
     // Local scroll insets preserve the scalable wizard's existing drawing geometry.
@@ -2832,8 +2873,6 @@ class VpsProvisioningFragment : BaseFragment() {
         clipToOutline = true
     }
 
-    private fun panelBg() = rounded(R.color.vpn0wn_paper_2, R.color.vpn0wn_rule)
-
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
     private fun rounded(fill: Int, stroke: Int, radius: Int = dp(8), dash: Boolean = false): GradientDrawable = GradientDrawable().apply {
@@ -2890,6 +2929,8 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     private companion object {
+        const val COMPACT_HERO_WIDTH_DP = 600
+        const val ENLARGED_HERO_FONT_SCALE = 1.5f
         const val BACKUP_PICKER_OUTSTANDING = "backup_picker_outstanding"
         val PEER_NAME = Regex("[A-Za-z0-9_-]{1,32}")
         const val SSH_STEP = 0

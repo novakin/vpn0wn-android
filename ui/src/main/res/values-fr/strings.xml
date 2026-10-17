@@ -345,6 +345,12 @@
     <string name="vpn0wn_section_health">santé</string>
     <string name="vpn0wn_label_endpoint">ENDPOINT</string>
     <string name="vpn0wn_label_distro">DISTRIBUTION</string>
+    <string name="vpn0wn_topology_udp">UDP %1$s</string>
+    <string name="vpn0wn_topology_peers_unknown">Nombre de pairs inconnu</string>
+    <plurals name="vpn0wn_topology_peers">
+        <item quantity="one">%d pair</item>
+        <item quantity="other">%d pairs</item>
+    </plurals>
     <string name="vpn0wn_label_engine">MOTEUR</string>
     <string name="vpn0wn_label_uptime">UPTIME</string>
     <string name="vpn0wn_label_last_sync">DERNIÈRE SYNC</string>
