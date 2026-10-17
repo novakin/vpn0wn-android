@@ -710,6 +710,28 @@ class TunnelRecoveryTest {
         assertMutationCancelsBusy { env.manager.setTunnelConfig(tunnel, tunnel.getConfigAsync()) }
     }
 
+    @Test fun servicePublicationIncludesNativeFixtureReadiness() = runTest {
+        withFixture { fixture ->
+            val previousService = fixture.service
+            val previousDescriptor = GoBackendRebindTest.BuilderShadow.descriptor
+            val ready = CompletableFuture<GoBackend.VpnService>()
+            vpnServiceFuture().set(ready)
+            val publication = ready.thenAccept { service ->
+                assertNotSame(previousService, service)
+                assertSame(service, NativeShadow.expectedService)
+                val descriptor = GoBackendRebindTest.BuilderShadow.descriptor
+                assertNotSame(previousDescriptor, descriptor)
+                assertTrue(descriptor.fileDescriptor.valid())
+            }
+            try {
+                fixture.recreateService(resetFuture = false)
+                publication.join()
+            } finally {
+                GoBackendRebindTest.BuilderShadow.descriptor.close()
+            }
+        }
+    }
+
     @Test fun renameAdmissionCancelsBusyDeferral() = runTest {
         withFixture { fixture ->
             NativeShadow.response = { native(RecoveryResult.Outcome.BUSY) }
@@ -845,10 +867,12 @@ class TunnelRecoveryTest {
 
         fun recreateService(resetFuture: Boolean = true) {
             if (resetFuture) vpnServiceFuture().set(CompletableFuture())
-            service = Robolectric.buildService(GoBackend.VpnService::class.java).create().get()
+            val controller = Robolectric.buildService(GoBackend.VpnService::class.java)
+            service = controller.get()
             ShadowVpnService.setPrepareResult(null)
             NativeShadow.expectedService = service
             GoBackendRebindTest.BuilderShadow.descriptor = ParcelFileDescriptor.open(folder.newFile(), ParcelFileDescriptor.MODE_READ_WRITE)
+            controller.create()
         }
 
         fun snapshot(): ObservableTunnel.RecoverySnapshot = checkNotNull(tunnel.recoverySnapshot)
