@@ -124,6 +124,13 @@ class BindingAdaptersTest {
                 Triple(included, R.plurals.n_included_applications, 1))) {
                 assertEquals("$language applications", localized.resources.getQuantityString(resource, count, count),
                     BindingAdapters.applicationsText(localized, config))
+                val labelResource = if (resource == R.plurals.n_excluded_applications) {
+                    R.plurals.set_excluded_applications
+                } else {
+                    R.plurals.set_included_applications
+                }
+                assertEquals("$language application label", localized.resources.getQuantityString(labelResource, count, count),
+                    BindingAdapters.applicationsLabel(localized, config))
             }
             for (seconds in listOf(0, 1, 25)) {
                 val peer = Peer.Builder().setPublicKey(pair.publicKey).setPersistentKeepalive(seconds).build()
@@ -132,6 +139,26 @@ class BindingAdaptersTest {
             }
             assertEquals("", BindingAdapters.persistentKeepaliveText(localized, null))
         }
+    }
+
+    @Test
+    fun frenchRouteAndPeerBadgesLocalizeOnlyMissingConfiguration() {
+        val configuration = Configuration(context.resources.configuration).apply { setLocale(Locale.FRENCH) }
+        val localized = context.createConfigurationContext(configuration)
+        val pair = KeyPair(Key.fromBytes(ByteArray(32)))
+        val local = Interface.Builder().setKeyPair(pair).addAddress(InetNetwork.parse("192.0.2.2/32")).build()
+        val peer = Peer.Builder().setPublicKey(pair.publicKey).parseEndpoint("vpn.example:51820").build()
+        val profile = Config.Builder().setInterface(local).addPeer(peer).build()
+
+        assertEquals("AUCUN PAIR", BindingAdapters.tunnelPeerBadge(localized, null))
+        assertEquals("adresse en attente -> point de terminaison en attente", BindingAdapters.tunnelRoute(localized, null))
+        assertEquals("192.0.2.2/32 -> point de terminaison en attente",
+            BindingAdapters.tunnelRoute(localized, Config.Builder().setInterface(local).build()))
+        assertEquals("AUCUNE PSK", BindingAdapters.tunnelPeerBadge(localized, profile))
+        assertEquals("192.0.2.2/32 -> vpn.example:51820", BindingAdapters.tunnelRoute(localized, profile))
+        val withPsk = Config.Builder().setInterface(local).addPeer(Peer.Builder().setPublicKey(pair.publicKey)
+            .setPreSharedKey(Key.fromBytes(ByteArray(32) { 1 })).build()).build()
+        assertEquals("PSK", BindingAdapters.tunnelPeerBadge(localized, withPsk))
     }
 
     @Test

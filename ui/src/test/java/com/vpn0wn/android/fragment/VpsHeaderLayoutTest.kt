@@ -45,6 +45,8 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @OptIn(ExperimentalCoroutinesApi::class)
 class VpsHeaderLayoutTest {
+    private val resources get() = RuntimeEnvironment.getApplication().resources
+
     @get:Rule val folder = TemporaryFolder()
 
     @After fun tearDown() {
@@ -65,7 +67,7 @@ class VpsHeaderLayoutTest {
             RuntimeEnvironment.setFontScale(case.fontScale)
             val fixture = provisioningLayoutFixture(folder, case.direction)
             try {
-                val server = VpsDeployMapper.fromStored(VpsDeployFixtureData.storedServers().first(), VpsDeployFixtureData.NOW)
+                val server = VpsDeployMapper.fromStored(resources, VpsDeployFixtureData.storedServers().first(), VpsDeployFixtureData.NOW)
                     .copy(name = "synthetic-server-with-a-long-context-name")
                 val user = VpsDeployUser("peer", "synthetic-user-with-a-long-context-name", "phone", "10.8.0.2/32",
                     "0.0.0.0/0", VpsDeployUserStatus.IDLE, "0 B", "0 B", "—", "—", "synthetic-public-key")

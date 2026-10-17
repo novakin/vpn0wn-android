@@ -148,7 +148,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginEnd="8dp"
                             android:layout_weight="1"
-                            android:text="FIG.01 - TUNNEL TOPOLOGY" />
+                            android:text="@string/vpn0wn_tunnel_topology" />
 
                         <TextView
                             style="@style/Vpn0wnLabelText"
@@ -186,7 +186,7 @@
                             android:layout_weight="1"
                             android:ellipsize="end"
                             android:maxLines="1"
-                            android:text="@{BindingAdapters.tunnelRoute(config)}"
+                            android:text="@{BindingAdapters.tunnelRoute(context, config)}"
                             tools:text="172.20.4.18/24 -> gw.example.ro:51820" />
 
                         <TextView
@@ -194,7 +194,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="10dp"
-                            android:text="@{BindingAdapters.tunnelPeerBadge(config)}"
+                            android:text="@{BindingAdapters.tunnelPeerBadge(context, config)}"
                             android:textColor="@color/vpn0wn_signal_deep"
                             tools:text="PSK" />
                     </LinearLayout>
@@ -285,7 +285,7 @@
                             style="@style/Vpn0wnLabelText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="↓ DOWNLOAD" />
+                            android:text="@string/vpn0wn_download" />
 
                         <TextView
                             style="@style/Vpn0wnMonoValueText"
@@ -322,7 +322,7 @@
                             style="@style/Vpn0wnLabelText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="↑ UPLOAD" />
+                            android:text="@string/vpn0wn_upload" />
 
                         <TextView
                             style="@style/Vpn0wnMonoValueText"
@@ -404,7 +404,7 @@
 
                         <TextView
                             style="@style/Vpn0wnConfigRowLabel"
-                            android:text="NAME" />
+                            android:text="@string/name" />
 
                         <TextView
                             android:id="@+id/interface_name_text"
@@ -424,7 +424,7 @@
 
                         <TextView
                             style="@style/Vpn0wnConfigRowLabel"
-                            android:text="PUBLIC KEY" />
+                            android:text="@string/public_key" />
 
                         <TextView
                             android:id="@+id/public_key_text"
@@ -446,7 +446,7 @@
 
                         <TextView
                             style="@style/Vpn0wnConfigRowLabel"
-                            android:text="ADDRESSES" />
+                            android:text="@string/addresses" />
 
                         <TextView
                             android:id="@+id/addresses_text"
@@ -467,7 +467,7 @@
 
                         <TextView
                             style="@style/Vpn0wnConfigRowLabel"
-                            android:text="DNS SERVERS" />
+                            android:text="@string/dns_servers" />
 
                         <TextView
                             android:id="@+id/dns_servers_text"
@@ -488,7 +488,7 @@
 
                         <TextView
                             style="@style/Vpn0wnConfigRowLabel"
-                            android:text="DNS SEARCH DOMAINS" />
+                            android:text="@string/dns_search_domains" />
 
                         <TextView
                             android:id="@+id/dns_search_domains_text"
@@ -517,7 +517,7 @@
 
                             <TextView
                                 style="@style/Vpn0wnConfigRowLabel"
-                                android:text="LISTEN PORT" />
+                                android:text="@string/listen_port" />
 
                             <TextView
                                 android:id="@+id/listen_port_text"
@@ -562,7 +562,7 @@
 
                         <TextView
                             style="@style/Vpn0wnConfigRowLabel"
-                            android:text="@{config.interface.excludedApplications.isEmpty() ? `INCLUDED APPS · ` + config.interface.includedApplications.size() : `EXCLUDED APPS · ` + config.interface.excludedApplications.size()}"
+                            android:text="@{BindingAdapters.applicationsLabel(context, config)}"
                             tools:text="EXCLUDED APPS · 2" />
 
                         <TextView

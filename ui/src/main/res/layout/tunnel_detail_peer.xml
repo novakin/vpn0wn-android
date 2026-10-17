@@ -54,7 +54,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="PEER #01" />
+                    android:text="@{@string/vpn0wn_peer_title(`01`)}" />
 
                 <TextView
                     style="@style/Vpn0wnLabelText"
@@ -76,7 +76,7 @@
 
                 <TextView
                     style="@style/Vpn0wnConfigRowLabel"
-                    android:text="PUBLIC KEY" />
+                    android:text="@string/public_key" />
 
                 <TextView
                     android:id="@+id/public_key_text"
@@ -97,7 +97,7 @@
 
                 <TextView
                     style="@style/Vpn0wnConfigRowLabel"
-                    android:text="ENDPOINT" />
+                    android:text="@string/endpoint" />
 
                 <TextView
                     android:id="@+id/endpoint_text"
@@ -118,7 +118,7 @@
 
                 <TextView
                     style="@style/Vpn0wnConfigRowLabel"
-                    android:text="ALLOWED IPS" />
+                    android:text="@string/allowed_ips" />
 
                 <TextView
                     android:id="@+id/allowed_ips_text"
@@ -139,7 +139,7 @@
 
                 <TextView
                     style="@style/Vpn0wnConfigRowLabel"
-                    android:text="KEEPALIVE" />
+                    android:text="@string/persistent_keepalive" />
 
                 <TextView
                     android:id="@+id/persistent_keepalive_text"

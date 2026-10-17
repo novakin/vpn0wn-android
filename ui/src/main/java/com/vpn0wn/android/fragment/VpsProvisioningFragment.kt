@@ -341,8 +341,8 @@ class VpsProvisioningFragment : BaseFragment() {
         servers.clear()
         servers.addAll(storedServers.map { stored ->
             provisionState.statusSnapshots[stored.id]?.takeIf { it.matches(stored) }?.let { snapshot ->
-                VpsDeployMapper.fromStatus(stored, snapshot.status, now, snapshot.observedAtEpochSeconds)
-            } ?: VpsDeployMapper.fromStored(stored, now)
+                VpsDeployMapper.fromStatus(resources, stored, snapshot.status, now, snapshot.observedAtEpochSeconds)
+            } ?: VpsDeployMapper.fromStored(resources, stored, now)
         })
     }
 
@@ -831,7 +831,7 @@ class VpsProvisioningFragment : BaseFragment() {
             setPadding(dp(14), dp(14), dp(14), dp(10))
             addView(label(str(user.status.labelRes), user.status.colorRes))
             addView(mono(user.ip, 22, R.color.vpn0wn_ink, medium = true).apply { setPadding(0, dp(8), 0, 0) })
-            addView(mono("${user.device} · created ${user.created}", 11, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(4), 0, dp(10)) })
+            addView(mono(str(R.string.vpn0wn_user_metadata, user.device, user.created), 11, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(4), 0, dp(10)) })
             addView(metricRow(listOf(str(R.string.vpn0wn_label_rx) to user.rx, str(R.string.vpn0wn_label_tx) to user.tx, str(R.string.vpn0wn_handshake) to user.handshake)))
         }.withMargins(bottom = 14))
         scroll.addView(sectionHeader(1, str(R.string.vpn0wn_section_profile), str(R.string.vpn0wn_hint_wireguard)))

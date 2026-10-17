@@ -8,15 +8,18 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import com.vpn0wn.android.Application
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(application = Application::class, sdk = [28])
+@Config(application = Application::class, sdk = [28], qualifiers = "en")
 class VpsDeployMapperTest {
+    private val resources get() = RuntimeEnvironment.getApplication().resources
+
     @Test
     fun storedServerWithoutSyncMapsToUnknownUiState() {
-        val server = VpsDeployMapper.fromStored(storedServer(lastSyncEpochSeconds = 0L), NOW)
+        val server = VpsDeployMapper.fromStored(resources, storedServer(lastSyncEpochSeconds = 0L), NOW)
 
         assertEquals(VpsDeployServerStatus.ATTENTION, server.status)
         assertEquals("Hetzner", server.provider)
@@ -30,19 +33,19 @@ class VpsDeployMapperTest {
     @Test
     fun missingVpnEndpointNeverUsesSshHost() {
         val stored = storedServer(lastSyncEpochSeconds = 0L).copy(host = "192.0.2.10", endpoint = "")
-        val server = VpsDeployMapper.fromStored(stored, NOW)
+        val server = VpsDeployMapper.fromStored(resources, stored, NOW)
 
         assertEquals(null, server.endpoint)
         assertEquals(51820, server.port)
         assertEquals(null, server.endpointAddress)
-        assertEquals(false, server.health.first { it.label == "endpoint" }.ok)
+        assertEquals(false, server.health.first { it.label == "Endpoint" }.ok)
         assertEquals(VpsDeployServerStatus.PROVISIONING, server.status)
     }
 
     @Test
     fun unknownProviderAndRegionNeverUseSshIdentity() {
         val stored = storedServer(lastSyncEpochSeconds = 0L).copy(provider = "", region = "", host = "192.0.2.10", sshUser = "operator")
-        val server = VpsDeployMapper.fromStored(stored, NOW)
+        val server = VpsDeployMapper.fromStored(resources, stored, NOW)
 
         assertEquals("—", server.provider)
         assertEquals("—", server.region)
@@ -53,7 +56,7 @@ class VpsDeployMapperTest {
     @Test
     fun missingMalformedAndOutOfRangeListenersStayUnknown() {
         for (port in listOf("", " ", "invalid", "0", "-1", "65536", "2147483648")) {
-            val server = VpsDeployMapper.fromStored(storedServer(lastSyncEpochSeconds = NOW).copy(listenPort = port), NOW)
+            val server = VpsDeployMapper.fromStored(resources, storedServer(lastSyncEpochSeconds = NOW).copy(listenPort = port), NOW)
 
             assertEquals("Listener $port", null, server.port)
             assertEquals("Endpoint socket requires a known listener", null, server.endpointAddress)
@@ -65,7 +68,7 @@ class VpsDeployMapperTest {
     fun observedEndpointAndNonDefaultListenerAreIndependentOfSshAddress() {
         for (port in listOf(1, 51821, 65535)) {
             val stored = storedServer(lastSyncEpochSeconds = NOW).copy(host = "192.0.2.10", listenPort = port.toString())
-            val server = VpsDeployMapper.fromStored(stored, NOW)
+            val server = VpsDeployMapper.fromStored(resources, stored, NOW)
 
             assertEquals("203.0.113.42", server.endpoint)
             assertEquals(port, server.port)
@@ -82,7 +85,7 @@ class VpsDeployMapperTest {
             "[fe80::42%wlan0]" to "[fe80::42%wlan0]:51821",
         )) {
             val stored = storedServer(lastSyncEpochSeconds = NOW).copy(endpoint = endpoint, listenPort = "51821")
-            val server = VpsDeployMapper.fromStored(stored, NOW)
+            val server = VpsDeployMapper.fromStored(resources, stored, NOW)
             assertEquals(expected, server.endpointAddress)
             assertEquals("Observed spelling retained", endpoint, server.endpoint)
             assertEquals("Stored host retained", endpoint, stored.endpoint)
@@ -91,7 +94,7 @@ class VpsDeployMapperTest {
 
     @Test
     fun endpointAddressPreservesIpv4HostnamesAndUnknownFields() {
-        val server = VpsDeployMapper.fromStored(storedServer(lastSyncEpochSeconds = NOW), NOW)
+        val server = VpsDeployMapper.fromStored(resources, storedServer(lastSyncEpochSeconds = NOW), NOW)
         for (endpoint in listOf("203.0.113.42", "VPN.example", "vpn.example.")) {
             assertEquals("$endpoint:51820", server.copy(endpoint = endpoint).endpointAddress)
         }
@@ -106,8 +109,8 @@ class VpsDeployMapperTest {
         for (running in listOf(true, false, null)) {
             for ((endpoint, port) in listOf("vpn.example" to "51821", "" to "", "vpn.example" to "invalid")) {
                 val status = VpsDeployFixtureData.onlineStatusWithPeers().copy(running = running, endpoint = endpoint, listenPort = port)
-                val refreshed = VpsDeployMapper.fromStatus(stored, status, NOW)
-                val persisted = VpsDeployMapper.fromStored(stored.copy(endpoint = endpoint, listenPort = port,
+                val refreshed = VpsDeployMapper.fromStatus(resources, stored, status, NOW)
+                val persisted = VpsDeployMapper.fromStored(resources, stored.copy(endpoint = endpoint, listenPort = port,
                     cidr = status.cidr, dns = status.dns, running = running, lastSyncEpochSeconds = NOW), NOW)
 
                 assertEquals(persisted.endpoint, refreshed.endpoint)
@@ -121,7 +124,7 @@ class VpsDeployMapperTest {
 
     @Test
     fun recentlySyncedStoredServerMapsToOnlineUiState() {
-        val server = VpsDeployMapper.fromStored(storedServer(lastSyncEpochSeconds = NOW - 18L).copy(running = true), NOW)
+        val server = VpsDeployMapper.fromStored(resources, storedServer(lastSyncEpochSeconds = NOW - 18L).copy(running = true), NOW)
 
         assertEquals(VpsDeployServerStatus.ONLINE, server.status)
         assertEquals("18s", server.lastSync)
@@ -130,7 +133,7 @@ class VpsDeployMapperTest {
 
     @Test
     fun staleStoredServerMapsToAttentionUiState() {
-        val server = VpsDeployMapper.fromStored(storedServer(lastSyncEpochSeconds = NOW - 700L), NOW)
+        val server = VpsDeployMapper.fromStored(resources, storedServer(lastSyncEpochSeconds = NOW - 700L), NOW)
 
         assertEquals(VpsDeployServerStatus.ATTENTION, server.status)
         assertEquals(false, server.health.first { it.label == "recent sync" }.ok)
@@ -138,7 +141,7 @@ class VpsDeployMapperTest {
 
     @Test
     fun statusResultMapsPeersToUsers() {
-        val server = VpsDeployMapper.fromStatus(
+        val server = VpsDeployMapper.fromStatus(resources,
             stored = storedServer(lastSyncEpochSeconds = 0L),
             status = VpsServerStatus(
                 interfaceName = "wg0",
@@ -174,7 +177,7 @@ class VpsDeployMapperTest {
         val status = VpsDeployFixtureData.onlineStatusWithPeers().copy(interfaceName = "wg0")
         for ((knownEngine, expectedEngine) in listOf("" to "unknown", "kernel" to "kernel", "WireGuard" to "WireGuard")) {
             val stored = storedServer(lastSyncEpochSeconds = 0L).copy(engine = knownEngine)
-            val server = VpsDeployMapper.fromStatus(stored, status, NOW)
+            val server = VpsDeployMapper.fromStatus(resources, stored, status, NOW)
             assertEquals(expectedEngine, server.engine)
             assertEquals("Ubuntu 24.04", server.distro)
         }
@@ -183,7 +186,7 @@ class VpsDeployMapperTest {
     @Test
     fun fixtureSetCoversFleetVisualStates() {
         val servers = VpsDeployFixtureData.storedServers().map {
-            VpsDeployMapper.fromStored(it, VpsDeployFixtureData.NOW)
+            VpsDeployMapper.fromStored(resources, it, VpsDeployFixtureData.NOW)
         }
 
         assertEquals(
@@ -198,34 +201,34 @@ class VpsDeployMapperTest {
 
     @Test
     fun freshLegacyRecordCannotProveOnline() {
-        val server = VpsDeployMapper.fromStored(storedServer(lastSyncEpochSeconds = NOW - 18L), NOW)
+        val server = VpsDeployMapper.fromStored(resources, storedServer(lastSyncEpochSeconds = NOW - 18L), NOW)
         assertEquals(VpsDeployServerStatus.ATTENTION, server.status)
     }
 
     @Test
     fun futureTimestampCannotProveOnline() {
-        val server = VpsDeployMapper.fromStored(storedServer(lastSyncEpochSeconds = NOW + 1L).copy(running = true), NOW)
+        val server = VpsDeployMapper.fromStored(resources, storedServer(lastSyncEpochSeconds = NOW + 1L).copy(running = true), NOW)
         assertEquals(VpsDeployServerStatus.ATTENTION, server.status)
     }
 
     @Test
     fun stoppedUnknownAndStaleHealthAreIndependentOfFreshness() {
         val fresh = storedServer(lastSyncEpochSeconds = NOW - 18L)
-        val stopped = VpsDeployMapper.fromStored(fresh.copy(running = false), NOW)
+        val stopped = VpsDeployMapper.fromStored(resources, fresh.copy(running = false), NOW)
         assertEquals(VpsDeployServerStatus.OFFLINE, stopped.status)
         assertEquals(true, stopped.health.first { it.label == "recent sync" }.ok)
         assertEquals(false, stopped.health.first { it.label == "wg running" }.ok)
-        val unknown = VpsDeployMapper.fromStored(fresh, NOW)
+        val unknown = VpsDeployMapper.fromStored(resources, fresh, NOW)
         assertEquals(VpsDeployServerStatus.ATTENTION, unknown.status)
         assertEquals(true, unknown.health.first { it.label == "recent sync" }.ok)
         assertEquals(null, unknown.health.first { it.label == "wg running" }.ok)
         for (running in listOf(true, false, null)) {
-            val stale = VpsDeployMapper.fromStored(fresh.copy(running = running, lastSyncEpochSeconds = NOW - 601L), NOW)
+            val stale = VpsDeployMapper.fromStored(resources, fresh.copy(running = running, lastSyncEpochSeconds = NOW - 601L), NOW)
             assertEquals(VpsDeployServerStatus.ATTENTION, stale.status)
             assertEquals(false, stale.health.first { it.label == "recent sync" }.ok)
             assertEquals(null, stale.health.first { it.label == "wg running" }.ok)
         }
-        assertEquals(VpsDeployServerStatus.ONLINE, VpsDeployMapper.fromStored(fresh.copy(running = true, lastSyncEpochSeconds = NOW - 600L), NOW).status)
+        assertEquals(VpsDeployServerStatus.ONLINE, VpsDeployMapper.fromStored(resources, fresh.copy(running = true, lastSyncEpochSeconds = NOW - 600L), NOW).status)
     }
 
     @Test
@@ -233,19 +236,19 @@ class VpsDeployMapperTest {
         val base = storedServer(lastSyncEpochSeconds = 0L)
         for (running in listOf(true, false, null)) {
             val status = VpsDeployFixtureData.onlineStatusWithPeers().copy(running = running)
-            val live = VpsDeployMapper.fromStatus(base, status, NOW)
-            val persisted = VpsDeployMapper.fromStored(base.copy(endpoint = status.endpoint, listenPort = status.listenPort, cidr = status.cidr, dns = status.dns, lastSyncEpochSeconds = NOW, running = running), NOW)
+            val live = VpsDeployMapper.fromStatus(resources, base, status, NOW)
+            val persisted = VpsDeployMapper.fromStored(resources, base.copy(endpoint = status.endpoint, listenPort = status.listenPort, cidr = status.cidr, dns = status.dns, lastSyncEpochSeconds = NOW, running = running), NOW)
             assertEquals(persisted.status, live.status)
             assertEquals(persisted.health, live.health)
         }
         val peer = VpsPeerStatus("unknown", "key", "10.8.0.2/32", null, null, null)
         val status = VpsDeployFixtureData.onlineStatusWithPeers().copy(peers = listOf(peer))
-        val user = VpsDeployMapper.fromStatus(base, status, NOW).users.single()
+        val user = VpsDeployMapper.fromStatus(resources, base, status, NOW).users.single()
         assertEquals(VpsDeployUserStatus.IDLE, user.status)
         assertEquals("—", user.rx)
         assertEquals("—", user.tx)
         assertEquals("—", user.handshake)
-        val future = VpsDeployMapper.fromStatus(base, status.copy(peers = listOf(peer.copy(latestHandshake = NOW + 1L))), NOW).users.single()
+        val future = VpsDeployMapper.fromStatus(resources, base, status.copy(peers = listOf(peer.copy(latestHandshake = NOW + 1L))), NOW).users.single()
         assertEquals(VpsDeployUserStatus.IDLE, future.status)
         assertEquals("—", future.handshake)
     }
@@ -256,10 +259,10 @@ class VpsDeployMapperTest {
         val status = VpsDeployFixtureData.onlineStatusWithPeers().copy(peers = listOf(
             VpsPeerStatus("phone", "public-key", "10.8.0.2/32", NOW + 600L, 1L, 2L),
         ))
-        val fresh = VpsDeployMapper.fromStatus(stored, status, NOW, NOW)
+        val fresh = VpsDeployMapper.fromStatus(resources, stored, status, NOW, NOW)
         assertEquals(VpsDeployServerStatus.ONLINE, fresh.status)
         assertEquals("—", fresh.users.single().created)
-        val retained = VpsDeployMapper.fromStatus(stored, status, NOW + 601L, NOW)
+        val retained = VpsDeployMapper.fromStatus(resources, stored, status, NOW + 601L, NOW)
         assertEquals(VpsDeployServerStatus.ATTENTION, retained.status)
         assertEquals(VpsDeployUserStatus.IDLE, retained.users.single().status)
         assertEquals(false, retained.health.first { it.label == "recent sync" }.ok)
@@ -272,13 +275,40 @@ class VpsDeployMapperTest {
     @Test
     fun unknownInventoryDiffersFromValidatedEmptyAndStoppedObservations() {
         val stored = storedServer(lastSyncEpochSeconds = 0L)
-        assertEquals(false, VpsDeployMapper.fromStored(stored, NOW).usersKnown)
+        assertEquals(false, VpsDeployMapper.fromStored(resources, stored, NOW).usersKnown)
         for (running in listOf(true, false, null)) {
             val status = VpsDeployFixtureData.onlineStatusWithPeers().copy(running = running, peers = emptyList())
-            val mapped = VpsDeployMapper.fromStatus(stored, status, NOW, NOW)
+            val mapped = VpsDeployMapper.fromStatus(resources, stored, status, NOW, NOW)
             assertEquals(true, mapped.usersKnown)
             assertEquals(emptyList<VpsDeployUser>(), mapped.users)
         }
+    }
+
+    @Test
+    @Config(qualifiers = "fr")
+    fun frenchDisplayFallbacksPreserveStoredNamesTechnicalValuesAndUnknownCreationTime() {
+        val stored = storedServer(NOW).copy(name = "Lab device", os = "", version = "", engine = "", running = true)
+        val server = VpsDeployMapper.fromStored(resources, stored, NOW)
+        assertEquals("Lab device", server.name)
+        assertEquals("En attente de détection", server.distro)
+        assertEquals("inconnu", server.engine)
+        assertEquals(listOf("fiche serveur", "Point de terminaison", "synchronisation récente", "wg en cours d’exécution"),
+            server.health.map { it.label })
+        assertEquals(listOf(true, true, true, true), server.health.map { it.ok })
+
+        val status = VpsDeployFixtureData.onlineStatusWithPeers().copy(peers = listOf(
+            VpsPeerStatus("", "key-unnamed", "10.8.0.2/32", null, null, null),
+            VpsPeerStatus("My phone", "key-named", "10.8.0.3/32", null, null, null),
+        ))
+        val users = VpsDeployMapper.fromStatus(resources, stored, status, NOW).users
+        assertEquals("Appareil 01", users[0].name)
+        assertEquals("appareil", users[0].device)
+        assertEquals("key-unnamed", users[0].id)
+        assertEquals("10.8.0.2/32", users[0].ip)
+        assertEquals("—", users[0].created)
+        assertEquals("My phone", users[1].name)
+        assertEquals("My phone", users[1].device)
+        assertEquals("", status.peers[0].name)
     }
 
     private fun storedServer(lastSyncEpochSeconds: Long) = StoredVpsServer(

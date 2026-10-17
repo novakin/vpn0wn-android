@@ -1,9 +1,19 @@
 package com.vpn0wn.android.util
 
 import android.content.res.Configuration
+import android.view.ContextThemeWrapper
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.TextView
 import com.vpn0wn.android.Application
 import com.vpn0wn.android.R
 import com.vpn0wn.android.backend.BackendException
+import com.vpn0wn.android.databinding.LogViewerActivityBinding
+import com.vpn0wn.android.databinding.TunnelDetailFragmentBinding
+import com.vpn0wn.android.databinding.TunnelDetailPeerBinding
+import com.vpn0wn.android.databinding.TunnelEditorFragmentBinding
+import com.vpn0wn.android.databinding.TunnelEditorPeerBinding
 import com.vpn0wn.config.BadConfigException
 import com.vpn0wn.crypto.Key
 import com.vpn0wn.crypto.KeyFormatException
@@ -22,6 +32,51 @@ import org.robolectric.annotation.Config
 class LocalizedResourcesTest {
     @Test
     @Config(qualifiers = "fr")
+    fun frenchNativeBindingsUseTranslatedLabelsActionsAndHints() {
+        val inflater = LayoutInflater.from(ContextThemeWrapper(Application.get(), R.style.AppTheme))
+        val editor = TunnelEditorFragmentBinding.inflate(inflater)
+        val editorPeer = TunnelEditorPeerBinding.inflate(inflater)
+        val detail = TunnelDetailFragmentBinding.inflate(inflater)
+        val detailPeer = TunnelDetailPeerBinding.inflate(inflater)
+        val logs = LogViewerActivityBinding.inflate(inflater)
+        detailPeer.executePendingBindings()
+        val editorText = textViews(editor.root).map { it.text.toString() }.toList()
+        val peerText = textViews(editorPeer.root).map { it.text.toString() }.toList()
+        val detailText = textViews(detail.root).map { it.text.toString() }.toList()
+
+        for (label in listOf("CÔTÉ LOCAL", "Nom", "Clé privée", "Clé publique", "Adresses", "Serveurs DNS", "Port d'écoute", "Applications", "régénérer", "configurer")) {
+            assertTrue("Editor contains $label", editorText.contains(label))
+        }
+        assertTrue(peerText.contains("supprimer"))
+        assertTrue(peerText.contains("Clé pré-partagée"))
+        assertEquals("coller une clé Base64", editorPeer.publicKeyText.hint.toString())
+        assertEquals("hôte:port", editorPeer.endpointText.hint.toString())
+        assertTrue(detailText.contains("FIG.01 - TOPOLOGIE DU TUNNEL"))
+        assertTrue(detailText.contains("↓ RÉCEPTION"))
+        assertTrue(detailText.contains("↑ ENVOI"))
+        assertEquals("PAIR #01", detailPeer.peerTitle.text.toString())
+        assertTrue(textViews(logs.root).any { it.text.toString() == "TOUS" })
+        assertTrue(textViews(logs.root).any { it.text.toString() == "DEBUG" })
+    }
+
+    @Test
+    fun localizedMetadataPreservesArgumentsAndExplicitEnglishFallback() {
+        val application = Application.get()
+        val french = application.createConfigurationContext(Configuration(application.resources.configuration).apply {
+            setLocale(Locale.FRENCH)
+        })
+        val arabic = application.createConfigurationContext(Configuration(application.resources.configuration).apply {
+            setLocale(Locale.forLanguageTag("ar-SA"))
+        })
+
+        assertEquals("My phone · création —", french.getString(R.string.vpn0wn_user_metadata, "My phone", "—"))
+        assertEquals("PAIR #12", french.getString(R.string.vpn0wn_peer_title, "12"))
+        assertEquals("My phone · created —", arabic.getString(R.string.vpn0wn_user_metadata, "My phone", "—"))
+        assertEquals("PEER #12", arabic.getString(R.string.vpn0wn_peer_title, "12"))
+    }
+
+    @Test
+    @Config(qualifiers = "fr")
     fun frenchConfigFailureIdentifiesTheAttributeWithinItsSection() {
         val failure = BadConfigException(
             BadConfigException.Section.PEER,
@@ -31,6 +86,13 @@ class LocalizedResourcesTest {
         )
 
         assertTrue(ErrorMessages[failure].contains("PublicKey de Peer"))
+    }
+
+    private fun textViews(view: View): Sequence<TextView> = sequence {
+        if (view is TextView) yield(view)
+        if (view is ViewGroup) {
+            for (index in 0 until view.childCount) yieldAll(textViews(view.getChildAt(index)))
+        }
     }
 
     @Test
