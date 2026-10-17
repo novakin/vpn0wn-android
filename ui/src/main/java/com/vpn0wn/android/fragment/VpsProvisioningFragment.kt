@@ -13,6 +13,7 @@ import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.LayerDrawable
 import android.os.Bundle
 import android.text.InputType
+import android.text.method.PasswordTransformationMethod
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
@@ -22,6 +23,7 @@ import android.view.ViewGroup.LayoutParams.WRAP_CONTENT
 import android.view.WindowManager
 import android.view.accessibility.AccessibilityNodeInfo
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
@@ -79,6 +81,8 @@ import com.vpn0wn.android.util.BiometricAuthenticator
 import com.vpn0wn.android.util.DownloadsFileSaver
 import com.vpn0wn.android.databinding.ConfigNamingDialogFragmentBinding
 import com.vpn0wn.android.provisioning.VpsUserProfile
+import com.vpn0wn.android.provisioning.VpsBackupArchive
+import com.vpn0wn.android.provisioning.VpsBackupArchiveException
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.WriterException
 import com.google.zxing.qrcode.QRCodeWriter
@@ -92,6 +96,8 @@ import com.vpn0wn.android.widget.VpsTopologyView
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
@@ -119,6 +125,10 @@ class VpsProvisioningFragment : BaseFragment() {
     @Volatile private var profileAction: ProfileAction? = null
     private var profileDialog: AlertDialog? = null
     private var profileJob: Job? = null
+    @Volatile private var backupAction: BackupAction? = null
+    private var backupDialog: AlertDialog? = null
+    private var backupFields: List<EditText> = emptyList()
+    private var backupJob: Job? = null
     private val servers = mutableListOf<VpsDeployServer>()
     private val storedServers = mutableListOf<StoredVpsServer>()
     private val serverStore by lazy { Application.getVpsServerStore() }
@@ -190,6 +200,7 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     override fun onDestroyView() {
+        retireBackupAction()
         retireRemoveUserAction()
         retireProfileAction()
         retireAddUserAction()
@@ -204,6 +215,7 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     override fun onStop() {
+        if (backupAction?.authenticating == false) retireBackupAction()
         retireRemoveUserAction()
         if (profileAction?.authenticating == false) retireProfileAction()
         retireAddUserAction()
@@ -214,6 +226,7 @@ class VpsProvisioningFragment : BaseFragment() {
     override fun onSelectedTunnelChanged(oldTunnel: ObservableTunnel?, newTunnel: ObservableTunnel?) = Unit
 
     private fun render() {
+        backupAction?.takeUnless { ownsBackupAction(it, requireStarted = false) }?.let { retireBackupAction() }
         if (removeUserAction?.let { !ownsRemoveUserAction(it, requireStarted = false) } == true ||
             removeUserDialog != null && provisionState.busy) retireRemoveUserAction()
         profileAction?.takeUnless { ownsProfileAction(it, requireStarted = false) }?.let { retireProfileAction() }
@@ -396,10 +409,13 @@ class VpsProvisioningFragment : BaseFragment() {
         scroll.addView(sectionHeader(4, str(R.string.vpn0wn_section_actions), str(R.string.vpn0wn_hint_remote)))
         scroll.addView(actionGrid(listOf(
             VpsDeployAction(R.drawable.ic_vpn0wn_refresh, str(R.string.vpn0wn_action_repair), str(R.string.vpn0wn_action_repair_sub), R.color.vpn0wn_ink) { toast(str(R.string.vpn0wn_repair_queued)) },
-            VpsDeployAction(R.drawable.ic_vpn0wn_share, str(R.string.vpn0wn_action_backup), str(R.string.vpn0wn_action_backup_sub), R.color.vpn0wn_signal_deep) { toast(str(R.string.vpn0wn_backup_exported)) },
+            VpsDeployAction(R.drawable.ic_vpn0wn_share, str(R.string.vpn0wn_action_backup), str(R.string.vpn0wn_action_backup_sub),
+                R.color.vpn0wn_signal_deep, !canBackup(server.id)) { requestBackup(server) },
             VpsDeployAction(R.drawable.ic_vpn0wn_logs, str(R.string.vpn0wn_action_terminal), str(R.string.vpn0wn_action_terminal_sub), R.color.vpn0wn_ink) { toast(str(R.string.vpn0wn_terminal_pending)) },
             VpsDeployAction(R.drawable.ic_vpn0wn_trash, str(R.string.vpn0wn_action_uninstall), str(R.string.vpn0wn_action_uninstall_sub), R.color.vpn0wn_error) { toast(str(R.string.vpn0wn_uninstall_requires_confirmation)) },
         )))
+        if (provisionState.statusSnapshots[server.id]?.status?.serverPublicKey == null)
+            scroll.addView(mono(str(R.string.vpn0wn_backup_identity_required), 11, R.color.vpn0wn_ink_3).apply { setPadding(dp(14)) })
         storedServers.find { it.id == server.id }?.let { stored ->
             val checking = provisionState.busy && provisionState.serverId == stored.id
             scroll.addView(rowButton(str(if (checking) R.string.vpn0wn_cancel_check else R.string.vpn0wn_refresh_server),
@@ -675,8 +691,185 @@ class VpsProvisioningFragment : BaseFragment() {
         return container
     }
 
+    private fun canBackup(serverId: String): Boolean {
+        val stored = storedServers.singleOrNull { it.id == serverId } ?: return false
+        val observed = provisionState.statusSnapshots[serverId]?.takeIf { it.matches(stored) }
+        return !provisionState.busy && backupAction == null && !AdminKnobs.disableConfigExport && observed?.status?.serverPublicKey != null
+    }
+
+    private fun requestBackup(server: VpsDeployServer) {
+        if (!canBackup(server.id) || profileAction != null || !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
+        val stored = storedServers.singleOrNull { it.id == server.id } ?: return
+        val action = BackupAction(stored, requireView())
+        backupAction = action
+        try {
+            BiometricAuthenticator.authenticate(R.string.vpn0wn_backup_authenticate, this) { result ->
+                if (backupAction !== action || !action.authenticating) return@authenticate
+                if (result is BiometricAuthenticator.Result.Failure && result.code == null) {
+                    if (ownsBackupAction(action)) toast(str(R.string.biometric_auth_error))
+                    return@authenticate
+                }
+                action.authenticating = false
+                if (!ownsBackupAction(action) || AdminKnobs.disableConfigExport) {
+                    retireBackupAction()
+                    return@authenticate
+                }
+                when (result) {
+                    is BiometricAuthenticator.Result.Success, is BiometricAuthenticator.Result.NoAuthenticationConfigured -> showBackupPassword(action)
+                    is BiometricAuthenticator.Result.Failure -> {
+                        toast(str(R.string.biometric_auth_error))
+                        retireBackupAction()
+                    }
+                    is BiometricAuthenticator.Result.Cancelled -> retireBackupAction()
+                }
+            }
+        } catch (failure: RuntimeException) {
+            if (backupAction === action) retireBackupAction()
+            throw failure
+        }
+    }
+
+    // Password editors reuse native form geometry and must never enter hierarchy saved state.
+    @Suppress("MagicNumber")
+    private fun backupPasswordField(container: LinearLayout, fieldId: Int, title: Int): EditText {
+        val input = EditText(requireContext()).apply {
+            id = fieldId
+            setTextAppearance(R.style.Vpn0wnEditorField)
+            setSingleLine(true)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            typeface = monoTypeface()
+            isSaveEnabled = false
+            minimumHeight = dp(48)
+            doAfterTextChanged { error = null }
+        }
+        container.addView(vertical().apply {
+            setPadding(dp(24), dp(8), dp(24), dp(8))
+            addView(label(str(title)).apply { labelFor = fieldId })
+            addView(input, LinearLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT))
+        })
+        return input
+    }
+
+    // Native dialog insets and text retain the approved provisioning form treatment.
+    @Suppress("MagicNumber")
+    private fun showBackupPassword(action: BackupAction) {
+        val builder = MaterialAlertDialogBuilder(requireContext())
+        val content = vertical()
+        val progress = TextView(builder.context, null, com.google.android.material.R.attr.materialAlertDialogBodyTextStyle).apply {
+            id = R.id.vpn0wn_backup_progress
+            setText(R.string.vpn0wn_backup_password_note)
+            setPadding(dp(24), 0, dp(24), dp(8))
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+        }
+        content.addView(progress)
+        val password = backupPasswordField(content, R.id.vpn0wn_backup_password, R.string.vpn0wn_backup_password)
+        val confirmation = backupPasswordField(content, R.id.vpn0wn_backup_confirm_password, R.string.vpn0wn_backup_confirm_password)
+        backupFields = listOf(password, confirmation)
+        content.addView(CheckBox(builder.context).apply {
+            setText(R.string.vpn0wn_backup_show_passwords)
+            isSaveEnabled = false
+            minimumHeight = dp(48)
+            setPadding(dp(24), 0, dp(24), 0)
+            setOnCheckedChangeListener { _, checked ->
+                if (ownsBackupAction(action))
+                    listOf(password, confirmation).forEach { it.transformationMethod = if (checked) null else PasswordTransformationMethod.getInstance() }
+            }
+        })
+        val dialog = builder.setTitle(R.string.vpn0wn_backup_title)
+            .setView(ScrollView(builder.context).apply { addView(content) })
+            .setNegativeButton(R.string.cancel, null).setPositiveButton(R.string.vpn0wn_backup_save, null).create()
+        backupDialog = dialog
+        dialog.setOnDismissListener { if (backupDialog === dialog) retireBackupAction() }
+        dialog.show()
+        dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            if (!ownsBackupAction(action) || backupJob?.isActive == true) return@setOnClickListener
+            if (AdminKnobs.disableConfigExport) {
+                retireBackupAction()
+                return@setOnClickListener
+            }
+            val owned = CharArray(password.length()).also { password.text.getChars(0, password.length(), it, 0) }
+            val repeated = CharArray(confirmation.length()).also { confirmation.text.getChars(0, confirmation.length(), it, 0) }
+            try {
+                VpsBackupArchive().validateNewPassword(owned)
+                if (!owned.contentEquals(repeated)) {
+                    confirmation.error = str(R.string.vpn0wn_backup_password_mismatch)
+                    confirmation.requestFocus()
+                } else {
+                    backupFields.forEach { it.text.clear(); it.isEnabled = false }
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
+                    progress.setText(R.string.vpn0wn_backup_working)
+                    exportBackup(action, owned)
+                }
+            } catch (_: VpsBackupArchiveException) {
+                password.error = str(R.string.vpn0wn_backup_password_invalid)
+                password.requestFocus()
+            } finally {
+                owned.fill('\u0000')
+                repeated.fill('\u0000')
+            }
+        }
+    }
+
+    private fun exportBackup(action: BackupAction, password: CharArray) {
+        val owned = password.copyOf()
+        backupJob = viewLifecycleOwner.lifecycleScope.launch {
+            var access: Job? = null
+            try {
+                ensureBackupAllowed(action)
+                if (!downloadsFileSaver.ensurePermission()) return@launch
+                ensureBackupAllowed(action)
+                access = provision.exportBackup(action.server, owned) { archive ->
+                    ensureBackupAllowed(action)
+                    val path = downloadsFileSaver.save("vpn0wn-server-${System.currentTimeMillis()}.vpn0wnbackup", "application/octet-stream", false) { stream ->
+                        if (backupAction !== action || AdminKnobs.disableConfigExport) throw CancellationException("Backup export is no longer authorized")
+                        stream.write(archive)
+                    }
+                    ensureBackupAllowed(action)
+                    if (path != null) toast(str(R.string.vpn0wn_backup_exported, path))
+                }
+                owned.fill('\u0000')
+                access?.join()
+                if (ownsBackupAction(action) && provisionState.problem != null) toast(str(R.string.vpn0wn_backup_failed))
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: IOException) {
+                if (ownsBackupAction(action)) toast(str(R.string.vpn0wn_backup_failed))
+            } catch (_: SecurityException) {
+                if (ownsBackupAction(action)) toast(str(R.string.vpn0wn_backup_failed))
+            } finally {
+                withContext(NonCancellable) { access?.cancelAndJoin() }
+                owned.fill('\u0000')
+                if (backupAction === action) {
+                    backupJob = null
+                    retireBackupAction()
+                }
+            }
+        }.also { job -> job.invokeOnCompletion { owned.fill('\u0000') } }
+    }
+
+    private fun ownsBackupAction(action: BackupAction, requireStarted: Boolean = true): Boolean =
+        backupAction === action && view === action.ownerView && (screen as? Screen.Detail)?.serverId == action.server.id &&
+            storedServers.singleOrNull { it.id == action.server.id } == action.server &&
+            (!requireStarted || viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+
+    private fun ensureBackupAllowed(action: BackupAction) {
+        if (!ownsBackupAction(action) || AdminKnobs.disableConfigExport) throw CancellationException("Backup export is no longer authorized")
+    }
+
+    private fun retireBackupAction() {
+        backupAction = null
+        backupJob?.cancel()
+        backupJob = null
+        backupFields.forEach { it.text.clear() }
+        backupFields = emptyList()
+        val dialog = backupDialog
+        backupDialog = null
+        dialog?.dismiss()
+    }
+
     private fun requestProfileAction(server: VpsDeployServer, user: VpsDeployUser, use: ProfileUse) {
-        if (profileAction != null || provisionState.busy || !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
+        if (profileAction != null || backupAction != null || provisionState.busy || !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
         val stored = storedServers.singleOrNull { it.id == server.id } ?: return
         val action = ProfileAction(stored, user.id, user.name, use, requireView())
         if (!ownsProfileSelection(action) || exportProhibited(action)) return
@@ -1851,6 +2044,8 @@ class VpsProvisioningFragment : BaseFragment() {
     private fun color(res: Int): Int = ContextCompat.getColor(requireContext(), res)
     private fun str(res: Int, vararg args: Any): String = getString(res, *args)
     private fun monoTypeface(): Typeface = cachedMonoTypeface
+
+    private class BackupAction(val server: StoredVpsServer, val ownerView: View, var authenticating: Boolean = true)
 
     private data class AddUserAction(val server: StoredVpsServer, val name: String? = null)
 

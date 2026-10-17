@@ -69,12 +69,13 @@ import com.vpn0wn.android.util.TunnelImporter
 import com.vpn0wn.config.Config as TunnelConfig
 import com.google.android.material.textfield.TextInputLayout
 import com.google.zxing.BinaryBitmap
-import com.google.zxing.MultiFormatReader
+import com.google.zxing.DecodeHintType
 import com.google.zxing.RGBLuminanceSource
 import com.google.zxing.common.HybridBinarizer
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.WriterException
 import com.google.zxing.qrcode.QRCodeWriter
+import com.google.zxing.qrcode.QRCodeReader
 import java.io.File
 import java.io.IOException
 import java.util.Base64
@@ -88,6 +89,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainCoroutineDispatcher
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
@@ -1288,9 +1290,15 @@ class VpsProvisioningWorkflowTest {
     fun profileQrDecodesFullCanonicalConfigAndClearsSecureDialogResourcesOnDismissal() = runTest {
         VpsUserProfileFileTest.resetNativeFiles()
         val profiles = profileStore {}
+        val payload = requireNotNull(javaClass.getResourceAsStream("/vps-profile-qr-finder-regression.conf")).bufferedReader().use { it.readText() }
+        val config = TunnelConfig.parse(payload.byteInputStream())
+        val result = VpsAddPeerResult("phone", "10.8.0.2", config.`interface`.keyPair.publicKey.toBase64(), payload)
+        val serverPublicKey = config.peers.single().publicKey.toBase64()
+        val profile = VpsProfileFixture.profile(serverPublicKey = serverPublicKey, result = result)
+        assertEquals(payload, profile.payload())
         val fixture = fixture(profiles = profiles)
         try {
-            openProfileUser(fixture, profiles)
+            openProfileUser(fixture, profiles, result = result, serverPublicKey = serverPublicKey)
             val originalFlags = fixture.activity.window.attributes.flags
             click(fixture, R.string.vpn0wn_action_show_qr)
             val callback = AppDataTransferSettingsTest.Authentication.callbacks.last()
@@ -1301,8 +1309,14 @@ class VpsProvisioningWorkflowTest {
             val bitmap = (image.drawable as BitmapDrawable).bitmap
             val pixels = IntArray(bitmap.width * bitmap.height)
             bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
-            val decoded = MultiFormatReader().decode(BinaryBitmap(HybridBinarizer(RGBLuminanceSource(bitmap.width, bitmap.height, pixels))))
-            assertEquals(VpsProfileFixture.profile().payload(), decoded.text)
+            val expected = QRCodeWriter().encode(profile.payload(), BarcodeFormat.QR_CODE, bitmap.width, bitmap.height)
+            pixels.forEachIndexed { index, pixel ->
+                assertEquals(if (expected[index % bitmap.width, index / bitmap.width]) android.graphics.Color.BLACK else android.graphics.Color.WHITE, pixel)
+            }
+            // ZXing 3.4.1's finder rejects this intact synthetic raster; pure mode preserves the bitmap payload check.
+            val decoded = QRCodeReader().decode(BinaryBitmap(HybridBinarizer(RGBLuminanceSource(bitmap.width, bitmap.height, pixels))),
+                mapOf(DecodeHintType.PURE_BARCODE to true))
+            assertEquals(profile.payload(), decoded.text)
             assertTrue(dialog.window!!.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0)
             assertEquals(originalFlags, fixture.activity.window.attributes.flags)
             assertEquals(2, profileStatusCommands(fixture))
@@ -1749,23 +1763,48 @@ class VpsProvisioningWorkflowTest {
     }
 
     private suspend fun TestScope.openProfileUser(fixture: Fixture, profiles: VpsUserProfileStore,
-        stored: StoredVpsServer = VpsProfileFixture.server, result: VpsAddPeerResult = VpsProfileFixture.result()) {
+        stored: StoredVpsServer = VpsProfileFixture.server, result: VpsAddPeerResult = VpsProfileFixture.result(),
+        serverPublicKey: String = PROFILE_SERVER_KEY) {
         val store = Vpn0wnApplication.getVpsServerStore()
         store.upsert(stored)
         store.saveCredential(stored, PROFILE_PIN, VpsCredential.Password(PASSWORD.toCharArray()))
-        profiles.saveGenerated(stored, PROFILE_SERVER_KEY, VpsProfileFixture.request.copy(name = result.name), result)
+        profiles.saveGenerated(stored, serverPublicKey, VpsProfileFixture.request.copy(name = result.name), result)
         fixture.peer.statusOutput = JSONObject(profileStatus(stored, withPeer = true)).apply {
-            getJSONArray("peers").getJSONObject(0).put("name", result.name)
+            put("serverPublicKey", serverPublicKey)
+            getJSONArray("peers").getJSONObject(0).put("name", result.name).put("publicKey", result.publicKey)
         }.toString()
         requireNotNull(fixture.model.syncStatus(stored)).join()
-        settle()
-        openServer(fixture, store.servers.first().single())
+        val current = store.servers.first().single()
+        awaitRenderedServer(fixture, current)
+        openServer(fixture, current)
         clickableAncestor(text(fixture.root, result.name)).performClick()
         settle()
         assertNotNull(fixture.root.findViewById<View>(R.id.vpn0wn_vps_profile_import))
     }
 
     private fun profileStatusCommands(fixture: Fixture) = fixture.peer.commands.count { it.contains("./'sync-status.sh'") }
+
+    private suspend fun TestScope.awaitRenderedServer(fixture: Fixture, expected: StoredVpsServer) {
+        val root = fixture.root as ViewGroup
+        val projection = VpsProvisioningFragment::class.java.getDeclaredField("storedServers").apply { isAccessible = true }
+        val published = CompletableDeferred<Unit>()
+        fun observe() {
+            val records = projection.get(fixture.fragment) as List<*>
+            if (records.singleOrNull { (it as StoredVpsServer).id == expected.id } == expected &&
+                descendants(root).filterIsInstance<TextView>().any { it.text.toString() == expected.name }) published.complete(Unit)
+        }
+        root.setOnHierarchyChangeListener(object : ViewGroup.OnHierarchyChangeListener {
+            override fun onChildViewAdded(parent: View?, child: View?) = observe()
+            override fun onChildViewRemoved(parent: View?, child: View?) = Unit
+        })
+        try {
+            observe()
+            settle()
+            withContext(Dispatchers.Default) { withTimeout(10_000) { published.await() } }
+            settle()
+        } finally { root.setOnHierarchyChangeListener(null) }
+    }
+
 
     private fun TestScope.assertProfileViewReachable(view: View) {
         assertTrue("Target is measured", view.width > 0 && view.height > 0)
