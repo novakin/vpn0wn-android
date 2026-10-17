@@ -72,6 +72,8 @@ import kotlinx.coroutines.withContext
  */
 class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     internal class NotManagedException : IllegalStateException("Tunnel is no longer managed")
+    class ConfigUpdateRejectedException : IllegalStateException("Reviewed tunnel changed or is not stopped")
+    class BackendSwitchPendingException : IllegalStateException("Backend switch awaits restart")
 
     private var tunnels = CompletableDeferred<ObservableSortedKeyedArrayList<String, ObservableTunnel>>()
     private var loadingJob: Job? = null
@@ -152,7 +154,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
 
     private suspend fun <T> mutate(block: suspend () -> T): T = withContext(Dispatchers.Main.immediate) {
         operationLock.withLock {
-            check(!backendSwitchPending) { "Backend switch awaits restart" }
+            if (backendSwitchPending) throw BackendSwitchPendingException()
             // Once admitted, finish backend/store reconciliation before honouring caller cancellation.
             val result = withContext(NonCancellable) { block() }
             currentCoroutineContext().ensureActive()
@@ -424,8 +426,6 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
             tunnel.onStateChanged(if (running.contains(tunnel.name)) Tunnel.State.UP else Tunnel.State.DOWN)
     }
 
-    // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
-    @Suppress("TooGenericExceptionCaught")
     suspend fun setTunnelConfig(tunnel: ObservableTunnel, config: Config): Config = mutate {
         requireManaged(tunnel)
         invalidateRecovery(tunnel)
@@ -434,18 +434,52 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         val backend = getBackend()
         tunnel.onConfigChanged(withContext(Dispatchers.IO) {
             val state = backend.getState(tunnel)
-            backend.setState(tunnel, state, config)
-            try {
-                configStore.save(tunnel.name, config)
-            } catch (e: Exception) {
-                try {
-                    backend.setState(tunnel, state, previousConfig)
-                } catch (recovery: Exception) {
-                    e.addSuppressed(recovery)
-                }
-                throw e
-            }
+            saveTunnelConfig(tunnel, config, previousConfig, backend, state)
         })!!
+    }
+
+    suspend fun setTunnelConfigIfDown(
+        tunnel: ObservableTunnel,
+        expectedName: String,
+        expectedConfig: Config,
+        config: Config,
+        validateAdmission: suspend () -> Unit,
+    ): Config = mutate {
+        if (tunnelMap[tunnel.name] !== tunnel || tunnel.name != expectedName) throw ConfigUpdateRejectedException()
+        val previousConfig = tunnel.getConfigAsync()
+        if (previousConfig != expectedConfig || tunnel.state != Tunnel.State.DOWN) throw ConfigUpdateRejectedException()
+        val backend = getBackend()
+        val state = withContext(Dispatchers.IO) { backend.getState(tunnel) }
+        if (state != Tunnel.State.DOWN || tunnel.state != Tunnel.State.DOWN) throw ConfigUpdateRejectedException()
+        validateAdmission()
+        if (previousConfig == config) return@mutate previousConfig
+        invalidateRecovery(tunnel)
+        tunnel.invalidateStatistics()
+        tunnel.onConfigChanged(withContext(Dispatchers.IO) {
+            saveTunnelConfig(tunnel, config, previousConfig, backend, state)
+        })!!
+    }
+
+    // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
+    @Suppress("TooGenericExceptionCaught")
+    private fun saveTunnelConfig(
+        tunnel: ObservableTunnel,
+        config: Config,
+        previousConfig: Config,
+        backend: Backend,
+        state: Tunnel.State,
+    ): Config {
+        backend.setState(tunnel, state, config)
+        return try {
+            configStore.save(tunnel.name, config)
+        } catch (e: Exception) {
+            try {
+                backend.setState(tunnel, state, previousConfig)
+            } catch (recovery: Exception) {
+                e.addSuppressed(recovery)
+            }
+            throw e
+        }
     }
 
     // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.

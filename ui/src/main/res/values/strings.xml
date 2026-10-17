@@ -717,4 +717,24 @@
     <string name="vpn0wn_health_recent_sync">recent sync</string>
     <string name="vpn0wn_health_wg_running">wg running</string>
     <string name="vpn0wn_user_metadata">%1$s · created %2$s</string>
+    <string name="vpn0wn_local_endpoint_update">Update local endpoint</string>
+    <string name="vpn0wn_local_endpoint_select">Choose one local tunnel</string>
+    <string name="vpn0wn_local_endpoint_no_tunnels">No local tunnels are available.</string>
+    <string name="vpn0wn_local_endpoint_confirm">Update endpoint</string>
+    <string name="vpn0wn_local_endpoint_authenticate">Authorize local endpoint update</string>
+    <string name="vpn0wn_local_endpoint_server_key">SERVER PUBLIC KEY</string>
+    <string name="vpn0wn_local_endpoint_client_key">CLIENT PUBLIC KEY</string>
+    <string name="vpn0wn_local_endpoint_old">CURRENT LOCAL ENDPOINT</string>
+    <string name="vpn0wn_local_endpoint_new">REVIEWED SERVER ENDPOINT</string>
+    <string name="vpn0wn_local_endpoint_scope_label">LOCAL CHANGE ONLY</string>
+    <string name="vpn0wn_local_endpoint_scope">Only this stopped tunnel’s matching peer endpoint changes. Keys, addresses, DNS, routes, keepalive and other peers stay unchanged. The tunnel stays DOWN; it is not connected automatically. This does not prove VPN health or Internet access. Previously exported profiles and other apps are unchanged.</string>
+    <string name="vpn0wn_local_endpoint_changed">The tunnel or server changed, or the tunnel is not stopped. Review it again.</string>
+    <string name="vpn0wn_local_endpoint_client_mismatch">This tunnel has a different client public key.</string>
+    <string name="vpn0wn_local_endpoint_server_mismatch">This tunnel does not contain exactly one peer with the reviewed server public key.</string>
+    <string name="vpn0wn_local_endpoint_missing">The matching local peer has no endpoint.</string>
+    <string name="vpn0wn_local_endpoint_literal">Both endpoints must use literal IP addresses and nonzero ports.</string>
+    <string name="vpn0wn_local_endpoint_failed">The local endpoint could not be updated. Check the tunnel before trying again.</string>
+    <string name="vpn0wn_local_endpoint_restart">A backend change awaits an app restart. Restart before updating the local endpoint.</string>
+    <string name="vpn0wn_local_endpoint_updated">Local endpoint updated. The tunnel remains DOWN.</string>
+    <string name="vpn0wn_local_endpoint_unchanged">The endpoint is already current. The tunnel remains DOWN.</string>
 </resources>

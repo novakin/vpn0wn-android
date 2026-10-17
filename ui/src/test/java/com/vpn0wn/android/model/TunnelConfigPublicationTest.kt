@@ -89,6 +89,31 @@ class TunnelConfigPublicationTest {
     }
 
     @Test
+    fun reviewedDownUpdateWinsOverAnEarlierCapturedRead() = runTest {
+        val fixture = fixture()
+        val tunnel = fixture.manager.getTunnels()["one"]!!
+        val reading = async { tunnel.getConfigAsync() }
+        try {
+            runCurrent()
+            fixture.awaitCapture()
+            val expected = Config.parse(fixture.original.toWgQuickString().byteInputStream())
+            val saved = TunnelTestEnvironment.profile(51821)
+            assertSame(saved, fixture.manager.setTunnelConfigIfDown(tunnel, "one", expected, saved) {})
+            fixture.release.countDown()
+            assertSame(saved, reading.await())
+            assertSame(saved, tunnel.peekConfig())
+            assertSame(saved, fixture.env.store.configs["one"])
+            assertSame(saved, fixture.manager.exportAppData().profiles["one"])
+            assertEquals(Tunnel.State.DOWN, tunnel.state)
+        } finally {
+            fixture.release.countDown()
+            reading.cancel()
+            reading.join()
+            fixture.close()
+        }
+    }
+
+    @Test
     fun renamedOwnerReloadsItsCurrentNameBeforePublication() = runTest {
         val fixture = fixture()
         val tunnel = fixture.manager.getTunnels()["one"]!!
