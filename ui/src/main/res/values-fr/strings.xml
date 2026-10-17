@@ -359,8 +359,8 @@
     <string name="vpn0wn_action_repair_sub">sync + redémarrage</string>
     <string name="vpn0wn_repair_queued">Réparation indisponible. Aucune commande de réparation n’a été ajoutée.</string>
     <string name="vpn0wn_action_backup">sauvegarde</string>
-    <string name="vpn0wn_action_backup_sub">exporter config</string>
-    <string name="vpn0wn_backup_exported">Sauvegarde serveur indisponible. Aucune sauvegarde n’a été exportée.</string>
+    <string name="vpn0wn_action_backup_sub">fichier serveur chiffré</string>
+    <string name="vpn0wn_backup_exported">Sauvegarde serveur chiffrée enregistrée dans %1$s</string>
     <string name="vpn0wn_action_terminal">terminal</string>
     <string name="vpn0wn_action_terminal_sub">sortie dry-run</string>
     <string name="vpn0wn_action_uninstall">désinstaller</string>
@@ -592,4 +592,16 @@
     <string name="vpn0wn_user_created">Utilisateur créé et profil privé conservé chiffré sur cet appareil. L’état du serveur confirme le pair. Le trafic VPN reste non vérifié. Ouvrez l’utilisateur pour accéder au profil après authentification et nouvelle vérification du serveur.</string>
     <string name="vpn0wn_user_reconcile">vérifier la création précédente</string>
     <string name="vpn0wn_peer_mutation_unavailable">La révocation et la rotation des clés ne sont pas encore connectées.</string>
+    <string name="vpn0wn_backup_authenticate">Authentifiez-vous pour exporter la sauvegarde serveur</string>
+    <string name="vpn0wn_backup_title">Sauvegarde serveur chiffrée</string>
+    <string name="vpn0wn_backup_password_note">Choisissez un mot de passe de 15 à 128 caractères. Ce mot de passe exact sera nécessaire pour récupérer la sauvegarde sur un autre téléphone. Il n’est pas enregistré ; sa perte rend la sauvegarde irrécupérable. Le fichier contient les clés serveur et les données conservées des utilisateurs et révocations, mais pas les accès SSH ni les profils privés des clients.</string>
+    <string name="vpn0wn_backup_password">Mot de passe de sauvegarde</string>
+    <string name="vpn0wn_backup_confirm_password">Confirmer le mot de passe</string>
+    <string name="vpn0wn_backup_show_passwords">Afficher les mots de passe</string>
+    <string name="vpn0wn_backup_save">Sauvegarder</string>
+    <string name="vpn0wn_backup_password_invalid">Utilisez 15 à 128 caractères sans caractère Unicode incomplet.</string>
+    <string name="vpn0wn_backup_password_mismatch">Les mots de passe ne correspondent pas.</string>
+    <string name="vpn0wn_backup_working">Création de la sauvegarde chiffrée… Vous pouvez annuler pendant cette opération.</string>
+    <string name="vpn0wn_backup_failed">Impossible d’exporter la sauvegarde. Vérifiez les accès SSH enregistrés et actualisez le serveur avant de réessayer.</string>
+    <string name="vpn0wn_backup_identity_required">Actualisez le serveur pour vérifier son identité avant d’exporter une sauvegarde.</string>
 </resources>

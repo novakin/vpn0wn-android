@@ -9,9 +9,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.vpn0wn.android.Application as Vpn0wnApplication
 import com.vpn0wn.config.InetAddresses
+import com.vpn0wn.config.Attribute
 import com.vpn0wn.config.ParseException
 import com.vpn0wn.crypto.Key
 import com.vpn0wn.crypto.KeyFormatException
+import com.vpn0wn.crypto.KeyPair
 import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -156,6 +158,60 @@ class VpsProvisioningViewModel internal constructor(
             (connection.credential as? VpsCredential.Password)?.clear()
         }
     }
+
+    fun exportBackup(savedServer: StoredVpsServer, password: CharArray, consume: suspend (ByteArray) -> Unit): Job? {
+        if (mutableState.value.busy) return null
+        val ownedPassword = password.copyOf()
+        val job = operate(requireActive = false, initialState = mutableState.value.copy(serverId = savedServer.id, savedAccess = SavedAccess.NONE)) {
+            val observed = mutableState.value.statusSnapshots[savedServer.id]?.takeIf { it.matches(savedServer) }
+            val expectedKey = observed?.status?.serverPublicKey
+            if (expectedKey == null) {
+                mutableState.value = mutableState.value.copy(problem = Problem.IDENTITY_UNAVAILABLE)
+                return@operate
+            }
+            val connection = store.loadConnection(savedServer) ?: run {
+                mutableState.value = mutableState.value.copy(problem = Problem.ACCESS_MISSING)
+                return@operate
+            }
+            val fingerprint = requireNotNull(connection.hostKeyFingerprint)
+            val snapshot = try {
+                store.checkAddOwner(savedServer, fingerprint)
+                val status = client.syncStatus(connection)
+                if (status.serverPublicKey != expectedKey || status.interfaceName != observed.status.interfaceName)
+                    throw invalidBackupResponse()
+                store.checkAddOwner(savedServer, fingerprint)
+                client.backup(connection).also { backup ->
+                    if (backup.interfaceName != status.interfaceName || backupPublicKey(backup) != expectedKey) throw invalidBackupResponse()
+                }
+            } finally {
+                (connection.credential as? VpsCredential.Password)?.clear()
+            }
+            val archive = VpsBackupArchive().encrypt(snapshot, ownedPassword)
+            try {
+                store.checkAddOwner(savedServer, fingerprint)
+                currentCoroutineContext().ensureActive()
+                consume(archive)
+            } finally {
+                archive.fill(0)
+            }
+        }
+        if (job == null) ownedPassword.fill('\u0000') else job.invokeOnCompletion { ownedPassword.fill('\u0000') }
+        return job
+    }
+
+    private fun backupPublicKey(backup: VpsBackupResult): String? {
+        val key = backup.config.lineSequence().mapNotNull { Attribute.parse(it.substringBefore('#').trim()).orElse(null) }
+            .singleOrNull { it.key.equals("PrivateKey", ignoreCase = true) }?.value ?: return null
+        return try {
+            KeyPair(Key.fromBase64(key)).publicKey.toBase64()
+        } catch (_: KeyFormatException) {
+            null
+        }
+    }
+
+    private fun invalidBackupResponse() = ProvisioningException(
+        "Backup server identity could not be verified", category = ProvisioningFailureCategory.INVALID_RESPONSE,
+    )
 
     fun useUserProfile(savedServer: StoredVpsServer, clientPublicKey: String, consume: suspend (VpsUserProfile) -> Unit): Job? =
         operate(requireActive = false, initialState = mutableState.value.copy(serverId = savedServer.id, savedAccess = SavedAccess.NONE)) {

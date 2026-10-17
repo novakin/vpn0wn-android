@@ -23,6 +23,9 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
     var addExitCode = 0
     var afterAdd: (() -> Unit)? = null
     var configExists = false
+    val backupEntered = CompletableDeferred<Unit>()
+    var blockBackup: CompletableDeferred<Unit>? = null
+    var backupOutput: String? = null
     var planOverwrites = false
     var statusEntered = CompletableDeferred<Unit>()
     var blockStatus: CompletableDeferred<Unit>? = null
@@ -56,6 +59,11 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
                         statusFailure?.let { throw it }
                         failure?.let { throw it }
                         ProvisioningCommandOutput(0, statusOutput ?: statusJson(), "")
+                    }
+                    command.contains("./'backup.sh'") -> {
+                        backupEntered.complete(Unit)
+                        blockBackup?.await()
+                        ProvisioningCommandOutput(0, requireNotNull(backupOutput), "")
                     }
                     command.contains("./'plan.sh'") -> {
                         failure?.let { throw it }

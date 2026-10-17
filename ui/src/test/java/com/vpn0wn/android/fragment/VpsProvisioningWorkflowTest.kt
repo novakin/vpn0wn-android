@@ -86,6 +86,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainCoroutineDispatcher
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
@@ -1424,14 +1425,37 @@ class VpsProvisioningWorkflowTest {
             getJSONArray("peers").getJSONObject(0).put("name", result.name)
         }.toString()
         requireNotNull(fixture.model.syncStatus(stored)).join()
-        settle()
-        openServer(fixture, store.servers.first().single())
+        val current = store.servers.first().single()
+        awaitRenderedServer(fixture, current)
+        openServer(fixture, current)
         clickableAncestor(text(fixture.root, result.name)).performClick()
         settle()
         assertNotNull(fixture.root.findViewById<View>(R.id.vpn0wn_vps_profile_import))
     }
 
     private fun profileStatusCommands(fixture: Fixture) = fixture.peer.commands.count { it.contains("./'sync-status.sh'") }
+
+    private suspend fun TestScope.awaitRenderedServer(fixture: Fixture, expected: StoredVpsServer) {
+        val root = fixture.root as ViewGroup
+        val projection = VpsProvisioningFragment::class.java.getDeclaredField("storedServers").apply { isAccessible = true }
+        val published = CompletableDeferred<Unit>()
+        fun observe() {
+            val records = projection.get(fixture.fragment) as List<*>
+            if (records.singleOrNull { (it as StoredVpsServer).id == expected.id } == expected &&
+                descendants(root).filterIsInstance<TextView>().any { it.text.toString() == expected.name }) published.complete(Unit)
+        }
+        root.setOnHierarchyChangeListener(object : ViewGroup.OnHierarchyChangeListener {
+            override fun onChildViewAdded(parent: View?, child: View?) = observe()
+            override fun onChildViewRemoved(parent: View?, child: View?) = Unit
+        })
+        try {
+            observe()
+            settle()
+            withContext(Dispatchers.Default) { withTimeout(10_000) { published.await() } }
+            settle()
+        } finally { root.setOnHierarchyChangeListener(null) }
+    }
+
 
     private fun TestScope.assertProfileViewReachable(view: View) {
         assertTrue("Target is measured", view.width > 0 && view.height > 0)
