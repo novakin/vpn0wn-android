@@ -139,7 +139,7 @@ require_owned_forwarding() {
   [[ -e "$FORWARD_CONF" || -L "$FORWARD_CONF" ]] || return 0
   [[ -f "$FORWARD_CONF" && ! -L "$FORWARD_CONF" ]] || fail_json "unmanaged_forwarding" "Refusing to modify an unrecognized forwarding file." 73
   local content
-  content=$(cat "$FORWARD_CONF")
+  content=$(cat "$FORWARD_CONF" 2>/dev/null) || fail_json "runtime_unknown" "Unable to inspect forwarding configuration." 74
   [[ "$content" == 'net.ipv4.ip_forward=1' || "$content" == $'# TUNNL_MANAGED 1\nnet.ipv4.ip_forward=1' ]] || fail_json "unmanaged_forwarding" "Refusing to modify an unrecognized forwarding file." 73
 }
 
