@@ -645,4 +645,23 @@
     <string name="vpn0wn_user_remove_observed">The requested peer is absent from the server configuration and running interface; no retained private profile remains for this peer. The earlier command outcome is not established.</string>
     <string name="vpn0wn_user_remove_observed_stopped">The requested peer is absent from the server configuration and no retained private profile remains for this peer. The interface was observed stopped; no live revocation was tested.</string>
     <string name="vpn0wn_user_remove_reconcile">reconcile removal</string>
+    <string name="vpn0wn_backup_import">Open server backup</string>
+    <string name="vpn0wn_backup_import_authenticate">Authenticate to unlock a server backup</string>
+    <string name="vpn0wn_backup_unlock_title">Unlock server backup</string>
+    <string name="vpn0wn_backup_import_note">Enter the exact password for this backup. The file opens for inspection only. No server or profile will be changed.</string>
+    <string name="vpn0wn_backup_show_password">Show password</string>
+    <string name="vpn0wn_backup_unlock">Unlock</string>
+    <string name="vpn0wn_backup_unlocking">Unlocking backup… You can cancel while this finishes.</string>
+    <string name="vpn0wn_backup_read_password_invalid">Use 1–128 characters without incomplete Unicode characters.</string>
+    <string name="vpn0wn_backup_unlock_failed">The password is incorrect or the file is damaged.</string>
+    <string name="vpn0wn_backup_format_invalid">This backup file is invalid or unsupported.</string>
+    <string name="vpn0wn_backup_import_failed">Backup could not be read or unlocked. Close this window to choose the file again.</string>
+    <string name="vpn0wn_backup_unlocked">Backup unlocked</string>
+    <string name="vpn0wn_backup_inspection_note">Unlocked for inspection only. Restoration still requires separate checks of the destination server.</string>
+    <string name="vpn0wn_backup_captured">CAPTURED UTC</string>
+    <string name="vpn0wn_backup_interface">INTERFACE</string>
+    <string name="vpn0wn_backup_version">FORMAT VERSION</string>
+    <string name="vpn0wn_backup_revoked_count">REVOCATION RECORDS</string>
+    <string name="vpn0wn_backup_public_identity">SERVER PUBLIC KEY</string>
+    <string name="vpn0wn_backup_identity_unavailable">Unavailable</string>
 </resources>

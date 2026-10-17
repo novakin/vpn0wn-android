@@ -89,6 +89,33 @@ class VpsBackupWorkflowTest {
 
     @Test
     @Config(shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
+    fun backupAuthenticationWaitsForItsCapturedViewToRestartAndConsumesTerminalOnce() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        val fixture = fixture()
+        try {
+            prepareBackup(fixture)
+            val before = fixture.peer.commands.size
+            click(fixture, R.string.vpn0wn_action_backup)
+            val callback = AppDataTransferSettingsTest.Authentication.callbacks.last()
+            fixture.controller.pause().stop()
+            callback(BiometricAuthenticator.Result.Success(null))
+            callback(BiometricAuthenticator.Result.Cancelled)
+            settle()
+            assertNull(backupDialog(fixture))
+            assertEquals(before, fixture.peer.commands.size)
+            fixture.controller.start().resume()
+            settle()
+            val dialog = requireNotNull(backupDialog(fixture))
+            assertEquals(before, fixture.peer.commands.size)
+            callback(BiometricAuthenticator.Result.Success(null))
+            settle()
+            assertTrue(dialog === backupDialog(fixture))
+            assertEquals(1, AppDataTransferSettingsTest.Authentication.calls)
+        } finally { fixture.close() }
+    }
+
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
     fun backupPasswordsStayMaskedUntilExplicitlyShownAndRemaskTogether() = runTest {
         VpsUserProfileFileTest.resetNativeFiles()
         val fixture = fixture()

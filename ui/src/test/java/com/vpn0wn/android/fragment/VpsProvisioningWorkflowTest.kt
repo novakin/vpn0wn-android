@@ -1287,6 +1287,34 @@ class VpsProvisioningWorkflowTest {
 
     @Test
     @Config(shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
+    fun profileAuthenticationWaitsForItsCapturedViewToRestartAndConsumesTerminalOnce() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        val profiles = profileStore {}
+        val fixture = fixture(profiles = profiles)
+        try {
+            openProfileUser(fixture, profiles)
+            click(fixture, R.string.vpn0wn_action_show_qr)
+            val callback = AppDataTransferSettingsTest.Authentication.callbacks.last()
+            fixture.controller.pause().stop()
+            callback(BiometricAuthenticator.Result.Success(null))
+            callback(BiometricAuthenticator.Result.Cancelled)
+            settle()
+            assertEquals(1, profileStatusCommands(fixture))
+            assertNull(profileDialog(fixture))
+            fixture.controller.start().resume()
+            finishProfileAction(fixture)
+            val dialog = requireNotNull(profileDialog(fixture))
+            assertEquals(2, profileStatusCommands(fixture))
+            callback(BiometricAuthenticator.Result.Success(null))
+            settle()
+            assertTrue(dialog === profileDialog(fixture))
+            assertEquals(1, AppDataTransferSettingsTest.Authentication.calls)
+            assertTrue(fixture.environment.store.configs.isEmpty())
+        } finally { fixture.close() }
+    }
+
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
     fun profileQrDecodesFullCanonicalConfigAndClearsSecureDialogResourcesOnDismissal() = runTest {
         VpsUserProfileFileTest.resetNativeFiles()
         val profiles = profileStore {}

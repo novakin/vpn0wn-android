@@ -45,6 +45,10 @@ class VpsProvisioningViewModel internal constructor(
     enum class Installation { NONE, RUNNING, INSTALLED, OBSERVED, UNCERTAIN }
     enum class UserCreation { NONE, RUNNING, RETAINED, UNSAVED, UNCERTAIN, CREATED }
     enum class UserRemoval { NONE, CHECKING, RUNNING, UNCERTAIN, FAILED, REMOVED, OBSERVED }
+    enum class BackupFailure { PASSWORD, INPUT, FORMAT, AUTHENTICATION, SNAPSHOT, CRYPTO }
+
+    data class BackupSummary(val capturedAtUtc: String, val interfaceName: String, val version: Int,
+        val revokedCount: Int, val serverPublicKey: String?)
 
     data class InstallConfirmation(val plan: VpsPlanResult, val ssh: VpsEndpoint, val fingerprint: String, val server: StoredVpsServer)
     data class AddUserConfirmation(val server: StoredVpsServer, val ssh: VpsEndpoint, val fingerprint: String,
@@ -95,6 +99,8 @@ class VpsProvisioningViewModel internal constructor(
         val removalOwner: StoredVpsServer? = null,
         val removalAction: PendingVpsRemove.Action = PendingVpsRemove.Action.REMOVE,
         val removalAttempt: PendingVpsRemove? = null,
+        val backupSummary: BackupSummary? = null,
+        val backupFailure: BackupFailure? = null,
     )
 
     data class StatusSnapshot(val server: StoredVpsServer, val status: VpsServerStatus, val observedAtEpochSeconds: Long) {
@@ -214,6 +220,46 @@ class VpsProvisioningViewModel internal constructor(
         if (job == null) ownedPassword.fill('\u0000') else job.invokeOnCompletion { ownedPassword.fill('\u0000') }
         return job
     }
+
+    internal fun inspectBackup(document: VpsBackupDocument, password: CharArray): Job? {
+        if (mutableState.value.busy) return null
+        val owned = password.copyOf()
+        val job = operate(requireActive = false, initialState = mutableState.value.copy(backupSummary = null, backupFailure = null)) {
+            var archive: ByteArray? = null
+            try {
+                val bytes = document.read()
+                archive = bytes
+                currentCoroutineContext().ensureActive()
+                val summary = withContext(Dispatchers.Default) {
+                    val snapshot = VpsBackupArchive().decrypt(bytes, owned)
+                    BackupSummary(snapshot.capturedAtUtc, snapshot.interfaceName, snapshot.snapshotVersion,
+                        snapshot.revokedCount, backupPublicKey(snapshot))
+                }
+                currentCoroutineContext().ensureActive()
+                mutableState.value = mutableState.value.copy(backupSummary = summary)
+            } catch (failure: VpsBackupArchiveException) {
+                val category = when (failure.category) {
+                    VpsBackupArchiveException.Category.PASSWORD -> BackupFailure.PASSWORD
+                    VpsBackupArchiveException.Category.FORMAT -> BackupFailure.FORMAT
+                    VpsBackupArchiveException.Category.AUTHENTICATION -> BackupFailure.AUTHENTICATION
+                    VpsBackupArchiveException.Category.SNAPSHOT -> BackupFailure.SNAPSHOT
+                    VpsBackupArchiveException.Category.CRYPTO -> BackupFailure.CRYPTO
+                }
+                mutableState.value = mutableState.value.copy(backupFailure = category)
+            } catch (_: IOException) {
+                mutableState.value = mutableState.value.copy(backupFailure = BackupFailure.INPUT)
+            } catch (_: SecurityException) {
+                mutableState.value = mutableState.value.copy(backupFailure = BackupFailure.INPUT)
+            } finally {
+                archive?.fill(0)
+                owned.fill('\u0000')
+            }
+        }
+        if (job == null) owned.fill('\u0000') else job.invokeOnCompletion { owned.fill('\u0000') }
+        return job
+    }
+
+    fun clearBackupInspection() { mutableState.value = mutableState.value.copy(backupSummary = null, backupFailure = null) }
 
     private fun backupPublicKey(backup: VpsBackupResult): String? {
         val key = backup.config.lineSequence().mapNotNull { Attribute.parse(it.substringBefore('#').trim()).orElse(null) }
