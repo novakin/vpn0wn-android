@@ -116,7 +116,13 @@ case "$command_name" in
             printf '\n'
             ;;
           listen-port) awk '$1 == "ListenPort" {print $3; exit}' "$runtime_file" ;;
-          peers) awk '$1 == "PublicKey" {print $3}' "$runtime_file" ;;
+          peers)
+            awk '$1 == "PublicKey" {print $3}' "$runtime_file"
+            if [[ -f "$TEST_STATE/peers-failed-output" ]]; then
+              printf 'synthetic-secret-tool-diagnostic\n' >&2
+              exit 1
+            fi
+            ;;
           preshared-keys)
             awk '/^\[Peer\]/ {if(key) print key "\t" psk; key=""; psk="(none)"} $1 == "PublicKey" {key=$3} $1 == "PresharedKey" {psk=$3} END {if(key) print key "\t" psk}' "$runtime_file"
             ;;

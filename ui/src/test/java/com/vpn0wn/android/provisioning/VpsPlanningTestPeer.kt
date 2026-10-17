@@ -10,6 +10,8 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
     val connections = Collections.synchronizedList(mutableListOf<VpsConnection>())
     val commands = Collections.synchronizedList(mutableListOf<String>())
     val closes = AtomicInteger()
+    var uploadEntered = CompletableDeferred<Unit>()
+    var blockUpload: CompletableDeferred<Unit>? = null
     val detectEntered = CompletableDeferred<Unit>()
     val installEntered = CompletableDeferred<Unit>()
     var blockInstall: CompletableDeferred<Unit>? = null
@@ -22,6 +24,12 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
     var addOutput: String? = null
     var addExitCode = 0
     var afterAdd: (() -> Unit)? = null
+    val removeEntered = CompletableDeferred<Unit>()
+    var blockRemove: CompletableDeferred<Unit>? = null
+    var removeFailure: ProvisioningException? = null
+    var removeOutput: String? = null
+    var removeExitCode = 0
+    var afterRemove: (() -> Unit)? = null
     var configExists = false
     var planOverwrites = false
     var statusEntered = CompletableDeferred<Unit>()
@@ -74,11 +82,22 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
                         addFailure?.let { throw it }
                         ProvisioningCommandOutput(addExitCode, requireNotNull(addOutput), "")
                     }
+                    command.contains("./'remove-peer.sh'") -> {
+                        removeEntered.complete(Unit)
+                        blockRemove?.await()
+                        afterRemove?.invoke()
+                        removeFailure?.let { throw it }
+                        ProvisioningCommandOutput(removeExitCode, requireNotNull(removeOutput), "")
+                    }
                     else -> error("Unexpected provisioning command")
                 }
             }
 
-            override suspend fun upload(path: String, content: String, mode: String): ProvisioningCommandOutput = ProvisioningCommandOutput(0, "", "")
+            override suspend fun upload(path: String, content: String, mode: String): ProvisioningCommandOutput {
+                uploadEntered.complete(Unit)
+                blockUpload?.await()
+                return ProvisioningCommandOutput(0, "", "")
+            }
             override suspend fun close() { closes.incrementAndGet() }
         }
     }

@@ -1014,6 +1014,121 @@ test_fixture_legacy_file_commands() {
   [[ ! -e "$TEST_ROOT/moved" ]]
 }
 
+test_c143_runtime_inventory_observes_live_only_peers() {
+  local existing extra
+  owned_config
+  existing=$(awk '$1 == "PublicKey" {print $3}' "$WG_CONF")
+  extra=$(printf '%-32.32s' PUBLIC-live-only | base64 -w0)
+  printf '\n[Peer]\nPublicKey = %s\nAllowedIPs = 10.8.0.99/32\n' "$extra" >> "$TEST_STATE/runtime.conf"
+  run_script sync-status
+  assert_success
+  [[ "$RESPONSE" == *"\"runtimePeerPublicKeys\":[\"$existing\",\"$extra\"]"* ]]
+  [[ "$RESPONSE" != *'"name":"live-only"'* ]]
+  assert_no_mutations
+}
+
+test_c143_configured_inventory_covers_unmarked_running_and_stopped_peers() {
+  local running key extra
+  for running in true false; do
+    owned_config
+    key=$(awk '$1 == "PublicKey" {print $3}' "$WG_CONF")
+    extra=$(printf '%-32.32s' PUBLIC-unmarked | base64 -w0)
+    sed '/^# BEGIN_PEER /d; /^# END_PEER /d' "$WG_CONF" > "$TEST_ROOT/unmarked.conf"
+    /bin/mv "$TEST_ROOT/unmarked.conf" "$WG_CONF"
+    printf '\n[Peer]\nPublicKey=%s\nAllowedIPs = 10.8.0.99/32\n' "$extra" >> "$WG_CONF"
+    [[ "$running" == true ]] || /bin/rm "$TEST_STATE/runtime.conf"
+    run_script sync-status
+    assert_success
+    [[ "$RESPONSE" == *"\"configuredPeerPublicKeys\":[\"$key\",\"$extra\"]"* ]]
+    [[ "$RESPONSE" == *'"peers":[]'* && "$RESPONSE" == *"\"running\":$running"* ]]
+    assert_no_mutations
+  done
+}
+
+test_c143_invalid_configured_inventory_stays_unknown() {
+  local peer
+  for peer in '[Peer]' $'[Peer]\nPublicKey = malformed-key' $'[Peer]\nPublicKey = \nAllowedIPs = 10.8.0.99/32'; do
+    owned_config
+    printf '\n%s\n' "$peer" >> "$WG_CONF"
+    run_script sync-status
+    assert_success
+    [[ "$RESPONSE" == *'"configuredPeerPublicKeys":null'* ]]
+    assert_no_mutations
+  done
+}
+
+test_c143_duplicate_runtime_inventory_stays_unknown() {
+  local key
+  owned_config
+  key=$(awk '$1 == "PublicKey" {print $3}' "$WG_CONF")
+  printf '\n[Peer]\nPublicKey = %s\nAllowedIPs = 10.8.0.99/32\n' "$key" >> "$TEST_STATE/runtime.conf"
+  run_script sync-status
+  assert_success
+  [[ "$RESPONSE" == *'"runtimePeerPublicKeys":null'* ]]
+  assert_no_mutations
+}
+
+test_c143_failed_runtime_inventory_discards_partial_stdout() {
+  owned_config
+  touch "$TEST_STATE/peers-failed-output"
+  run_script sync-status
+  assert_success
+  [[ "$RESPONSE" == *'"running":true'* && "$RESPONSE" == *'"runtimePeerPublicKeys":null'* ]]
+  ! grep -q 'synthetic-secret-tool-diagnostic' "$TEST_ROOT/response" "$TEST_ROOT/stderr"
+  assert_no_mutations
+}
+
+test_c143_malformed_runtime_inventory_stays_unknown() {
+  owned_config
+  printf '\n[Peer]\nPublicKey = synthetic-invalid-native-key\nAllowedIPs = 10.8.0.99/32\n' >> "$TEST_STATE/runtime.conf"
+  run_script sync-status
+  assert_success
+  [[ "$RESPONSE" == *'"runtimePeerPublicKeys":null'* && "$RESPONSE" != *synthetic-invalid-native-key* ]]
+  assert_no_mutations
+}
+
+test_c143_remove_checks_server_identity_after_concurrent_owner() {
+  local key replacement writer_lock mutation_pid ready
+  owned_config
+  local peer_key
+  peer_key=$(awk '$1 == "PublicKey" {print $3}' "$WG_CONF")
+  key=$(printf '%-32.32s' PUBLIC-old | base64 -w0)
+  replacement=$(printf '%-32.32s' PRIVATE-replacement | base64 -w0)
+  export TEST_REAL_FLOCK TEST_LOCK_SIGNAL
+  TEST_REAL_FLOCK=$(command -v flock)
+  TEST_LOCK_SIGNAL="$TEST_ROOT/lock-entered"
+  mkfifo "$TEST_LOCK_SIGNAL"
+  exec {lock_signal}<>"$TEST_LOCK_SIGNAL"
+  cat > "$TEST_ROOT/bin/flock" <<'EOF'
+#!/usr/bin/env bash
+printf 'ready\n' > "$TEST_LOCK_SIGNAL"
+exec "$TEST_REAL_FLOCK" "$@"
+EOF
+  chmod 700 "$TEST_ROOT/bin/flock"
+  exec {writer_lock}>"$WG_LOCK_FILE"
+  "$TEST_REAL_FLOCK" "$writer_lock"
+  bash "$SCRIPTS/remove-peer.sh" --name existing --expected-public-key "$peer_key" --expected-server-public-key "$key" > "$TEST_ROOT/response" 2> "$TEST_ROOT/stderr" &
+  mutation_pid=$!
+  if ! read -r -t 5 ready <&"$lock_signal"; then
+    "$TEST_REAL_FLOCK" -u "$writer_lock"
+    kill "$mutation_pid" 2>/dev/null || true
+    wait "$mutation_pid" 2>/dev/null || true
+    return 1
+  fi
+  [[ ! -s "$TEST_ROOT/response" ]]
+  sed -i "s|^PrivateKey = .*|PrivateKey = $replacement|" "$WG_CONF"
+  /bin/cp "$WG_CONF" "$TEST_STATE/runtime.conf"
+  /bin/cp "$WG_CONF" "$TEST_ROOT/before.conf"
+  "$TEST_REAL_FLOCK" -u "$writer_lock"
+  wait "$mutation_pid" && RESULT_CODE=0 || RESULT_CODE=$?
+  RESPONSE=$(cat "$TEST_ROOT/response")
+  assert_failure server_identity_mismatch
+  assert_restored
+  assert_no_mutations
+  [[ -z $(find "$WG_DIR" -name '.tunnl-recovery.*') ]]
+}
+
+
 check_contract_fixture() {
   local name=$1 expected="$REPO_DIR/ui/src/test/resources/provisioning/$1.json"
   if [[ "$name" == backup ]]; then
@@ -2061,6 +2176,10 @@ if [[ ${1-} == --case ]]; then
 fi
 
 tests=(
+  test_c143_configured_inventory_covers_unmarked_running_and_stopped_peers test_c143_invalid_configured_inventory_stays_unknown
+  test_c143_duplicate_runtime_inventory_stays_unknown
+  test_c143_runtime_inventory_observes_live_only_peers test_c143_failed_runtime_inventory_discards_partial_stdout
+  test_c143_malformed_runtime_inventory_stays_unknown test_c143_remove_checks_server_identity_after_concurrent_owner
   test_restore_fresh_identity_and_receipt test_restore_preserves_psk_and_historical_reuse
   test_restore_requires_explicit_options test_restore_rejects_unsafe_input_paths
   test_restore_rejects_unsafe_revoked_entries test_restore_rejects_unsafe_destination_paths

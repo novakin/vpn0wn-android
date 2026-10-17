@@ -38,6 +38,57 @@ if [[ -n "$server_public_key" ]]; then
   server_public_key_json=$(json_string "$server_public_key")
 fi
 
+peer_keys_json() {
+  local inventory=$1 key result='[' separator=''
+  local -A seen=()
+  while IFS= read -r key; do
+    [[ -n "$key" ]] || continue
+    (require_public_key "$key") >/dev/null 2>&1 || return 1
+    [[ -z "${seen[$key]+set}" ]] || return 1
+    seen[$key]=1
+    result+="$separator$(json_string "$key")"
+    separator=','
+  done <<< "$inventory"
+  printf '%s]' "$result"
+}
+
+configured_peer_keys_json=null
+if configured_peer_keys=$(awk '
+  function finish_peer() {if (section == "peer" && keys != 1) invalid=1}
+  {
+    line=$0; sub(/#.*/, "", line); sub(/^[[:space:]]+/, "", line); sub(/[[:space:]]+$/, "", line)
+    if (line == "") next
+    if (line ~ /^\[/) {
+      finish_peer()
+      heading=tolower(line)
+      if (heading == "[peer]") {section="peer"; keys=0}
+      else if (heading == "[interface]") section="interface"
+      else {section=""; invalid=1}
+      next
+    }
+    separator=index(line, "=")
+    if (separator == 0 || section == "") {invalid=1; next}
+    field=substr(line, 1, separator-1); sub(/[[:space:]]+$/, "", field)
+    if (tolower(field) == "publickey") {
+      if (section != "peer") {invalid=1; next}
+      keys++
+      key=substr(line, separator+1); sub(/^[[:space:]]+/, "", key); sub(/[[:space:]]+$/, "", key)
+      if (key == "") invalid=1
+      print key
+    }
+  }
+  END {finish_peer(); exit invalid}
+' "$WG_CONF"); then
+  configured_peer_keys_json=$(peer_keys_json "$configured_peer_keys") || configured_peer_keys_json=null
+fi
+
+runtime_peer_keys_json=null
+if [[ "$running" == false ]]; then
+  runtime_peer_keys_json='[]'
+elif [[ "$running" == true ]] && runtime_peer_keys=$(wg show "$WG_IFACE" peers 2>/dev/null); then
+  runtime_peer_keys_json=$(peer_keys_json "$runtime_peer_keys") || runtime_peer_keys_json=null
+fi
+
 dump=""
 if [[ "$running" == true ]]; then
   dump=$(wg show "$WG_IFACE" dump 2>/dev/null) || dump=""
@@ -53,14 +104,16 @@ json_counter() {
   fi
 }
 
-printf '{"ok":true,"interface":%s,"running":%s,"endpoint":%s,"listenPort":%s,"cidr":%s,"dns":%s,"serverPublicKey":%s,"peers":[' \
+printf '{"ok":true,"interface":%s,"running":%s,"endpoint":%s,"listenPort":%s,"cidr":%s,"dns":%s,"serverPublicKey":%s,"runtimePeerPublicKeys":%s,"configuredPeerPublicKeys":%s,"peers":[' \
   "$(json_string "$WG_IFACE")" \
   "$running" \
   "$(json_string "$endpoint")" \
   "$(json_string "$listen_port")" \
   "$(json_string "$cidr")" \
   "$(json_string "$dns")" \
-  "$server_public_key_json"
+  "$server_public_key_json" \
+  "$runtime_peer_keys_json" \
+  "$configured_peer_keys_json"
 
 first=true
 awk '
