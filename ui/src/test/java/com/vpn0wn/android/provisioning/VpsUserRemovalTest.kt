@@ -382,11 +382,13 @@ class VpsUserRemovalTest {
         store.admitRemove(original, attempt)
         requireNotNull(model.syncStatus(other)).join()
         assertTrue(model.state.value.pendingRemove)
-        assertNull(model.state.value.removalOwner)
+        assertEquals(original, model.state.value.removalOwner)
+        assertNull(model.state.value.removalAttempt)
         val refreshed = store.servers.first().single { it.id == other.id }
         requireNotNull(model.reconcileRemoveUser(refreshed)).join()
         assertEquals(Problem.CONNECTION_CHANGED, model.state.value.problem)
-        assertNull(model.state.value.removalOwner)
+        assertEquals(original, model.state.value.removalOwner)
+        assertNull(model.state.value.removalAttempt)
         assertEquals(attempt, store.pendingRemove(original))
         assertNotNull(profiles().load(original, SERVER_KEY, CLIENT_KEY))
         assertTrue(removeCommands().isEmpty())
@@ -422,7 +424,7 @@ class VpsUserRemovalTest {
         peer.blockUpload!!.complete(Unit)
         removing.join()
         assertTrue(model.state.value.pendingRemove)
-        assertNull(model.state.value.removalOwner)
+        assertEquals(other, model.state.value.removalOwner)
         assertTrue(removeCommands().isEmpty())
         assertEquals(attempt, store.pendingRemove(original))
         assertNotNull(profiles().load(original, SERVER_KEY, CLIENT_KEY))
@@ -468,25 +470,54 @@ class VpsUserRemovalTest {
         store.saveCredential(other, PIN, VpsCredential.Password("synthetic-password".toCharArray()))
         val endpoint = VpsEndpoint(other.host, other.sshPort, other.sshUser)
         for (action in PendingVpsRemove.Action.entries) {
+            requireNotNull(model.syncStatus(original)).join()
             val attempt = PendingVpsRemove(other.id, endpoint, PIN, SERVER_KEY, "phone", CLIENT_KEY, action,
                 if (action == PendingVpsRemove.Action.REVOKE) "00112233-4455-4677-8899-aabbccddeeff" else null)
             store.admitRemove(other, attempt)
             requireNotNull(model.requestRevokeUserConfirmation(original, "phone", CLIENT_KEY)).join()
             assertEquals(Problem.REMOVE_PENDING, model.state.value.problem)
-            assertNull(model.state.value.removalOwner)
+            assertEquals(other, model.state.value.removalOwner)
+            assertEquals(action, model.state.value.removalAction)
+            assertNull(model.state.value.removalAttempt)
             assertNull(model.state.value.removeConfirmation)
             requireNotNull(model.syncStatus(original)).join()
-            assertNull(model.state.value.removalOwner)
-            assertEquals(PendingVpsRemove.Action.REMOVE, model.state.value.removalAction)
+            assertEquals(other, model.state.value.removalOwner)
+            assertEquals(action, model.state.value.removalAction)
+            assertNull(model.state.value.removalAttempt)
             requireNotNull(model.reconcileRemoveUser(original)).join()
-            assertNull(model.state.value.removalOwner)
-            assertEquals(PendingVpsRemove.Action.REMOVE, model.state.value.removalAction)
+            assertEquals(other, model.state.value.removalOwner)
+            assertEquals(action, model.state.value.removalAction)
+            assertNull(model.state.value.removalAttempt)
             assertEquals(attempt, store.pendingRemove(original))
             store.clearRejectedRemove(other, attempt)
         }
         assertTrue(revokeCommands().isEmpty())
         assertTrue(removeCommands().isEmpty())
         assertNotNull(profiles().load(original, SERVER_KEY, CLIENT_KEY))
+    }
+
+    @Test fun missingOriginalRemovalOwnerRetiresAliasObservationWithoutTransportOrSettlement() = runTest {
+        val model = ready()
+        val original = server()
+        val alias = original.copy(id = "legacy-alias")
+        store.upsert(alias)
+        store.saveCredential(alias, PIN, VpsCredential.Password("synthetic-alias-password".toCharArray()))
+        requireNotNull(model.syncStatus(alias)).join()
+        val currentAlias = store.servers.first().single { it.id == alias.id }
+        assertNotNull(model.state.value.statusSnapshots[alias.id])
+        val attempt = PendingVpsRemove(original.id, VpsEndpoint(original.host, original.sshPort, original.sshUser),
+            PIN, SERVER_KEY, "phone", CLIENT_KEY)
+        store.admitRemove(original, attempt)
+        preferences.edit { it[VpsServerStore.SERVERS] = VpsServerStore.encodeServers(listOf(currentAlias)) }
+        val commands = peer.commands.size
+        requireNotNull(model.syncStatus(currentAlias)).join()
+        assertEquals(Problem.CONNECTION_CHANGED, model.state.value.problem)
+        assertTrue(model.state.value.pendingRemove)
+        assertNull(model.state.value.removalOwner)
+        assertNull(model.state.value.removalAttempt)
+        assertNull(model.state.value.statusSnapshots[alias.id])
+        assertEquals(commands, peer.commands.size)
+        assertEquals(attempt, store.pendingRemove(currentAlias))
     }
 
     @Test fun cancellationAfterAdmissionRetainsDurableIntentAndDrainsOwnedConnection() = runTest {

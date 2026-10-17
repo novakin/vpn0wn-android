@@ -4,6 +4,8 @@ Last updated: 2026-10-17 (Europe/Paris).
 
 ## Design Source
 
+**Guarded restore UI candidate — #196, 2026-10-17:** authenticated local inspection can hand its captured owner into the existing native four-step SSH/Detect/Check/Restore workflow, with exact destination/source review, conservative uncertainty and same-original-file reconciliation. Approved engineering-console tokens and existing Mono/Inter component roles remain. Focused lifecycle/static/synthetic-output checks and an evidence-based satisfaction verdict are pending; this source candidate establishes no installed picker/authentication/accessibility or live-server behavior. [Contracts](backend-contracts.md#guarded-android-fresh-restore-workflow--196) and [QA](qa-test-plan.md#guarded-android-fresh-restore-controls--196) own scope and limits.
+
 Reference: `.design/` — React/JSX prototype for **Tunnl**, a WireGuard tunnel manager with an engineering-console visual language. Read-only. Never modify.
 
 Prototype sections below describe visual targets, not implemented Android guarantees. Initial committed-source reconciliation used `11d4a9b1`; the Done ledger also retains superseded implementation history. Read the explicit gaps and [full documentation review](reviews/2026-10-06-full-documentation-review.md) for evidence limits.

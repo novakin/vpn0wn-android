@@ -8,6 +8,8 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## In Progress
 
+- **Consumed guarded fresh-restore candidate — #196 (2026-10-17, Europe/Paris):** the existing Fragment/wizard and `VpsProvisioningViewModel` transfer an authenticated private inspection into independent destination Detect/CHECK/native confirmation, durable `PendingVpsRestore` admission and exact typed VERIFY before atomic `VpsServerStore.settleRestore`. Canonical UUID, ciphertext digest, checked plan and pinned SSH ownership fence stale results, aliases, competing mutations and record/credential/import edits. Any admitted failure remains uncertain; same-original-file reconciliation adds no clear/retry, overwrite, profile/tunnel migration or source retirement. Focused shared-owner/static/output verification is being prepared; [contracts](backend-contracts.md#guarded-android-fresh-restore-workflow--196) and [QA](qa-test-plan.md#guarded-android-fresh-restore-controls--196) retain actual scope and limits.
+
 - **Translation delivery boundary — #195 (2026-10-16, Europe/Paris):** complete model reading and confirmed source repairs are recorded in the [dated review](reviews/2026-10-16-translation-review.md), with executed focused checks and synthetic native-view output. Substantial missing-key fallback, hardcoded copy, qualified speaker review, wider installed output/accessibility and final issue acceptance remain open. This is a bounded translation slice, not complete localization or the later whole-code/security review.
 
 

@@ -15,6 +15,7 @@ import com.vpn0wn.crypto.Key
 import com.vpn0wn.crypto.KeyFormatException
 import com.vpn0wn.crypto.KeyPair
 import java.io.IOException
+import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
@@ -25,6 +26,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -41,15 +43,21 @@ class VpsProvisioningViewModel internal constructor(
     enum class Step { SSH, DETECT, PLAN, APPLY }
     enum class AuthMode { KEY, PASSWORD }
     enum class SavedAccess { NONE, SAVED, METADATA_ONLY, UNKNOWN, CLEARED }
-    enum class Problem { INVALID_INPUT, CONNECTION_FAILED, INVALID_RESPONSE, ACCESS_MISSING, CONNECTION_CHANGED, STORAGE_FAILED, STORAGE_CONFLICT, CANCELLED, INSTALL_FAILED, INSTALL_PENDING, ADD_PENDING, REMOVE_PENDING, ROTATE_PENDING, PEER_CHANGED, IDENTITY_UNAVAILABLE, PROFILE_UNAVAILABLE, ARCHIVE_UNAVAILABLE, ARCHIVE_FULL }
+    enum class Problem { INVALID_INPUT, CONNECTION_FAILED, INVALID_RESPONSE, ACCESS_MISSING, CONNECTION_CHANGED, STORAGE_FAILED, STORAGE_CONFLICT, CANCELLED, INSTALL_FAILED, INSTALL_PENDING, ADD_PENDING, REMOVE_PENDING, ROTATE_PENDING, RESTORE_PENDING, PEER_CHANGED, IDENTITY_UNAVAILABLE, PROFILE_UNAVAILABLE, ARCHIVE_UNAVAILABLE, ARCHIVE_FULL }
     enum class Installation { NONE, RUNNING, INSTALLED, OBSERVED, UNCERTAIN }
     enum class UserCreation { NONE, RUNNING, RETAINED, UNSAVED, UNCERTAIN, CREATED }
     enum class UserRemoval { NONE, CHECKING, RUNNING, UNCERTAIN, FAILED, REMOVED, OBSERVED }
     enum class UserRotation { NONE, CHECKING, RUNNING, UNCERTAIN, FAILED, ROTATED, OBSERVED }
     enum class BackupFailure { PASSWORD, INPUT, FORMAT, AUTHENTICATION, SNAPSHOT, CRYPTO }
+    enum class RestoreOutcome { NONE, CHECKING, READY, RUNNING, UNCERTAIN, VERIFIED, RECONCILED }
 
     data class BackupSummary(val capturedAtUtc: String, val interfaceName: String, val version: Int,
         val revokedCount: Int, val serverPublicKey: String?)
+
+    data class RestoreState(val summary: BackupSummary? = null, val plan: VpsRestoreCheckPlan? = null,
+        val owner: StoredVpsServer? = null, val attempt: PendingVpsRestore? = null, val outcome: RestoreOutcome = RestoreOutcome.NONE)
+    data class RestoreConfirmation(val server: StoredVpsServer, val ssh: VpsEndpoint, val fingerprint: String,
+        val ciphertextSha256: String, val plan: VpsRestoreCheckPlan, val summary: BackupSummary)
 
     data class InstallConfirmation(val plan: VpsPlanResult, val ssh: VpsEndpoint, val fingerprint: String, val server: StoredVpsServer)
     data class AddUserConfirmation(val server: StoredVpsServer, val ssh: VpsEndpoint, val fingerprint: String,
@@ -88,6 +96,7 @@ class VpsProvisioningViewModel internal constructor(
         val statusSnapshots: Map<String, StatusSnapshot> = emptyMap(),
         val installation: Installation = Installation.NONE,
         val pendingInstall: Boolean = false,
+        val installationOwner: StoredVpsServer? = null,
         val recovery: ProvisioningRecovery? = null,
         val recoveryOwner: StoredVpsServer? = null,
         val cleanupRequired: Boolean = false,
@@ -109,9 +118,10 @@ class VpsProvisioningViewModel internal constructor(
         val rotationAttempt: PendingVpsRotate? = null,
         val backupSummary: BackupSummary? = null,
         val backupFailure: BackupFailure? = null,
+        val restore: RestoreState? = null,
     )
 
-    data class StatusSnapshot(val server: StoredVpsServer, val status: VpsServerStatus, val observedAtEpochSeconds: Long) {
+    class StatusSnapshot(val server: StoredVpsServer, val status: VpsServerStatus, val observedAtEpochSeconds: Long) {
         fun matches(current: StoredVpsServer): Boolean = server == current
     }
 
@@ -130,6 +140,18 @@ class VpsProvisioningViewModel internal constructor(
     private var installConfirmation: InstallConfirmation? = null
     private var receivedUser: ReceivedUser? = null
     private var reviewedRotation: ReviewedRotation? = null
+    private var inspectedBackup: RestoreSource? = null
+    private var restoreSource: RestoreSource? = null
+    private var restoreConfirmation: RestoreConfirmation? = null
+
+    private data class RestoreSource(val snapshot: VpsBackupResult, val ciphertextSha256: String) {
+        override fun toString(): String = "RestoreSource(redacted)"
+    }
+
+    val canRestore: Boolean get() = !mutableState.value.busy && mutableState.value.active &&
+        mutableState.value.step == Step.APPLY && mutableState.value.restore?.outcome == RestoreOutcome.READY &&
+        mutableState.value.restore?.plan != null && mutableState.value.restore?.attempt == null && restoreSource != null &&
+        persistedDetection == server && server != null && verifiedEndpoint != null && verifiedFingerprint != null
 
     private data class ReviewedRotation(val confirmation: RotateUserConfirmation, val profile: VpsUserProfile) {
         override fun toString(): String = "ReviewedRotation(redacted)"
@@ -158,22 +180,73 @@ class VpsProvisioningViewModel internal constructor(
             mutableState.value = mutableState.value.copy(statusSnapshots = retained)
     }
 
+    private fun retireDisplacedPendingSnapshots(previous: State, next: State): State {
+        val displaced = listOfNotNull(
+            previous.installationOwner?.takeIf { previous.pendingInstall && (!next.pendingInstall || next.installationOwner != it) },
+            previous.creationOwner?.takeIf { previous.pendingAdd && (!next.pendingAdd || next.creationOwner != it) },
+            previous.removalOwner?.takeIf { previous.pendingRemove && (!next.pendingRemove || next.removalOwner != it) },
+            previous.rotationOwner?.takeIf { previous.pendingRotation && (!next.pendingRotation || next.rotationOwner != it) },
+        )
+        val restore = previous.restore?.attempt?.takeIf { it != next.restore?.attempt }
+        return next.copy(statusSnapshots = next.statusSnapshots.filter { (id, snapshot) ->
+            snapshot !== previous.statusSnapshots[id] ||
+                displaced.none { owner -> owner.id == snapshot.server.id ||
+                    owner.host == snapshot.server.host && owner.sshPort == snapshot.server.sshPort && owner.sshUser == snapshot.server.sshUser } &&
+                restore?.matches(snapshot.server) != true
+        })
+    }
+
+    private fun State.withPendingRemoval(selectedId: String?, attempt: PendingVpsRemove, owner: StoredVpsServer?): State {
+        val actualOwner = owner?.takeIf(attempt::owns)
+        return copy(pendingRemove = true, removal = UserRemoval.UNCERTAIN, removalOwner = actualOwner,
+            removalAction = attempt.action, removalAttempt = attempt.takeIf { it.serverId == selectedId && actualOwner != null },
+            statusSnapshots = statusSnapshots.filterValues { !attempt.matches(it.server) })
+    }
+
+    private fun State.withPendingRotation(selectedId: String?, attempt: PendingVpsRotate, owner: StoredVpsServer?): State {
+        val actualOwner = owner?.takeIf(attempt::owns)
+        return copy(pendingRotation = true, rotation = UserRotation.UNCERTAIN, rotationOwner = actualOwner,
+            rotationAttempt = attempt.takeIf { it.serverId == selectedId && actualOwner != null },
+            statusSnapshots = statusSnapshots.filterValues { !attempt.matches(it.server) })
+    }
+
     fun syncStatus(savedServer: StoredVpsServer): Job? = operate(requireActive = false) {
         mutableState.value = mutableState.value.copy(serverId = savedServer.id, savedAccess = SavedAccess.NONE,
             pendingAdd = false, creation = UserCreation.NONE, addConfirmation = null, creationOwner = savedServer)
         val pending = store.pendingAdd(savedServer)
         mutableState.value = mutableState.value.copy(pendingAdd = pending != null,
-            creation = if (pending == null) UserCreation.NONE else UserCreation.UNCERTAIN)
+            creation = if (pending == null) UserCreation.NONE else UserCreation.UNCERTAIN,
+            statusSnapshots = mutableState.value.statusSnapshots.filterValues { pending?.matches(it.server) != true })
         val pendingRemoval = store.pendingRemove(savedServer)
+        if (pendingRemoval != null) mutableState.value = mutableState.value.withPendingRemoval(savedServer.id, pendingRemoval,
+            savedServer.takeIf(pendingRemoval::owns) ?: mutableState.value.removalOwner)
         val pendingRotation = store.pendingRotation(savedServer)
-        mutableState.value = mutableState.value.copy(removeConfirmation = null, pendingRemove = pendingRemoval != null,
-            removal = if (pendingRemoval == null) UserRemoval.NONE else UserRemoval.UNCERTAIN,
-            removalAction = pendingRemoval?.takeIf { it.owns(savedServer) }?.action ?: PendingVpsRemove.Action.REMOVE,
-            removalAttempt = pendingRemoval?.takeIf { it.owns(savedServer) },
-            removalOwner = savedServer.takeIf { pendingRemoval?.owns(it) != false },
-            rotateConfirmation = null, pendingRotation = pendingRotation != null,
-            rotation = if (pendingRotation == null) UserRotation.NONE else UserRotation.UNCERTAIN,
-            rotationAttempt = pendingRotation?.takeIf { it.owns(savedServer) }, rotationOwner = savedServer.takeIf { pendingRotation?.owns(it) != false })
+        if (pendingRotation != null) mutableState.value = mutableState.value.withPendingRotation(savedServer.id, pendingRotation,
+            savedServer.takeIf(pendingRotation::owns) ?: mutableState.value.rotationOwner)
+        val pendingRestore = store.pendingRestore(savedServer)
+        mutableState.value = mutableState.value.copy(restore = pendingRestore?.let {
+            RestoreState(owner = savedServer, attempt = it, outcome = RestoreOutcome.UNCERTAIN)
+        } ?: mutableState.value.restore?.takeIf { it.owner == savedServer },
+            statusSnapshots = mutableState.value.statusSnapshots.filterValues { pendingRestore?.matches(it.server) != true })
+        val foreignPending = pendingRemoval?.owns(savedServer) == false || pendingRotation?.owns(savedServer) == false
+        val originalOwners = if (foreignPending) store.servers.first() else emptyList()
+        val removalOwner = when {
+            pendingRemoval == null || pendingRemoval.owns(savedServer) -> savedServer
+            else -> originalOwners.singleOrNull(pendingRemoval::owns)
+        }
+        val rotationOwner = when {
+            pendingRotation == null || pendingRotation.owns(savedServer) -> savedServer
+            else -> originalOwners.singleOrNull(pendingRotation::owns)
+        }
+        mutableState.value = mutableState.value.copy(removeConfirmation = null, rotateConfirmation = null)
+        mutableState.value = if (pendingRemoval == null) mutableState.value.copy(pendingRemove = false,
+            removal = UserRemoval.NONE, removalAction = PendingVpsRemove.Action.REMOVE, removalAttempt = null, removalOwner = savedServer)
+        else mutableState.value.withPendingRemoval(savedServer.id, pendingRemoval, removalOwner)
+        mutableState.value = if (pendingRotation == null) mutableState.value.copy(pendingRotation = false,
+            rotation = UserRotation.NONE, rotationAttempt = null, rotationOwner = savedServer)
+        else mutableState.value.withPendingRotation(savedServer.id, pendingRotation, rotationOwner)
+        if (pendingRemoval != null && removalOwner == null || pendingRotation != null && rotationOwner == null)
+            throw VpsServerStore.ServerChangedException()
         reviewedRotation = null
         val connection = try {
             store.loadConnection(savedServer) ?: run {
@@ -188,11 +261,11 @@ class VpsProvisioningViewModel internal constructor(
             val status = client.syncStatus(connection)
             val observedAt = nowEpochSeconds()
             currentCoroutineContext().ensureActive()
-            val committed = if (pendingRotation == null) store.updateStatus(savedServer, status, observedAt) else savedServer
+            val committed = if (pendingRotation == null && pendingRestore == null) store.updateStatus(savedServer, status, observedAt) else savedServer
             mutableState.value = mutableState.value.copy(
                 statusSnapshots = mutableState.value.statusSnapshots + (savedServer.id to StatusSnapshot(committed, status, observedAt)),
                 creationOwner = committed,
-                removalOwner = committed.takeIf { pendingRemoval?.owns(it) != false },
+                removalOwner = if (pendingRemoval == null || pendingRemoval.owns(committed)) committed else removalOwner,
             )
         } finally {
             (connection.credential as? VpsCredential.Password)?.clear()
@@ -241,6 +314,7 @@ class VpsProvisioningViewModel internal constructor(
 
     internal fun inspectBackup(document: VpsBackupDocument, password: CharArray): Job? {
         if (mutableState.value.busy) return null
+        inspectedBackup = null
         val owned = password.copyOf()
         val job = operate(requireActive = false, initialState = mutableState.value.copy(backupSummary = null, backupFailure = null)) {
             var archive: ByteArray? = null
@@ -248,13 +322,15 @@ class VpsProvisioningViewModel internal constructor(
                 val bytes = document.read()
                 archive = bytes
                 currentCoroutineContext().ensureActive()
-                val summary = withContext(Dispatchers.Default) {
+                val source = withContext(Dispatchers.Default) {
                     val snapshot = VpsBackupArchive().decrypt(bytes, owned)
-                    BackupSummary(snapshot.capturedAtUtc, snapshot.interfaceName, snapshot.snapshotVersion,
-                        snapshot.revokedCount, backupPublicKey(snapshot))
+                    RestoreSource(snapshot, MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) })
                 }
                 currentCoroutineContext().ensureActive()
-                mutableState.value = mutableState.value.copy(backupSummary = summary)
+                inspectedBackup = source
+                val snapshot = source.snapshot
+                mutableState.value = mutableState.value.copy(backupSummary = BackupSummary(snapshot.capturedAtUtc,
+                    snapshot.interfaceName, snapshot.snapshotVersion, snapshot.revokedCount, backupPublicKey(snapshot)))
             } catch (failure: VpsBackupArchiveException) {
                 val category = when (failure.category) {
                     VpsBackupArchiveException.Category.PASSWORD -> BackupFailure.PASSWORD
@@ -277,7 +353,161 @@ class VpsProvisioningViewModel internal constructor(
         return job
     }
 
-    fun clearBackupInspection() { mutableState.value = mutableState.value.copy(backupSummary = null, backupFailure = null) }
+    fun clearBackupInspection() {
+        inspectedBackup = null
+        mutableState.value = mutableState.value.copy(backupSummary = null, backupFailure = null)
+    }
+
+    fun beginRestoreFromInspection(): Boolean {
+        val source = inspectedBackup ?: return false
+        val summary = mutableState.value.backupSummary ?: return false
+        if (mutableState.value.busy || summary.serverPublicKey == null) return false
+        begin()
+        inspectedBackup = null
+        restoreSource = source
+        mutableState.value = mutableState.value.copy(restore = RestoreState(summary = summary), backupSummary = null)
+        return true
+    }
+
+    fun loadPendingRestore(expected: StoredVpsServer): Job? = operate(requireActive = false,
+        initialState = mutableState.value.copy(serverId = expected.id, savedAccess = SavedAccess.NONE)) {
+        val attempt = store.pendingRestore(expected)
+        mutableState.value = mutableState.value.copy(
+            restore = attempt?.let { RestoreState(owner = expected, attempt = it, outcome = RestoreOutcome.UNCERTAIN) })
+    }
+
+    fun checkRestore(): Job? {
+        val source = restoreSource ?: return null
+        val expected = persistedDetection ?: return null
+        val summary = mutableState.value.restore?.summary ?: return null
+        if (mutableState.value.detect?.supported != true || mutableState.value.restore?.attempt != null) return null
+        return operate {
+            restoreConfirmation = null
+            val connection = connection() ?: return@operate
+            mutableState.value = mutableState.value.copy(restore = RestoreState(summary = summary, owner = expected,
+                outcome = RestoreOutcome.CHECKING), step = Step.DETECT)
+            try {
+                requireRestoreTarget(expected, connection, source)
+                val plan = client.checkFreshRestore(connection, source.snapshot, restoreRequest(summary))
+                currentCoroutineContext().ensureActive()
+                requireRestoreTarget(expected, connection, source)
+                mutableState.value = mutableState.value.copy(restore = RestoreState(summary, plan, expected,
+                    outcome = RestoreOutcome.READY), step = Step.PLAN)
+            } finally {
+                if (mutableState.value.restore?.outcome == RestoreOutcome.CHECKING)
+                    mutableState.value = mutableState.value.copy(restore = mutableState.value.restore?.copy(outcome = RestoreOutcome.NONE))
+                (connection.credential as? VpsCredential.Password)?.clear()
+            }
+        }
+    }
+
+    fun requestRestoreConfirmation(): RestoreConfirmation? {
+        if (!canRestore) return null
+        val state = requireNotNull(mutableState.value.restore)
+        return RestoreConfirmation(requireNotNull(server), requireNotNull(verifiedEndpoint), requireNotNull(verifiedFingerprint),
+            requireNotNull(restoreSource).ciphertextSha256, requireNotNull(state.plan), requireNotNull(state.summary))
+            .also { restoreConfirmation = it }
+    }
+
+    fun dismissRestoreConfirmation() { restoreConfirmation = null }
+
+    fun confirmRestore(confirmation: RestoreConfirmation): Job? {
+        val source = restoreSource ?: return null
+        if (!canRestore || restoreConfirmation !== confirmation || mutableState.value.restore?.plan !== confirmation.plan ||
+            source.ciphertextSha256 != confirmation.ciphertextSha256) return null
+        restoreConfirmation = null
+        return operate {
+            val expected = confirmation.server
+            val connection = connection() ?: return@operate
+            val attempt = PendingVpsRestore(UUID.randomUUID().toString(), expected.id, confirmation.ssh,
+                confirmation.fingerprint, confirmation.ciphertextSha256, confirmation.plan)
+            try {
+                requireRestoreTarget(expected, connection, source)
+                val result = client.restoreFresh(connection, source.snapshot, restoreRequest(confirmation.summary)) {
+                    withContext(Dispatchers.Main.immediate) {
+                        currentCoroutineContext().ensureActive()
+                        requireRestoreTarget(expected, connection, source)
+                        withContext(NonCancellable) {
+                            try { store.admitRestore(expected, attempt) } catch (failure: IOException) {
+                                publishRestoreUncertainty(expected, attempt)
+                                throw failure
+                            } catch (failure: SecurityException) {
+                                publishRestoreUncertainty(expected, attempt)
+                                throw failure
+                            }
+                            mutableState.value = mutableState.value.copy(restore = (mutableState.value.restore ?:
+                                RestoreState(confirmation.summary, confirmation.plan, expected))
+                                .copy(attempt = attempt, outcome = RestoreOutcome.RUNNING))
+                        }
+                        currentCoroutineContext().ensureActive()
+                    }
+                }
+                mutableState.value = mutableState.value.copy(cleanupRequired = result.cleanupPath.isNotEmpty(), cleanupOwner = expected)
+                if (result.cleanupPath.isEmpty()) settleRestoration(expected, attempt, source, connection, RestoreOutcome.VERIFIED)
+            } finally {
+                if (mutableState.value.restore?.attempt == attempt) publishRestoreUncertainty(expected, attempt)
+                (connection.credential as? VpsCredential.Password)?.clear()
+            }
+        }
+    }
+
+    fun reconcileRestore(expected: StoredVpsServer, attempt: PendingVpsRestore): Job? {
+        val source = inspectedBackup ?: return null
+        if (mutableState.value.busy) return null
+        if (source.ciphertextSha256 != attempt.ciphertextSha256) {
+            clearBackupInspection()
+            mutableState.value = mutableState.value.copy(problem = Problem.INVALID_INPUT)
+            return null
+        }
+        inspectedBackup = null
+        return operate(requireActive = false, initialState = mutableState.value.copy(serverId = expected.id,
+            restore = RestoreState(owner = expected, attempt = attempt, outcome = RestoreOutcome.UNCERTAIN))) {
+            val connection = store.loadConnection(expected) ?: run {
+                publishRestoreUncertainty(expected, attempt)
+                mutableState.value = mutableState.value.copy(problem = Problem.ACCESS_MISSING)
+                return@operate
+            }
+            try {
+                store.checkRestoreOwner(expected, attempt)
+                if (connection.endpoint != attempt.ssh || connection.hostKeyFingerprint != attempt.fingerprint)
+                    throw VpsServerStore.ServerChangedException()
+                mutableState.value = mutableState.value.copy(restore = RestoreState(owner = expected, attempt = attempt,
+                    outcome = RestoreOutcome.RUNNING))
+                settleRestoration(expected, attempt, source, connection, RestoreOutcome.RECONCILED)
+            } finally {
+                if (mutableState.value.restore?.attempt == attempt) publishRestoreUncertainty(expected, attempt)
+                (connection.credential as? VpsCredential.Password)?.clear()
+            }
+        }
+    }
+
+    private fun restoreRequest(summary: BackupSummary): VpsRestoreRequest = VpsRestoreRequest(draft.endpoint.trim(),
+        draft.port.toIntOrNull() ?: throw invalidInput(), summary.serverPublicKey ?: throw invalidInput())
+
+    private fun requireRestoreTarget(expected: StoredVpsServer, connection: VpsConnection, source: RestoreSource) {
+        if (restoreSource !== source || server != expected || persistedDetection != expected || !mutableState.value.active ||
+            connection.endpoint != verifiedEndpoint || connection.endpoint != VpsEndpoint(expected.host, expected.sshPort, expected.sshUser) ||
+            connection.hostKeyFingerprint != verifiedFingerprint) throw VpsServerStore.ServerChangedException()
+    }
+
+    private fun publishRestoreUncertainty(expected: StoredVpsServer, attempt: PendingVpsRestore) {
+        mutableState.value = mutableState.value.copy(restore = (mutableState.value.restore ?: RestoreState(owner = expected))
+            .copy(owner = expected, attempt = attempt, outcome = RestoreOutcome.UNCERTAIN))
+    }
+
+    private suspend fun settleRestoration(expected: StoredVpsServer, attempt: PendingVpsRestore, source: RestoreSource,
+        connection: VpsConnection, outcome: RestoreOutcome) {
+        val request = VpsRestoreRequest(attempt.plan.endpoint, attempt.plan.port.toInt(), attempt.plan.serverPublicKey)
+        val verification = client.verifyFreshRestore(connection, source.snapshot, request)
+        currentCoroutineContext().ensureActive()
+        withContext(NonCancellable) {
+            val committed = store.settleRestore(expected, attempt, verification, nowEpochSeconds())
+            restoreSource = null
+            clearDraft()
+            mutableState.value = mutableState.value.copy(restore = RestoreState(owner = committed, plan = attempt.plan, outcome = outcome),
+                statusSnapshots = mutableState.value.statusSnapshots - expected.id, problem = null)
+        }
+    }
 
     private fun backupPublicKey(backup: VpsBackupResult): String? {
         val key = backup.config.lineSequence().mapNotNull { Attribute.parse(it.substringBefore('#').trim()).orElse(null) }
@@ -346,12 +576,15 @@ class VpsProvisioningViewModel internal constructor(
             return@operate
         }
         if (snapshot.status.peers.any { it.name == name }) throw invalidInput()
-        if (store.pendingAdd(savedServer) != null) throw VpsServerStore.AddPendingException()
-        if (store.pendingInstall(savedServer) != null) throw VpsServerStore.InstallPendingException()
-        store.pendingRotation(savedServer)?.let { throw VpsServerStore.RotatePendingException(it.serverId) }
+        if (store.pendingAdd(savedServer) != null) throw VpsServerStore.AddPendingException(savedServer)
+        if (store.pendingInstall(savedServer) != null) throw VpsServerStore.InstallPendingException(savedServer)
+        store.pendingRotation(savedServer)?.let { pending ->
+            publishRotationOwner(savedServer, pending)
+            throw VpsServerStore.RotatePendingException(pending.serverId, mutableState.value.rotationOwner, pending)
+        }
         store.pendingRemove(savedServer)?.let { pending ->
-            mutableState.value = mutableState.value.copy(removalOwner = savedServer.takeIf(pending::owns))
-            throw VpsServerStore.RemovePendingException()
+            publishRemovalOwner(savedServer, pending)
+            throw VpsServerStore.RemovePendingException(pending.serverId, mutableState.value.removalOwner, pending)
         }
         val connection = store.loadConnection(savedServer) ?: run {
             mutableState.value = mutableState.value.copy(problem = Problem.ACCESS_MISSING)
@@ -412,7 +645,12 @@ class VpsProvisioningViewModel internal constructor(
                         withContext(Dispatchers.Main.immediate) {
                             receivedUser = received
                             mutableState.value = mutableState.value.copy(creation = UserCreation.UNSAVED,
-                                cleanupRequired = receipt.cleanupPath.isNotEmpty(), cleanupOwner = confirmation.server, creationOwner = null)
+                                cleanupRequired = receipt.cleanupPath.isNotEmpty(), cleanupOwner = confirmation.server, creationOwner = null,
+                                statusSnapshots = mutableState.value.statusSnapshots.filterValues { snapshot ->
+                                    snapshot.server.id != confirmation.server.id &&
+                                        (snapshot.server.host != confirmation.ssh.host || snapshot.server.sshPort != confirmation.ssh.port ||
+                                            snapshot.server.sshUser != confirmation.ssh.user)
+                                })
                         }
                         val owner = currentAddOwner(confirmation)
                         withContext(Dispatchers.Main.immediate) {
@@ -449,7 +687,7 @@ class VpsProvisioningViewModel internal constructor(
     @Suppress("ThrowsCount")
     fun reconcileAddUser(savedServer: StoredVpsServer): Job? = operate(requireActive = false) {
         mutableState.value = mutableState.value.copy(serverId = savedServer.id, addConfirmation = null, creationOwner = savedServer)
-        var attempt = store.pendingAdd(savedServer) ?: throw VpsServerStore.AddPendingException()
+        var attempt = store.pendingAdd(savedServer) ?: throw VpsServerStore.AddPendingException(savedServer)
         mutableState.value = mutableState.value.copy(pendingAdd = true, creation = UserCreation.UNCERTAIN)
         val receipt = receivedUser?.takeIf { it.confirmation.server.id == attempt.serverId &&
             it.confirmation.ssh == attempt.ssh && it.confirmation.fingerprint == attempt.fingerprint &&
@@ -494,7 +732,12 @@ class VpsProvisioningViewModel internal constructor(
         profiles.saveGenerated(confirmation.server, confirmation.serverPublicKey, confirmation.request, receipt.result)
         withContext(Dispatchers.Main.immediate) {
             if (receivedUser === receipt) receivedUser = null
-            mutableState.value = mutableState.value.copy(creation = UserCreation.RETAINED, creationOwner = null)
+            mutableState.value = mutableState.value.copy(creation = UserCreation.RETAINED, creationOwner = null,
+                statusSnapshots = mutableState.value.statusSnapshots.filterValues { snapshot ->
+                    snapshot.server.id != confirmation.server.id &&
+                        (snapshot.server.host != confirmation.ssh.host || snapshot.server.sshPort != confirmation.ssh.port ||
+                            snapshot.server.sshUser != confirmation.ssh.user)
+                })
         }
         val retained = store.recordAddReceipt(receipt.attempt, receipt.profile.identity.clientPublicKey)
         val owner = currentAddOwner(confirmation)
@@ -566,7 +809,10 @@ class VpsProvisioningViewModel internal constructor(
             removal = UserRemoval.CHECKING, pendingRemove = false, removalOwner = savedServer, removalAction = action, removalAttempt = null),
     ) {
         store.cleanupRotationProfiles(profiles)
-        store.pendingRotation(savedServer)?.let { throw VpsServerStore.RotatePendingException(it.serverId) }
+        store.pendingRotation(savedServer)?.let { pending ->
+            publishRotationOwner(savedServer, pending)
+            throw VpsServerStore.RotatePendingException(pending.serverId, mutableState.value.rotationOwner, pending)
+        }
         val snapshot = mutableState.value.statusSnapshots[savedServer.id]?.takeIf { it.matches(savedServer) }
         val serverKey = snapshot?.status?.serverPublicKey
         if (!PendingVpsAdd.NAME.matches(name) || snapshot == null || serverKey == null ||
@@ -584,12 +830,11 @@ class VpsProvisioningViewModel internal constructor(
             return@operate
         }
         store.pendingRemove(savedServer)?.let { pending ->
-            mutableState.value = mutableState.value.copy(removalOwner = savedServer.takeIf(pending::owns),
-                removalAction = if (pending.owns(savedServer)) pending.action else action, removalAttempt = pending.takeIf { it.owns(savedServer) })
-            throw VpsServerStore.RemovePendingException()
+            publishRemovalOwner(savedServer, pending)
+            throw VpsServerStore.RemovePendingException(pending.serverId, mutableState.value.removalOwner, pending)
         }
-        if (store.pendingAdd(savedServer) != null) throw VpsServerStore.AddPendingException()
-        if (store.pendingInstall(savedServer) != null) throw VpsServerStore.InstallPendingException()
+        if (store.pendingAdd(savedServer) != null) throw VpsServerStore.AddPendingException(savedServer)
+        if (store.pendingInstall(savedServer) != null) throw VpsServerStore.InstallPendingException(savedServer)
         val connection = store.loadConnection(savedServer) ?: run {
             mutableState.value = mutableState.value.copy(problem = Problem.ACCESS_MISSING)
             return@operate
@@ -651,8 +896,8 @@ class VpsProvisioningViewModel internal constructor(
                         withContext(NonCancellable) {
                             store.admitRemove(expected, attempt)
                             admitted = true
-                            mutableState.value = mutableState.value.copy(pendingRemove = true, removal = UserRemoval.RUNNING,
-                                removalOwner = expected, removalAction = attempt.action, removalAttempt = attempt)
+                            mutableState.value = mutableState.value.withPendingRemoval(expected.id, attempt, expected)
+                                .copy(removal = UserRemoval.RUNNING)
                         }
                         currentCoroutineContext().ensureActive()
                     }
@@ -705,12 +950,8 @@ class VpsProvisioningViewModel internal constructor(
             pendingRemove = false, removal = UserRemoval.CHECKING, removalAction = PendingVpsRemove.Action.REMOVE, removalAttempt = null),
     ) {
         val attempt = store.pendingRemove(savedServer) ?: return@operate
-        mutableState.value = mutableState.value.copy(pendingRemove = true, removal = UserRemoval.UNCERTAIN)
-        if (!attempt.owns(savedServer)) {
-            mutableState.value = mutableState.value.copy(removalOwner = null)
-            throw VpsServerStore.CredentialConflictException()
-        }
-        mutableState.value = mutableState.value.copy(removalAction = attempt.action, removalAttempt = attempt)
+        publishRemovalOwner(savedServer, attempt)
+        if (!attempt.owns(savedServer)) throw VpsServerStore.CredentialConflictException()
         val connection = store.loadConnection(savedServer) ?: run {
             mutableState.value = mutableState.value.copy(problem = Problem.ACCESS_MISSING)
             return@operate
@@ -730,7 +971,7 @@ class VpsProvisioningViewModel internal constructor(
     }
 
     private suspend fun publishRemovedUser(expected: StoredVpsServer, attempt: PendingVpsRemove, status: VpsServerStatus, removal: UserRemoval) {
-        if (!attempt.observesCompletion(status)) throw VpsServerStore.RemovePendingException()
+        if (!attempt.observesCompletion(status)) throw VpsServerStore.RemovePendingException(expected.id, expected, attempt)
         store.checkAddOwner(expected, attempt.fingerprint)
         currentCoroutineContext().ensureActive()
         withContext(NonCancellable) {
@@ -757,12 +998,15 @@ class VpsProvisioningViewModel internal constructor(
             return@operate
         }
         store.pendingRotation(savedServer)?.let { pending ->
-            mutableState.value = mutableState.value.copy(rotationOwner = savedServer.takeIf(pending::owns), rotationAttempt = pending.takeIf { it.owns(savedServer) })
-            throw VpsServerStore.RotatePendingException(pending.serverId)
+            publishRotationOwner(savedServer, pending)
+            throw VpsServerStore.RotatePendingException(pending.serverId, mutableState.value.rotationOwner, pending)
         }
-        if (store.pendingAdd(savedServer) != null) throw VpsServerStore.AddPendingException()
-        if (store.pendingRemove(savedServer) != null) throw VpsServerStore.RemovePendingException()
-        if (store.pendingInstall(savedServer) != null) throw VpsServerStore.InstallPendingException()
+        if (store.pendingAdd(savedServer) != null) throw VpsServerStore.AddPendingException(savedServer)
+        store.pendingRemove(savedServer)?.let { pending ->
+            publishRemovalOwner(savedServer, pending)
+            throw VpsServerStore.RemovePendingException(pending.serverId, mutableState.value.removalOwner, pending)
+        }
+        if (store.pendingInstall(savedServer) != null) throw VpsServerStore.InstallPendingException(savedServer)
         val connection = store.loadConnection(savedServer) ?: run {
             mutableState.value = mutableState.value.copy(problem = Problem.ACCESS_MISSING)
             return@operate
@@ -879,8 +1123,7 @@ class VpsProvisioningViewModel internal constructor(
                 statusSnapshots = mutableState.value.statusSnapshots - savedServer.id)
             return@operate
         }
-        mutableState.value = mutableState.value.copy(pendingRotation = true, rotation = UserRotation.UNCERTAIN,
-            rotationOwner = savedServer.takeIf(attempt::owns), rotationAttempt = attempt.takeIf { it.owns(savedServer) })
+        publishRotationOwner(savedServer, attempt)
         if (!attempt.owns(savedServer)) throw VpsServerStore.CredentialConflictException()
         if (attempt.phase != PendingVpsRotate.Phase.DISPATCHED) {
             withContext(NonCancellable) {
@@ -928,11 +1171,15 @@ class VpsProvisioningViewModel internal constructor(
     fun begin() {
         if (mutableState.value.busy) return
         clearDraft()
+        restoreSource = null
+        restoreConfirmation = null
+        inspectedBackup = null
         reviewedRotation = null
         server = null
         newServerId = UUID.randomUUID().toString()
         invalidateVerification()
-        mutableState.value = State(active = true, serverId = newServerId, statusSnapshots = mutableState.value.statusSnapshots)
+        mutableState.value = retireDisplacedPendingSnapshots(mutableState.value,
+            State(active = true, serverId = newServerId, statusSnapshots = mutableState.value.statusSnapshots))
     }
 
     fun edit(next: Draft) {
@@ -945,6 +1192,7 @@ class VpsProvisioningViewModel internal constructor(
             next.passphrase != draft.passphrase || next.password !== draft.password
         if (next.endpoint != draft.endpoint) endpointOverridden = next.endpoint.isNotBlank()
         installConfirmation = null
+        restoreConfirmation = null
         if (next.password !== draft.password) draft.password.fill('\u0000')
         draft = when {
             next.authMode == draft.authMode -> next
@@ -962,6 +1210,8 @@ class VpsProvisioningViewModel internal constructor(
             plan = null,
             problem = null,
             installation = if (mutableState.value.pendingInstall) Installation.UNCERTAIN else Installation.NONE,
+            restore = mutableState.value.restore?.copy(plan = null, outcome = if (mutableState.value.restore?.attempt != null)
+                RestoreOutcome.UNCERTAIN else RestoreOutcome.NONE),
         )
     }
 
@@ -998,17 +1248,19 @@ class VpsProvisioningViewModel internal constructor(
                 endpoint = if (endpointOverridden) draft.endpoint else detectedEndpoint,
             )
             saveAuthenticated(connection, result)
-            val pending = server?.let { store.pendingInstall(it) } != null
-            val pendingRemoval = server?.let { store.pendingRemove(it) }
+            val selected = server
+            val pending = selected?.let { store.pendingInstall(it) }
+            mutableState.value = mutableState.value.copy(pendingInstall = pending != null,
+                installationOwner = selected.takeIf { pending != null },
+                installation = if (pending != null) Installation.UNCERTAIN else Installation.NONE,
+                statusSnapshots = mutableState.value.statusSnapshots.filterValues { pending?.matches(it.server) != true })
+            val pendingRemoval = selected?.let { store.pendingRemove(it) }
+            val removalOwner = if (selected != null && pendingRemoval != null) publishRemovalOwner(selected, pendingRemoval) else selected
             currentCoroutineContext().ensureActive()
-            if (mutableState.value.active) mutableState.value = mutableState.value.copy(
-                detect = result, plan = null, step = Step.DETECT, pendingInstall = pending,
-                installation = if (pending) Installation.UNCERTAIN else Installation.NONE,
-                pendingRemove = pendingRemoval != null, removal = if (pendingRemoval != null) UserRemoval.UNCERTAIN else UserRemoval.NONE,
-                removalAction = pendingRemoval?.takeIf { attempt -> server?.let(attempt::owns) == true }?.action ?: PendingVpsRemove.Action.REMOVE,
-                removalAttempt = pendingRemoval?.takeIf { attempt -> server?.let(attempt::owns) == true },
-                removalOwner = server?.takeIf { pendingRemoval?.owns(it) != false },
-            )
+            if (mutableState.value.active) mutableState.value = mutableState.value.copy(detect = result, plan = null, step = Step.DETECT)
+            if (pendingRemoval == null) mutableState.value = mutableState.value.copy(pendingRemove = false, removal = UserRemoval.NONE,
+                removalAction = PendingVpsRemove.Action.REMOVE, removalAttempt = null, removalOwner = selected)
+            if (pendingRemoval != null && removalOwner == null) throw VpsServerStore.ServerChangedException()
         } finally {
             (connection.credential as? VpsCredential.Password)?.clear()
         }
@@ -1038,7 +1290,7 @@ class VpsProvisioningViewModel internal constructor(
     }
 
     fun reviewApply() {
-        if (!mutableState.value.busy && mutableState.value.plan != null)
+        if (!mutableState.value.busy && (mutableState.value.plan != null || mutableState.value.restore?.plan != null))
             mutableState.value = mutableState.value.copy(step = Step.APPLY)
     }
 
@@ -1070,6 +1322,7 @@ class VpsProvisioningViewModel internal constructor(
                         withContext(NonCancellable) {
                             admitInstall(expected, connection.endpoint, request)
                             mutableState.value = mutableState.value.copy(pendingInstall = true, installation = Installation.RUNNING,
+                                installationOwner = expected,
                                 recovery = null, recoveryOwner = null)
                         }
                         currentCoroutineContext().ensureActive()
@@ -1105,10 +1358,10 @@ class VpsProvisioningViewModel internal constructor(
         try {
             store.admitInstall(expected, target, request)
         } catch (failure: IOException) {
-            mutableState.value = mutableState.value.copy(pendingInstall = true, installation = Installation.UNCERTAIN)
+            mutableState.value = mutableState.value.copy(pendingInstall = true, installation = Installation.UNCERTAIN, installationOwner = expected)
             throw failure
         } catch (failure: SecurityException) {
-            mutableState.value = mutableState.value.copy(pendingInstall = true, installation = Installation.UNCERTAIN)
+            mutableState.value = mutableState.value.copy(pendingInstall = true, installation = Installation.UNCERTAIN, installationOwner = expected)
             throw failure
         }
     }
@@ -1119,7 +1372,7 @@ class VpsProvisioningViewModel internal constructor(
         val expected = server ?: return null
         if (!mutableState.value.pendingInstall) return null
         return operate {
-            val attempt = store.pendingInstall(expected) ?: throw VpsServerStore.InstallPendingException()
+            val attempt = store.pendingInstall(expected) ?: throw VpsServerStore.InstallPendingException(expected)
             val connection = connection() ?: return@operate
             try {
                 if (connection.endpoint != attempt.ssh) throw VpsServerStore.ServerChangedException()
@@ -1150,15 +1403,15 @@ class VpsProvisioningViewModel internal constructor(
         withContext(NonCancellable) {
             store.clearFailedInstall(expected, attempt)
             mutableState.value = mutableState.value.copy(
-                pendingInstall = false, installation = Installation.NONE, problem = null, recovery = null, recoveryOwner = null,
+                pendingInstall = false, installation = Installation.NONE, installationOwner = null, problem = null, recovery = null, recoveryOwner = null,
                 detect = detected, plan = null, step = Step.DETECT,
             )
         }
     }
 
     private suspend fun publishInstalledStatus(expected: StoredVpsServer, request: VpsInstallRequest, status: VpsServerStatus, installation: Installation) {
-        val attempt = store.pendingInstall(expected) ?: throw VpsServerStore.InstallPendingException()
-        if (attempt.request != request) throw VpsServerStore.InstallPendingException()
+        val attempt = store.pendingInstall(expected) ?: throw VpsServerStore.InstallPendingException(expected)
+        if (attempt.request != request) throw VpsServerStore.InstallPendingException(expected)
         val observedAt = nowEpochSeconds()
         currentCoroutineContext().ensureActive()
         // Settle admission, metadata and publication together before propagating cancellation.
@@ -1166,7 +1419,7 @@ class VpsProvisioningViewModel internal constructor(
             val committed = store.settleInstall(expected, attempt, status, observedAt)
             server = committed
             mutableState.value = mutableState.value.copy(
-                pendingInstall = false, installation = installation, problem = null, recovery = null, recoveryOwner = null,
+                pendingInstall = false, installation = installation, installationOwner = null, problem = null, recovery = null, recoveryOwner = null,
                 statusSnapshots = mutableState.value.statusSnapshots + (expected.id to StatusSnapshot(committed, status, observedAt)),
             )
         }
@@ -1196,8 +1449,14 @@ class VpsProvisioningViewModel internal constructor(
 
     fun back() {
         installConfirmation = null
+        restoreConfirmation = null
         if (mutableState.value.busy) {
             operation?.cancel()
+            return
+        }
+        if (mutableState.value.restore?.let { it.attempt != null || it.outcome == RestoreOutcome.VERIFIED ||
+                it.outcome == RestoreOutcome.RECONCILED } == true) {
+            leave()
             return
         }
         when (mutableState.value.step) {
@@ -1211,10 +1470,15 @@ class VpsProvisioningViewModel internal constructor(
     fun leave() {
         operation?.cancel()
         clearDraft()
+        restoreSource = null
+        inspectedBackup = null
+        restoreConfirmation = null
         invalidateVerification()
         reviewedRotation = null
         mutableState.value = mutableState.value.copy(active = false, detect = null, plan = null, usingSavedAccess = false,
-            addConfirmation = null, removeConfirmation = null, rotateConfirmation = null)
+            addConfirmation = null, removeConfirmation = null, rotateConfirmation = null,
+            backupSummary = null, backupFailure = null, restore = mutableState.value.restore?.takeIf { it.attempt != null }
+                ?.copy(plan = null, outcome = RestoreOutcome.UNCERTAIN))
     }
 
     fun cancelOperation() { operation?.cancel() }
@@ -1239,8 +1503,25 @@ class VpsProvisioningViewModel internal constructor(
         }
     }
 
+    private suspend fun publishRemovalOwner(selected: StoredVpsServer, attempt: PendingVpsRemove): StoredVpsServer? {
+        mutableState.value = mutableState.value.withPendingRemoval(selected.id, attempt,
+            selected.takeIf(attempt::owns) ?: mutableState.value.removalOwner)
+        val owner = if (attempt.owns(selected)) selected else store.servers.first().singleOrNull(attempt::owns)
+        mutableState.value = mutableState.value.withPendingRemoval(selected.id, attempt, owner)
+        return owner
+    }
+
+    private suspend fun publishRotationOwner(selected: StoredVpsServer, attempt: PendingVpsRotate): StoredVpsServer? {
+        mutableState.value = mutableState.value.withPendingRotation(selected.id, attempt,
+            selected.takeIf(attempt::owns) ?: mutableState.value.rotationOwner)
+        val owner = if (attempt.owns(selected)) selected else store.servers.first().singleOrNull(attempt::owns)
+        mutableState.value = mutableState.value.withPendingRotation(selected.id, attempt, owner)
+        return owner
+    }
+
     private fun operate(requireActive: Boolean = true, initialState: State = mutableState.value, action: suspend () -> Unit): Job? {
         if (mutableState.value.busy || requireActive && !mutableState.value.active) return null
+        val previous = mutableState.value
         mutableState.value = initialState.copy(busy = true, problem = null)
         return viewModelScope.launch {
             try {
@@ -1256,21 +1537,53 @@ class VpsProvisioningViewModel internal constructor(
                 }
                 mutableState.value = mutableState.value.copy(problem = problem)
             } catch (_: VpsServerStore.ServerChangedException) {
-                mutableState.value = mutableState.value.copy(problem = Problem.CONNECTION_CHANGED, creationOwner = null)
-            } catch (_: VpsServerStore.InstallPendingException) {
-                mutableState.value = mutableState.value.copy(problem = Problem.INSTALL_PENDING, pendingInstall = true, installation = Installation.UNCERTAIN)
-            } catch (_: VpsServerStore.AddPendingException) {
-                mutableState.value = mutableState.value.copy(problem = Problem.ADD_PENDING, pendingAdd = true, creation = UserCreation.UNCERTAIN)
+                mutableState.value = mutableState.value.copy(problem = Problem.CONNECTION_CHANGED,
+                    creationOwner = mutableState.value.creationOwner.takeIf { mutableState.value.pendingAdd })
+            } catch (failure: VpsServerStore.InstallPendingException) {
+                val state = mutableState.value
+                val snapshots = if (failure.owner == null && state.serverId != null) state.statusSnapshots - state.serverId else state.statusSnapshots
+                mutableState.value = state.copy(problem = Problem.INSTALL_PENDING, pendingInstall = true,
+                    installation = Installation.UNCERTAIN, installationOwner = failure.owner ?: state.installationOwner.takeIf { state.pendingInstall },
+                    statusSnapshots = snapshots)
+            } catch (failure: VpsServerStore.RestorePendingException) {
+                val state = mutableState.value
+                val attempt = failure.attempt?.takeIf { failure.target?.let(it::matches) == true }
+                val restore = if (attempt == null) state.restore else {
+                    state.restore?.takeIf { it.attempt == attempt && it.owner == failure.target }?.copy(outcome = RestoreOutcome.UNCERTAIN)
+                        ?: RestoreState(owner = failure.target, attempt = attempt, outcome = RestoreOutcome.UNCERTAIN)
+                }
+                val snapshots = if (attempt == null && state.serverId != null) state.statusSnapshots - state.serverId else state.statusSnapshots
+                mutableState.value = state.copy(problem = Problem.RESTORE_PENDING, restore = restore, statusSnapshots = snapshots)
+            } catch (failure: VpsServerStore.AddPendingException) {
+                val state = mutableState.value
+                val owner = failure.owner ?: state.creationOwner.takeIf { state.pendingAdd }
+                val snapshots = if (failure.owner == null && state.serverId != null) state.statusSnapshots - state.serverId else state.statusSnapshots
+                mutableState.value = state.copy(problem = Problem.ADD_PENDING, pendingAdd = true, creation = UserCreation.UNCERTAIN,
+                    creationOwner = owner, statusSnapshots = snapshots)
             } catch (failure: VpsServerStore.RemovePendingException) {
-                val owner = mutableState.value.removalOwner?.takeIf { failure.ownerServerId == null || it.id == failure.ownerServerId }
-                mutableState.value = mutableState.value.copy(problem = Problem.REMOVE_PENDING, pendingRemove = true,
-                    removal = UserRemoval.UNCERTAIN, removalOwner = owner)
+                val state = mutableState.value
+                val owner = failure.owner ?: state.removalOwner.takeIf { state.pendingRemove }
+                val attempt = failure.attempt
+                val snapshots = if (state.serverId != null) state.statusSnapshots - state.serverId else state.statusSnapshots
+                mutableState.value = if (attempt != null) state.withPendingRemoval(state.serverId, attempt, owner)
+                    .copy(problem = Problem.REMOVE_PENDING)
+                else state.copy(problem = Problem.REMOVE_PENDING, pendingRemove = true,
+                    removal = UserRemoval.UNCERTAIN, removalOwner = owner,
+                    removalAction = state.removalAction.takeIf { state.pendingRemove && state.removalOwner == owner } ?: PendingVpsRemove.Action.REMOVE,
+                    removalAttempt = null, statusSnapshots = snapshots)
             } catch (failure: VpsServerStore.RotatePendingException) {
-                val owner = mutableState.value.rotationOwner?.takeIf { failure.ownerServerId == null || it.id == failure.ownerServerId }
-                mutableState.value = mutableState.value.copy(problem = Problem.ROTATE_PENDING, pendingRotation = true,
-                    rotation = UserRotation.UNCERTAIN, rotationOwner = owner, rotationAttempt = mutableState.value.rotationAttempt?.takeIf { owner?.let(it::owns) == true })
+                val state = mutableState.value
+                val owner = failure.owner ?: state.rotationOwner.takeIf { state.pendingRotation }
+                val attempt = failure.attempt
+                val snapshots = if (state.serverId != null) state.statusSnapshots - state.serverId else state.statusSnapshots
+                mutableState.value = if (attempt != null) state.withPendingRotation(state.serverId, attempt, owner)
+                    .copy(problem = Problem.ROTATE_PENDING)
+                else state.copy(problem = Problem.ROTATE_PENDING, pendingRotation = true,
+                    rotation = UserRotation.UNCERTAIN, rotationOwner = owner, rotationAttempt = null,
+                    statusSnapshots = snapshots)
             } catch (_: VpsServerStore.CredentialConflictException) {
-                mutableState.value = mutableState.value.copy(problem = Problem.CONNECTION_CHANGED, creationOwner = null)
+                mutableState.value = mutableState.value.copy(problem = Problem.CONNECTION_CHANGED,
+                    creationOwner = mutableState.value.creationOwner.takeIf { mutableState.value.pendingAdd })
             } catch (_: VpsServerStore.InvalidTransferMetadataException) {
                 mutableState.value = mutableState.value.copy(problem = Problem.STORAGE_FAILED)
             } catch (_: IOException) {
@@ -1279,9 +1592,9 @@ class VpsProvisioningViewModel internal constructor(
                 mutableState.value = mutableState.value.copy(problem = Problem.STORAGE_FAILED)
             } finally {
                 operation = null
-                mutableState.value = mutableState.value.copy(busy = false,
+                mutableState.value = retireDisplacedPendingSnapshots(previous, mutableState.value.copy(busy = false,
                     removal = if (mutableState.value.removal == UserRemoval.CHECKING) UserRemoval.NONE else mutableState.value.removal,
-                    rotation = if (mutableState.value.rotation == UserRotation.CHECKING) UserRotation.NONE else mutableState.value.rotation)
+                    rotation = if (mutableState.value.rotation == UserRotation.CHECKING) UserRotation.NONE else mutableState.value.rotation))
             }
         }.also { operation = it }
     }
@@ -1354,14 +1667,20 @@ class VpsProvisioningViewModel internal constructor(
             mutableState.value = mutableState.value.copy(savedAccess = SavedAccess.UNKNOWN)
             try {
                 val pendingRemoval = previous?.let { store.pendingRemove(it) }
+                if (previous != null && pendingRemoval != null) publishRemovalOwner(previous, pendingRemoval)
                 val pendingRotation = previous?.let { store.pendingRotation(it) }
+                if (previous != null && pendingRotation != null) publishRotationOwner(previous, pendingRotation)
                 // Credential refresh must preserve the exact record fenced by a pending removal.
                 val recordToSave = if (pendingRemoval == null && pendingRotation == null) record else {
                     val captured = requireNotNull(previous)
                     if (pendingRemoval != null && (!pendingRemoval.owns(captured) || pendingRemoval.ssh != connection.endpoint ||
-                        pendingRemoval.fingerprint != connection.hostKeyFingerprint)) throw VpsServerStore.RemovePendingException(pendingRemoval.serverId)
+                        pendingRemoval.fingerprint != connection.hostKeyFingerprint)) {
+                        throw VpsServerStore.RemovePendingException(pendingRemoval.serverId, mutableState.value.removalOwner, pendingRemoval)
+                    }
                     if (pendingRotation != null && (!pendingRotation.owns(captured) || pendingRotation.ssh != connection.endpoint ||
-                        pendingRotation.fingerprint != connection.hostKeyFingerprint)) throw VpsServerStore.RotatePendingException(pendingRotation.serverId)
+                        pendingRotation.fingerprint != connection.hostKeyFingerprint)) {
+                        throw VpsServerStore.RotatePendingException(pendingRotation.serverId, mutableState.value.rotationOwner, pendingRotation)
+                    }
                     captured
                 }
                 store.upsert(recordToSave)

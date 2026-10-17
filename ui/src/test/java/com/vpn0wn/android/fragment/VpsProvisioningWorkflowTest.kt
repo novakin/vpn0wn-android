@@ -2113,9 +2113,12 @@ class VpsProvisioningWorkflowTest {
         override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<out String>?) = 0
     }
 
-    private fun TestScope.openServer(fixture: Fixture, server: StoredVpsServer) {
+    private suspend fun TestScope.openServer(fixture: Fixture, server: StoredVpsServer) {
         clickableAncestor(text(fixture.root, server.name)).performClick()
         settle()
+        fixture.model.state.first { !it.busy }
+        settle()
+        assertTrue(fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status).isEnabled)
     }
 
     private fun TestScope.backToFleet(fixture: Fixture) {
@@ -2273,9 +2276,12 @@ class VpsProvisioningWorkflowTest {
         input(fixture.root, fixture.activity.getString(R.string.vpn0wn_password_placeholder)).setText(PASSWORD)
     }
 
-    private fun TestScope.clickServer(fixture: Fixture) {
+    private suspend fun TestScope.clickServer(fixture: Fixture) {
         clickableAncestor(text(fixture.root, "198.51.100.42")).performClick()
         settle()
+        fixture.model.state.first { !it.busy }
+        settle()
+        assertTrue(fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status).isEnabled)
     }
 
     private fun TestScope.click(fixture: Fixture, resource: Int) {
