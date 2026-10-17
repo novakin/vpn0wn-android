@@ -214,6 +214,19 @@ data class VpsRestoreCheckPlan(
     val revokedCount: Int,
 )
 
+data class VpsRestoreVerification(
+    val interfaceName: String,
+    val endpoint: String,
+    val port: String,
+    val cidr: String,
+    val dns: String,
+    val serverPublicKey: String,
+    val peerCount: Int,
+    val revokedCount: Int,
+    val running: Boolean,
+    val serviceEnabled: Boolean,
+)
+
 data class VpsUninstallResult(
     val uninstalled: Boolean,
     val backup: String,
@@ -500,6 +513,25 @@ object ProvisioningJson {
             serverPublicKey = plan.string("serverPublicKey"),
             peerCount = plan.restoreCount("peerCount", MAX_MANAGED_PEERS),
             revokedCount = plan.restoreCount("revokedCount", VpsBackupResult.MAX_REVOKED_FILES),
+        )
+    }
+
+    fun parseRestoreVerification(stdout: String): VpsRestoreVerification = parse(stdout) { json ->
+        val running = json.boolean("running")
+        val serviceEnabled = json.boolean("serviceEnabled")
+        if (!json.boolean("verifyOnly") || !json.boolean("verified") || !running || !serviceEnabled)
+            throw JSONException("Restore state was not verified")
+        VpsRestoreVerification(
+            interfaceName = json.string("interface"),
+            endpoint = json.string("endpoint"),
+            port = json.string("port"),
+            cidr = json.string("cidr"),
+            dns = json.string("dns"),
+            serverPublicKey = json.string("serverPublicKey"),
+            peerCount = json.restoreCount("peerCount", MAX_MANAGED_PEERS),
+            revokedCount = json.restoreCount("revokedCount", VpsBackupResult.MAX_REVOKED_FILES),
+            running = running,
+            serviceEnabled = serviceEnabled,
         )
     }
 

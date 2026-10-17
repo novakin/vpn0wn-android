@@ -56,7 +56,7 @@ class VpsRestoreClientTest {
     }
 
     @Test
-    fun invalidCheckSnapshotMetadataIdentityAndRequestsNeverCreateTransport() = runBlocking {
+    fun invalidReadOnlySnapshotMetadataIdentityAndRequestsNeverCreateTransport() = runBlocking {
         val valid = snapshot()
         val invalid = listOf(
             valid.copy(interfaceName = "other0") to request(),
@@ -84,9 +84,12 @@ class VpsRestoreClientTest {
             }
         })
         for ((snapshot, request) in invalid) {
-            val failure = runCatching { client.checkFreshRestore(connection(), snapshot, request) }.exceptionOrNull()
-            assertTrue(failure is ProvisioningException)
-            assertEquals(ProvisioningFailureCategory.INVALID_INPUT, (failure as ProvisioningException).category)
+            val failures = listOf(runCatching { client.checkFreshRestore(connection(), snapshot, request) }.exceptionOrNull(),
+                runCatching { client.verifyFreshRestore(connection(), snapshot, request) }.exceptionOrNull())
+            for (failure in failures) {
+                assertTrue(failure is ProvisioningException)
+                assertEquals(ProvisioningFailureCategory.INVALID_INPUT, (failure as ProvisioningException).category)
+            }
         }
         assertEquals(0, creates)
     }
@@ -187,6 +190,133 @@ class VpsRestoreClientTest {
         assertEquals(1, remote.commands.count(::isRestore))
         assertTrue(remote.cleaned)
         assertEquals(1, remote.closes)
+    }
+
+    @Test
+    fun verifyUploadsPrivateInputsBeforeObservationOnlyDispatchAndChecksEveryPublicField() = runBlocking {
+        val source = snapshot()
+        val remote = RecordingRemote().apply {
+            beforeRestore = {
+                val state = uploads.filterKeys { it.contains("/restore-input/") }
+                assertEquals(2, state.size)
+                assertTrue(state.values.all { it.second == "0600" })
+                assertTrue(state.getValue("$REMOTE/restore-input/server.conf").first == source.config)
+                assertTrue(state.getValue("$REMOTE/restore-input/revoked/retired.conf.ABC123").first == source.revoked.single().config)
+                assertFalse(admitted)
+            }
+        }
+        val result = client(remote).verifyFreshRestore(connection(), source, request())
+        assertEquals(VpsRestoreVerification("wg0", "destination.example", "51821", "10.8.0.0/24", "1.1.1.1", SERVER_KEY, 1, 1, true, true), result)
+        val command = remote.commands.single(::isRestore)
+        assertTrue(command.contains("'--verify'"))
+        assertFalse(command.contains("'--check'") || command.contains("'--confirm'"))
+        assertTrue(remote.commands.none { it.contains(PRIVATE_KEY) || it.contains(PSK) })
+        assertFalse(remote.admitted)
+        assertTrue(remote.cleaned)
+        assertEquals(1, remote.closes)
+    }
+
+    @Test
+    fun uncorrelatedVerificationReceiptsAreRejectedWithoutRetryAndClearOwnedInputs() = runBlocking {
+        for ((field, value) in listOf(
+            "interface" to "other0", "endpoint" to "source.example", "port" to "51820",
+            "cidr" to "10.9.0.0/24", "dns" to "8.8.8.8", "serverPublicKey" to PEER_KEY,
+            "peerCount" to 2, "revokedCount" to 0, "running" to false, "serviceEnabled" to false,
+        )) {
+            val remote = RecordingRemote().apply { verificationResponse.put(field, value) }
+            val failure = runCatching { client(remote).verifyFreshRestore(connection(), snapshot(), request()) }.exceptionOrNull()
+            assertTrue(failure is ProvisioningException)
+            assertEquals(ProvisioningFailureCategory.INVALID_RESPONSE, (failure as ProvisioningException).category)
+            assertFalse(failure.message.orEmpty().contains(PRIVATE_KEY))
+            assertFalse(remote.admitted)
+            assertEquals(1, remote.commands.count(::isRestore))
+            assertTrue(remote.cleaned)
+            assertEquals(1, remote.closes)
+        }
+    }
+
+    @Test
+    fun verifyRejectsCheckAndMutationReceiptsWithoutDispatchingAnotherMode() = runBlocking {
+        for (useCheck in listOf(false, true)) {
+            val remote = RecordingRemote().apply { verificationResponse = if (useCheck) checkResponse else response }
+            val failure = runCatching { client(remote).verifyFreshRestore(connection(), snapshot(), request()) }.exceptionOrNull()
+            assertTrue(failure is ProvisioningException)
+            assertEquals(ProvisioningFailureCategory.INVALID_RESPONSE, (failure as ProvisioningException).category)
+            assertTrue(remote.commands.single(::isRestore).contains("'--verify'"))
+            assertFalse(remote.admitted)
+            assertTrue(remote.cleaned)
+            assertEquals(1, remote.closes)
+        }
+    }
+
+    @Test
+    fun verifyUploadFailureNeverDispatchesOrAdmitsAndClosesOwnedClient() = runBlocking {
+        val remote = RecordingRemote().apply { failUpload = true }
+        val failure = runCatching { client(remote).verifyFreshRestore(connection(), snapshot(), request()) }.exceptionOrNull()
+        assertTrue(failure is ProvisioningException)
+        assertFalse(failure?.message.orEmpty().contains("synthetic-secret-diagnostic"))
+        assertFalse(remote.admitted)
+        assertFalse(remote.commands.any(::isRestore))
+        assertTrue(remote.cleaned)
+        assertEquals(1, remote.closes)
+    }
+
+    @Test
+    fun cancelledVerifyUploadAndDispatchDrainCleanupWithoutMutationAdmission() = runBlocking {
+        for (duringUpload in listOf(false, true)) {
+            val remote = RecordingRemote().apply { blockUpload = duringUpload; blockRestore = !duringUpload }
+            val pending = async { client(remote).verifyFreshRestore(connection(), snapshot(), request()) }
+            try {
+                remote.entered.await()
+                pending.cancelAndJoin()
+                assertFalse(remote.admitted)
+                assertEquals(if (duringUpload) 0 else 1, remote.commands.count(::isRestore))
+                assertTrue(remote.cleaned)
+                assertEquals(1, remote.closes)
+            } finally { pending.cancelAndJoin() }
+        }
+    }
+
+    @Test
+    fun verifyDefectPreservesThrowableAndStillCleansAndCloses() = runBlocking {
+        val defect = AssertionError("Synthetic verification defect")
+        val remote = RecordingRemote().apply { beforeRestore = { throw defect } }
+        val failure = requireNotNull(runCatching { client(remote).verifyFreshRestore(connection(), snapshot(), request()) }.exceptionOrNull())
+        assertEquals(defect.javaClass, failure.javaClass)
+        assertSame(defect, generateSequence(failure) { it.cause }.last())
+        assertFalse(remote.admitted)
+        assertTrue(remote.cleaned)
+        assertEquals(1, remote.closes)
+    }
+
+    @Test
+    fun callerHistoryMutationCannotChangeVerifyUploadsOrCorrelation() = runBlocking {
+        val history = snapshot().revoked.toMutableList()
+        val remote = RecordingRemote()
+        val result = client(remote) {
+            history.clear()
+            history.add(VpsRevokedBackup("../../foreign", "private"))
+        }.verifyFreshRestore(connection(), snapshot().copy(revoked = history), request())
+        assertEquals(1, result.revokedCount)
+        assertTrue(remote.uploads.keys.any { it.endsWith("/retired.conf.ABC123") })
+        assertFalse(remote.uploads.keys.any { it.contains("..") })
+    }
+
+    @Test
+    fun verifyPostconditionAndObservationFailuresStaySafeWithoutRetry() = runBlocking {
+        for (code in listOf("postcondition_failed", "runtime_unknown")) {
+            val remote = RecordingRemote().apply {
+                restoreFailure = ProvisioningCommandOutput(74, """{"ok":false,"error":"$code","message":"synthetic-secret-diagnostic"}""", "")
+            }
+            val failure = runCatching { client(remote).verifyFreshRestore(connection(), snapshot(), request()) }.exceptionOrNull()
+            assertTrue(failure is ProvisioningException)
+            assertEquals(code, (failure as ProvisioningException).remoteCode)
+            assertFalse(failure.message.orEmpty().contains("synthetic-secret"))
+            assertFalse(remote.admitted)
+            assertEquals(1, remote.commands.count(::isRestore))
+            assertTrue(remote.cleaned)
+            assertEquals(1, remote.closes)
+        }
     }
 
     @Test
@@ -333,6 +463,9 @@ class VpsRestoreClientTest {
         val checkResponse = JSONObject().put("ok", true).put("checkOnly", true).put("plan",
             JSONObject(response.toString()).apply { remove("ok"); put("dns", "1.1.1.1") },
         )
+        var verificationResponse = JSONObject(response.toString()).put("verifyOnly", true).put("verified", true)
+            .put("dns", "1.1.1.1").put("running", true).put("serviceEnabled", true)
+        var restoreFailure: ProvisioningCommandOutput? = null
         var closes = 0
         var admitted = false
         var cleaned = false
@@ -357,8 +490,10 @@ class VpsRestoreClientTest {
                         entered.complete(Unit)
                         CompletableDeferred<Unit>().await()
                     }
-                    if (conflict) ProvisioningCommandOutput(73, """{"ok":false,"error":"port_in_use","message":"occupied"}""", "")
+                    if (restoreFailure != null) requireNotNull(restoreFailure)
+                    else if (conflict) ProvisioningCommandOutput(73, """{"ok":false,"error":"port_in_use","message":"occupied"}""", "")
                     else if (command.contains("'--check'")) ProvisioningCommandOutput(0, checkResponse.toString(), "")
+                    else if (command.contains("'--verify'")) ProvisioningCommandOutput(0, verificationResponse.toString(), "")
                     else ProvisioningCommandOutput(0, response.toString(), "")
                 }
                 else -> ProvisioningCommandOutput(0, "", "")
