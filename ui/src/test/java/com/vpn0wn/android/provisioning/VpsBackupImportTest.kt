@@ -12,6 +12,7 @@ import android.database.MatrixCursor
 import android.net.Uri
 import android.os.Bundle
 import android.os.CancellationSignal
+import android.os.OperationCanceledException
 import android.os.ParcelFileDescriptor
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.lifecycle.ViewModelStore
@@ -184,6 +185,56 @@ class VpsBackupImportTest {
         assertTrue(peer.commands.isEmpty())
     }
 
+    @Test fun providerHonoringCancellationCannotReplaceTheCancelledOperationWithRuntimeFailure() = runTest {
+        val provider = validInput()
+        val entered = CountDownLatch(1)
+        val cancelled = CountDownLatch(1)
+        provider.beforeOpen = { signal ->
+            val nativeSignal = requireNotNull(signal)
+            nativeSignal.setOnCancelListener { cancelled.countDown() }
+            entered.countDown()
+            check(cancelled.await(10, TimeUnit.SECONDS))
+            nativeSignal.throwIfCanceled()
+        }
+        val operation = requireNotNull(model.inspectBackup(document(), PASSWORD.toCharArray()))
+        try {
+            runCurrent()
+            assertTrue(withContext(Dispatchers.IO) { entered.await(10, TimeUnit.SECONDS) })
+            operation.cancel()
+            operation.join()
+            assertFalse(model.state.value.busy)
+            assertEquals(VpsProvisioningViewModel.Problem.CANCELLED, model.state.value.problem)
+            assertNull(model.state.value.backupSummary)
+            assertTrue(peer.commands.isEmpty())
+        } finally { operation.cancelAndJoin() }
+    }
+
+    @Test fun providerNativeCancellationWithoutCallerCancellationIsAnInputFailure() = runTest {
+        validInput().beforeOpen = { throw OperationCanceledException("Synthetic provider cancellation") }
+        requireNotNull(model.inspectBackup(document(), PASSWORD.toCharArray())).join()
+        assertEquals(VpsProvisioningViewModel.BackupFailure.INPUT, model.state.value.backupFailure)
+        assertNull(model.state.value.problem)
+        assertNull(model.state.value.backupSummary)
+        assertFalse(model.state.value.busy)
+        assertTrue(peer.commands.isEmpty())
+    }
+
+    @Test fun cancellationDuringOwnedCloseCannotReplaceCancellationWithInputFailure() = runTest {
+        val provider = validInput()
+        lateinit var operation: Job
+        provider.beforeClose = { operation.cancel() }
+        provider.failClose = true
+        operation = requireNotNull(model.inspectBackup(document(), PASSWORD.toCharArray()))
+        operation.join()
+        assertFalse(model.state.value.busy)
+        assertEquals(VpsProvisioningViewModel.Problem.CANCELLED, model.state.value.problem)
+        assertNull(model.state.value.backupFailure)
+        assertNull(model.state.value.backupSummary)
+        assertTrue(provider.closed)
+        assertFalse(provider.descriptor.fileDescriptor.valid())
+        assertTrue(peer.commands.isEmpty())
+    }
+
     @Test fun cancellationSignalsBlockedProviderAndKeepsBusyUntilLateOpenDrains() = runTest {
         val provider = validInput()
         val entered = CountDownLatch(1)
@@ -242,6 +293,7 @@ internal class VpsBackupInputProvider(val file: File) : ContentProvider() {
     var closed = false
     lateinit var descriptor: ParcelFileDescriptor
     var beforeOpen: ((CancellationSignal?) -> Unit)? = null
+    var beforeClose: (() -> Unit)? = null
 
     fun register(context: Context) {
         attachInfo(context, ProviderInfo().apply { authority = URI.authority })
@@ -268,6 +320,7 @@ internal class VpsBackupInputProvider(val file: File) : ContentProvider() {
                 if (!closed) {
                     closed = true
                     positionAtClose = if (source.fd.valid()) source.filePointer else 0
+                    beforeClose?.invoke()
                 }
                 super.close()
                 if (failClose) throw IOException("Synthetic provider close failure")

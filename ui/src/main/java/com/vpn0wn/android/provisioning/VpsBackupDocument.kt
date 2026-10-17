@@ -4,6 +4,7 @@ package com.vpn0wn.android.provisioning
 import android.content.ContentResolver
 import android.net.Uri
 import android.os.CancellationSignal
+import android.os.OperationCanceledException
 import android.os.ParcelFileDescriptor
 import java.io.IOException
 import java.io.InputStream
@@ -24,7 +25,17 @@ internal class VpsBackupDocument(private val resolver: ContentResolver, private 
 
     suspend fun read(): ByteArray = coroutineScope {
         val result = AtomicReference<ByteArray?>()
-        val worker = async(Dispatchers.IO) { readOwned().also(result::set) }
+        val worker = async(Dispatchers.IO) {
+            try {
+                readOwned().also(result::set)
+            } catch (failure: IOException) {
+                currentCoroutineContext().ensureActive()
+                throw failure
+            } catch (_: OperationCanceledException) {
+                currentCoroutineContext().ensureActive()
+                throw IOException("Backup input cancelled")
+            }
+        }
         var delivered = false
         try {
             val bytes = worker.await()

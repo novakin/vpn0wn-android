@@ -748,26 +748,35 @@ class VpsProvisioningFragment : BaseFragment() {
         if (!canBackup(server.id) || profileAction != null || !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
         val stored = storedServers.singleOrNull { it.id == server.id } ?: return
         val action = BackupAction(stored, requireView())
+        val owner = viewLifecycleOwner
         backupAction = action
         try {
             BiometricAuthenticator.authenticate(R.string.vpn0wn_backup_authenticate, this) { result ->
-                if (backupAction !== action || !action.authenticating) return@authenticate
+                if (!ownsBackupAction(action, requireStarted = false) || !action.authenticating || action.authenticationResultAccepted) return@authenticate
                 if (result is BiometricAuthenticator.Result.Failure && result.code == null) {
                     if (ownsBackupAction(action)) toast(str(R.string.biometric_auth_error))
                     return@authenticate
                 }
-                action.authenticating = false
-                if (!ownsBackupAction(action) || AdminKnobs.disableConfigExport) {
+                action.authenticationResultAccepted = true
+                if (result is BiometricAuthenticator.Result.Cancelled) {
                     retireBackupAction()
                     return@authenticate
                 }
-                when (result) {
-                    is BiometricAuthenticator.Result.Success, is BiometricAuthenticator.Result.NoAuthenticationConfigured -> showBackupPassword(action)
-                    is BiometricAuthenticator.Result.Failure -> {
-                        toast(str(R.string.biometric_auth_error))
-                        retireBackupAction()
+                owner.lifecycleScope.launch {
+                    owner.lifecycle.withStarted {
+                        if (backupAction !== action) return@withStarted
+                        if (!ownsBackupAction(action) || AdminKnobs.disableConfigExport) {
+                            retireBackupAction()
+                            return@withStarted
+                        }
+                        action.authenticating = false
+                        if (result is BiometricAuthenticator.Result.Success || result is BiometricAuthenticator.Result.NoAuthenticationConfigured) {
+                            showBackupPassword(action)
+                        } else {
+                            toast(str(R.string.biometric_auth_error))
+                            retireBackupAction()
+                        }
                     }
-                    is BiometricAuthenticator.Result.Cancelled -> retireBackupAction()
                 }
             }
         } catch (failure: RuntimeException) {
@@ -1104,26 +1113,33 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     private fun authenticateProfileAction(action: ProfileAction) {
+        val owner = viewLifecycleOwner
         BiometricAuthenticator.authenticate(R.string.vpn0wn_profile_authenticate, this) { result ->
-            if (profileAction !== action || !action.authenticating) return@authenticate
+            if (!ownsProfileAction(action, requireStarted = false) || !action.authenticating || action.authenticationResultAccepted) return@authenticate
             if (result is BiometricAuthenticator.Result.Failure && result.code == null) {
                 if (ownsProfileAction(action)) toast(str(R.string.biometric_auth_error))
                 return@authenticate
             }
-            action.authenticating = false
-            if (!ownsProfileAction(action) || exportProhibited(action)) {
+            action.authenticationResultAccepted = true
+            if (result is BiometricAuthenticator.Result.Cancelled) {
                 retireProfileAction()
                 return@authenticate
             }
-            when (result) {
-                is BiometricAuthenticator.Result.Success, is BiometricAuthenticator.Result.NoAuthenticationConfigured -> {
-                    if (action.use == ProfileUse.IMPORT) showProfileImport(action) else consumeProfile(action)
+            owner.lifecycleScope.launch {
+                owner.lifecycle.withStarted {
+                    if (profileAction !== action) return@withStarted
+                    if (!ownsProfileAction(action) || exportProhibited(action)) {
+                        retireProfileAction()
+                        return@withStarted
+                    }
+                    action.authenticating = false
+                    if (result is BiometricAuthenticator.Result.Success || result is BiometricAuthenticator.Result.NoAuthenticationConfigured) {
+                        if (action.use == ProfileUse.IMPORT) showProfileImport(action) else consumeProfile(action)
+                    } else {
+                        toast(str(R.string.biometric_auth_error))
+                        retireProfileAction()
+                    }
                 }
-                is BiometricAuthenticator.Result.Failure -> {
-                    toast(str(R.string.biometric_auth_error))
-                    retireProfileAction()
-                }
-                is BiometricAuthenticator.Result.Cancelled -> retireProfileAction()
             }
         }
     }
@@ -2267,7 +2283,9 @@ class VpsProvisioningFragment : BaseFragment() {
     private fun str(res: Int, vararg args: Any): String = getString(res, *args)
     private fun monoTypeface(): Typeface = cachedMonoTypeface
 
-    private class BackupAction(val server: StoredVpsServer, val ownerView: View, var authenticating: Boolean = true)
+    private class BackupAction(val server: StoredVpsServer, val ownerView: View, var authenticating: Boolean = true) {
+        var authenticationResultAccepted = false
+    }
     private class BackupImportAction(val ownerView: View, var waitingForPicker: Boolean = true, var authenticating: Boolean = false) {
         var authenticationResultAccepted = false
     }
@@ -2276,7 +2294,9 @@ class VpsProvisioningFragment : BaseFragment() {
 
     private enum class ProfileUse { QR, EXPORT, IMPORT }
     private class ProfileAction(val server: StoredVpsServer, val clientPublicKey: String, val name: String,
-        val use: ProfileUse, val ownerView: View, var authenticating: Boolean = true)
+        val use: ProfileUse, val ownerView: View, var authenticating: Boolean = true) {
+        var authenticationResultAccepted = false
+    }
 
     private sealed class Screen {
         object Fleet : Screen()
