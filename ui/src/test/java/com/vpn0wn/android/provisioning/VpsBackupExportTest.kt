@@ -117,6 +117,32 @@ class VpsBackupExportTest {
         assertFalse(peer.commands.any { it.contains("./'backup.sh'") })
     }
 
+    @Test fun coherentExportPreservesPendingRemovalAndSavedAccess() = runTest {
+        val selected = ready()
+        val pending = PendingVpsRemove(selected.id, VpsEndpoint(selected.host, selected.sshPort, selected.sshUser), PIN,
+            VpsProfileFixture.serverKey.publicKey.toBase64(), "phone", VpsProfileFixture.client.publicKey.toBase64())
+        store.admitRemove(selected, pending)
+        requireNotNull(model.syncStatus(selected)).join()
+        val current = server()
+        assertTrue(model.state.value.pendingRemove)
+        var recovered: VpsBackupResult? = null
+        requireNotNull(model.exportBackup(current, password()) { archive ->
+            assertTrue(model.state.value.pendingRemove)
+            assertEquals(VpsProvisioningViewModel.UserRemoval.UNCERTAIN, model.state.value.removal)
+            assertEquals(current, model.state.value.removalOwner)
+            assertEquals(pending, store.pendingRemove(current))
+            recovered = VpsBackupArchive().decrypt(archive, password())
+        }).join()
+        assertEquals(VpsBackupExportFixture.snapshot, recovered)
+        assertNull(model.state.value.problem)
+        assertTrue(model.state.value.pendingRemove)
+        assertEquals(pending, store.pendingRemove(current))
+        val connection = requireNotNull(store.loadConnection(current))
+        val credential = connection.credential as VpsCredential.Password
+        try { assertEquals("synthetic-ssh-password", credential.value.concatToString()) } finally { credential.clear() }
+        assertFalse(peer.commands.any { it.contains("./'remove-peer.sh'") })
+    }
+
     @Test fun snapshotPrivateKeyMustMatchFreshAndSelectedPublicIdentity() = runTest {
         val selected = ready()
         val changed = VpsBackupExportFixture.snapshot.copy(config = VpsBackupExportFixture.snapshot.config.replace(
