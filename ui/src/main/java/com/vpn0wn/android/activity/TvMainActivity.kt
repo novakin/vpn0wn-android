@@ -134,6 +134,7 @@ class TvMainActivity : AppCompatActivity() {
         }
         super.onCreate(savedInstanceState)
         binding = TvActivityBinding.inflate(layoutInflater)
+        Application.getTunnelManager().onActivityCreated()
         lifecycleScope.launch {
             binding.tunnels = try {
                 Application.getTunnelManager().getTunnels()

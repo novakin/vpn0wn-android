@@ -8,6 +8,16 @@ The layer lists below are target requirements, not a passing coverage report. [S
 
 ## Test Layers
 
+### Caller-scoped restoration, rename and tile controls — #244–#247
+
+The manager baseline reproduced four failures in five startup controls and five failures in six rename controls. A separate tile baseline reproduced two failures in two controls: a successful UP or DOWN followed by observation failure launched another toggle activity. These are host/Robolectric reproductions, not phone reboot or field-frequency evidence.
+
+Candidate controls use actual manager, BootShutdownReceiver and attached MainActivity/Detail/Editor owners with synthetic profiles, controlled inventory I/O and injected backend/DataStore failures. Startup covers read-only inventory with both boot preferences, delayed cold boot, forced caller readiness, once-per-manager interactive restoration, failed-load retry and cancellation. Rename covers fresh-manager recovery, unrelated names, DOWN profiles, file/backend/metadata failure and retained secondary errors. Selection covers warm/delayed loading, draft preservation, missing/error outcomes, explicit replacement, destruction and repeated recreation. Tile controls cover supported API paths, exact-object/absolute-target continuation, denial, replacement, duplicate results and process-restored request rejection; the Intent Parcel control is not a physical Binder-driver trial.
+
+`BootBroadcastLifetimeTest` dispatches the registered receiver and inspects Robolectric's pending-result completion. It covers delayed backend selection, delayed inventory/restoration, userspace no-op, shutdown persistence, delayed cold-shutdown inventory and preserved intent on load failure, expected I/O/root failure, propagated Error identity, cancellation during backend/inventory waits, pre-start cancellation and unrelated-action rejection. `TunnelStartupPolicyTest` separately verifies boot preference and activation policy. These source-inspected controls cover ownership and settlement within Android's bounded asynchronous broadcast contract; they do not measure its real timeout, process retention or device reboot behavior.
+
+Exact final-head execution, Detekt, CI and ultra results belong to the PR acceptance record. Shared manager/application changes require the full debug suite and the repository release-startup gate. Native boot and broadcast-timeout acceptance on an explicitly authorized disposable target, system tile/Binder behavior, device lifecycle and release acceptance remain separate; no personal-phone reboot, new APK, live VPS or performance result follows from these host controls.
+
 ### Compact enlarged Home status readability — #238
 
 Installed Pixel 7 Pro output at 320×640dp, French and 2× text revealed internal word breaks in `VPN déconnecté` and `Point de terminaison`. Complete text remained present, but the equal-width status columns left roughly 107dp and 101dp for their labels after icon/gap allocation. Existing Home checks established visibility and complete data, not readable word boundaries. The inspected header and Add action provide no basis for changing their artwork, typography or geometry.

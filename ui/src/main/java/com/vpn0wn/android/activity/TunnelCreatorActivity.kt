@@ -9,6 +9,7 @@ import android.view.View
 import com.vpn0wn.android.util.applySafeAreaInsets
 
 import android.os.Bundle
+import com.vpn0wn.android.Application
 import com.vpn0wn.android.R
 import com.vpn0wn.android.model.ObservableTunnel
 
@@ -21,6 +22,7 @@ class TunnelCreatorActivity : BaseActivity() {
         setContentView(R.layout.tunnel_creator_activity)
         supportActionBar?.hide()
         findViewById<View>(R.id.main_activity_container).applySafeAreaInsets()
+        Application.getTunnelManager().onActivityCreated()
     }
 
     override fun onSelectedTunnelChanged(oldTunnel: ObservableTunnel?, newTunnel: ObservableTunnel?): Boolean {

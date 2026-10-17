@@ -145,6 +145,7 @@ internal class TunnelTestEnvironment(directory: File, scope: CoroutineScope) {
         var deleteDefect = false
         val failDeleteNames: MutableSet<String> = ConcurrentHashMap.newKeySet()
         var failSave = false
+        var failRename = false
         val failLoadNames: MutableSet<String> = ConcurrentHashMap.newKeySet()
         val loadAttempts = CopyOnWriteArrayList<String>()
         val loadEntered = ConcurrentHashMap<String, CountDownLatch>()
@@ -172,6 +173,7 @@ internal class TunnelTestEnvironment(directory: File, scope: CoroutineScope) {
             return checkNotNull(configs[name])
         }
         override fun rename(name: String, replacement: String) {
+            if (failRename) throw IOException("Injected rename failure")
             check(!configs.containsKey(replacement))
             configs[replacement] = checkNotNull(configs.remove(name))
         }

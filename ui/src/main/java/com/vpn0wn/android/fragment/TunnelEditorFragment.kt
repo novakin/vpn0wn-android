@@ -52,6 +52,7 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
     private var authenticationRequest: Any? = null
     private var binding: TunnelEditorFragmentBinding? = null
     private var tunnel: ObservableTunnel? = null
+    private var restoredTunnelName: String? = null
 
     private fun onConfigSaved(savedTunnel: Tunnel, throwable: Throwable?) {
         val ctx = activity ?: Application.get()
@@ -98,6 +99,7 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
         activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
         haveShownKeys = false
         authenticationRequest = null
+        restoredTunnelName = null
         binding = null
         super.onDestroyView()
     }
@@ -234,7 +236,7 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
 
     override fun onSaveInstanceState(outState: Bundle) {
         binding?.let { outState.putParcelable(KEY_LOCAL_CONFIG, it.config) }
-        outState.putString(KEY_ORIGINAL_NAME, tunnel?.name)
+        outState.putString(KEY_ORIGINAL_NAME, tunnel?.name ?: restoredTunnelName)
         super.onSaveInstanceState(outState)
     }
 
@@ -244,10 +246,16 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
         oldTunnel: ObservableTunnel?,
         newTunnel: ObservableTunnel?
     ) {
+        val restoreDraft = newTunnel != null && newTunnel.name == restoredTunnelName
+        restoredTunnelName = null
         resetKeyAuthorization()
         tunnel = newTunnel
         val ownerBinding = binding ?: return
         ownerBinding.isNew = newTunnel == null
+        if (restoreDraft) {
+            if (ownerBinding.name == null) ownerBinding.name = newTunnel!!.name
+            return
+        }
         val loadingConfig = ConfigProxy()
         ownerBinding.config = loadingConfig
         if (newTunnel != null) {
@@ -334,7 +342,12 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
                 ?: return
             val originalName = savedInstanceState.getString(KEY_ORIGINAL_NAME)
             val t = tunnel
-            if (t != null && t.name != originalName) onSelectedTunnelChanged(null, t) else binding.config = config
+            if (t != null && t.name != originalName) {
+                onSelectedTunnelChanged(null, t)
+            } else {
+                restoredTunnelName = originalName
+                binding.config = config
+            }
         }
         super.onViewStateRestored(savedInstanceState)
     }

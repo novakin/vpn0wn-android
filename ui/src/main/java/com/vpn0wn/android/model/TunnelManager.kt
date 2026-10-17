@@ -79,6 +79,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     private val context: Context = get()
     private val tunnelMap: ObservableSortedKeyedArrayList<String, ObservableTunnel> = ObservableSortedKeyedArrayList(TunnelComparator)
     private var haveLoaded = false
+    private var activityRestoreRequested = false
     private var backendSwitchPending = false
     private var lastUsedPersistence: Job? = null
     private var selectedLastUsedTunnel: ObservableTunnel? = null
@@ -163,6 +164,14 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         if (tunnelMap[tunnel.name] !== tunnel) throw NotManagedException()
     }
 
+    private fun addRecoveryFailure(failure: Throwable, recovery: Throwable) {
+        if (failure === recovery) return
+        failure.addSuppressed(recovery)
+        // Coroutine stack recovery may unwrap a same-class copy at the next suspension boundary.
+        val cause = failure.cause
+        if (cause != null && cause.javaClass == failure.javaClass && cause !== recovery) cause.addSuppressed(recovery)
+    }
+
     suspend fun create(name: String, config: Config): ObservableTunnel = mutate {
         getTunnels()
         if (Tunnel.isNameInvalid(name))
@@ -228,10 +237,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
                         withContext(Dispatchers.IO) { configStore.delete(name) }
                     } catch (recovery: Throwable) {
                         incomplete = true
-                        failure.addSuppressed(recovery)
-                        // Coroutine stack recovery may unwrap a same-class copy at the next suspension boundary.
-                        val cause = failure.cause
-                        if (cause != null && cause.javaClass == failure.javaClass && cause !== recovery) cause.addSuppressed(recovery)
+                        addRecoveryFailure(failure, recovery)
                         addToList(name, config, Tunnel.State.DOWN)
                     }
                 }
@@ -333,17 +339,26 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
                 Log.e(TAG, "Failed to load tunnels on create", e)
                 return@launch
             }
+        }.also { job ->
+            job.invokeOnCompletion { cause ->
+                if (cause != null)
+                    result.completeExceptionally(cause)
+            }
+        }
+    }
+
+    // Backend/ConfigStore expose Exception; background restore reports failures while cancellation and Errors propagate.
+    @Suppress("TooGenericExceptionCaught")
+    fun onActivityCreated() {
+        if (activityRestoreRequested) return
+        activityRestoreRequested = true
+        applicationScope.launch {
             try {
                 restoreState(true)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to restore tunnel state", e)
-            }
-        }.also { job ->
-            job.invokeOnCompletion { cause ->
-                if (cause != null)
-                    result.completeExceptionally(cause)
             }
         }
     }
@@ -376,9 +391,8 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
     @Suppress("TooGenericExceptionCaught")
     suspend fun restoreState(force: Boolean) {
-        if (!haveLoaded || (!force && !UserKnobs.restoreOnBoot.first()))
-            return
-        val eligible = tunnelMap.toList()
+        val eligible = getTunnels().toList()
+        if (!force && !UserKnobs.restoreOnBoot.first()) return
         val previouslyRunning = UserKnobs.runningTunnels.first()
         if (previouslyRunning.isEmpty()) return
         coroutineScope {
@@ -400,7 +414,8 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     }
 
     suspend fun saveState() {
-        UserKnobs.setRunningTunnels(tunnelMap.filter { it.state == Tunnel.State.UP }.map { it.name }.toSet())
+        val tunnels = getTunnels()
+        UserKnobs.setRunningTunnels(tunnels.filter { it.state == Tunnel.State.UP }.map { it.name }.toSet())
     }
 
     private suspend fun refreshObservedStates() {
@@ -449,6 +464,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         val wasLastUsed = tunnel == lastUsedTunnel
         if (wasLastUsed)
             lastUsedTunnel = null
+        var failure: Exception? = null
         try {
             if (originalState == Tunnel.State.UP) {
                 val config = getDownConfig(tunnel, backend, originalState)
@@ -461,17 +477,25 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
             if (originalState == Tunnel.State.UP)
                 withContext(Dispatchers.IO) { backend.setState(tunnel, Tunnel.State.UP, tunnel.getConfigAsync()) }
         } catch (e: Exception) {
+            failure = e
             try {
                 tunnel.onStateChanged(withContext(Dispatchers.IO) { backend.getState(tunnel) })
             } catch (recovery: Exception) {
-                e.addSuppressed(recovery)
+                addRecoveryFailure(e, recovery)
             }
-            throw e
         } finally {
             tunnelMap.add(tunnel)
             if (wasLastUsed)
                 lastUsedTunnel = tunnel
         }
+        try {
+            refreshObservedStates()
+            saveState()
+        } catch (e: Exception) {
+            if (failure == null) throw e
+            addRecoveryFailure(failure, e)
+        }
+        if (failure != null) throw failure
         tunnel.name
     }
 
