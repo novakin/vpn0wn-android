@@ -30,4 +30,6 @@
     <item name="vpn0wn_vps_reconcile_user" type="id" />
     <item name="vpn0wn_vps_profile_import" type="id" />
     <item name="vpn0wn_vps_profile_qr" type="id" />
+    <item name="vpn0wn_vps_user_removal_status" type="id" />
+    <item name="vpn0wn_vps_reconcile_removal" type="id" />
 </resources>

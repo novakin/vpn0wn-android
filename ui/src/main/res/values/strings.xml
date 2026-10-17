@@ -601,4 +601,18 @@
     <string name="vpn0wn_user_created">User created and private profile saved encrypted on this device. Server status confirms the peer. VPN traffic is unverified. Open the user to access the profile after authentication and fresh server verification.</string>
     <string name="vpn0wn_user_reconcile">check previous user creation</string>
     <string name="vpn0wn_peer_mutation_unavailable">Revoke and key rotation are not connected yet.</string>
+    <string name="vpn0wn_action_remove_user">remove user</string>
+    <string name="vpn0wn_action_remove_user_sub">delete peer</string>
+    <string name="vpn0wn_user_remove_title">Remove user</string>
+    <string name="vpn0wn_user_confirm_remove">Remove</string>
+    <string name="vpn0wn_user_remove_confirmation">Remove %1$s from %2$s@%3$s:%4$d?\nSSH fingerprint: %5$s\nServer key: %6$s\nClient key: %7$s\n\nThis removes the server peer and deletes any retained private profile on this device. No revoke archive is created. Imported tunnels and exported copies remain. Cancellation cannot undo an admitted remote operation.</string>
+    <string name="vpn0wn_user_remove_checking">Checking the current server and peer identity before confirmation.</string>
+    <string name="vpn0wn_user_removing">Removing this exact peer. Closing the connection may leave the remote operation running.</string>
+    <string name="vpn0wn_user_remove_uncertain">Removal is unverified. Reconcile status before another mutation; a remote operation may still be running.</string>
+    <string name="vpn0wn_user_remove_changed">Server or peer identity changed. Refresh status before reviewing removal again.</string>
+    <string name="vpn0wn_user_removed">Removal returned successfully; peer absence was observed in the server configuration and running interface. No retained private profile remains for this peer.</string>
+    <string name="vpn0wn_user_removed_stopped">The peer was removed from the server configuration and no retained private profile remains for this peer. The interface was stopped; no live revocation was tested.</string>
+    <string name="vpn0wn_user_remove_observed">The requested peer is absent from the server configuration and running interface; no retained private profile remains for this peer. The earlier command outcome is not established.</string>
+    <string name="vpn0wn_user_remove_observed_stopped">The requested peer is absent from the server configuration and no retained private profile remains for this peer. The interface was observed stopped; no live revocation was tested.</string>
+    <string name="vpn0wn_user_remove_reconcile">reconcile removal</string>
 </resources>
