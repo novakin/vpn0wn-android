@@ -355,6 +355,27 @@ object ProvisioningJson {
         }
     }
 
+    fun parsePeerRotation(stdout: String): VpsPeerRotationResult = parse(stdout) { json ->
+        val fields = setOf("ok", "mode", "verified", "interface", "operationId", "name", "serverPublicKey", "oldPublicKey", "newPublicKey", "running", "cleanupPath")
+        if (json.keys().asSequence().toSet() != fields || !json.boolean("verified") || json.string("interface") != "wg0")
+            throw JSONException("Rotation verification was not confirmed")
+        val mode = VpsPeerRotationResult.Mode.entries.singleOrNull { it.name.lowercase() == json.string("mode") }
+            ?: throw JSONException("Invalid rotation mode")
+        val operationId = json.string("operationId")
+        val name = json.string("name")
+        val serverKey = json.string("serverPublicKey")
+        val oldKey = json.string("oldPublicKey")
+        val newKey = json.string("newPublicKey")
+        if (!VpsRevokedArchive.OPERATION_ID.matches(operationId) || !PendingVpsAdd.NAME.matches(name) || oldKey == newKey)
+            throw JSONException("Invalid rotation identity")
+        try {
+            if (listOf(serverKey, oldKey, newKey).any { Key.fromBase64(it).toBase64() != it }) throw JSONException("Invalid rotation key")
+        } catch (_: KeyFormatException) {
+            throw JSONException("Invalid rotation key")
+        }
+        VpsPeerRotationResult(operationId, name, serverKey, oldKey, newKey, json.boolean("running"), mode, json.string("cleanupPath"))
+    }
+
     fun parsePeerMutation(stdout: String): VpsPeerMutationResult = parse(stdout) { json ->
         val removed = json.boolean("removed")
         if (!removed) throw JSONException("Peer removal was not confirmed")
@@ -508,12 +529,12 @@ object ProvisioningJson {
         val category = when (code) {
             "invalid_arg", "missing_arg", "missing_endpoint", "invalid_endpoint",
             "invalid_port", "invalid_dns", "invalid_allowed_ips", "invalid_cidr",
-            "missing_name", "invalid_name", "invalid_public_key", "invalid_operation_id", "invalid_interface", "confirmation_required" -> ProvisioningFailureCategory.INVALID_INPUT
+            "missing_name", "invalid_name", "invalid_public_key", "invalid_operation_id", "invalid_rotation_input", "invalid_interface", "confirmation_required" -> ProvisioningFailureCategory.INVALID_INPUT
             "unsupported_os" -> ProvisioningFailureCategory.UNSUPPORTED_SERVER
             "not_root" -> ProvisioningFailureCategory.PERMISSION_DENIED
             "unmanaged_config", "unmanaged_forwarding", "shared_wireguard_state",
             "unmanaged_runtime", "unsafe_path", "config_exists", "peer_exists",
-            "peer_not_found", "peer_identity_mismatch", "server_identity_mismatch",
+            "peer_not_found", "peer_identity_mismatch", "server_identity_mismatch", "rotation_mismatch", "new_peer_exists",
             "address_pool_full", "backup_limit", "port_in_use", "subnet_in_use", "revoked_history_exists", "archive_limit", "operation_id_conflict" -> ProvisioningFailureCategory.CONFLICT
             "not_installed", "missing_server_metadata" -> ProvisioningFailureCategory.NOT_INSTALLED
             "runtime_unknown", "archive_inventory_unknown" -> ProvisioningFailureCategory.RUNTIME_UNKNOWN

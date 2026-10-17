@@ -584,7 +584,10 @@ class ProvisioningJsonTest {
     fun peerIdentityGuardFailuresUseExistingSafeCategories() {
         val categories = listOf(
             "invalid_public_key" to ProvisioningFailureCategory.INVALID_INPUT,
+            "invalid_rotation_input" to ProvisioningFailureCategory.INVALID_INPUT,
             "peer_identity_mismatch" to ProvisioningFailureCategory.CONFLICT,
+            "rotation_mismatch" to ProvisioningFailureCategory.CONFLICT,
+            "new_peer_exists" to ProvisioningFailureCategory.CONFLICT,
         )
         for ((code, category) in categories) {
             val failure = runCatching {

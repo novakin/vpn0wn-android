@@ -636,4 +636,18 @@
     <string name="vpn0wn_user_remove_observed">Le pair demandé est absent de la configuration du serveur et de l’interface active ; aucun profil privé conservé ne subsiste pour ce pair. Le résultat de la commande précédente reste indéterminé.</string>
     <string name="vpn0wn_user_remove_observed_stopped">Le pair demandé est absent de la configuration du serveur et aucun profil privé conservé ne subsiste pour ce pair. L’interface a été observée arrêtée ; aucune révocation en fonctionnement n’a été testée.</string>
     <string name="vpn0wn_user_remove_reconcile">réconcilier la suppression</string>
+    <string name="vpn0wn_user_rotate_authenticate">Authentifiez-vous pour vérifier la rotation de la clé client.</string>
+    <string name="vpn0wn_user_rotate_title">Changer la clé client</string>
+    <string name="vpn0wn_user_confirm_rotate">Changer la clé</string>
+    <string name="vpn0wn_user_rotate_confirmation">Remplacer la clé client de %1$s sur %2$s@%3$s:%4$d ?\nEmpreinte SSH : %5$s\nClé serveur : %6$s\nClé client actuelle : %7$s\n\nUne nouvelle clé client est créée et conservée chiffrée sur cet appareil. Adresse, PSK, autres paramètres et identité serveur sont préservés. L’ancien profil est remplacé localement seulement après vérification distante exacte. Tunnels importés et copies exportées gardent l’ancienne clé : remplacez-les ensuite explicitement. Annuler ne peut pas annuler une opération distante déjà admise.</string>
+    <string name="vpn0wn_user_rotate_checking">Vérification du profil conservé et du serveur actuel avant confirmation.</string>
+    <string name="vpn0wn_user_rotating">Préparation du profil chiffré et changement de cette clé client exacte. Fermer peut laisser l’opération distante en cours.</string>
+    <string name="vpn0wn_user_rotate_uncertain">Rotation à vérifier. Les profils privés conservés restent protégés ; vérifiez avant toute nouvelle mutation. Aucune clé n’est recréée ni renvoyée automatiquement.</string>
+    <string name="vpn0wn_user_rotate_failed">La tentative a échoué ou n’a pas été envoyée. Le profil privé initial est conservé ; recommencez par une nouvelle vérification.</string>
+    <string name="vpn0wn_user_rotated">Nouvelle clé client et paramètres préservés vérifiés dans la configuration et l’interface active. Le nouveau profil privé est conservé. Actualisez l’état puis remplacez explicitement tunnels importés et copies exportées ; trafic non testé.</string>
+    <string name="vpn0wn_user_rotated_stopped">Nouvelle clé client et paramètres préservés vérifiés dans la configuration persistante. L’interface était arrêtée. Actualisez l’état puis remplacez explicitement tunnels importés et copies exportées ; usage actif non testé.</string>
+    <string name="vpn0wn_user_rotate_observed">Nouvelle clé demandée et paramètres préservés observés dans la configuration et l’interface active. Le nouveau profil privé est conservé ; résultat de l’ancienne commande et trafic non établis. Actualisez l’état et remplacez explicitement les anciennes copies.</string>
+    <string name="vpn0wn_user_rotate_observed_stopped">Nouvelle clé demandée et paramètres préservés observés dans la configuration persistante ; interface arrêtée. Le nouveau profil privé est conservé. Actualisez l’état et remplacez explicitement les anciennes copies ; usage actif non testé.</string>
+    <string name="vpn0wn_user_rotate_pending_operation">Opération en attente : %1$s\nAncienne clé client : %2$s\nClé client proposée : %3$s\nFin de l’opération non vérifiée.</string>
+    <string name="vpn0wn_user_rotate_reconcile">vérifier la rotation de clé</string>
 </resources>

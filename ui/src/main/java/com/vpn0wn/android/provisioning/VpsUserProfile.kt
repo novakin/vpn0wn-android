@@ -11,6 +11,7 @@ import com.vpn0wn.config.ParseException
 import com.vpn0wn.config.Peer
 import com.vpn0wn.crypto.Key
 import com.vpn0wn.crypto.KeyFormatException
+import com.vpn0wn.crypto.KeyPair
 import java.io.IOException
 
 class VpsUserProfileException(val category: Category) : IOException(category.message) {
@@ -48,8 +49,40 @@ data class VpsUserProfileIdentity(
     }
 }
 
-class VpsUserProfile private constructor(val identity: VpsUserProfileIdentity, val name: String, val config: Config) {
+class VpsUserProfile private constructor(val identity: VpsUserProfileIdentity, val name: String, val config: Config,
+    internal val rotation: Rotation? = null) {
+    internal data class Rotation(val operationId: String, val oldClientPublicKey: String, val settled: Boolean = false)
+
     fun payload(): String = config.toWgQuickString()
+
+    internal fun rotated(keyPair: KeyPair, operationId: String): VpsUserProfile {
+        val proposed = decode(identity.copy(clientPublicKey = keyPair.publicKey.toBase64()), name,
+            Config.Builder().setInterface(withKeyPair(keyPair)).addPeers(config.peers).build().toWgQuickString())
+        return proposed.withRotation(Rotation(operationId, identity.clientPublicKey))
+    }
+
+    internal fun withRotation(value: Rotation?): VpsUserProfile {
+        if (value != null) {
+            if (!VpsRevokedArchive.OPERATION_ID.matches(value.operationId) || value.oldClientPublicKey == identity.clientPublicKey)
+                invalidProfile()
+            identity.copy(clientPublicKey = value.oldClientPublicKey).validate()
+        }
+        return VpsUserProfile(identity, name, config, value)
+    }
+
+    internal fun preservesSettings(old: VpsUserProfile): Boolean = name == old.name &&
+        identity.copy(clientPublicKey = old.identity.clientPublicKey) == old.identity && config.peers == old.config.peers &&
+        config.`interface` == old.withKeyPair(config.`interface`.keyPair)
+
+    private fun withKeyPair(keyPair: KeyPair): Interface {
+        val original = config.`interface`
+        return Interface.Builder().addAddresses(original.addresses).addDnsServers(original.dnsServers)
+            .addDnsSearchDomains(original.dnsSearchDomains).excludeApplications(original.excludedApplications)
+            .includeApplications(original.includedApplications).setKeyPair(keyPair).apply {
+                original.listenPort.ifPresent { setListenPort(it) }
+                original.mtu.ifPresent { setMtu(it) }
+            }.build()
+    }
 
     internal fun sameContent(other: VpsUserProfile): Boolean =
         identity == other.identity && name == other.name && payload() == other.payload()

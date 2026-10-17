@@ -8,6 +8,7 @@ import android.content.Context
 import android.util.Log
 import com.vpn0wn.crypto.Key
 import com.vpn0wn.crypto.KeyFormatException
+import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
@@ -97,6 +98,52 @@ class Vpn0wnProvisioningClient(
             result
         }
     }
+
+    suspend fun rotatePeer(connection: VpsConnection, server: StoredVpsServer, attempt: PendingVpsRotate, proposed: VpsUserProfile,
+        onAdmitted: suspend () -> Unit, onReceived: suspend () -> Unit): VpsPeerRotationResult =
+        peerRotation(connection, server, attempt, proposed, VpsPeerRotationResult.Mode.ROTATE, onAdmitted, onReceived)
+
+    suspend fun verifyPeerRotation(connection: VpsConnection, server: StoredVpsServer, attempt: PendingVpsRotate,
+        proposed: VpsUserProfile): VpsPeerRotationResult =
+        peerRotation(connection, server, attempt, proposed, VpsPeerRotationResult.Mode.VERIFY)
+
+    private suspend fun peerRotation(connection: VpsConnection, server: StoredVpsServer, attempt: PendingVpsRotate, proposed: VpsUserProfile,
+        mode: VpsPeerRotationResult.Mode, onAdmitted: suspend () -> Unit = {}, onReceived: suspend () -> Unit = {}): VpsPeerRotationResult {
+        if (connection.endpoint != attempt.ssh || connection.hostKeyFingerprint != attempt.fingerprint) throw invalidInput()
+        val input = rotationInput(server, attempt, proposed)
+        return withClient(connection) { client, remoteDir ->
+            val inputPath = "$remoteDir/rotation-input"
+            client.upload(inputPath, input, "0600").requireSuccess()
+            if (mode == VpsPeerRotationResult.Mode.ROTATE) onAdmitted()
+            val args = listOf("--input", inputPath) + if (mode == VpsPeerRotationResult.Mode.VERIFY) listOf("--verify") else emptyList()
+            val result = ProvisioningJson.parsePeerRotation(run(client, remoteDir, "rotate-peer.sh", args).stdout)
+            if (result.mode != mode || !result.matches(attempt)) throw invalidRotationResponse()
+            if (mode == VpsPeerRotationResult.Mode.ROTATE) withContext(NonCancellable) { onReceived() }
+            result
+        }
+    }
+
+    // Correlation, single-address and line-framing failures must reject before any private upload.
+    @Suppress("ThrowsCount")
+    private fun rotationInput(server: StoredVpsServer, attempt: PendingVpsRotate, proposed: VpsUserProfile): String {
+        try {
+            attempt.validate()
+        } catch (_: IOException) {
+            throw invalidInput()
+        }
+        if (!attempt.owns(server) || !attempt.owns(proposed)) throw invalidInput()
+        val address = proposed.config.`interface`.addresses.singleOrNull()?.toString() ?: throw invalidInput()
+        val psk = proposed.config.peers.single().preSharedKey.get().toBase64()
+        val fields = linkedMapOf("version" to "1", "operationId" to attempt.operationId, "name" to attempt.name,
+            "serverPublicKey" to attempt.serverPublicKey, "oldPublicKey" to attempt.oldClientPublicKey, "newPublicKey" to attempt.newClientPublicKey,
+            "address" to address, "endpoint" to server.endpoint, "port" to server.listenPort, "cidr" to server.cidr, "dns" to server.dns, "presharedKey" to psk)
+        if (fields.values.any { value -> value.any { it == '\n' || it == '\r' || it == '\u0000' } }) throw invalidInput()
+        return fields.entries.joinToString("\n") { (key, value) -> "$key=$value" }
+    }
+
+    private fun invalidRotationResponse() = ProvisioningException(
+        ProvisioningFailureCategory.INVALID_RESPONSE.safeMessage, category = ProvisioningFailureCategory.INVALID_RESPONSE,
+    )
 
     private fun peerMutationArgs(name: String, expectedPublicKey: String): List<String> {
         if (!PEER_NAME.matches(name))

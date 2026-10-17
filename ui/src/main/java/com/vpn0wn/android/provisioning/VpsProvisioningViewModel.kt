@@ -41,15 +41,18 @@ class VpsProvisioningViewModel internal constructor(
     enum class Step { SSH, DETECT, PLAN, APPLY }
     enum class AuthMode { KEY, PASSWORD }
     enum class SavedAccess { NONE, SAVED, METADATA_ONLY, UNKNOWN, CLEARED }
-    enum class Problem { INVALID_INPUT, CONNECTION_FAILED, INVALID_RESPONSE, ACCESS_MISSING, CONNECTION_CHANGED, STORAGE_FAILED, STORAGE_CONFLICT, CANCELLED, INSTALL_FAILED, INSTALL_PENDING, ADD_PENDING, REMOVE_PENDING, PEER_CHANGED, IDENTITY_UNAVAILABLE, PROFILE_UNAVAILABLE, ARCHIVE_UNAVAILABLE, ARCHIVE_FULL }
+    enum class Problem { INVALID_INPUT, CONNECTION_FAILED, INVALID_RESPONSE, ACCESS_MISSING, CONNECTION_CHANGED, STORAGE_FAILED, STORAGE_CONFLICT, CANCELLED, INSTALL_FAILED, INSTALL_PENDING, ADD_PENDING, REMOVE_PENDING, ROTATE_PENDING, PEER_CHANGED, IDENTITY_UNAVAILABLE, PROFILE_UNAVAILABLE, ARCHIVE_UNAVAILABLE, ARCHIVE_FULL }
     enum class Installation { NONE, RUNNING, INSTALLED, OBSERVED, UNCERTAIN }
     enum class UserCreation { NONE, RUNNING, RETAINED, UNSAVED, UNCERTAIN, CREATED }
     enum class UserRemoval { NONE, CHECKING, RUNNING, UNCERTAIN, FAILED, REMOVED, OBSERVED }
+    enum class UserRotation { NONE, CHECKING, RUNNING, UNCERTAIN, FAILED, ROTATED, OBSERVED }
 
     data class InstallConfirmation(val plan: VpsPlanResult, val ssh: VpsEndpoint, val fingerprint: String, val server: StoredVpsServer)
     data class AddUserConfirmation(val server: StoredVpsServer, val ssh: VpsEndpoint, val fingerprint: String,
         val serverPublicKey: String, val request: VpsAddPeerRequest)
     data class RemoveUserConfirmation(val server: StoredVpsServer, val attempt: PendingVpsRemove)
+    data class RotateUserConfirmation(val server: StoredVpsServer, val ssh: VpsEndpoint, val fingerprint: String,
+        val serverPublicKey: String, val name: String, val clientPublicKey: String)
 
     data class Draft(
         val host: String = "",
@@ -95,6 +98,11 @@ class VpsProvisioningViewModel internal constructor(
         val removalOwner: StoredVpsServer? = null,
         val removalAction: PendingVpsRemove.Action = PendingVpsRemove.Action.REMOVE,
         val removalAttempt: PendingVpsRemove? = null,
+        val rotateConfirmation: RotateUserConfirmation? = null,
+        val rotation: UserRotation = UserRotation.NONE,
+        val pendingRotation: Boolean = false,
+        val rotationOwner: StoredVpsServer? = null,
+        val rotationAttempt: PendingVpsRotate? = null,
     )
 
     data class StatusSnapshot(val server: StoredVpsServer, val status: VpsServerStatus, val observedAtEpochSeconds: Long) {
@@ -115,6 +123,11 @@ class VpsProvisioningViewModel internal constructor(
     private var operation: Job? = null
     private var installConfirmation: InstallConfirmation? = null
     private var receivedUser: ReceivedUser? = null
+    private var reviewedRotation: ReviewedRotation? = null
+
+    private data class ReviewedRotation(val confirmation: RotateUserConfirmation, val profile: VpsUserProfile) {
+        override fun toString(): String = "ReviewedRotation(redacted)"
+    }
 
     private data class ReceivedUser(val confirmation: AddUserConfirmation, val attempt: PendingVpsAdd,
         val result: VpsAddPeerResult, val profile: VpsUserProfile) {
@@ -126,7 +139,7 @@ class VpsProvisioningViewModel internal constructor(
         return !mutableState.value.busy && mutableState.value.active &&
             mutableState.value.step == Step.APPLY && mutableState.value.detect?.configExists == false &&
             mutableState.value.plan?.willOverwriteConfig == false && !mutableState.value.pendingInstall &&
-            !mutableState.value.pendingRemove &&
+            !mutableState.value.pendingRemove && !mutableState.value.pendingRotation &&
             mutableState.value.installation == Installation.NONE && server == expected &&
             mutableState.value.serverId == expected.id && verifiedFingerprint != null &&
             verifiedEndpoint == VpsEndpoint(expected.host, expected.sshPort, expected.sshUser)
@@ -146,11 +159,16 @@ class VpsProvisioningViewModel internal constructor(
         mutableState.value = mutableState.value.copy(pendingAdd = pending != null,
             creation = if (pending == null) UserCreation.NONE else UserCreation.UNCERTAIN)
         val pendingRemoval = store.pendingRemove(savedServer)
+        val pendingRotation = store.pendingRotation(savedServer)
         mutableState.value = mutableState.value.copy(removeConfirmation = null, pendingRemove = pendingRemoval != null,
             removal = if (pendingRemoval == null) UserRemoval.NONE else UserRemoval.UNCERTAIN,
             removalAction = pendingRemoval?.takeIf { it.owns(savedServer) }?.action ?: PendingVpsRemove.Action.REMOVE,
             removalAttempt = pendingRemoval?.takeIf { it.owns(savedServer) },
-            removalOwner = savedServer.takeIf { pendingRemoval?.owns(it) != false })
+            removalOwner = savedServer.takeIf { pendingRemoval?.owns(it) != false },
+            rotateConfirmation = null, pendingRotation = pendingRotation != null,
+            rotation = if (pendingRotation == null) UserRotation.NONE else UserRotation.UNCERTAIN,
+            rotationAttempt = pendingRotation?.takeIf { it.owns(savedServer) }, rotationOwner = savedServer.takeIf { pendingRotation?.owns(it) != false })
+        reviewedRotation = null
         val connection = try {
             store.loadConnection(savedServer) ?: run {
                 mutableState.value = mutableState.value.copy(problem = Problem.ACCESS_MISSING)
@@ -164,7 +182,7 @@ class VpsProvisioningViewModel internal constructor(
             val status = client.syncStatus(connection)
             val observedAt = nowEpochSeconds()
             currentCoroutineContext().ensureActive()
-            val committed = store.updateStatus(savedServer, status, observedAt)
+            val committed = if (pendingRotation == null) store.updateStatus(savedServer, status, observedAt) else savedServer
             mutableState.value = mutableState.value.copy(
                 statusSnapshots = mutableState.value.statusSnapshots + (savedServer.id to StatusSnapshot(committed, status, observedAt)),
                 creationOwner = committed,
@@ -238,18 +256,19 @@ class VpsProvisioningViewModel internal constructor(
                 mutableState.value = mutableState.value.copy(problem = Problem.PROFILE_UNAVAILABLE)
                 return@operate
             }
+            store.cleanupRotationProfiles(profiles)
             val connection = store.loadConnection(savedServer) ?: run {
                 mutableState.value = mutableState.value.copy(problem = Problem.ACCESS_MISSING)
                 return@operate
             }
             val fingerprint = requireNotNull(connection.hostKeyFingerprint)
             val status = try {
-                store.checkAddOwner(savedServer, fingerprint)
+                store.checkProfileOwner(savedServer, fingerprint)
                 client.syncStatus(connection)
             } finally {
                 (connection.credential as? VpsCredential.Password)?.clear()
             }
-            store.checkAddOwner(savedServer, fingerprint)
+            store.checkProfileOwner(savedServer, fingerprint)
             val peer = status.peers.singleOrNull { it.publicKey == clientPublicKey && it.name == selectedPeer.name }
             val profile = if (peer != null && status.serverPublicKey == serverKey && status.running != null &&
                 status.interfaceName == snapshot.status.interfaceName && status.cidr == snapshot.status.cidr)
@@ -258,7 +277,7 @@ class VpsProvisioningViewModel internal constructor(
                 mutableState.value = mutableState.value.copy(problem = Problem.PROFILE_UNAVAILABLE)
                 return@operate
             }
-            store.checkAddOwner(savedServer, fingerprint)
+            store.checkProfileOwner(savedServer, fingerprint)
             currentCoroutineContext().ensureActive()
             consume(profile)
         }
@@ -283,6 +302,7 @@ class VpsProvisioningViewModel internal constructor(
         if (snapshot.status.peers.any { it.name == name }) throw invalidInput()
         if (store.pendingAdd(savedServer) != null) throw VpsServerStore.AddPendingException()
         if (store.pendingInstall(savedServer) != null) throw VpsServerStore.InstallPendingException()
+        store.pendingRotation(savedServer)?.let { throw VpsServerStore.RotatePendingException(it.serverId) }
         store.pendingRemove(savedServer)?.let { pending ->
             mutableState.value = mutableState.value.copy(removalOwner = savedServer.takeIf(pending::owns))
             throw VpsServerStore.RemovePendingException()
@@ -499,6 +519,8 @@ class VpsProvisioningViewModel internal constructor(
         initialState = mutableState.value.copy(serverId = savedServer.id, removeConfirmation = null,
             removal = UserRemoval.CHECKING, pendingRemove = false, removalOwner = savedServer, removalAction = action, removalAttempt = null),
     ) {
+        store.cleanupRotationProfiles(profiles)
+        store.pendingRotation(savedServer)?.let { throw VpsServerStore.RotatePendingException(it.serverId) }
         val snapshot = mutableState.value.statusSnapshots[savedServer.id]?.takeIf { it.matches(savedServer) }
         val serverKey = snapshot?.status?.serverPublicKey
         if (!PendingVpsAdd.NAME.matches(name) || snapshot == null || serverKey == null ||
@@ -676,9 +698,191 @@ class VpsProvisioningViewModel internal constructor(
         }
     }
 
+    fun requestRotateUserConfirmation(savedServer: StoredVpsServer, name: String, clientPublicKey: String): Job? = operate(requireActive = false,
+        initialState = mutableState.value.copy(serverId = savedServer.id, rotateConfirmation = null, rotation = UserRotation.CHECKING,
+            pendingRotation = false, rotationOwner = savedServer, rotationAttempt = null),
+    ) {
+        reviewedRotation = null
+        store.cleanupRotationProfiles(profiles)
+        val snapshot = mutableState.value.statusSnapshots[savedServer.id]?.takeIf { it.matches(savedServer) }
+        val serverKey = snapshot?.status?.serverPublicKey
+        if (snapshot == null || serverKey == null || snapshot.status.peers.singleOrNull { it.name == name }?.publicKey != clientPublicKey) {
+            mutableState.value = mutableState.value.copy(problem = Problem.PROFILE_UNAVAILABLE)
+            return@operate
+        }
+        store.pendingRotation(savedServer)?.let { pending ->
+            mutableState.value = mutableState.value.copy(rotationOwner = savedServer.takeIf(pending::owns), rotationAttempt = pending.takeIf { it.owns(savedServer) })
+            throw VpsServerStore.RotatePendingException(pending.serverId)
+        }
+        if (store.pendingAdd(savedServer) != null) throw VpsServerStore.AddPendingException()
+        if (store.pendingRemove(savedServer) != null) throw VpsServerStore.RemovePendingException()
+        if (store.pendingInstall(savedServer) != null) throw VpsServerStore.InstallPendingException()
+        val connection = store.loadConnection(savedServer) ?: run {
+            mutableState.value = mutableState.value.copy(problem = Problem.ACCESS_MISSING)
+            return@operate
+        }
+        try {
+            val fingerprint = requireNotNull(connection.hostKeyFingerprint)
+            store.checkProfileOwner(savedServer, fingerprint)
+            val status = client.syncStatus(connection)
+            store.checkProfileOwner(savedServer, fingerprint)
+            val peer = status.peers.singleOrNull { it.name == name && it.publicKey == clientPublicKey }
+            val old = profiles.load(savedServer, serverKey, clientPublicKey)
+            if (peer == null || old == null || status.interfaceName != DEFAULT_INTERFACE || status.running == null ||
+                status.configuredPeerPublicKeys?.count { it == clientPublicKey } != 1 ||
+                status.running == true && status.runtimePeerPublicKeys?.count { it == clientPublicKey } != 1 || !old.matchesObserved(status, peer)) {
+                mutableState.value = mutableState.value.copy(problem = Problem.PROFILE_UNAVAILABLE)
+                return@operate
+            }
+            currentCoroutineContext().ensureActive()
+            val confirmation = RotateUserConfirmation(savedServer, connection.endpoint, fingerprint, serverKey, name, clientPublicKey)
+            reviewedRotation = ReviewedRotation(confirmation, old)
+            mutableState.value = mutableState.value.copy(rotateConfirmation = confirmation,
+                statusSnapshots = mutableState.value.statusSnapshots + (savedServer.id to StatusSnapshot(savedServer, status, nowEpochSeconds())))
+        } finally {
+            (connection.credential as? VpsCredential.Password)?.clear()
+        }
+    }
+
+    fun dismissRotateUserConfirmation() {
+        reviewedRotation = null
+        mutableState.value = mutableState.value.copy(rotateConfirmation = null)
+    }
+
+    // Dispatch rejection and cleanup failures must retain distinct provenance, including cancellation and defects.
+    @Suppress("TooGenericExceptionCaught", "ThrowsCount")
+    fun confirmRotateUser(confirmation: RotateUserConfirmation): Job? {
+        val reviewed = reviewedRotation?.takeIf { it.confirmation === confirmation } ?: return null
+        if (mutableState.value.busy || mutableState.value.rotateConfirmation !== confirmation) return null
+        dismissRotateUserConfirmation()
+        return operate(requireActive = false) {
+            val expected = confirmation.server
+            requireRotateSnapshot(confirmation)
+            val connection = store.loadConnection(expected) ?: run {
+                mutableState.value = mutableState.value.copy(problem = Problem.ACCESS_MISSING)
+                return@operate
+            }
+            var attempt: PendingVpsRotate? = null
+            var receiptReceived = false
+            try {
+                if (connection.endpoint != confirmation.ssh || connection.hostKeyFingerprint != confirmation.fingerprint)
+                    throw VpsServerStore.CredentialConflictException()
+                withContext(NonCancellable) {
+                    attempt = store.admitRotation(expected, confirmation.fingerprint, reviewed.profile, profiles)
+                    mutableState.value = mutableState.value.copy(pendingRotation = true, rotation = UserRotation.RUNNING,
+                        rotationOwner = expected, rotationAttempt = attempt)
+                }
+                currentCoroutineContext().ensureActive()
+                val proposed = profiles.loadRotation(requireNotNull(attempt))
+                val result = try {
+                    client.rotatePeer(connection, expected, requireNotNull(attempt), proposed,
+                        onAdmitted = {
+                            withContext(Dispatchers.Main.immediate) {
+                                currentCoroutineContext().ensureActive()
+                                requireRotateSnapshot(confirmation)
+                                withContext(NonCancellable) {
+                                    attempt = store.dispatchRotation(expected, requireNotNull(attempt), profiles)
+                                    mutableState.value = mutableState.value.copy(rotationAttempt = attempt)
+                                }
+                                currentCoroutineContext().ensureActive()
+                            }
+                        }, onReceived = { receiptReceived = true })
+                } catch (failure: ProvisioningException) {
+                    val dispatched = requireNotNull(attempt)
+                    val rollback = failure.recovery == ProvisioningRecovery.UNCHANGED || failure.recovery == ProvisioningRecovery.RESTORED
+                    val rejected = failure.recovery == null && failure.remoteCode in REJECTED_ROTATION_CODES
+                    if (dispatched.phase != PendingVpsRotate.Phase.DISPATCHED || receiptReceived || !rollback && !rejected) throw failure
+                    withContext(NonCancellable) {
+                        store.failRotation(expected, dispatched, profiles)
+                        publishFailedRotation(expected)
+                    }
+                    return@operate
+                }
+                mutableState.value = mutableState.value.copy(cleanupRequired = result.cleanupPath.isNotEmpty(), cleanupOwner = expected)
+                val dispatched = requireNotNull(attempt)
+                val verification = client.verifyPeerRotation(connection, expected, dispatched, proposed)
+                publishRotatedUser(expected, dispatched, verification, UserRotation.ROTATED)
+            } catch (failure: Throwable) {
+                attempt?.takeIf { it.phase == PendingVpsRotate.Phase.PREPARED }?.let { prepared ->
+                    withContext(NonCancellable) {
+                        try {
+                            store.abandonPreparedRotation(expected, prepared, profiles)
+                            publishFailedRotation(expected)
+                        } catch (cleanup: Throwable) {
+                            if (cleanup !== failure) failure.addSuppressed(cleanup)
+                        }
+                    }
+                }
+                throw failure
+            } finally {
+                if (mutableState.value.pendingRotation && mutableState.value.rotation == UserRotation.RUNNING)
+                    mutableState.value = mutableState.value.copy(rotation = UserRotation.UNCERTAIN)
+                (connection.credential as? VpsCredential.Password)?.clear()
+            }
+        }
+    }
+
+    fun reconcileUserRotation(savedServer: StoredVpsServer): Job? = operate(requireActive = false,
+        initialState = mutableState.value.copy(serverId = savedServer.id, rotateConfirmation = null, rotation = UserRotation.CHECKING,
+            pendingRotation = false, rotationOwner = savedServer, rotationAttempt = null),
+    ) {
+        reviewedRotation = null
+        store.cleanupRotationProfiles(profiles)
+        val attempt = store.pendingRotation(savedServer) ?: run {
+            mutableState.value = mutableState.value.copy(rotation = UserRotation.NONE, rotationOwner = null, rotationAttempt = null,
+                statusSnapshots = mutableState.value.statusSnapshots - savedServer.id)
+            return@operate
+        }
+        mutableState.value = mutableState.value.copy(pendingRotation = true, rotation = UserRotation.UNCERTAIN,
+            rotationOwner = savedServer.takeIf(attempt::owns), rotationAttempt = attempt.takeIf { it.owns(savedServer) })
+        if (!attempt.owns(savedServer)) throw VpsServerStore.CredentialConflictException()
+        if (attempt.phase != PendingVpsRotate.Phase.DISPATCHED) {
+            withContext(NonCancellable) {
+                if (attempt.phase == PendingVpsRotate.Phase.PREPARED) store.abandonPreparedRotation(savedServer, attempt, profiles)
+                else store.failRotation(savedServer, attempt, profiles)
+                publishFailedRotation(savedServer)
+            }
+            return@operate
+        }
+        val proposed = profiles.loadRotation(attempt)
+        val connection = store.loadConnection(savedServer) ?: run {
+            mutableState.value = mutableState.value.copy(problem = Problem.ACCESS_MISSING)
+            return@operate
+        }
+        try {
+            val verification = client.verifyPeerRotation(connection, savedServer, attempt, proposed)
+            publishRotatedUser(savedServer, attempt, verification, UserRotation.OBSERVED)
+        } finally {
+            (connection.credential as? VpsCredential.Password)?.clear()
+        }
+    }
+
+    private fun requireRotateSnapshot(confirmation: RotateUserConfirmation) {
+        val snapshot = mutableState.value.statusSnapshots[confirmation.server.id]
+        if (mutableState.value.serverId != confirmation.server.id || snapshot?.matches(confirmation.server) != true ||
+            snapshot.status.serverPublicKey != confirmation.serverPublicKey ||
+            snapshot.status.peers.singleOrNull { it.name == confirmation.name }?.publicKey != confirmation.clientPublicKey)
+            throw VpsServerStore.ServerChangedException()
+    }
+
+    private fun publishFailedRotation(expected: StoredVpsServer) {
+        mutableState.value = mutableState.value.copy(pendingRotation = false, rotation = UserRotation.FAILED, rotationOwner = expected,
+            rotationAttempt = null, statusSnapshots = mutableState.value.statusSnapshots - expected.id)
+    }
+
+    private suspend fun publishRotatedUser(expected: StoredVpsServer, attempt: PendingVpsRotate, verification: VpsPeerRotationResult, outcome: UserRotation) {
+        currentCoroutineContext().ensureActive()
+        withContext(NonCancellable) {
+            val committed = store.settleRotation(expected, attempt, verification, nowEpochSeconds(), profiles)
+            mutableState.value = mutableState.value.copy(pendingRotation = false, rotation = outcome, rotationOwner = committed,
+                rotationAttempt = null, problem = null, statusSnapshots = mutableState.value.statusSnapshots - expected.id)
+        }
+    }
+
     fun begin() {
         if (mutableState.value.busy) return
         clearDraft()
+        reviewedRotation = null
         server = null
         newServerId = UUID.randomUUID().toString()
         invalidateVerification()
@@ -962,7 +1166,9 @@ class VpsProvisioningViewModel internal constructor(
         operation?.cancel()
         clearDraft()
         invalidateVerification()
-        mutableState.value = mutableState.value.copy(active = false, detect = null, plan = null, usingSavedAccess = false, addConfirmation = null, removeConfirmation = null)
+        reviewedRotation = null
+        mutableState.value = mutableState.value.copy(active = false, detect = null, plan = null, usingSavedAccess = false,
+            addConfirmation = null, removeConfirmation = null, rotateConfirmation = null)
     }
 
     fun cancelOperation() { operation?.cancel() }
@@ -1013,6 +1219,10 @@ class VpsProvisioningViewModel internal constructor(
                 val owner = mutableState.value.removalOwner?.takeIf { failure.ownerServerId == null || it.id == failure.ownerServerId }
                 mutableState.value = mutableState.value.copy(problem = Problem.REMOVE_PENDING, pendingRemove = true,
                     removal = UserRemoval.UNCERTAIN, removalOwner = owner)
+            } catch (failure: VpsServerStore.RotatePendingException) {
+                val owner = mutableState.value.rotationOwner?.takeIf { failure.ownerServerId == null || it.id == failure.ownerServerId }
+                mutableState.value = mutableState.value.copy(problem = Problem.ROTATE_PENDING, pendingRotation = true,
+                    rotation = UserRotation.UNCERTAIN, rotationOwner = owner, rotationAttempt = mutableState.value.rotationAttempt?.takeIf { owner?.let(it::owns) == true })
             } catch (_: VpsServerStore.CredentialConflictException) {
                 mutableState.value = mutableState.value.copy(problem = Problem.CONNECTION_CHANGED, creationOwner = null)
             } catch (_: VpsServerStore.InvalidTransferMetadataException) {
@@ -1024,7 +1234,8 @@ class VpsProvisioningViewModel internal constructor(
             } finally {
                 operation = null
                 mutableState.value = mutableState.value.copy(busy = false,
-                    removal = if (mutableState.value.removal == UserRemoval.CHECKING) UserRemoval.NONE else mutableState.value.removal)
+                    removal = if (mutableState.value.removal == UserRemoval.CHECKING) UserRemoval.NONE else mutableState.value.removal,
+                    rotation = if (mutableState.value.rotation == UserRotation.CHECKING) UserRotation.NONE else mutableState.value.rotation)
             }
         }.also { operation = it }
     }
@@ -1097,11 +1308,14 @@ class VpsProvisioningViewModel internal constructor(
             mutableState.value = mutableState.value.copy(savedAccess = SavedAccess.UNKNOWN)
             try {
                 val pendingRemoval = previous?.let { store.pendingRemove(it) }
+                val pendingRotation = previous?.let { store.pendingRotation(it) }
                 // Credential refresh must preserve the exact record fenced by a pending removal.
-                val recordToSave = if (pendingRemoval == null) record else {
+                val recordToSave = if (pendingRemoval == null && pendingRotation == null) record else {
                     val captured = requireNotNull(previous)
-                    if (!pendingRemoval.owns(captured) || pendingRemoval.ssh != connection.endpoint ||
-                        pendingRemoval.fingerprint != connection.hostKeyFingerprint) throw VpsServerStore.RemovePendingException(pendingRemoval.serverId)
+                    if (pendingRemoval != null && (!pendingRemoval.owns(captured) || pendingRemoval.ssh != connection.endpoint ||
+                        pendingRemoval.fingerprint != connection.hostKeyFingerprint)) throw VpsServerStore.RemovePendingException(pendingRemoval.serverId)
+                    if (pendingRotation != null && (!pendingRotation.owns(captured) || pendingRotation.ssh != connection.endpoint ||
+                        pendingRotation.fingerprint != connection.hostKeyFingerprint)) throw VpsServerStore.RotatePendingException(pendingRotation.serverId)
                     captured
                 }
                 store.upsert(recordToSave)
@@ -1149,5 +1363,7 @@ class VpsProvisioningViewModel internal constructor(
         const val DEFAULT_INTERFACE = "wg0"
         val REJECTED_ADD_CODES = setOf("peer_exists", "server_identity_mismatch")
         val REJECTED_REMOVE_CODES = setOf("peer_not_found", "peer_identity_mismatch", "server_identity_mismatch")
+        val REJECTED_ROTATION_CODES = setOf("peer_not_found", "peer_identity_mismatch", "server_identity_mismatch", "rotation_mismatch",
+            "new_peer_exists", "invalid_rotation_input", "invalid_public_key", "invalid_config", "runtime_unknown")
     }
 }

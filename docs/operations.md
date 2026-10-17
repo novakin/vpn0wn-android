@@ -193,6 +193,14 @@ When the app receives a verified failed-dispatch rollback, it keeps the private 
 
 An explicit revoke rejection for unreadable/unknown archive history, full history or a reused operation ID also reports a known failed attempt without deleting the profile. Resolve the history problem through trusted administration, refresh and review again. The app blocks review when a complete history already contains 1024 archives; it does not delete old history automatically. A close/status error after dispatch success remains uncertain even if its error text resembles an earlier rejection.
 
+### Rotate a retained client's key
+
+**Locally verified source candidate; delivery and installed/native/live acceptance remain pending.** Refresh the server, select its observed user and choose **rotate key**. Authenticate and review the exact destination, SSH fingerprint, server identity and current client key. Rotation requires that user's retained encrypted private profile. It generates and stores the proposed key locally before dispatch and preserves address, PSK and other settings. It does not reconstruct a missing profile from server status.
+
+An uncertain operation exposes **reconcile key rotation** only for its exact owner. Reconciliation settles a never-dispatched/proven failed attempt locally or verifies dispatched remote state without resending it. Keep the original app/vault/credentials available; do not erase its journal or downgrade to bypass recovery. If ownership, retained proposal or remote settings cannot be verified, resolve that condition before trying another mutation.
+
+After verified success, refresh status and explicitly replace old imported tunnels and exported copies using the newly retained profile. The old copies do not gain the new key automatically. A running-interface result is configuration proof, not tested client traffic; a stopped result establishes persistent configuration only. Prior strict app readers reject the entire vault while rotation metadata remains, including a settled cleanup orphan. Complete supported reconciliation before downgrade. [The contract](backend-contracts.md#confirmed-client-key-rotation--143) owns exact effects and limits.
+
 ### Retained generated user profiles
 
 The maintainer selected encrypted on-phone retention on 2026-10-16 (Europe/Paris). The separate [profile vault source foundation](backend-contracts.md#retained-generated-user-profiles--143) retains a fully validated successful add-peer response for explicit QR/export/import. The create flow above uses this vault; the separate authenticated profile access below adds fresh-online QR/export/local import. Public status or a server backup cannot reconstruct a missing client private profile after a lost add response.

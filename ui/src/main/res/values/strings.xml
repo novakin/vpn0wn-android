@@ -645,4 +645,18 @@
     <string name="vpn0wn_user_remove_observed">The requested peer is absent from the server configuration and running interface; no retained private profile remains for this peer. The earlier command outcome is not established.</string>
     <string name="vpn0wn_user_remove_observed_stopped">The requested peer is absent from the server configuration and no retained private profile remains for this peer. The interface was observed stopped; no live revocation was tested.</string>
     <string name="vpn0wn_user_remove_reconcile">reconcile removal</string>
+    <string name="vpn0wn_user_rotate_authenticate">Authenticate to review or reconcile client-key rotation.</string>
+    <string name="vpn0wn_user_rotate_title">Rotate client key</string>
+    <string name="vpn0wn_user_confirm_rotate">Rotate key</string>
+    <string name="vpn0wn_user_rotate_confirmation">Replace the client key for %1$s on %2$s@%3$s:%4$d?\nSSH fingerprint: %5$s\nServer key: %6$s\nCurrent client key: %7$s\n\nA new client key is generated and retained encrypted on this device. Address, PSK, other settings and server identity stay unchanged. The old profile is replaced locally only after exact remote verification. Imported tunnels and exported copies keep the old key: replace them explicitly afterward. Cancellation cannot undo an admitted remote operation.</string>
+    <string name="vpn0wn_user_rotate_checking">Checking the retained profile and current server before confirmation.</string>
+    <string name="vpn0wn_user_rotating">Preparing the encrypted profile and rotating this exact client key. Closing may leave the remote operation running.</string>
+    <string name="vpn0wn_user_rotate_uncertain">Rotation needs reconciliation. Retained private profiles stay protected; reconcile before another mutation. No key is regenerated or resent automatically.</string>
+    <string name="vpn0wn_user_rotate_failed">The attempt failed or was not dispatched. The original private profile is retained; review again before another attempt.</string>
+    <string name="vpn0wn_user_rotated">The new client key and preserved settings were verified in the configuration and running interface. The new private profile is retained. Refresh status, then explicitly replace imported tunnels and exported copies; traffic was not tested.</string>
+    <string name="vpn0wn_user_rotated_stopped">The new client key and preserved settings were verified in the persistent configuration. The interface was stopped. Refresh status, then explicitly replace imported tunnels and exported copies; live use was not tested.</string>
+    <string name="vpn0wn_user_rotate_observed">The requested new key and preserved settings were observed in the configuration and running interface. The new private profile is retained; this does not establish the earlier command outcome or traffic. Refresh status and explicitly replace old copies.</string>
+    <string name="vpn0wn_user_rotate_observed_stopped">The requested new key and preserved settings were observed in persistent configuration; the interface was stopped. The new private profile is retained. Refresh status and explicitly replace old copies; live use was not tested.</string>
+    <string name="vpn0wn_user_rotate_pending_operation">Pending operation: %1$s\nPrevious client key: %2$s\nProposed client key: %3$s\nCompletion has not been verified.</string>
+    <string name="vpn0wn_user_rotate_reconcile">reconcile key rotation</string>
 </resources>

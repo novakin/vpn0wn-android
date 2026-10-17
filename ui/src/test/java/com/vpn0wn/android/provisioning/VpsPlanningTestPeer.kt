@@ -36,6 +36,19 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
     var revokeOutput: String? = null
     var revokeExitCode = 0
     var afterRevoke: (() -> Unit)? = null
+    val rotateEntered = CompletableDeferred<Unit>()
+    var blockRotate: CompletableDeferred<Unit>? = null
+    var rotateFailure: ProvisioningException? = null
+    var rotateOutput: String? = null
+    var rotateExitCode = 0
+    var afterRotate: (() -> Unit)? = null
+    val verifyRotationEntered = CompletableDeferred<Unit>()
+    var blockVerifyRotation: CompletableDeferred<Unit>? = null
+    var verifyRotationFailure: ProvisioningException? = null
+    var verifyRotationOutput: String? = null
+    var verifyRotationExitCode = 0
+    var rotationRunning = true
+    var rotatedPublicKey: String? = null
     var closeFailure: ProvisioningException? = null
     var configExists = false
     val backupEntered = CompletableDeferred<Unit>()
@@ -56,6 +69,7 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
     override fun create(connection: VpsConnection): RemoteShellClient {
         connections.add(connection)
         return object : RemoteShellClient {
+            private var rotationInput = emptyMap<String, String>()
             override suspend fun execute(command: String): ProvisioningCommandOutput {
                 commands.add(command)
                 return when {
@@ -111,6 +125,26 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
                         revokeFailure?.let { throw it }
                         ProvisioningCommandOutput(revokeExitCode, requireNotNull(revokeOutput), "")
                     }
+                    command.contains("./'rotate-peer.sh'") -> {
+                        val verifying = command.contains("'--verify'")
+                        if (verifying) {
+                            verifyRotationEntered.complete(Unit)
+                            blockVerifyRotation?.await()
+                            verifyRotationFailure?.let { throw it }
+                        } else {
+                            rotateEntered.complete(Unit)
+                            blockRotate?.await()
+                            rotatedPublicKey = rotationInput.getValue("newPublicKey")
+                            afterRotate?.invoke()
+                            rotateFailure?.let { throw it }
+                        }
+                        val receipt = JSONObject().put("ok", true).put("mode", if (verifying) "verify" else "rotate")
+                            .put("verified", true).put("interface", "wg0").put("running", rotationRunning).put("cleanupPath", "")
+                        for (field in listOf("operationId", "name", "serverPublicKey", "oldPublicKey", "newPublicKey"))
+                            receipt.put(field, rotationInput.getValue(field))
+                        ProvisioningCommandOutput(if (verifying) verifyRotationExitCode else rotateExitCode,
+                            (if (verifying) verifyRotationOutput else rotateOutput) ?: receipt.toString(), "")
+                    }
                     else -> error("Unexpected provisioning command")
                 }
             }
@@ -118,6 +152,9 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
             override suspend fun upload(path: String, content: String, mode: String): ProvisioningCommandOutput {
                 uploadEntered.complete(Unit)
                 blockUpload?.await()
+                if (path.endsWith("/rotation-input")) rotationInput = content.lineSequence().associate { line ->
+                    line.substringBefore('=') to line.substringAfter('=')
+                }
                 return ProvisioningCommandOutput(0, "", "")
             }
             override suspend fun close() { closes.incrementAndGet(); closeFailure?.let { throw it } }
