@@ -265,10 +265,11 @@ class SettingsActivityTest {
 
     @Test @Config(sdk = [33]) fun tileSuccessRemovesOnlyTileAndPreservesExpandedGroups() = runTest {
         environment()
-        val activity = openSettings()
-        settle(activity)
+        val activity = openSettingsWithLoadedMembership()
+        assertTrue(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
         fragment(activity).findPreference<Preference>("quick_tile")!!.performClick()
         shadowOf(android.os.Looper.getMainLooper()).idle()
+        runCurrent()
         assertEquals(true, UserKnobs.quickTileAdded.first { it == true })
         settle(activity)
         assertFalse(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
@@ -283,10 +284,11 @@ class SettingsActivityTest {
     @Test @Config(sdk = [33]) fun alreadyAddedResultRetainsMembershipAcrossReopening() = runTest {
         environment()
         TileRequests.result = android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED
-        val activity = openSettings()
-        settle(activity)
+        val activity = openSettingsWithLoadedMembership()
+        assertTrue(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
         fragment(activity).findPreference<Preference>("quick_tile")!!.performClick()
         shadowOf(Looper.getMainLooper()).idle()
+        runCurrent()
         assertEquals(true, UserKnobs.quickTileAdded.first { it == true })
         settle(activity)
         assertFalse(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
@@ -407,13 +409,14 @@ class SettingsActivityTest {
     @Test @Config(sdk = [33]) fun lateSuccessfulResultPersistsAfterSettingsDestruction() = runTest {
         environment()
         TileRequests.deferResult = true
-        val activity = openSettings()
-        settle(activity)
+        val activity = openSettingsWithLoadedMembership()
+        assertTrue(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
         fragment(activity).findPreference<Preference>("quick_tile")!!.performClick()
         controllers.last().pause().stop().destroy()
         controllers.removeAt(controllers.lastIndex)
         TileRequests.pendingResult!!.invoke()
         shadowOf(Looper.getMainLooper()).idle()
+        runCurrent()
         assertEquals(true, UserKnobs.quickTileAdded.first { it == true })
         val reopened = openSettings()
         settle(reopened)
