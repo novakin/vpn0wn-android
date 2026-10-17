@@ -2,11 +2,14 @@ package com.vpn0wn.android.fragment
 
 import android.app.Application
 import android.content.DialogInterface
+import android.graphics.Path
 import android.os.Bundle
 import android.os.Looper
+import android.text.TextPaint
 import android.widget.EditText
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.res.ResourcesCompat
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.textfield.TextInputLayout
 import com.vpn0wn.android.R
@@ -29,6 +32,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -42,12 +46,41 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.android.controller.ActivityController
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, sdk = [28])
 @OptIn(ExperimentalCoroutinesApi::class)
 class ConfigNamingDialogFragmentTest {
     @get:Rule val folder = TemporaryFolder()
+
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun nativeNamingFieldUsesPackagedMonoGlyphsAndSharedFeatures() = namingTest {
+        name.setText("home-lab_01")
+        val actual = TextPaint(name.paint)
+        val expected = TextPaint(name.paint).apply {
+            typeface = requireNotNull(ResourcesCompat.getFont(activity, R.font.jetbrains_mono_regular))
+            fontFeatureSettings = "ss01, zero, tnum"
+        }
+        assertEquals("Configured shared features", "ss01, zero, tnum", actual.fontFeatureSettings)
+        for (sample in listOf("home-lab_01", "0123456789", "a0O1Il")) {
+            fun outline(paint: TextPaint): FloatArray {
+                val path = Path()
+                paint.getTextPath(sample, 0, sample.length, 0f, 0f, path)
+                return path.approximate(0.01f)
+            }
+            val actualPath = outline(actual)
+            val expectedPath = outline(expected)
+            assertTrue("Native actual outline exists", actualPath.isNotEmpty())
+            assertTrue("Native packaged control outline exists", expectedPath.isNotEmpty())
+            assertArrayEquals("Packaged Mono glyphs: $sample", expectedPath, actualPath, 0.01f)
+            assertEquals("Packaged Mono advance: $sample", expected.measureText(sample), actual.measureText(sample), 0.01f)
+        }
+        assertEquals("Font check preserves field content", "home-lab_01", name.text.toString())
+        assertTrue("Font check keeps native dialog", dialog.isShowing)
+        assertTrue("Font check creates no tunnel", environment.store.configs.isEmpty())
+        assertEquals(0, store.calls.get())
+    }
 
     @Test fun invalidNameRetainsEditableDialogAndProfile() = namingTest {
         submit("")

@@ -86,9 +86,14 @@
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/endpoint_row"
                 style="@style/Vpn0wnDetailRow"
+                android:contentDescription="@{@string/endpoint + `: ` + BindingAdapters.optionalText(item.endpoint, ``)}"
+                android:foreground="?attr/selectableItemBackground"
+                android:minHeight="48dp"
                 android:orientation="vertical"
-                android:visibility="@{!item.endpoint.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}">
+                android:visibility="@{!item.endpoint.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}"
+                app:copyText="@{BindingAdapters.optionalText(item.endpoint, ``)}">
 
                 <TextView
                     style="@style/Vpn0wnConfigRowLabel"
@@ -97,15 +102,19 @@
                 <TextView
                     android:id="@+id/endpoint_text"
                     style="@style/Vpn0wnConfigRowValue"
-                    android:onClick="@{ClipboardUtils::copyTextView}"
                     android:text="@{item.endpoint}"
                     tools:text="192.168.0.1:51820" />
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/allowed_ips_row"
                 style="@style/Vpn0wnDetailRow"
+                android:contentDescription="@{@string/allowed_ips + `: ` + BindingAdapters.inetNetworksText(item.allowedIps)}"
+                android:foreground="?attr/selectableItemBackground"
+                android:minHeight="48dp"
                 android:orientation="vertical"
-                android:visibility="@{item.allowedIps.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}">
+                android:visibility="@{item == null || item.allowedIps.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
+                app:copyText="@{BindingAdapters.inetNetworksText(item.allowedIps)}">
 
                 <TextView
                     style="@style/Vpn0wnConfigRowLabel"
@@ -114,15 +123,19 @@
                 <TextView
                     android:id="@+id/allowed_ips_text"
                     style="@style/Vpn0wnConfigRowValue"
-                    android:onClick="@{ClipboardUtils::copyTextView}"
                     android:text="@{item.allowedIps}"
                     tools:text="0.0.0.0/0, ::/0" />
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/persistent_keepalive_row"
                 style="@style/Vpn0wnDetailRow"
+                android:contentDescription="@{@string/persistent_keepalive + `: ` + BindingAdapters.persistentKeepaliveText(context, item)}"
+                android:foreground="?attr/selectableItemBackground"
+                android:minHeight="48dp"
                 android:orientation="vertical"
-                android:visibility="@{!item.persistentKeepalive.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}">
+                android:visibility="@{!item.persistentKeepalive.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}"
+                app:copyText="@{BindingAdapters.persistentKeepaliveText(context, item)}">
 
                 <TextView
                     style="@style/Vpn0wnConfigRowLabel"
@@ -131,8 +144,7 @@
                 <TextView
                     android:id="@+id/persistent_keepalive_text"
                     style="@style/Vpn0wnConfigRowValue"
-                    android:onClick="@{ClipboardUtils::copyTextView}"
-                    android:text="@{item == null ? `` : @plurals/persistent_keepalive_seconds_unit(item.persistentKeepalive.orElse(0), item.persistentKeepalive.orElse(0))}"
+                    android:text="@{BindingAdapters.persistentKeepaliveText(context, item)}"
                     tools:text="every 25 seconds" />
             </LinearLayout>
 
@@ -168,6 +180,7 @@
                         style="@style/Vpn0wnMonoValueText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:background="?attr/selectableItemBackground"
                         android:minHeight="48dp"
                         android:gravity="center_vertical|start"
                         android:contentDescription="@{@string/vpn0wn_peer_rx_label + `: ` + BindingAdapters.peerRx(statistics)}"
@@ -195,6 +208,7 @@
                         style="@style/Vpn0wnMonoValueText"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:background="?attr/selectableItemBackground"
                         android:minHeight="48dp"
                         android:gravity="center_vertical|start"
                         android:contentDescription="@{@string/vpn0wn_peer_tx_label + `: ` + BindingAdapters.peerTx(statistics)}"
@@ -208,8 +222,12 @@
             <LinearLayout
                 style="@style/Vpn0wnDetailRow"
                 android:id="@+id/latest_handshake_row"
+                android:contentDescription="@{@string/latest_handshake + `: ` + BindingAdapters.peerHandshake(statistics)}"
+                android:foreground="?attr/selectableItemBackground"
+                android:minHeight="48dp"
                 android:orientation="vertical"
-                android:visibility="@{BindingAdapters.peerHandshakeVisible(statistics) ? android.view.View.VISIBLE : android.view.View.GONE}">
+                android:visibility="@{BindingAdapters.peerHandshakeVisible(statistics) ? android.view.View.VISIBLE : android.view.View.GONE}"
+                app:copyText="@{BindingAdapters.peerHandshake(statistics)}">
 
                 <TextView
                     android:id="@+id/latest_handshake_label"
@@ -220,7 +238,6 @@
                 <TextView
                     android:id="@+id/latest_handshake_text"
                     style="@style/Vpn0wnConfigRowValue"
-                    android:onClick="@{ClipboardUtils::copyTextView}"
                     android:text="@{BindingAdapters.peerHandshake(statistics)}"
                     tools:text="4 minutes ago"
                     tools:visibility="visible" />

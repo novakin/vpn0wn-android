@@ -307,25 +307,53 @@ object BindingAdapters {
     @JvmStatic
     @BindingAdapter("android:text")
     fun setOptionalText(view: TextView, text: Optional<*>?) {
-        view.text = text?.map { it.toString() }?.orElse("") ?: ""
+        view.text = optionalText(text, "")
     }
+
+    @JvmStatic
+    fun optionalText(text: Optional<*>?, emptyText: String): String = text?.map { it.toString() }?.orElse(emptyText) ?: emptyText
 
     @JvmStatic
     @BindingAdapter("android:text")
     fun setInetNetworkSetText(view: TextView, networks: Iterable<InetNetwork?>?) {
-        view.text = if (networks != null) Attribute.join(networks) else ""
+        view.text = inetNetworksText(networks)
     }
+
+    @JvmStatic
+    fun inetNetworksText(networks: Iterable<InetNetwork?>?): String = if (networks != null) Attribute.join(networks) else ""
 
     @JvmStatic
     @BindingAdapter("android:text")
     fun setInetAddressSetText(view: TextView, addresses: Iterable<InetAddress?>?) {
-        view.text = if (addresses != null) Attribute.join(addresses.map { it?.hostAddress }) else ""
+        view.text = inetAddressesText(addresses)
     }
+
+    @JvmStatic
+    fun inetAddressesText(addresses: Iterable<InetAddress?>?): String =
+        if (addresses != null) Attribute.join(addresses.map { it?.hostAddress }) else ""
 
     @JvmStatic
     @BindingAdapter("android:text")
     fun setStringSetText(view: TextView, strings: Iterable<String?>?) {
-        view.text = if (strings != null) Attribute.join(strings) else ""
+        view.text = stringsText(strings)
+    }
+
+    @JvmStatic
+    fun stringsText(strings: Iterable<String?>?): String = if (strings != null) Attribute.join(strings) else ""
+
+    @JvmStatic
+    fun applicationsText(context: Context, config: Config?): String {
+        val local = config?.getInterface()
+        val excluded = local?.includedApplications?.isEmpty() == true
+        val count = (if (excluded) local?.excludedApplications else local?.includedApplications)?.size ?: 0
+        val resource = if (excluded) R.plurals.n_excluded_applications else R.plurals.n_included_applications
+        return context.resources.getQuantityString(resource, count, count)
+    }
+
+    @JvmStatic
+    fun persistentKeepaliveText(context: Context, peer: Peer?): String {
+        val seconds = peer?.persistentKeepalive?.orElse(0) ?: return ""
+        return context.resources.getQuantityString(R.plurals.persistent_keepalive_seconds_unit, seconds, seconds)
     }
 
     @JvmStatic

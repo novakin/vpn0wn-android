@@ -25,6 +25,7 @@ import com.vpn0wn.crypto.Key
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import java.util.concurrent.TimeUnit
 import java.io.File
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -348,6 +349,74 @@ class HomeSelectionTest {
                 assertTrue(f.binding.selectionDelete.isEnabled)
                 assertNull(f.binding.root.findViewById<View>(com.google.android.material.R.id.snackbar_text))
             }
+        }
+    }
+
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun nativeHomeStatusKeepsLocalizedWordsTogetherAtCompactLargeText() = runHomeTest {
+        val originalQualifiers = RuntimeEnvironment.getQualifiers()
+        val originalScale = RuntimeEnvironment.getApplication().resources.configuration.fontScale
+        val originalLocale = Locale.getDefault()
+        val cases = listOf(
+            Preview("compact-fr", 320, 640, 2f, "fr", false),
+            Preview("normal-fr", 411, 800, 1f, "fr", false),
+            Preview("short-landscape-fr", 562, 292, 2f, "fr", false),
+            Preview("wide-fr", 640, 320, 2f, "fr", false),
+            Preview("compact-rtl", 320, 640, 2f, "ar", false)
+        )
+        try {
+            for (base in cases) for (night in listOf(false, true)) {
+                val case = base.copy(name = "${base.name}-${if (night) "night" else "day"}", night = night)
+                val rtl = case.locale == "ar"
+                val direction = if (rtl) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
+                RuntimeEnvironment.setQualifiers("${case.locale}-${if (rtl) "ldrtl" else "ldltr"}-w${case.width}dp-h${case.height}dp-${if (case.width > case.height) "land" else "port"}-${if (night) "night" else "notnight"}-mdpi")
+                RuntimeEnvironment.setFontScale(case.scale)
+                RuntimeEnvironment.setQualifiers(if (rtl) "+ldrtl" else "+ldltr")
+                val f = host("bravo")
+                try {
+                    layout(f.binding, case.width, case.height)
+                    val configuration = f.binding.root.resources.configuration
+                    assertEquals(case.name, case.width, configuration.screenWidthDp)
+                    assertEquals(case.name, case.height, configuration.screenHeightDp)
+                    assertEquals(case.name, if (case.width > case.height) android.content.res.Configuration.ORIENTATION_LANDSCAPE else
+                        android.content.res.Configuration.ORIENTATION_PORTRAIT, configuration.orientation)
+                    assertEquals(case.name, case.locale, configuration.locales[0].language)
+                    assertEquals(case.name, case.scale, configuration.fontScale)
+                    assertEquals(case.name, direction, configuration.layoutDirection)
+                    assertEquals(case.name, direction, f.binding.root.layoutDirection)
+                    assertEquals(case.name, if (night) android.content.res.Configuration.UI_MODE_NIGHT_YES else
+                        android.content.res.Configuration.UI_MODE_NIGHT_NO, configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK)
+                    val stacked = case.name.startsWith("compact")
+                    assertEquals(case.name, if (stacked) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL, f.binding.homeStatusContainer.orientation)
+                    assertEquals(case.name, if (stacked) View.GONE else View.VISIBLE, f.binding.homeStatusDivider.visibility)
+                    val connection = f.binding.homeConnectionGroup
+                    val endpoint = f.binding.homeEndpointGroup
+                    for (group in listOf(connection, endpoint)) {
+                        val params = group.layoutParams as LinearLayout.LayoutParams
+                        assertEquals(case.name, if (stacked) ViewGroup.LayoutParams.MATCH_PARENT else 0, params.width)
+                        assertEquals(case.name, if (stacked) 0f else 1f, params.weight)
+                    }
+                    if (stacked) {
+                        assertTrue(case.name, connection.bottom <= endpoint.top)
+                        assertEquals(case.name, 0, connection.paddingEnd)
+                        assertEquals(case.name, 0, endpoint.paddingStart)
+                    } else {
+                        val density = connection.resources.displayMetrics.density
+                        assertEquals(case.name, (12 * density).toInt(), connection.paddingEnd)
+                        assertEquals(case.name, (14 * density).toInt(), endpoint.paddingStart)
+                        assertTrue(case.name, kotlin.math.abs(connection.width - endpoint.width) <= 1)
+                    }
+                    assertWordsStayTogether(f.binding.homeConnectionLabel, case.name)
+                    assertWordsStayTogether(f.binding.homeEndpointLabel, case.name)
+                    assertEndpointLayout(f.binding, case.name)
+                    assertFullyVisible(f.binding.createFab, "${case.name}: fixed Add")
+                    save(f.binding.root, "status-${case.name}")
+                } finally { f.env.close() }
+            }
+        } finally {
+            RuntimeEnvironment.setQualifiers(originalQualifiers)
+            RuntimeEnvironment.setFontScale(originalScale)
+            Locale.setDefault(originalLocale)
         }
     }
 
@@ -745,6 +814,18 @@ class HomeSelectionTest {
                 assertTrue("$name: icon at logical end", textBounds.right <= iconBounds.left)
             }
         }
+    }
+
+    private fun assertWordsStayTogether(view: TextView, name: String) {
+        assertFullyVisible(view, name)
+        val text = view.text.toString()
+        val textLayout = requireNotNull(view.layout)
+        assertEquals("$name: complete label", text.length, textLayout.getLineEnd(textLayout.lineCount - 1))
+        for (word in Regex("[\\p{L}\\p{M}]+").findAll(text)) {
+            assertEquals("$name: complete word ${word.value}", textLayout.getLineForOffset(word.range.first),
+                textLayout.getLineForOffset(word.range.last))
+        }
+        for (line in 0 until textLayout.lineCount) assertEquals("$name: no hidden label", 0, textLayout.getEllipsisCount(line))
     }
 
     private fun textViews(view: View): List<TextView> {

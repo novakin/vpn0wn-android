@@ -28,6 +28,7 @@ import com.vpn0wn.android.util.QuantityFormatter
 import com.vpn0wn.config.Peer
 import com.vpn0wn.crypto.Key
 import java.io.File
+import java.util.Locale
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.*
@@ -126,41 +127,68 @@ class AddPeerPresentationTest {
         assertNotNull(showSheet(recreated).view)
     }
 
-    @Test fun peerSnapshotBindsSeparateLocalizedCountersAndHandshake() = runTest {
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun peerSnapshotBindsSeparateLocalizedCountersAndHandshake() = runTest {
         environment = TunnelTestEnvironment(folder.root, backgroundScope)
         val activity = host()
         val binding = peer(activity)
         activity.setContentView(binding.root)
-        binding.statistics = Statistics.PeerStats(2048L, 1024L, System.currentTimeMillis() - 5000L)
-        binding.executePendingBindings()
-        assertEquals(QuantityFormatter.formatBytes(2048), binding.rxText.text.toString())
-        assertEquals(QuantityFormatter.formatBytes(1024), binding.txText.text.toString())
-        assertEquals(View.VISIBLE, binding.transferGrid.visibility)
-        assertEquals(View.VISIBLE, binding.latestHandshakeRow.visibility)
-        assertTrue(binding.latestHandshakeText.text.isNotEmpty())
         val clipboard = activity.getSystemService(ClipboardManager::class.java)
-        for (cell in listOf(binding.rxText, binding.txText)) {
-            assertTrue(cell.contentDescription.toString().contains(cell.text.toString()))
-            assertTrue(cell.performClick())
-            val clip = clipboard.primaryClip!!
-            assertEquals(cell.text.toString(), clip.getItemAt(0).text.toString())
-            assertEquals(cell.contentDescription.toString(), clip.description.label.toString())
+        for (seed in 1..2) {
+            binding.statistics = Statistics.PeerStats(2048L * seed, 1024L * seed, System.currentTimeMillis() - 5000L * seed)
+            binding.executePendingBindings()
+            shadowOf(android.os.Looper.getMainLooper()).idle()
+            measure(binding.root, Preview("peer-copy", 320, 640, 1f, "en", false), boundedHeight = false)
+            assertEquals(QuantityFormatter.formatBytes(2048L * seed), binding.rxText.text.toString())
+            assertEquals(QuantityFormatter.formatBytes(1024L * seed), binding.txText.text.toString())
+            assertEquals(View.VISIBLE, binding.transferGrid.visibility)
+            assertEquals(View.VISIBLE, binding.latestHandshakeRow.visibility)
+            assertTrue(binding.latestHandshakeText.text.isNotEmpty())
+            assertFalse("Handshake value has no competing action", binding.latestHandshakeText.hasOnClickListeners())
+            for ((target, value) in listOf(binding.rxText to binding.rxText, binding.txText to binding.txText,
+                binding.latestHandshakeRow to binding.latestHandshakeText)) {
+                assertTrue(target.contentDescription.toString().contains(value.text.toString()))
+                assertTrue(target.height >= 48 * activity.resources.displayMetrics.density)
+                assertTrue("Native copy feedback", requireNotNull(target.foreground ?: target.background).isStateful)
+                val node = target.createAccessibilityNodeInfo()
+                try {
+                    assertEquals("Current value belongs to action node", target.contentDescription.toString(), node.contentDescription.toString())
+                    assertTrue(node.isClickable)
+                } finally { node.recycle() }
+                assertTrue(target.performClick())
+                val clip = clipboard.primaryClip!!
+                assertEquals(value.text.toString(), clip.getItemAt(0).text.toString())
+                assertEquals(target.contentDescription.toString(), clip.description.label.toString())
+            }
         }
     }
 
-    @Test fun missingAndZeroStatisticsClearOldCellsAndWholeRows() = runTest {
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun missingAndZeroStatisticsClearOldCellsAndWholeRows() = runTest {
         environment = TunnelTestEnvironment(folder.root, backgroundScope)
-        val binding = peer(host())
+        val activity = host()
+        val binding = peer(activity)
+        activity.setContentView(binding.root)
         for (empty in listOf(null, Statistics.PeerStats(0L, 0L, 0L))) {
             binding.statistics = Statistics.PeerStats(2048L, 1024L, 1L)
             binding.executePendingBindings()
+            shadowOf(android.os.Looper.getMainLooper()).idle()
+            assertTrue("Populated handshake exposes its copy action", binding.latestHandshakeRow.isClickable)
             binding.statistics = empty
             binding.executePendingBindings()
+            shadowOf(android.os.Looper.getMainLooper()).idle()
             assertEquals(View.GONE, binding.transferGrid.visibility)
             assertEquals(View.GONE, binding.latestHandshakeRow.visibility)
             assertEquals(QuantityFormatter.formatBytes(0), binding.rxText.text.toString())
             assertEquals(QuantityFormatter.formatBytes(0), binding.txText.text.toString())
             assertEquals("", binding.latestHandshakeText.text.toString())
+            assertFalse("Missing handshake retires its copy action", binding.latestHandshakeRow.isClickable ||
+                binding.latestHandshakeRow.isFocusable || binding.latestHandshakeRow.hasOnClickListeners())
+            val node = binding.latestHandshakeRow.createAccessibilityNodeInfo()
+            try {
+                assertEquals(binding.root.context.getString(R.string.latest_handshake) + ": ", node.contentDescription.toString())
+                assertFalse(node.isClickable)
+            } finally { node.recycle() }
         }
     }
 
@@ -332,6 +360,9 @@ class AddPeerPresentationTest {
 
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun nativeOutputWrapsAndScrollsInSmallLandscapeAndLargeRtlConfigurations() = runTest {
+        val originalQualifiers = RuntimeEnvironment.getQualifiers()
+        val originalFontScale = RuntimeEnvironment.getApplication().resources.configuration.fontScale
+        val originalLocale = Locale.getDefault()
         environment = TunnelTestEnvironment(folder.root, backgroundScope)
         val cases = listOf(
             Preview("portrait-light", 320, 640, 1f, "en", false),
@@ -341,49 +372,70 @@ class AddPeerPresentationTest {
             Preview("large-rtl-light", 320, 640, 2f, "ar", false),
             Preview("large-rtl-dark", 320, 640, 2f, "ar", true)
         )
-        for (case in cases) {
-            val direction = if (case.locale == "ar") "ldrtl" else "ldltr"
-            val orientation = if (case.width > case.height) "land" else "port"
-            val night = if (case.night) "night" else "notnight"
-            RuntimeEnvironment.setQualifiers("${case.locale}-$direction-w${case.width}dp-h${case.height}dp-$orientation-$night")
-            RuntimeEnvironment.setFontScale(case.fontScale)
-            val activity = host()
-            val sheet = showSheet(activity)
-            val root = sheet.requireView() as NestedScrollView
-            measure(root, case)
-            val expectedDirection = if (case.locale == "ar") View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
-            assertEquals("${case.name}: Add direction", expectedDirection, root.layoutDirection)
-            for (id in listOf(R.id.create_from_qrcode, R.id.create_from_file, R.id.create_empty)) {
-                val button = root.findViewById<View>(id)
-                assertTrue(button.height >= 48 * activity.resources.displayMetrics.density)
+        try {
+            for (case in cases) {
+                val direction = if (case.locale == "ar") "ldrtl" else "ldltr"
+                val orientation = if (case.width > case.height) "land" else "port"
+                val night = if (case.night) "night" else "notnight"
+                RuntimeEnvironment.setQualifiers("${case.locale}-$direction-w${case.width}dp-h${case.height}dp-$orientation-$night")
+                RuntimeEnvironment.setFontScale(case.fontScale)
+                RuntimeEnvironment.setQualifiers(if (case.locale == "ar") "+ldrtl" else "+ldltr")
+                val activity = host()
+                val sheet = showSheet(activity)
+                val root = sheet.requireView() as NestedScrollView
+                measure(root, case)
+                val expectedDirection = if (case.locale == "ar") View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
+                assertEquals("${case.name}: Add direction", expectedDirection, root.layoutDirection)
+                assertEquals(case.locale, root.resources.configuration.locales[0].language)
+                assertEquals(case.fontScale, root.resources.configuration.fontScale)
+                assertEquals(expectedDirection, root.resources.configuration.layoutDirection)
+                assertEquals(if (case.night) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO,
+                    root.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)
+                for (id in listOf(R.id.create_from_qrcode, R.id.create_from_file, R.id.create_empty)) {
+                    val button = root.findViewById<View>(id)
+                    assertTrue(button.height >= 48 * activity.resources.displayMetrics.density)
+                }
+                assertTextFits(root, case.name)
+                save(root, "add-${case.name}")
+                root.fullScroll(View.FOCUS_DOWN)
+                if (case.name == "large-landscape-dark") {
+                    assertTrue(root.canScrollVertically(-1))
+                    assertTrue(root.scrollY > 0)
+                }
+                val last = root.findViewById<View>(R.id.create_empty)
+                val location = IntArray(2)
+                last.getLocationInWindow(location)
+                val rootLocation = IntArray(2)
+                root.getLocationInWindow(rootLocation)
+                assertTrue(location[1] >= rootLocation[1])
+                assertTrue(location[1] + last.height <= rootLocation[1] + root.height - root.paddingBottom)
+                save(root, "add-${case.name}-bottom")
+                val peer = peer(activity)
+                activity.setContentView(peer.root)
+                peer.statistics = Statistics.PeerStats(2048L, 1024L, System.currentTimeMillis() - 5000L)
+                peer.executePendingBindings()
+                shadowOf(android.os.Looper.getMainLooper()).idle()
+                measure(peer.root, case, boundedHeight = false)
+                assertEquals("${case.name}: peer direction", expectedDirection, peer.root.layoutDirection)
+                for (cell in listOf(peer.rxText, peer.txText)) {
+                    assertTrue(cell.height >= 48 * activity.resources.displayMetrics.density)
+                    assertTrue(cell.isClickable)
+                    assertTrue(requireNotNull(cell.background).isStateful)
+                }
+                assertTrue(peer.latestHandshakeRow.height >= 48 * activity.resources.displayMetrics.density)
+                assertTrue(peer.latestHandshakeRow.isClickable)
+                assertTrue(requireNotNull(peer.latestHandshakeRow.foreground).isStateful)
+                assertFalse(peer.latestHandshakeText.hasOnClickListeners())
+                val handshakeNode = peer.latestHandshakeRow.createAccessibilityNodeInfo()
+                try { assertTrue(handshakeNode.contentDescription.toString().contains(peer.latestHandshakeText.text.toString())) }
+                finally { handshakeNode.recycle() }
+                assertTextFits(peer.root, case.name)
+                save(peer.root, "peer-${case.name}")
             }
-            assertTextFits(root, case.name)
-            save(root, "add-${case.name}")
-            root.fullScroll(View.FOCUS_DOWN)
-            if (case.name == "large-landscape-dark") {
-                assertTrue(root.canScrollVertically(-1))
-                assertTrue(root.scrollY > 0)
-            }
-            val last = root.findViewById<View>(R.id.create_empty)
-            val location = IntArray(2)
-            last.getLocationInWindow(location)
-            val rootLocation = IntArray(2)
-            root.getLocationInWindow(rootLocation)
-            assertTrue(location[1] >= rootLocation[1])
-            assertTrue(location[1] + last.height <= rootLocation[1] + root.height - root.paddingBottom)
-            save(root, "add-${case.name}-bottom")
-            val peer = peer(activity)
-            activity.setContentView(peer.root)
-            peer.statistics = Statistics.PeerStats(2048L, 1024L, System.currentTimeMillis() - 5000L)
-            peer.executePendingBindings()
-            measure(peer.root, case, boundedHeight = false)
-            assertEquals("${case.name}: peer direction", expectedDirection, peer.root.layoutDirection)
-            for (cell in listOf(peer.rxText, peer.txText)) {
-                assertTrue(cell.height >= 48 * activity.resources.displayMetrics.density)
-                assertTrue(cell.isClickable)
-            }
-            assertTextFits(peer.root, case.name)
-            save(peer.root, "peer-${case.name}")
+        } finally {
+            RuntimeEnvironment.setQualifiers(originalQualifiers)
+            RuntimeEnvironment.setFontScale(originalFontScale)
+            Locale.setDefault(originalLocale)
         }
     }
 

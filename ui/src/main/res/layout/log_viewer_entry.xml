@@ -8,6 +8,11 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@color/vpn0wn_paper"
+    android:clickable="true"
+    android:focusable="true"
+    android:foreground="?attr/selectableItemBackground"
+    android:gravity="center_vertical"
+    android:minHeight="48dp"
     android:orientation="horizontal">
 
     <!-- 2dp left severity border: warn=vpn0wn_warn, error=vpn0wn_error, else transparent (set in code) -->
@@ -21,54 +26,65 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_weight="1"
-        android:orientation="horizontal"
+        android:orientation="vertical"
         android:paddingStart="8dp"
         android:paddingTop="3dp"
         android:paddingEnd="12dp"
         android:paddingBottom="3dp">
 
-        <!-- HH:MM:SS.mmm -->
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/log_time"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            android:fontFamily="@font/jetbrains_mono_regular"
-            android:textColor="@color/vpn0wn_ink_3"
-            android:textSize="11sp"
-            tools:text="10:17:37.886" />
+            android:orientation="horizontal">
 
-        <!-- D / I / W / E / V / F (colored per level) -->
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/log_level"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            android:fontFamily="@font/jetbrains_mono_medium"
-            android:minWidth="12dp"
-            android:textSize="11sp"
-            tools:text="D"
-            tools:textColor="@color/vpn0wn_ink_3" />
+            <!-- HH:MM:SS.mmm -->
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/log_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:fontFamily="@font/jetbrains_mono_regular"
+                android:fontFeatureSettings="ss01, zero, tnum"
+                android:maxLines="1"
+                android:textColor="@color/vpn0wn_ink_3"
+                android:textSize="11sp"
+                tools:text="10:17:37.886" />
 
-        <!-- Tag (ink_3, min width for alignment) -->
-        <com.google.android.material.textview.MaterialTextView
-            android:id="@+id/log_tag"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginEnd="8dp"
-            android:fontFamily="@font/jetbrains_mono_regular"
-            android:minWidth="80dp"
-            android:textColor="@color/vpn0wn_ink_3"
-            android:textSize="11sp"
-            tools:text="WireGuard" />
+            <!-- D / I / W / E / V / F (colored per level) -->
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/log_level"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:fontFamily="@font/jetbrains_mono_medium"
+                android:fontFeatureSettings="ss01, zero, tnum"
+                android:minWidth="12dp"
+                android:textSize="11sp"
+                tools:text="D"
+                tools:textColor="@color/vpn0wn_ink_3" />
 
-        <!-- Message (ink, fills remaining width, tap to expand) -->
+            <!-- Tag retains its complete native text when the visual label needs ellipsis. -->
+            <com.google.android.material.textview.MaterialTextView
+                android:id="@+id/log_tag"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:fontFamily="@font/jetbrains_mono_regular"
+                android:fontFeatureSettings="ss01, zero, tnum"
+                android:maxLines="1"
+                android:textColor="@color/vpn0wn_ink_3"
+                android:textSize="11sp"
+                tools:text="WireGuard" />
+        </LinearLayout>
+
+        <!-- A separate message line prevents metadata from consuming its readable width. -->
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/log_msg"
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
             android:fontFamily="@font/jetbrains_mono_regular"
+            android:fontFeatureSettings="ss01, zero, tnum"
             android:textColor="@color/vpn0wn_ink"
             android:textSize="11sp"
             tools:text="Starting tunnel..." />

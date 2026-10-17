@@ -193,6 +193,7 @@ class VpsTerminalStreamView(context: Context) : TextView(context) {
 
     init {
         typeface = ResourcesCompat.getFont(context, R.font.jetbrains_mono_regular) ?: Typeface.MONOSPACE
+        fontFeatureSettings = "ss01, zero, tnum"
         // Literal typography and spacing belong to this terminal presentation.
         @Suppress("MagicNumber")
         val terminalTextSize = 10f
