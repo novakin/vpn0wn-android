@@ -32,6 +32,11 @@ internal class VpsBackupArchiveException(val category: Category) : IOException(c
 }
 
 internal class VpsBackupArchive(private val random: SecureRandom = SecureRandom()) {
+    fun validateNewPassword(password: CharArray) {
+        if (password.size !in 1..MAX_PASSWORD_CHARS) fail(VpsBackupArchiveException.Category.PASSWORD)
+        passwordBytes(password, creating = true).fill(0)
+    }
+
     suspend fun encrypt(snapshot: VpsBackupResult, password: CharArray): ByteArray = withPassword(password, creating = true) { encoded ->
         val plaintext = serialize(snapshot)
         try {
