@@ -20,10 +20,10 @@ object VpsDeployMapper {
         return VpsDeployServer(
             id = server.id,
             name = server.name,
-            provider = server.provider.ifBlank { server.sshUser },
-            region = server.region.ifBlank { server.host },
-            endpoint = server.endpoint.ifBlank { server.host },
-            port = server.listenPort.toIntOrNull() ?: 51820,
+            provider = server.provider.ifBlank { "—" },
+            region = server.region.ifBlank { "—" },
+            endpoint = server.endpoint.takeIf { it.isNotBlank() },
+            port = server.listenPort.toIntOrNull()?.takeIf { it in 1..MAX_PORT },
             status = status,
             distro = listOf(server.os, server.version).filter { it.isNotBlank() }.joinToString(" ").ifBlank { "Awaiting detect" },
             engine = server.engine.ifBlank { "unknown" },
@@ -113,4 +113,5 @@ object VpsDeployMapper {
 
     private const val STALE_SYNC_SECONDS = 600L
     private const val STALE_HANDSHAKE_SECONDS = 180L
+    private const val MAX_PORT = 65535
 }
