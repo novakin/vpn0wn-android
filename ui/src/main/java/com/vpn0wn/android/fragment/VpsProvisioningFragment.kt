@@ -324,7 +324,7 @@ class VpsProvisioningFragment : BaseFragment() {
             addView(label("${server.provider.uppercase(Locale.ROOT)} · ${server.region.uppercase(Locale.ROOT)}"))
         })
         body.addView(mono(server.name, 16, R.color.vpn0wn_ink).apply { setPadding(0, dp(8), 0, 0) })
-        body.addView(mono(if (server.usersKnown) str(R.string.vpn0wn_server_card_summary, "${server.endpoint}:${server.port}", server.users.size, server.engine) else str(R.string.vpn0wn_server_card_summary_unknown, "${server.endpoint}:${server.port}", server.engine), 10, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(4), 0, dp(10)) })
+        body.addView(mono(if (server.usersKnown) str(R.string.vpn0wn_server_card_summary, server.endpointAddress ?: "—", server.users.size, server.engine) else str(R.string.vpn0wn_server_card_summary_unknown, server.endpointAddress ?: "—", server.engine), 10, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(4), 0, dp(10)) })
         body.addView(metricRow(listOf(str(R.string.vpn0wn_metric_cidr) to server.cidr, str(R.string.vpn0wn_metric_uptime) to server.uptime, str(R.string.vpn0wn_metric_sync) to server.lastSync)))
         body.addView(VpsHealthChecksLayout(requireContext(), server.health).apply { setPadding(0, dp(10), 0, 0) })
         railRow.addView(body, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
@@ -345,7 +345,7 @@ class VpsProvisioningFragment : BaseFragment() {
         }.withMargins(bottom = 14))
         scroll.addView(sectionHeader(1, str(R.string.vpn0wn_section_health), str(server.status.labelRes)))
         scroll.addView(panel {
-            configLine(str(R.string.vpn0wn_label_endpoint), "${server.endpoint}:${server.port}", copy = true)
+            configLine(str(R.string.vpn0wn_label_endpoint), server.endpointAddress ?: "—", copy = server.endpointAddress != null)
             configLine(str(R.string.vpn0wn_label_distro), server.distro)
             configLine(str(R.string.vpn0wn_label_engine), server.engine)
             configLine(str(R.string.vpn0wn_label_uptime), server.uptime)
@@ -373,7 +373,7 @@ class VpsProvisioningFragment : BaseFragment() {
         scroll.addView(panel {
             configLine(str(R.string.vpn0wn_metric_cidr), server.cidr)
             configLine(str(R.string.vpn0wn_label_dns), server.dns)
-            configLine(str(R.string.vpn0wn_label_listen_port), "UDP ${server.port}")
+            configLine(str(R.string.vpn0wn_label_listen_port), server.port?.let { "UDP $it" } ?: "—")
             configLine(str(R.string.vpn0wn_label_engine), server.engine)
         })
         scroll.addView(sectionHeader(4, str(R.string.vpn0wn_section_actions), str(R.string.vpn0wn_hint_remote)))
@@ -629,7 +629,7 @@ class VpsProvisioningFragment : BaseFragment() {
         scroll.addView(panel {
             configLine(str(R.string.vpn0wn_label_server), server.name)
             configLine(str(R.string.vpn0wn_label_public_key), user.key, copy = true)
-            configLine(str(R.string.vpn0wn_label_endpoint), "${server.endpoint}:${server.port}")
+            configLine(str(R.string.vpn0wn_label_endpoint), server.endpointAddress ?: "—")
             configLine(str(R.string.vpn0wn_label_dns), server.dns)
             configLine(str(R.string.vpn0wn_label_allowed), user.allowedIps)
         })

@@ -739,6 +739,16 @@ No APK assembly/install, physical phone, actual Android transport/Keystore integ
 
 The scoped JVM/output acceptance above covers its stated EN/FR/theme/size/state combinations only. Native transport/Keystore, remote install cancellation, same-target reconciliation and fresh client traffic need separately authorized artifact/device/disposable-VPS proof. No live installation or production readiness follows from source or injected-response tests.
 
+### Observed VPS metadata controls — #143
+
+`VpsDeployMapperTest` covers absent hosting provider/region without SSH identity substitution, absent endpoints with a different SSH host, missing/nonnumeric/out-of-range listeners, valid minimum/nondefault/maximum ports and refreshed-versus-persisted agreement across running/stopped/unknown observations. A fresh empty observation clears the earlier endpoint/listener instead of restoring presentation defaults. `VpsServerStoreTest.emptyStoppedObservationClearsOldVpnMetadataWithoutChangingSshIdentity` verifies actual DataStore publication, retained SSH identity and unrelated records. `VpsProvisioningLayoutTest.vpnMetadataUsesObservedValuesAndDisablesUnknownEndpointCopy` exercises actual detail Views in EN/FR, system day/night, 320×640dp/1× LTR portrait and 640×320dp/2× forced-RTL landscape. It verifies complete known values, independent unknown fields, readable text and absent copy controls for incomplete endpoints. Persisted strings and installation input defaults retain their existing contracts.
+
+2026-10-17 (Europe/Paris): all 52 maintained controls pass in the mapper/store/layout suites, with zero failures/errors/skips and zero Detekt findings. A separate temporary SDK-28 native-graphics renderer also passes, retaining 160 synthetic-data originals under `.artifacts/vps-metadata-renders-20261017/` in the metadata worktree, with its runner, source delta and result XML. Four metadata states cover absent endpoint/listener, invalid listener, known listener without endpoint and a complete nondefault endpoint; fleet-card, detail and user output includes scrolled metadata rows. The renderer asserts the actual root locale, font scale and layout direction and completes noncancelled pre-draw callbacks. Eleven originals inspected across all eight configurations show readable unknown/known metadata and the correct endpoint-copy presence. **Satisfied with this bounded metadata presentation in the JVM matrix.** Standalone card captures do not establish whole-fleet scrolling or complete-screen acceptance.
+
+The first View probe inspected Android's internally wide RTL single-line layout before pre-draw scroll settlement. Two subsequent fixture attempts interpreted the pre-draw cancellation Boolean backward and produced no accepted originals. Failed logs/XML/source remain retained; the passing run corrects the fixture and preserves production single-line/ellipsis behavior. Independent final-head review and CI belong to the PR acceptance record.
+
+Source/JVM and synthetic Android View evidence establish no installed-device, transport or live-server metadata acceptance. Wider Canvas font-scale/fidelity and native/live #143 gates remain open.
+
 ### Manual status refresh controls — #143
 
 #### Final typography and control output — 2026-10-16

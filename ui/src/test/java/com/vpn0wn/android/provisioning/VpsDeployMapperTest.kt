@@ -28,6 +28,71 @@ class VpsDeployMapperTest {
     }
 
     @Test
+    fun missingVpnEndpointNeverUsesSshHost() {
+        val stored = storedServer(lastSyncEpochSeconds = 0L).copy(host = "192.0.2.10", endpoint = "")
+        val server = VpsDeployMapper.fromStored(stored, NOW)
+
+        assertEquals(null, server.endpoint)
+        assertEquals(51820, server.port)
+        assertEquals(null, server.endpointAddress)
+        assertEquals(false, server.health.first { it.label == "endpoint" }.ok)
+        assertEquals(VpsDeployServerStatus.PROVISIONING, server.status)
+    }
+
+    @Test
+    fun unknownProviderAndRegionNeverUseSshIdentity() {
+        val stored = storedServer(lastSyncEpochSeconds = 0L).copy(provider = "", region = "", host = "192.0.2.10", sshUser = "operator")
+        val server = VpsDeployMapper.fromStored(stored, NOW)
+
+        assertEquals("—", server.provider)
+        assertEquals("—", server.region)
+        assertEquals("192.0.2.10", stored.host)
+        assertEquals("operator", stored.sshUser)
+    }
+
+    @Test
+    fun missingMalformedAndOutOfRangeListenersStayUnknown() {
+        for (port in listOf("", " ", "invalid", "0", "-1", "65536", "2147483648")) {
+            val server = VpsDeployMapper.fromStored(storedServer(lastSyncEpochSeconds = NOW).copy(listenPort = port), NOW)
+
+            assertEquals("Listener $port", null, server.port)
+            assertEquals("Endpoint socket requires a known listener", null, server.endpointAddress)
+            assertEquals("203.0.113.42", server.endpoint)
+        }
+    }
+
+    @Test
+    fun observedEndpointAndNonDefaultListenerAreIndependentOfSshAddress() {
+        for (port in listOf(1, 51821, 65535)) {
+            val stored = storedServer(lastSyncEpochSeconds = NOW).copy(host = "192.0.2.10", listenPort = port.toString())
+            val server = VpsDeployMapper.fromStored(stored, NOW)
+
+            assertEquals("203.0.113.42", server.endpoint)
+            assertEquals(port, server.port)
+            assertEquals("203.0.113.42:$port", server.endpointAddress)
+        }
+    }
+
+    @Test
+    fun refreshReplacesSavedMetadataIncludingStoppedAndUnknownValues() {
+        val stored = storedServer(lastSyncEpochSeconds = NOW - 18L).copy(host = "192.0.2.10", running = true)
+        for (running in listOf(true, false, null)) {
+            for ((endpoint, port) in listOf("vpn.example" to "51821", "" to "", "vpn.example" to "invalid")) {
+                val status = VpsDeployFixtureData.onlineStatusWithPeers().copy(running = running, endpoint = endpoint, listenPort = port)
+                val refreshed = VpsDeployMapper.fromStatus(stored, status, NOW)
+                val persisted = VpsDeployMapper.fromStored(stored.copy(endpoint = endpoint, listenPort = port,
+                    cidr = status.cidr, dns = status.dns, running = running, lastSyncEpochSeconds = NOW), NOW)
+
+                assertEquals(persisted.endpoint, refreshed.endpoint)
+                assertEquals(persisted.port, refreshed.port)
+                assertEquals(persisted.endpointAddress, refreshed.endpointAddress)
+                assertEquals(persisted.status, refreshed.status)
+                assertEquals(persisted.health, refreshed.health)
+            }
+        }
+    }
+
+    @Test
     fun recentlySyncedStoredServerMapsToOnlineUiState() {
         val server = VpsDeployMapper.fromStored(storedServer(lastSyncEpochSeconds = NOW - 18L).copy(running = true), NOW)
 
