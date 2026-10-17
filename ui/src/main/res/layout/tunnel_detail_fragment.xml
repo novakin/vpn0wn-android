@@ -45,18 +45,19 @@
 
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="32dp"
+                android:layout_height="wrap_content"
                 android:gravity="center_vertical"
+                android:minHeight="48dp"
                 android:orientation="horizontal">
 
                 <androidx.appcompat.widget.AppCompatImageButton
                     android:id="@+id/detail_back_button"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:background="@android:color/transparent"
-                    android:contentDescription="@string/cancel"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:contentDescription="@string/vpn0wn_navigate_back"
                     android:onClick="@{fragment::onBackPressed}"
-                    android:padding="4dp"
+                    android:padding="12dp"
                     app:srcCompat="@drawable/ic_vpn0wn_chevron_left"
                     app:tint="@color/vpn0wn_ink_2" />
 
@@ -77,7 +78,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:gravity="bottom"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <TextView
@@ -92,13 +93,13 @@
 
                 <androidx.appcompat.widget.AppCompatImageButton
                     android:id="@+id/detail_edit_button"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:layout_marginStart="8dp"
-                    android:background="@android:color/transparent"
+                    android:background="?attr/selectableItemBackground"
                     android:contentDescription="@string/edit"
                     android:onClick="@{fragment::onEditPressed}"
-                    android:padding="7dp"
+                    android:padding="15dp"
                     app:srcCompat="@drawable/ic_action_edit"
                     app:tint="@color/vpn0wn_ink_2" />
             </LinearLayout>

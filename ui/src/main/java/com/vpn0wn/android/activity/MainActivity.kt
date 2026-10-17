@@ -163,6 +163,7 @@ class MainActivity : BaseActivity(), FragmentManager.OnBackStackChangedListener 
         } else if (backStackEntries == 0) {
             // Create and show a new detail fragment.
             fragmentManager.commit {
+                if (!isTwoPaneLayout) fragmentManager.findFragmentByTag("LIST")?.let { hide(it) }
                 add(container, TunnelDetailFragment())
                 setTransition(FragmentTransaction.TRANSIT_FRAGMENT_FADE)
                 addToBackStack(null)
