@@ -108,6 +108,72 @@ class VpsProvisioningLayoutTest {
         }
     }
 
+    @Test fun vpnMetadataUsesObservedValuesAndDisablesUnknownEndpointCopy() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        for (locale in listOf("en", "fr")) for (night in listOf("night", "notnight")) {
+            for ((width, height, fontScale) in listOf(Triple(320, 640, 1f), Triple(640, 320, 2f))) {
+                val rtl = fontScale > 1f
+                val direction = if (rtl) "ldrtl" else "ldltr"
+                val orientation = if (width > height) "land" else "port"
+                RuntimeEnvironment.setQualifiers("$locale-$direction-w${width}dp-h${height}dp-$orientation-$night-mdpi")
+                RuntimeEnvironment.setFontScale(fontScale)
+                val fixture = provisioningLayoutFixture(folder, if (rtl) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR)
+                try {
+                    for ((endpoint, port) in listOf("" to "", "vpn.example" to "invalid", "" to "51821", "vpn.example" to "51821")) {
+                        val stored = VpsDeployFixtureData.storedServers().first().copy(host = "192.0.2.10", endpoint = endpoint,
+                            listenPort = port, provider = "", region = "")
+                        val server = VpsDeployMapper.fromStored(stored, VpsDeployFixtureData.NOW)
+                        val factory = VpsProvisioningFragment::class.java.getDeclaredMethod("detailScreen", VpsDeployServer::class.java)
+                            .apply { isAccessible = true }
+                        val detail = factory.invoke(fixture.fragment, server) as View
+                        fixture.root.removeAllViews()
+                        fixture.root.addView(detail)
+                        var drawReady = false
+                        repeat(3) {
+                            if (!drawReady) {
+                                measure(fixture.root, width, height)
+                                shadowOf(Looper.getMainLooper()).idle()
+                                drawReady = !fixture.root.viewTreeObserver.dispatchOnPreDraw()
+                            }
+                        }
+                        assertTrue("Metadata pre-draw completes", drawReady)
+                        val endpointLabel = text(detail, fixture.activity.getString(R.string.vpn0wn_label_endpoint).uppercase(Locale.ROOT))
+                        val endpointRow = endpointLabel.parent.parent as View
+                        val expectedAddress = if (endpoint.isNotBlank() && port == "51821") "vpn.example:51821" else "—"
+                        val endpointValue = descendants(endpointLabel.parent as View).filterIsInstance<TextView>().single { it !== endpointLabel }
+                        assertEquals(expectedAddress, endpointValue.text.toString())
+                        assertTextFits(endpointValue)
+                        assertEquals("Only complete observed endpoints can be copied", if (expectedAddress == "—") 0 else 1,
+                            descendants(endpointRow).filterIsInstance<ImageButton>().count())
+                        val portLabel = text(detail, fixture.activity.getString(R.string.vpn0wn_label_listen_port).uppercase(Locale.ROOT))
+                        val portValue = descendants(portLabel.parent as View).filterIsInstance<TextView>().single { it !== portLabel }
+                        assertEquals(if (port == "51821") "UDP 51821" else "—", portValue.text.toString())
+                        assertTextFits(portValue)
+                        assertFalse("SSH address is not VPN metadata", descendants(detail).filterIsInstance<TextView>().any {
+                            it.text.toString().contains("192.0.2.10") || it.text.toString().contains("51820") || it.text.toString().contains("null")
+                        })
+                        val cardFactory = VpsProvisioningFragment::class.java.getDeclaredMethod("serverCard", VpsDeployServer::class.java)
+                            .apply { isAccessible = true }
+                        val card = cardFactory.invoke(fixture.fragment, server) as View
+                        assertEquals(1, descendants(card).filterIsInstance<TextView>().count {
+                            it.text.toString() == fixture.activity.getString(R.string.vpn0wn_server_card_summary_unknown, expectedAddress, server.engine)
+                        })
+                        val user = VpsDeployUser("peer", "phone", "phone", "10.8.0.2/32", "0.0.0.0/0", VpsDeployUserStatus.IDLE,
+                            "—", "—", "—", "—", "synthetic-public-key")
+                        val userFactory = VpsProvisioningFragment::class.java.getDeclaredMethod("userScreen",
+                            VpsDeployServer::class.java, VpsDeployUser::class.java).apply { isAccessible = true }
+                        val userScreen = userFactory.invoke(fixture.fragment, server, user) as View
+                        val userEndpointLabel = text(userScreen, fixture.activity.getString(R.string.vpn0wn_label_endpoint).uppercase(Locale.ROOT))
+                        assertEquals(expectedAddress, descendants(userEndpointLabel.parent as View).filterIsInstance<TextView>()
+                            .single { it !== userEndpointLabel }.text.toString())
+                    }
+                } finally {
+                    fixture.close()
+                }
+            }
+        }
+    }
+
     private fun verifyPeerHeaders(fontScale: Float) = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         for (locale in listOf("en", "fr")) for (night in listOf("night", "notnight")) {
