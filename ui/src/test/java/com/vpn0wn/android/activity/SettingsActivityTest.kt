@@ -58,6 +58,8 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import org.junit.rules.TestWatcher
+import org.junit.runner.Description
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
@@ -78,6 +80,13 @@ import java.util.function.Consumer
 @OptIn(ExperimentalCoroutinesApi::class)
 class SettingsActivityTest {
     @get:Rule val folder = TemporaryFolder()
+    private var quickTileMembershipPhase: String? = null
+    @get:Rule val quickTileMembershipFailure = object : TestWatcher() {
+        override fun failed(failure: Throwable, description: Description) {
+            val phase = quickTileMembershipPhase ?: return
+            failure.addSuppressed(AssertionError("Quick tile membership phase: $phase"))
+        }
+    }
     private val controllers = mutableListOf<ActivityController<SettingsActivity>>()
     private lateinit var testEnvironment: TunnelTestEnvironment
 
@@ -282,6 +291,7 @@ class SettingsActivityTest {
     }
 
     @Test @Config(sdk = [33]) fun alreadyAddedResultRetainsMembershipAcrossReopening() = runTest {
+        quickTileMembershipPhase = "initial membership"
         environment()
         TileRequests.result = android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED
         val activity = openSettingsWithLoadedMembership()
@@ -289,12 +299,17 @@ class SettingsActivityTest {
         fragment(activity).findPreference<Preference>("quick_tile")!!.performClick()
         shadowOf(Looper.getMainLooper()).idle()
         runCurrent()
+        quickTileMembershipPhase = "persisted membership"
         assertEquals(true, UserKnobs.quickTileAdded.first { it == true })
+        quickTileMembershipPhase = "settle after persistence"
         settle(activity)
         assertFalse(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
+        quickTileMembershipPhase = "Settings reopening"
         val reopened = openSettings()
+        quickTileMembershipPhase = "reopened Settings settle"
         settle(reopened)
         assertFalse(fragment(reopened).findPreference<Preference>("quick_tile")!!.isVisible)
+        quickTileMembershipPhase = null
     }
 
     @Test @Config(sdk = [33]) fun cancelledAddKeepsUnknownMembershipAndAvailableRow() = runTest {
