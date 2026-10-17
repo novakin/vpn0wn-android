@@ -121,8 +121,7 @@ require_unused_subnet() {
   done
 }
 
-require_fresh_destination() {
-  [[ ! -e "$WG_CONF" && ! -L "$WG_CONF" ]] || fail_json "config_exists" "Restore requires an absent WireGuard configuration." 73
+require_restore_state_paths() {
   [[ ! -L "$WG_DIR" && ! -L "$TUNNL_DIR" && ! -L "$TUNNL_DIR/revoked" ]] || fail_json "unsafe_path" "Restore refuses symlinked state paths." 73
   [[ ! -e "$WG_DIR" || -d "$WG_DIR" ]] && [[ ! -e "$TUNNL_DIR" || -d "$TUNNL_DIR" ]] || fail_json "unsafe_path" "Restore requires regular state directories." 73
   local owner mode directory_attributes
@@ -134,6 +133,11 @@ require_fresh_destination() {
   if [[ -d "$TUNNL_DIR" ]]; then
     [[ $(stat -c '%u %a' -- "$TUNNL_DIR" 2>/dev/null) == '0 700' ]] || fail_json "unsafe_path" "Restore requires a private root-owned state directory." 73
   fi
+}
+
+require_fresh_destination() {
+  [[ ! -e "$WG_CONF" && ! -L "$WG_CONF" ]] || fail_json "config_exists" "Restore requires an absent WireGuard configuration." 73
+  require_restore_state_paths
   if [[ -e "$TUNNL_DIR/revoked" ]]; then
     [[ -d "$TUNNL_DIR/revoked" ]] || fail_json "unsafe_path" "Restore history must be a regular directory." 73
     local -a entries=()
@@ -155,12 +159,62 @@ require_fresh_destination() {
   require_unused_subnet
 }
 
+write_restored_config() {
+  cat <<EOF || return 1
+# TUNNL_MANAGED 1
+# ENDPOINT $endpoint
+# TUNNL_CIDR $cidr
+# TUNNL_DNS $dns
+[Interface]
+Address = $server_address
+PrivateKey = $server_private_key
+ListenPort = $port
+SaveConfig = false
+PostUp = iptables -t nat -A POSTROUTING -s $cidr ! -d $cidr -j MASQUERADE
+PostDown = iptables -t nat -D POSTROUTING -s $cidr ! -d $cidr -j MASQUERADE
+EOF
+  printf '%s' "$active_config"
+}
+
+restore_file_matches() {
+  local file=$1 expected=$2 size content
+  [[ -f "$file" && ! -L "$file" ]] || return 1
+  size=$(stat -c %s -- "$file" 2>/dev/null) || return 1
+  [[ "$size" -eq ${#expected} ]] || return 1
+  content=$(head -c "$((size + 1))" -- "$file" 2>/dev/null && printf '.') 2>/dev/null || return 1
+  [[ "$content" == "$expected." ]]
+}
+
+verify_restored_history() {
+  local index
+  local -a entries=()
+  [[ -d "$TUNNL_DIR/revoked" && ! -L "$TUNNL_DIR/revoked" ]] || return 1
+  if ! find "$TUNNL_DIR/revoked" -mindepth 1 -maxdepth 1 -print0 2>/dev/null | mapfile -d '' -t entries; then
+    return 1
+  fi
+  [[ ${#entries[@]} -eq ${#revoked_names[@]} ]] || return 1
+  for ((index=0; index<${#revoked_names[@]}; index++)); do
+    restore_file_matches "$TUNNL_DIR/revoked/${revoked_names[index]}" "${revoked_bodies[index]}" || return 1
+  done
+}
+
+verify_restored_state() {
+  local expected_config
+  expected_config=$(write_restored_config && printf '.') || return 1
+  restore_file_matches "$WG_CONF" "${expected_config%?}" && verify_restored_history || return 1
+  restore_file_matches "$FORWARD_CONF" $'# TUNNL_MANAGED 1\nnet.ipv4.ip_forward=1\n' || return 1
+  [[ $(sysctl -n net.ipv4.ip_forward 2>/dev/null) == 1 ]] || return 1
+  observe_runtime && [[ "$RUNTIME_RUNNING" == true ]] && observe_service && [[ "$SERVICE_ENABLED" == true ]] || return 1
+  verify_runtime_config "$WG_CONF" && verify_address "$WG_CONF"
+}
+
 input=""
 endpoint=""
 port=""
 expected_server_public_key=""
 confirmed=false
 check_only=false
+verify_only=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --input) require_arg_value "$@"; input=$2; shift 2 ;;
@@ -169,13 +223,18 @@ while [[ $# -gt 0 ]]; do
     --expected-server-public-key) require_arg_value "$@"; expected_server_public_key=$2; shift 2 ;;
     --confirm) confirmed=true; shift ;;
     --check) check_only=true; shift ;;
+    --verify) verify_only=true; shift ;;
     *) fail_json "invalid_arg" "Restore received an unsupported argument." 64 ;;
   esac
 done
 
 require_root
-[[ "$check_only" != true || "$confirmed" != true ]] || fail_json "invalid_arg" "Choose either restore checking or confirmed restoration." 64
-[[ -n "$input" && -n "$endpoint" && -n "$port" && -n "$expected_server_public_key" && ( "$confirmed" == true || "$check_only" == true ) ]] || fail_json "missing_arg" "Restore requires input, destination, expected identity and one explicit mode." 64
+mode_count=0
+for mode in "$confirmed" "$check_only" "$verify_only"; do
+  [[ "$mode" != true ]] || mode_count=$((mode_count + 1))
+done
+[[ "$mode_count" -le 1 ]] || fail_json "invalid_arg" "Choose exactly one restore mode." 64
+[[ -n "$input" && -n "$endpoint" && -n "$port" && -n "$expected_server_public_key" && "$mode_count" -eq 1 ]] || fail_json "missing_arg" "Restore requires input, destination, expected identity and one explicit mode." 64
 [[ "$WG_IFACE" == wg0 ]] || fail_json "invalid_interface" "Restore currently supports wg0 only." 64
 require_endpoint "$endpoint"
 require_port "$port"
@@ -258,6 +317,21 @@ done
 server_public_key=$(wg_public_key_from_private "$server_private_key" 2>/dev/null) || fail_json "key_failed" "Unable to determine restored server identity." 74
 valid_restore_key "$server_public_key" || fail_json "key_failed" "Unable to determine restored server identity." 74
 [[ "$server_public_key" == "$expected_server_public_key" ]] || fail_json "server_identity_mismatch" "Snapshot server identity does not match confirmation." 73
+if [[ "$verify_only" == true ]]; then
+  require_restore_state_paths
+  require_owned_config
+  require_owned_forwarding
+  lock_host
+  lock_interface
+  require_restore_state_paths
+  require_owned_config
+  require_owned_forwarding
+  verify_restored_state || fail_json "postcondition_failed" "Restored server state could not be verified." 74
+  printf '{"ok":true,"verifyOnly":true,"verified":true,"interface":%s,"endpoint":%s,"port":%s,"cidr":%s,"dns":%s,"serverPublicKey":%s,"peerCount":%s,"revokedCount":%s,"running":true,"serviceEnabled":true}\n' \
+    "$(json_string "$WG_IFACE")" "$(json_string "$endpoint")" "$(json_string "$port")" "$(json_string "$cidr")" \
+    "$(json_string "$dns")" "$(json_string "$server_public_key")" "$peer_count" "${#revoked_names[@]}"
+  exit 0
+fi
 require_fresh_destination
 lock_host
 lock_interface
@@ -270,20 +344,7 @@ if [[ "$check_only" == true ]]; then
 fi
 begin_mutation restore
 
-cat > "$CANDIDATE" <<EOF
-# TUNNL_MANAGED 1
-# ENDPOINT $endpoint
-# TUNNL_CIDR $cidr
-# TUNNL_DNS $dns
-[Interface]
-Address = $server_address
-PrivateKey = $server_private_key
-ListenPort = $port
-SaveConfig = false
-PostUp = iptables -t nat -A POSTROUTING -s $cidr ! -d $cidr -j MASQUERADE
-PostDown = iptables -t nat -D POSTROUTING -s $cidr ! -d $cidr -j MASQUERADE
-EOF
-printf '%s' "$active_config" >> "$CANDIDATE" || mutation_abort write_failed
+write_restored_config > "$CANDIDATE" || mutation_abort write_failed
 prepare_candidate
 mkdir "$RECOVERY_DIR/candidate.revoked" || mutation_abort write_failed
 for ((index=0; index<${#revoked_names[@]}; index++)); do
@@ -304,20 +365,7 @@ sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || mutation_abort forwarding_fai
 SYSTEM_CHANGED=true
 systemctl enable "wg-quick@$WG_IFACE" >/dev/null 2>&1 || mutation_abort enable_failed
 systemctl restart "wg-quick@$WG_IFACE" >/dev/null 2>&1 || mutation_abort apply_failed
-observe_runtime && [[ "$RUNTIME_RUNNING" == true ]] && observe_service && [[ "$SERVICE_ENABLED" == true ]] || mutation_abort postcondition_failed
-verify_runtime_config "$WG_CONF" && verify_address "$WG_CONF" || mutation_abort postcondition_failed
-[[ -d "$TUNNL_DIR/revoked" && ! -L "$TUNNL_DIR/revoked" ]] || mutation_abort postcondition_failed
-restored_entries=()
-if ! find "$TUNNL_DIR/revoked" -mindepth 1 -maxdepth 1 -print0 2>/dev/null | mapfile -d '' -t restored_entries; then
-  mutation_abort postcondition_failed
-fi
-[[ ${#restored_entries[@]} -eq ${#revoked_names[@]} ]] || mutation_abort postcondition_failed
-for ((index=0; index<${#revoked_names[@]}; index++)); do
-  [[ -f "$TUNNL_DIR/revoked/${revoked_names[index]}" && ! -L "$TUNNL_DIR/revoked/${revoked_names[index]}" ]] || mutation_abort postcondition_failed
-  [[ $(stat -c %s -- "$TUNNL_DIR/revoked/${revoked_names[index]}" 2>/dev/null) -eq ${#revoked_bodies[index]} ]] || mutation_abort postcondition_failed
-  content=$(cat -- "$TUNNL_DIR/revoked/${revoked_names[index]}" 2>/dev/null && printf '.') 2>/dev/null || mutation_abort postcondition_failed
-  [[ "${content%?}" == "${revoked_bodies[index]}" ]] || mutation_abort postcondition_failed
-done
+verify_restored_state || mutation_abort postcondition_failed
 finish_mutation
 printf '{"ok":true,"interface":%s,"endpoint":%s,"port":%s,"cidr":%s,"serverPublicKey":%s,"peerCount":%s,"revokedCount":%s,"cleanupPath":%s}\n' \
   "$(json_string "$WG_IFACE")" "$(json_string "$endpoint")" "$(json_string "$port")" "$(json_string "$cidr")" \

@@ -91,6 +91,20 @@ run_restore_check() {
     --expected-server-public-key "$RESTORE_PUBLIC_KEY" --check "$@"
 }
 
+run_restore_verify() {
+  run_script restore --input "$RESTORE_INPUT" --endpoint restored.example --port 51900 \
+    --expected-server-public-key "$RESTORE_PUBLIC_KEY" --verify "$@"
+}
+
+restored_verification_source() {
+  restore_source
+  sed -i "/^PublicKey = /a PresharedKey = $(printf '%-32.32s' PSK-active | base64 -w0)" "$RESTORE_INPUT/server.conf"
+  restore_peer old archived 10.9.0.2 historical > "$RESTORE_INPUT/revoked/old.conf.00112233-4455-4677-8899-aabbccddeeff"
+  run_restore
+  assert_success
+  : > "$TEST_STATE/trace"
+}
+
 assert_fresh_restore_rolled_back() {
   [[ ! -e "$WG_CONF" && ! -e "$FORWARD_CONF" && ! -e "$TEST_STATE/runtime.conf" && ! -e "$TEST_STATE/enabled" && ! -e "$TEST_STATE/nat" ]]
   [[ "$RESPONSE" == *'"recovery":"restored"'* ]]
@@ -1754,6 +1768,321 @@ PY
   ! grep -Eq '^apt-get |^wg (genkey|genpsk) ' "$TEST_STATE/trace"
 }
 
+test_restore_verify_exact_public_observation_without_mutation() {
+  restored_verification_source
+  /bin/cp -a "$WG_DIR" "$TEST_ROOT/destination-before"
+  /bin/cp -a "$RESTORE_INPUT" "$TEST_ROOT/input-before"
+  /bin/cp "$FORWARD_CONF" "$TEST_ROOT/forward-before"
+  /bin/cp "$TEST_STATE/runtime.conf" "$TEST_ROOT/runtime-before"
+  run_restore_verify
+  assert_success
+  python3 - "$TEST_ROOT/response" "$RESTORE_PUBLIC_KEY" <<'PY'
+import json
+import pathlib
+import sys
+assert json.loads(pathlib.Path(sys.argv[1]).read_text()) == {
+    'ok': True, 'verifyOnly': True, 'verified': True,
+    'interface': 'wg0', 'endpoint': 'restored.example', 'port': '51900',
+    'cidr': '10.8.0.0/24', 'dns': '1.1.1.1, 1.0.0.1',
+    'serverPublicKey': sys.argv[2], 'peerCount': 1, 'revokedCount': 1,
+    'running': True, 'serviceEnabled': True,
+}
+PY
+  diff -r "$TEST_ROOT/destination-before" "$WG_DIR"
+  diff -r "$TEST_ROOT/input-before" "$RESTORE_INPUT"
+  cmp -s "$FORWARD_CONF" "$TEST_ROOT/forward-before"
+  cmp -s "$TEST_STATE/runtime.conf" "$TEST_ROOT/runtime-before"
+  [[ -f "$TEST_STATE/enabled" && $(cat "$TEST_STATE/forward-value") == 1 ]]
+  [[ ! -s "$TEST_ROOT/stderr" ]]
+  assert_no_mutations
+}
+
+test_restore_verify_zero_peers_and_empty_history() {
+  restore_source
+  sed -i '/^# BEGIN_PEER /,$d' "$RESTORE_INPUT/server.conf"
+  run_restore
+  assert_success
+  : > "$TEST_STATE/trace"
+  run_restore_verify
+  assert_success
+  [[ "$RESPONSE" == *'"peerCount":0'* && "$RESPONSE" == *'"revokedCount":0'* ]]
+  assert_no_mutations
+}
+
+test_restore_verify_requires_one_mode_and_complete_input() {
+  restore_source
+  for mode in --confirm --check; do
+    run_restore_verify "$mode"
+    assert_failure invalid_arg
+  done
+  run_restore_check --verify
+  assert_failure invalid_arg
+  run_restore --verify
+  assert_failure invalid_arg
+  for missing in input endpoint port expected-server-public-key; do
+    local args=(--verify)
+    [[ "$missing" == input ]] || args+=(--input "$RESTORE_INPUT")
+    [[ "$missing" == endpoint ]] || args+=(--endpoint restored.example)
+    [[ "$missing" == port ]] || args+=(--port 51900)
+    [[ "$missing" == expected-server-public-key ]] || args+=(--expected-server-public-key "$RESTORE_PUBLIC_KEY")
+    run_script restore "${args[@]}"
+    assert_failure missing_arg
+  done
+  assert_no_mutations
+}
+
+test_restore_verify_uses_shared_snapshot_validation() {
+  restored_verification_source
+  /bin/cp "$RESTORE_INPUT/server.conf" "$TEST_ROOT/source-before"
+  printf 'PostUp = synthetic-secret-hook\n' >> "$RESTORE_INPUT/server.conf"
+  run_restore_verify
+  assert_failure invalid_config
+  [[ "$RESPONSE" != *synthetic-secret* ]]
+  /bin/cp "$TEST_ROOT/source-before" "$RESTORE_INPUT/server.conf"
+  RESTORE_PUBLIC_KEY=$(printf '%-32.32s' PUBLIC-other | base64 -w0)
+  run_restore_verify
+  assert_failure server_identity_mismatch
+  assert_no_mutations
+}
+
+test_restore_verify_rejects_absent_unowned_and_symlinked_config() {
+  restored_verification_source
+  /bin/mv "$WG_CONF" "$TEST_ROOT/saved-config"
+  run_restore_verify
+  assert_failure not_installed
+  printf '# unowned configuration\n' > "$WG_CONF"
+  run_restore_verify
+  assert_failure unmanaged_config
+  /bin/rm "$WG_CONF"
+  ln -s "$TEST_ROOT/saved-config" "$WG_CONF"
+  run_restore_verify
+  assert_failure unmanaged_config
+  cmp -s "$TEST_STATE/runtime.conf" "$TEST_ROOT/saved-config"
+  assert_no_mutations
+}
+
+test_restore_verify_rejects_disk_identity_settings_and_bytes() {
+  restored_verification_source
+  /bin/cp "$WG_CONF" "$TEST_ROOT/verified-config"
+  for changed in endpoint port dns private public psk address name extra missing-newline; do
+    /bin/cp "$TEST_ROOT/verified-config" "$WG_CONF"
+    case "$changed" in
+      endpoint) sed -i 's/^# ENDPOINT .*/# ENDPOINT other.example/' "$WG_CONF" ;;
+      port) sed -i 's/^ListenPort = .*/ListenPort = 51901/' "$WG_CONF" ;;
+      dns) sed -i 's/^# TUNNL_DNS .*/# TUNNL_DNS 9.9.9.9/' "$WG_CONF" ;;
+      private) sed -i "s|^PrivateKey = .*|PrivateKey = $(printf '%-32.32s' PRIVATE-other | base64 -w0)|" "$WG_CONF" ;;
+      public) sed -i "s|^PublicKey = .*|PublicKey = $(printf '%-32.32s' PUBLIC-other | base64 -w0)|" "$WG_CONF" ;;
+      psk) sed -i "s|^PresharedKey = .*|PresharedKey = $(printf '%-32.32s' PSK-other | base64 -w0)|" "$WG_CONF" ;;
+      address) sed -i 's|^AllowedIPs = .*|AllowedIPs = 10.8.0.3/32|' "$WG_CONF" ;;
+      name) sed -i 's/PEER existing/PEER other/g' "$WG_CONF" ;;
+      extra) printf '\n' >> "$WG_CONF" ;;
+      missing-newline) truncate -s -1 "$WG_CONF" ;;
+    esac
+    run_restore_verify
+    assert_failure postcondition_failed
+  done
+  assert_no_mutations
+}
+
+test_restore_verify_rejects_runtime_identity_peers_routes_and_psks() {
+  restored_verification_source
+  /bin/cp "$TEST_STATE/runtime.conf" "$TEST_ROOT/verified-runtime"
+  for changed in private port public psk address extra-peer; do
+    /bin/cp "$TEST_ROOT/verified-runtime" "$TEST_STATE/runtime.conf"
+    case "$changed" in
+      private) sed -i "s|^PrivateKey = .*|PrivateKey = $(printf '%-32.32s' PRIVATE-other | base64 -w0)|" "$TEST_STATE/runtime.conf" ;;
+      port) sed -i 's/^ListenPort = .*/ListenPort = 51901/' "$TEST_STATE/runtime.conf" ;;
+      public) sed -i "s|^PublicKey = .*|PublicKey = $(printf '%-32.32s' PUBLIC-other | base64 -w0)|" "$TEST_STATE/runtime.conf" ;;
+      psk) sed -i "s|^PresharedKey = .*|PresharedKey = $(printf '%-32.32s' PSK-other | base64 -w0)|" "$TEST_STATE/runtime.conf" ;;
+      address) sed -i 's|^AllowedIPs = .*|AllowedIPs = 10.8.0.3/32|' "$TEST_STATE/runtime.conf" ;;
+      extra-peer) restore_peer extra extra 10.8.0.3 >> "$TEST_STATE/runtime.conf" ;;
+    esac
+    run_restore_verify
+    assert_failure postcondition_failed
+  done
+  /bin/cp "$TEST_ROOT/verified-runtime" "$TEST_STATE/runtime.conf"
+  printf '10.8.0.9/24\n' > "$TEST_STATE/address"
+  run_restore_verify
+  assert_failure postcondition_failed
+  assert_no_mutations
+}
+
+test_restore_verify_rejects_changed_revoked_inventory_and_bytes() {
+  restored_verification_source
+  local archive=old.conf.00112233-4455-4677-8899-aabbccddeeff
+  for changed in missing extra name psk newline symlink directory; do
+    /bin/rm -rf -- "$TUNNL_DIR/revoked"
+    /bin/cp -a "$RESTORE_INPUT/revoked" "$TUNNL_DIR/revoked"
+    case "$changed" in
+      missing) /bin/rm "$TUNNL_DIR/revoked/$archive" ;;
+      extra) /bin/cp "$TUNNL_DIR/revoked/$archive" "$TUNNL_DIR/revoked/extra.conf" ;;
+      name) /bin/mv "$TUNNL_DIR/revoked/$archive" "$TUNNL_DIR/revoked/old.conf" ;;
+      psk) sed -i "s|^PresharedKey = .*|PresharedKey = $(printf '%-32.32s' PSK-other | base64 -w0)|" "$TUNNL_DIR/revoked/$archive" ;;
+      newline) printf '\n' >> "$TUNNL_DIR/revoked/$archive" ;;
+      symlink) /bin/rm "$TUNNL_DIR/revoked/$archive"; ln -s "$RESTORE_INPUT/revoked/$archive" "$TUNNL_DIR/revoked/$archive" ;;
+      directory) /bin/rm "$TUNNL_DIR/revoked/$archive"; mkdir "$TUNNL_DIR/revoked/$archive" ;;
+    esac
+    run_restore_verify
+    assert_failure postcondition_failed
+  done
+  assert_no_mutations
+}
+
+test_restore_verify_rejects_stopped_disabled_and_unknown_runtime() {
+  restored_verification_source
+  /bin/mv "$TEST_STATE/runtime.conf" "$TEST_ROOT/saved-runtime"
+  run_restore_verify
+  assert_failure postcondition_failed
+  /bin/mv "$TEST_ROOT/saved-runtime" "$TEST_STATE/runtime.conf"
+  /bin/rm "$TEST_STATE/enabled"
+  run_restore_verify
+  assert_failure postcondition_failed
+  touch "$TEST_STATE/enabled"
+  for command in wg-show systemctl-is-enabled systemctl-is-active ip--4 sysctl--n; do
+    printf '*' > "$TEST_STATE/fail-$command"
+    run_restore_verify
+    assert_failure postcondition_failed
+    /bin/rm "$TEST_STATE/fail-$command"
+  done
+  assert_no_mutations
+}
+
+test_restore_verify_rejects_forwarding_drift_without_repair() {
+  restored_verification_source
+  /bin/cp "$FORWARD_CONF" "$TEST_ROOT/verified-forward"
+  /bin/rm "$FORWARD_CONF"
+  run_restore_verify
+  assert_failure postcondition_failed
+  printf 'net.ipv4.ip_forward=1\n' > "$FORWARD_CONF"
+  run_restore_verify
+  assert_failure postcondition_failed
+  /bin/cp "$TEST_ROOT/verified-forward" "$FORWARD_CONF"
+  printf '0' > "$TEST_STATE/forward-value"
+  run_restore_verify
+  assert_failure postcondition_failed
+  [[ $(cat "$TEST_STATE/forward-value") == 0 ]]
+  assert_no_mutations
+}
+
+test_restore_verify_rejects_unsafe_state_paths_without_chmod() {
+  restored_verification_source
+  chmod 777 "$WG_DIR"
+  run_restore_verify
+  assert_failure unsafe_path
+  assert_private "$WG_DIR" 777
+  chmod 755 "$WG_DIR"
+  chmod 755 "$TUNNL_DIR"
+  run_restore_verify
+  assert_failure unsafe_path
+  assert_private "$TUNNL_DIR" 755
+  chmod 700 "$TUNNL_DIR"
+  /bin/mv "$TUNNL_DIR/revoked" "$TEST_ROOT/saved-history"
+  ln -s "$TEST_ROOT/saved-history" "$TUNNL_DIR/revoked"
+  run_restore_verify
+  assert_failure unsafe_path
+  assert_no_mutations
+}
+
+test_restore_verify_rejects_failed_destination_enumeration_and_reads() {
+  restored_verification_source
+  cat > "$TEST_ROOT/bin/find" <<'SH'
+#!/usr/bin/env bash
+if [[ "$1" != "$TUNNL_DIR/revoked" ]]; then exec /usr/bin/find "$@"; fi
+printf '%s\0' "$TUNNL_DIR/revoked/old.conf.00112233-4455-4677-8899-aabbccddeeff"
+printf synthetic-secret-enumeration-error >&2
+exit 1
+SH
+  chmod 700 "$TEST_ROOT/bin/find"
+  run_restore_verify
+  assert_failure postcondition_failed
+  /bin/rm "$TEST_ROOT/bin/find"
+  cat > "$TEST_ROOT/bin/head" <<'SH'
+#!/usr/bin/env bash
+if [[ "${@: -1}" != "$WG_CONF" ]]; then exec /usr/bin/head "$@"; fi
+printf synthetic-secret-read-error >&2
+exit 1
+SH
+  chmod 700 "$TEST_ROOT/bin/head"
+  run_restore_verify
+  assert_failure postcondition_failed
+  [[ "$RESPONSE" != *synthetic-secret* && ! -s "$TEST_ROOT/stderr" ]]
+  assert_no_mutations
+}
+
+test_restore_verify_failed_forwarding_ownership_read_is_safe() {
+  restored_verification_source
+  cat > "$TEST_ROOT/bin/cat" <<'SH'
+#!/usr/bin/env bash
+if [[ "${@: -1}" != "$FORWARD_CONF" ]]; then exec /usr/bin/cat "$@"; fi
+printf synthetic-secret-forwarding-read-error >&2
+exit 1
+SH
+  chmod 700 "$TEST_ROOT/bin/cat"
+  run_restore_verify
+  assert_failure runtime_unknown
+  [[ ! -s "$TEST_ROOT/stderr" ]]
+  assert_no_mutations
+}
+
+test_restore_fresh_modes_failed_forwarding_ownership_read_is_safe() {
+  restore_source
+  printf 'net.ipv4.ip_forward=1\n' > "$FORWARD_CONF"
+  cat > "$TEST_ROOT/bin/cat" <<'SH'
+#!/usr/bin/env bash
+if [[ "${@: -1}" != "$FORWARD_CONF" ]]; then exec /usr/bin/cat "$@"; fi
+printf synthetic-secret-forwarding-read-error >&2
+exit 1
+SH
+  chmod 700 "$TEST_ROOT/bin/cat"
+  run_restore_check
+  assert_failure runtime_unknown
+  [[ ! -s "$TEST_ROOT/stderr" ]]
+  run_restore
+  assert_failure runtime_unknown
+  [[ ! -s "$TEST_ROOT/stderr" && ! -e "$WG_CONF" && ! -e "$TUNNL_DIR" ]]
+  assert_no_mutations
+}
+
+test_restore_verify_rechecks_actual_state_under_both_locks() {
+  restored_verification_source
+  /bin/cp "$WG_CONF" "$TEST_ROOT/verified-config"
+  export TEST_HELD_LOCK TEST_LOCK_SIGNAL
+  TEST_LOCK_SIGNAL="$TEST_ROOT/verify-lock-entered"
+  mkfifo "$TEST_LOCK_SIGNAL"
+  exec {lock_signal}<>"$TEST_LOCK_SIGNAL"
+  cat > "$TEST_ROOT/bin/flock" <<'SH'
+#!/usr/bin/env bash
+if [[ $(readlink "/proc/$$/fd/$1") == "$TEST_HELD_LOCK" ]]; then
+  printf 'ready\n' > "$TEST_LOCK_SIGNAL"
+fi
+exec /usr/bin/flock "$@"
+SH
+  chmod 700 "$TEST_ROOT/bin/flock"
+  for TEST_HELD_LOCK in "$WG_HOST_LOCK_FILE" "$WG_LOCK_FILE"; do
+    /bin/cp "$TEST_ROOT/verified-config" "$WG_CONF"
+    exec {held_lock}>"$TEST_HELD_LOCK"
+    /usr/bin/flock "$held_lock"
+    bash "$SCRIPTS/restore.sh" --input "$RESTORE_INPUT" --endpoint restored.example --port 51900 \
+      --expected-server-public-key "$RESTORE_PUBLIC_KEY" --verify > "$TEST_ROOT/response" 2> "$TEST_ROOT/stderr" &
+    local restore_pid=$! ready
+    if ! read -r -t 5 ready <&"$lock_signal"; then
+      kill "$restore_pid" 2>/dev/null || true
+      wait "$restore_pid" 2>/dev/null || true
+      /usr/bin/flock -u "$held_lock"
+      exec {held_lock}>&-
+      return 1
+    fi
+    [[ ! -s "$TEST_ROOT/response" ]]
+    sed -i "s|^PresharedKey = .*|PresharedKey = $(printf '%-32.32s' PSK-concurrent | base64 -w0)|" "$WG_CONF"
+    /usr/bin/flock -u "$held_lock"
+    exec {held_lock}>&-
+    wait "$restore_pid" && RESULT_CODE=0 || RESULT_CODE=$?
+    RESPONSE=$(cat "$TEST_ROOT/response")
+    assert_failure postcondition_failed
+  done
+  assert_no_mutations
+}
+
 test_restore_check_public_plan_without_mutation() {
   restore_source
   restore_peer old archived 10.9.0.2 historical > "$RESTORE_INPUT/revoked/old.conf.00112233-4455-4677-8899-aabbccddeeff"
@@ -2730,6 +3059,14 @@ tests=(
   test_c143_runtime_inventory_observes_live_only_peers test_c143_failed_runtime_inventory_discards_partial_stdout
   test_c143_malformed_runtime_inventory_stays_unknown test_c143_remove_checks_server_identity_after_concurrent_owner
   test_restore_fresh_identity_and_receipt test_restore_preserves_psk_and_historical_reuse
+  test_restore_verify_exact_public_observation_without_mutation test_restore_verify_zero_peers_and_empty_history
+  test_restore_verify_requires_one_mode_and_complete_input test_restore_verify_uses_shared_snapshot_validation
+  test_restore_verify_rejects_absent_unowned_and_symlinked_config test_restore_verify_rejects_disk_identity_settings_and_bytes
+  test_restore_verify_rejects_runtime_identity_peers_routes_and_psks test_restore_verify_rejects_changed_revoked_inventory_and_bytes
+  test_restore_verify_rejects_stopped_disabled_and_unknown_runtime test_restore_verify_rejects_forwarding_drift_without_repair
+  test_restore_verify_rejects_unsafe_state_paths_without_chmod test_restore_verify_rejects_failed_destination_enumeration_and_reads
+  test_restore_verify_failed_forwarding_ownership_read_is_safe test_restore_fresh_modes_failed_forwarding_ownership_read_is_safe
+  test_restore_verify_rechecks_actual_state_under_both_locks
   test_restore_check_public_plan_without_mutation test_restore_check_requires_one_explicit_mode
   test_restore_check_uses_shared_validation test_restore_check_preserves_conflicting_destination
   test_restore_check_rechecks_destination_under_locks
