@@ -86,6 +86,9 @@ class VpsFreshRestoreLayoutTest {
                     VpsProvisioningFragment::class.java.getDeclaredMethod("render").apply { isAccessible = true }.invoke(fixture.fragment)
                     layout(fixture.root, case)
                     assertConfiguration(fixture.root, case)
+                    val wordmark = requireNotNull(fixture.root.findViewById<android.widget.ImageView>(R.id.vpn0wn_vps_wordmark))
+                    assertFalse("Restore retains the unmirrored brand artwork", requireNotNull(wordmark.drawable).isAutoMirrored)
+                    assertReachable(wordmark)
                     assertTracker(fixture.root, case)
                     val expectedSummary = fixture.activity.getString(R.string.vpn0wn_restore_step_summary, step.ordinal + 1, STEPS.size,
                         fixture.activity.getString(STEPS[step.ordinal])).uppercase(Locale.ROOT)
