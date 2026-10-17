@@ -38,7 +38,7 @@
         <item quantity="other">Kecualikan %d aplikasi</item>
     </plurals>
     <plurals name="persistent_keepalive_seconds_unit">
-        <item quantity="other">setiap 10 detik</item>
+        <item quantity="other">setiap %d detik</item>
     </plurals>
     <plurals name="persistent_keepalive_seconds_suffix">
         <item quantity="other">detik</item>

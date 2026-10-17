@@ -44,6 +44,17 @@ class LocalizedResourcesTest {
     }
 
     @Test
+    @Config(qualifiers = "in")
+    fun indonesianKeepaliveUsesTheConfiguredInterval() {
+        val keepaliveSeconds = 25
+        val message = Application.get().resources.getQuantityString(
+            R.plurals.persistent_keepalive_seconds_unit, keepaliveSeconds, keepaliveSeconds,
+        )
+
+        assertEquals("setiap 25 detik", message)
+    }
+
+    @Test
     @Config(qualifiers = "ca-rES")
     fun catalanSingularDeletionRetainsItsDiagnosticArgument() {
         val message = Application.get().resources.getQuantityString(R.plurals.delete_error, 1, 1, "fixture failure")

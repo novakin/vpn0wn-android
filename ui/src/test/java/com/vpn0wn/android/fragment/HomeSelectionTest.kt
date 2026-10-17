@@ -671,6 +671,8 @@ class HomeSelectionTest {
     @Test fun homeHeaderActionsKeepExistingNavigationAndDisabledSearch() = runHomeTest {
         val f = host("bravo")
         assertFalse(f.binding.homeSearch.isEnabled)
+        for (button in listOf(f.binding.homeServers, f.binding.homeLogs, f.binding.homeSettings))
+            assertTrue("Enabled header action has native feedback", requireNotNull(button.background).isStateful)
         assertEquals("vpnøwn · 1 configured", f.binding.homeHeaderSummary.text.toString().replace('\u00a0', ' '))
         assertEquals("vpn0wn · 1 configured", f.binding.homeHeaderSummary.contentDescription.toString())
         f.binding.homeLogs.performClick()

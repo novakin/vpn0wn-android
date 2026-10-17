@@ -56,7 +56,11 @@ import org.robolectric.annotation.GraphicsMode
 class VpsFreshRestoreLayoutTest {
     @get:Rule val folder = TemporaryFolder()
 
-    @After fun teardown() { RuntimeEnvironment.setFontScale(1f); Dispatchers.resetMain() }
+    @After fun teardown() {
+        RuntimeEnvironment.setQualifiers("")
+        RuntimeEnvironment.setFontScale(1f)
+        Dispatchers.resetMain()
+    }
 
     @Test fun fourRealRestoreStepsAndNativeConfirmationRemainReadableAndReachable() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
@@ -69,6 +73,9 @@ class VpsFreshRestoreLayoutTest {
         for (case in cases) {
             RuntimeEnvironment.setQualifiers(case.qualifiers)
             RuntimeEnvironment.setFontScale(case.fontScale)
+            // Robolectric 4.16 reapplies locale direction after combined qualifiers.
+            RuntimeEnvironment.setQualifiers(if (case.direction == View.LAYOUT_DIRECTION_RTL) "+ldrtl" else "+ldltr")
+            assertResourceConfiguration(RuntimeEnvironment.getApplication().resources.configuration, case)
             val fixture = provisioningLayoutFixture(folder, case.direction)
             try {
                 prepare(fixture)
@@ -79,6 +86,9 @@ class VpsFreshRestoreLayoutTest {
                     VpsProvisioningFragment::class.java.getDeclaredMethod("render").apply { isAccessible = true }.invoke(fixture.fragment)
                     layout(fixture.root, case)
                     assertConfiguration(fixture.root, case)
+                    val wordmark = requireNotNull(fixture.root.findViewById<android.widget.ImageView>(R.id.vpn0wn_vps_wordmark))
+                    assertFalse("Restore retains the unmirrored brand artwork", requireNotNull(wordmark.drawable).isAutoMirrored)
+                    assertReachable(wordmark)
                     assertTracker(fixture.root, case)
                     val expectedSummary = fixture.activity.getString(R.string.vpn0wn_restore_step_summary, step.ordinal + 1, STEPS.size,
                         fixture.activity.getString(STEPS[step.ordinal])).uppercase(Locale.ROOT)
@@ -104,7 +114,7 @@ class VpsFreshRestoreLayoutTest {
                     .apply { isAccessible = true }.invoke(fixture.fragment, confirmation, fixture.root)
                 val dialog = VpsProvisioningFragment::class.java.getDeclaredField("restoreDialog")
                     .apply { isAccessible = true }.get(fixture.fragment) as AlertDialog
-                val decor = requireNotNull(dialog.window).decorView.apply { layoutDirection = case.direction }
+                val decor = requireNotNull(dialog.window).decorView
                 layout(decor, case)
                 assertConfiguration(decor, case)
                 val message = dialog.findViewById<TextView>(android.R.id.message)!!
@@ -122,6 +132,16 @@ class VpsFreshRestoreLayoutTest {
                 val scroll = descendants(decor).firstOrNull { it is ScrollView || it is androidx.core.widget.NestedScrollView }
                     ?: error("Native confirmation must retain scrolling")
                 captureEdges(decor, scroll, case, "confirmation")
+                val recordsLabel = fixture.activity.getString(R.string.vpn0wn_backup_revoked_count)
+                val recordsStart = text.indexOf(recordsLabel, ignoreCase = true)
+                assertTrue("Confirmation retains the revocation-record label", recordsStart >= 0)
+                val recordsLayout = message.layout
+                val firstLine = recordsLayout.getLineForOffset(recordsStart)
+                val lastLine = recordsLayout.getLineForOffset(recordsStart + recordsLabel.length - 1)
+                assertGlyphReachable(message, Rect(0, recordsLayout.getLineTop(firstLine) + message.totalPaddingTop, message.width,
+                    recordsLayout.getLineBottom(lastLine) + message.totalPaddingTop))
+                layout(decor, case)
+                captureFrame(decor, case, "confirmation", "records")
                 dialog.dismiss()
                 assertTrue("Synthetic rendering never dispatches a restore", fixture.peer.commands.none { it.contains("'--confirm'") })
             } finally { fixture.close() }
@@ -243,24 +263,34 @@ class VpsFreshRestoreLayoutTest {
     }
 
     private fun assertConfiguration(root: View, case: Preview) {
-        val configuration = root.resources.configuration
+        assertResourceConfiguration(root.resources.configuration, case)
+        assertEquals("Restore root resolves requested direction", case.direction, root.layoutDirection)
+    }
+
+    private fun assertResourceConfiguration(configuration: Configuration, case: Preview) {
         assertEquals(if (case.id.startsWith("fr")) "fr" else "en", configuration.locales[0].language)
         assertEquals(case.fontScale, configuration.fontScale, 0f)
+        assertEquals("Restore resources retain requested direction", case.direction, configuration.layoutDirection)
         assertEquals(if (case.id == "en-night") Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO,
             configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)
     }
 
     private fun TestScope.captureEdges(root: View, scroll: View, case: Preview, state: String) {
-        val project = File(requireNotNull(System.getProperty("user.dir"))).let { if (it.name == "ui") it.parentFile else it }
-        val directory = System.getProperty("vpn0wn.restore.previewDir")?.let(::File) ?: File(project, ".artifacts/fresh-restore-previews")
-        assertTrue(directory.isDirectory || directory.mkdirs())
         for ((edge, position) in listOf("top" to 0, "bottom" to 100_000)) {
             scroll.scrollTo(0, position)
             layout(root, case)
-            val bitmap = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
-            try { root.draw(Canvas(bitmap)); File(directory, "${case.id}-$state-$edge.png").outputStream().use { assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) } }
-            finally { bitmap.recycle() }
+            captureFrame(root, case, state, edge)
         }
+    }
+
+    private fun captureFrame(root: View, case: Preview, state: String, edge: String) {
+        assertConfiguration(root, case)
+        val project = File(requireNotNull(System.getProperty("user.dir"))).let { if (it.name == "ui") it.parentFile else it }
+        val directory = System.getProperty("vpn0wn.restore.previewDir")?.let(::File) ?: File(project, ".artifacts/fresh-restore-previews")
+        assertTrue(directory.isDirectory || directory.mkdirs())
+        val bitmap = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
+        try { root.draw(Canvas(bitmap)); File(directory, "${case.id}-$state-$edge.png").outputStream().use { assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) } }
+        finally { bitmap.recycle() }
     }
 
     private fun TestScope.layout(view: View, case: Preview) {

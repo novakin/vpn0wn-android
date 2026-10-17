@@ -63,7 +63,7 @@
                         android:id="@+id/editor_close_button"
                         android:layout_width="48dp"
                         android:layout_height="48dp"
-                        android:background="@android:color/transparent"
+                        android:background="?attr/selectableItemBackgroundBorderless"
                         android:contentDescription="@string/cancel"
                         android:onClick="@{fragment::onBackPressed}"
                         android:padding="15dp"

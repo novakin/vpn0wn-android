@@ -16,6 +16,7 @@ import android.util.AttributeSet
 import android.view.View
 import android.view.animation.LinearInterpolator
 import androidx.core.content.ContextCompat
+import androidx.core.content.res.ResourcesCompat
 import com.vpn0wn.android.R
 import kotlin.math.max
 import kotlin.math.min
@@ -80,11 +81,13 @@ class TunnelThroughputView @JvmOverloads constructor(
     }
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textSize = dp(10f)
-        typeface = Typeface.MONOSPACE
+        typeface = ResourcesCompat.getFont(context, R.font.jetbrains_mono_regular) ?: Typeface.MONOSPACE
+        fontFeatureSettings = "ss01, zero, tnum"
     }
     private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         textSize = dp(9.5f)
-        typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+        typeface = ResourcesCompat.getFont(context, R.font.jetbrains_mono_medium) ?: Typeface.MONOSPACE
+        fontFeatureSettings = "ss01, zero, tnum"
     }
 
     private val animator = ValueAnimator.ofFloat(0f, 1f).apply {

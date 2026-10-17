@@ -12,6 +12,8 @@ import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.text.TextPaint
+import android.text.TextUtils
 import android.view.View
 import android.view.animation.LinearInterpolator
 import android.widget.LinearLayout
@@ -24,8 +26,16 @@ import com.vpn0wn.android.provisioning.VpsDeployServerStatus
 
 class VpsTopologyView(context: Context) : View(context) {
     private val density = resources.displayMetrics.density
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+        fontFeatureSettings = "ss01, zero, tnum"
+    }
     private val monoTypeface = ResourcesCompat.getFont(context, R.font.jetbrains_mono_regular) ?: Typeface.MONOSPACE
+    private val metadataLabels = listOf(context.getString(R.string.vpn0wn_label_server),
+        context.getString(R.string.vpn0wn_label_endpoint), context.getString(R.string.vpn0wn_metric_cidr))
+    private val deviceSublabel = context.getString(R.string.vpn0wn_hint_device).lowercase()
+    private val wanSublabel = context.getString(R.string.vpn0wn_node_internet)
+    private var metadataValues = emptyList<String>()
+    private var serverSublabel = ""
     private var server: VpsDeployServer? = null
     private var phase = 0f
     private val animator = ValueAnimator.ofFloat(0f, 1f).apply {
@@ -40,8 +50,14 @@ class VpsTopologyView(context: Context) : View(context) {
 
     fun bind(server: VpsDeployServer) {
         this.server = server
+        fitText()
         syncAnimator()
         invalidate()
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        fitText()
     }
 
     override fun onAttachedToWindow() {
@@ -85,21 +101,39 @@ class VpsTopologyView(context: Context) : View(context) {
         paint.pathEffect = DashPathEffect(dash, rightPhase)
         canvas.drawLine(xs[1] + dp(28), y, xs[2] - dp(24), y, paint)
         paint.pathEffect = null
-        node(canvas, xs[0], y, context.getString(R.string.vpn0wn_node_device), context.getString(R.string.vpn0wn_hint_device).lowercase(), server.status == VpsDeployServerStatus.ONLINE, R.color.vpn0wn_signal_deep, false)
-        node(canvas, xs[1], y, context.getString(R.string.vpn0wn_node_vps), server.name, server.status != VpsDeployServerStatus.OFFLINE, server.status.colorRes, true)
-        node(canvas, xs[2], y, context.getString(R.string.vpn0wn_node_wan), context.getString(R.string.vpn0wn_node_internet), server.status == VpsDeployServerStatus.ONLINE, R.color.vpn0wn_signal_deep, false)
+        node(canvas, xs[0], y, context.getString(R.string.vpn0wn_node_device), deviceSublabel, server.status == VpsDeployServerStatus.ONLINE, R.color.vpn0wn_signal_deep, false)
+        node(canvas, xs[1], y, context.getString(R.string.vpn0wn_node_vps), serverSublabel, server.status != VpsDeployServerStatus.OFFLINE, server.status.colorRes, true)
+        node(canvas, xs[2], y, context.getString(R.string.vpn0wn_node_wan), wanSublabel, server.status == VpsDeployServerStatus.ONLINE, R.color.vpn0wn_signal_deep, false)
         val top = h * 0.66f
         val cellW = w / 3f
-        listOf(context.getString(R.string.vpn0wn_label_server) to server.name, context.getString(R.string.vpn0wn_label_endpoint) to (server.endpoint ?: "—"), context.getString(R.string.vpn0wn_metric_cidr) to server.cidr).forEachIndexed { index, pair ->
+        metadataLabels.forEachIndexed { index, label ->
             paint.style = Paint.Style.FILL
             paint.typeface = monoTypeface
             paint.textSize = dp(9).toFloat()
             paint.color = color(R.color.vpn0wn_ink_3)
-            canvas.drawText(pair.first, cellW * index + dp(10), top + dp(18), paint)
+            canvas.drawText(label, cellW * index + dp(10), top + dp(18), paint)
             paint.textSize = dp(12).toFloat()
             paint.color = color(R.color.vpn0wn_ink)
-            canvas.drawText(pair.second, cellW * index + dp(10), top + dp(38), paint)
+            canvas.drawText(metadataValues[index], cellW * index + dp(10), top + dp(38), paint)
         }
+    }
+
+    // Keep the existing diagram geometry and avoid text-fitting allocations during animation.
+    @Suppress("MagicNumber")
+    private fun fitText() {
+        val server = server ?: return
+        paint.typeface = monoTypeface
+        paint.textSize = dp(12).toFloat()
+        val cellWidth = (width / 3f - dp(20)).coerceAtLeast(0f)
+        metadataValues = listOf(server.name, server.endpoint ?: "—", server.cidr).map {
+            TextUtils.ellipsize(it, paint, cellWidth, TextUtils.TruncateAt.END).toString()
+        }
+        paint.textSize = dp(7).toFloat()
+        val center = width * 0.5f
+        val leftEdge = width * 0.12f + paint.measureText(deviceSublabel) / 2f
+        val rightEdge = width * 0.88f - paint.measureText(wanSublabel) / 2f
+        val nameWidth = (2f * (minOf(center - leftEdge, rightEdge - center) - dp(8))).coerceAtLeast(0f)
+        serverSublabel = TextUtils.ellipsize(server.name, paint, nameWidth, TextUtils.TruncateAt.END).toString()
     }
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.

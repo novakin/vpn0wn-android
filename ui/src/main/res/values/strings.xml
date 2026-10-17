@@ -641,9 +641,9 @@
     <string name="vpn0wn_user_remove_uncertain">Removal is unverified. Reconcile status before another mutation; a remote operation may still be running.</string>
     <string name="vpn0wn_user_remove_changed">Server or peer identity changed. Refresh status before reviewing removal again.</string>
     <string name="vpn0wn_user_removed">Removal returned successfully; peer absence was observed in the server configuration and running interface. No retained private profile remains for this peer.</string>
-    <string name="vpn0wn_user_removed_stopped">The peer was removed from the server configuration and no retained private profile remains for this peer. The interface was stopped; no live revocation was tested.</string>
+    <string name="vpn0wn_user_removed_stopped">The peer was removed from the server configuration and no retained private profile remains for this peer. The interface was stopped; no live removal was tested.</string>
     <string name="vpn0wn_user_remove_observed">The requested peer is absent from the server configuration and running interface; no retained private profile remains for this peer. The earlier command outcome is not established.</string>
-    <string name="vpn0wn_user_remove_observed_stopped">The requested peer is absent from the server configuration and no retained private profile remains for this peer. The interface was observed stopped; no live revocation was tested.</string>
+    <string name="vpn0wn_user_remove_observed_stopped">The requested peer is absent from the server configuration and no retained private profile remains for this peer. The interface was observed stopped; no live removal was tested.</string>
     <string name="vpn0wn_user_remove_reconcile">reconcile removal</string>
     <string name="vpn0wn_user_rotate_authenticate">Authenticate to review or reconcile client-key rotation.</string>
     <string name="vpn0wn_user_rotate_title">Rotate client key</string>
@@ -694,5 +694,5 @@
     <string name="vpn0wn_restore_verified">Exact restored server state observed. Client connectivity and traffic have not been tested.</string>
     <string name="vpn0wn_restore_reconcile">Verify pending restore</string>
     <string name="vpn0wn_restore_foreign">A pending restoration belongs to another saved server at this SSH target. Verify it through that original server record before making changes.</string>
-    <string name="vpn0wn_restore_confirmation">Restore only to this fresh destination:\n%1$s@%2$s:%3$d\nSSH fingerprint: %4$s\n\nBackup captured: %5$s\nWireGuard server key: %6$s\nVPN endpoint: %7$s:%8$s\nNetwork: %9$s\nDNS: %10$s\nActive peers: %11$d · Revoked records: %12$d\n\nThis writes the captured keys and users, enables forwarding and starts/enables the VPN service. Existing client profiles and the source server are not changed. An older backup may predate later revocations. A changed endpoint requires a client update. Confirm only after reviewing the independent destination SSH fingerprint.</string>
+    <string name="vpn0wn_restore_confirmation">Restore only to this fresh destination:\n%1$s@%2$s:%3$d\nSSH fingerprint: %4$s\n\nBackup captured: %5$s\nWireGuard server key: %6$s\nVPN endpoint: %7$s:%8$s\nNetwork: %9$s\nDNS: %10$s\nActive peers: %11$d · Revocation records: %12$d\n\nThis writes the captured keys and users, enables forwarding and starts/enables the VPN service. Existing client profiles and the source server are not changed. An older backup may predate later revocations. A changed endpoint requires a client update. Confirm only after reviewing the independent destination SSH fingerprint.</string>
 </resources>
