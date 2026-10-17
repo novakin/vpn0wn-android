@@ -203,6 +203,17 @@ data class VpsRestoreResult(
     val cleanupPath: String = "",
 )
 
+data class VpsRestoreCheckPlan(
+    val interfaceName: String,
+    val endpoint: String,
+    val port: String,
+    val cidr: String,
+    val dns: String,
+    val serverPublicKey: String,
+    val peerCount: Int,
+    val revokedCount: Int,
+)
+
 data class VpsUninstallResult(
     val uninstalled: Boolean,
     val backup: String,
@@ -442,10 +453,8 @@ object ProvisioningJson {
     }
 
     fun parseRestore(stdout: String): VpsRestoreResult = parse(stdout) { json ->
-        val peerCount = json.get("peerCount") as? Int ?: throw JSONException("Invalid peer count")
-        val revokedCount = json.get("revokedCount") as? Int ?: throw JSONException("Invalid revoked count")
-        if (peerCount !in 0..MAX_MANAGED_PEERS || revokedCount !in 0..VpsBackupResult.MAX_REVOKED_FILES)
-            throw JSONException("Invalid restored counts")
+        val peerCount = json.restoreCount("peerCount", MAX_MANAGED_PEERS)
+        val revokedCount = json.restoreCount("revokedCount", VpsBackupResult.MAX_REVOKED_FILES)
         VpsRestoreResult(
             interfaceName = json.string("interface"),
             endpoint = json.string("endpoint"),
@@ -455,6 +464,21 @@ object ProvisioningJson {
             peerCount = peerCount,
             revokedCount = revokedCount,
             cleanupPath = json.optionalString("cleanupPath"),
+        )
+    }
+
+    fun parseRestoreCheck(stdout: String): VpsRestoreCheckPlan = parse(stdout) { json ->
+        if (!json.boolean("checkOnly")) throw JSONException("Restore check was not confirmed")
+        val plan = json.getJSONObject("plan")
+        VpsRestoreCheckPlan(
+            interfaceName = plan.string("interface"),
+            endpoint = plan.string("endpoint"),
+            port = plan.string("port"),
+            cidr = plan.string("cidr"),
+            dns = plan.string("dns"),
+            serverPublicKey = plan.string("serverPublicKey"),
+            peerCount = plan.restoreCount("peerCount", MAX_MANAGED_PEERS),
+            revokedCount = plan.restoreCount("revokedCount", VpsBackupResult.MAX_REVOKED_FILES),
         )
     }
 
@@ -545,6 +569,12 @@ object ProvisioningJson {
 
     private fun JSONObject.string(name: String): String =
         get(name) as? String ?: throw JSONException("Invalid string type")
+
+    private fun JSONObject.restoreCount(name: String, maximum: Int): Int {
+        val count = get(name) as? Int ?: throw JSONException("Invalid restore count")
+        if (count !in 0..maximum) throw JSONException("Invalid restore count")
+        return count
+    }
 
     private fun JSONObject.backupText(name: String, maximumBytes: Int): String {
         val value = string(name)
