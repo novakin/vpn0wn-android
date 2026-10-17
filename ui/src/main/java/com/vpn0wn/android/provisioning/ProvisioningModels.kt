@@ -121,6 +121,19 @@ data class VpsPeerStatus(
     val txBytes: Long?,
 )
 
+data class VpsRevokedArchive(
+    val archiveName: String,
+    val name: String,
+    val publicKey: String,
+    val operationId: String?,
+) {
+    companion object {
+        internal const val OPERATION_ID_PATTERN = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
+        internal val OPERATION_ID = Regex(OPERATION_ID_PATTERN)
+        internal val ARCHIVE_NAME = Regex("[A-Za-z0-9_-]{1,32}\\.conf(\\.([A-Za-z0-9]{6}|$OPERATION_ID_PATTERN))?")
+    }
+}
+
 data class VpsServerStatus(
     val interfaceName: String,
     val running: Boolean?,
@@ -132,6 +145,7 @@ data class VpsServerStatus(
     val serverPublicKey: String? = null,
     val runtimePeerPublicKeys: List<String>? = null,
     val configuredPeerPublicKeys: List<String>? = null,
+    val revokedArchives: List<VpsRevokedArchive>? = null,
 )
 
 data class VpsAddPeerResult(
@@ -150,6 +164,8 @@ data class VpsPeerMutationResult(
     val removed: Boolean = false,
     val revoked: Boolean = false,
     val archive: String = "",
+    val archiveName: String? = null,
+    val operationId: String? = null,
     val cleanupPath: String = "",
 )
 
@@ -261,6 +277,7 @@ object ProvisioningJson {
             serverPublicKey = serverPublicKey,
             runtimePeerPublicKeys = json.peerPublicKeys("runtimePeerPublicKeys"),
             configuredPeerPublicKeys = json.peerPublicKeys("configuredPeerPublicKeys"),
+            revokedArchives = json.revokedArchives(),
             peers = (0 until peers.length()).map { index ->
                 val peer = peers.getJSONObject(index)
                 val name = peer.string("name")
@@ -307,6 +324,37 @@ object ProvisioningJson {
         return keys
     }
 
+    // Shape, exact archive correlation and history uniqueness are independent boundaries.
+    @Suppress("ThrowsCount")
+    private fun JSONObject.revokedArchives(): List<VpsRevokedArchive>? {
+        if (!has("revokedArchives") || isNull("revokedArchives")) return null
+        val archives = getJSONArray("revokedArchives")
+        if (archives.length() > VpsBackupResult.MAX_REVOKED_FILES) throw JSONException("Revocation history exceeds supported limits")
+        val names = mutableSetOf<String>()
+        val operationIds = mutableSetOf<String>()
+        return (0 until archives.length()).map { index ->
+            val archive = archives.getJSONObject(index)
+            val archiveName = archive.string("archiveName")
+            val name = archive.string("name")
+            val key = archive.string("publicKey")
+            val operationId = archive.nullableString("operationId")
+            if (!VpsRevokedArchive.ARCHIVE_NAME.matches(archiveName) || !names.add(archiveName) ||
+                !PendingVpsAdd.NAME.matches(name)) throw JSONException("Invalid revocation archive identity")
+            if (operationId != null) {
+                if (!VpsRevokedArchive.OPERATION_ID.matches(operationId) || !operationIds.add(operationId) ||
+                    archiveName != "$name.conf.$operationId") throw JSONException("Invalid revocation archive correlation")
+            } else if (archiveName != "$name.conf" && !Regex("${Regex.escape(name)}\\.conf\\.[A-Za-z0-9]{6}").matches(archiveName)) {
+                throw JSONException("Invalid legacy revocation archive identity")
+            }
+            try {
+                if (Key.fromBase64(key).toBase64() != key) throw JSONException("Invalid revoked peer identity")
+            } catch (_: KeyFormatException) {
+                throw JSONException("Invalid revoked peer identity")
+            }
+            VpsRevokedArchive(archiveName, name, key, operationId)
+        }
+    }
+
     fun parsePeerMutation(stdout: String): VpsPeerMutationResult = parse(stdout) { json ->
         val removed = json.boolean("removed")
         if (!removed) throw JSONException("Peer removal was not confirmed")
@@ -315,6 +363,10 @@ object ProvisioningJson {
         if (revoked && archive.isBlank()) throw JSONException("Revocation archive was not provided")
         val name = json.string("name")
         val publicKey = json.string("publicKey")
+        val archiveName = if (json.has("archiveName")) json.nullableString("archiveName") else null
+        val operationId = if (json.has("operationId")) json.nullableString("operationId") else null
+        if (operationId != null && (!revoked || !VpsRevokedArchive.OPERATION_ID.matches(operationId) ||
+                archiveName != "$name.conf.$operationId")) throw JSONException("Invalid revocation receipt correlation")
         if (name.isBlank()) throw JSONException("Peer name was not provided")
         try {
             Key.fromBase64(publicKey)
@@ -327,6 +379,8 @@ object ProvisioningJson {
             removed = removed,
             revoked = revoked,
             archive = archive,
+            archiveName = archiveName,
+            operationId = operationId,
             cleanupPath = json.optionalString("cleanupPath"),
         )
     }
@@ -362,7 +416,7 @@ object ProvisioningJson {
                 revoked = (0 until revoked.length()).map { index ->
                     val entry = revoked.getJSONObject(index)
                     val name = entry.string("archiveName")
-                    if (!BACKUP_ARCHIVE_NAME.matches(name) || !archiveNames.add(name)) throw JSONException("Invalid revoked archive name")
+                    if (!VpsRevokedArchive.ARCHIVE_NAME.matches(name) || !archiveNames.add(name)) throw JSONException("Invalid revoked archive name")
                     VpsRevokedBackup(name, entry.backupText("config", VpsBackupResult.MAX_REVOKED_BYTES))
                 },
             )
@@ -454,15 +508,15 @@ object ProvisioningJson {
         val category = when (code) {
             "invalid_arg", "missing_arg", "missing_endpoint", "invalid_endpoint",
             "invalid_port", "invalid_dns", "invalid_allowed_ips", "invalid_cidr",
-            "missing_name", "invalid_name", "invalid_public_key", "invalid_interface", "confirmation_required" -> ProvisioningFailureCategory.INVALID_INPUT
+            "missing_name", "invalid_name", "invalid_public_key", "invalid_operation_id", "invalid_interface", "confirmation_required" -> ProvisioningFailureCategory.INVALID_INPUT
             "unsupported_os" -> ProvisioningFailureCategory.UNSUPPORTED_SERVER
             "not_root" -> ProvisioningFailureCategory.PERMISSION_DENIED
             "unmanaged_config", "unmanaged_forwarding", "shared_wireguard_state",
             "unmanaged_runtime", "unsafe_path", "config_exists", "peer_exists",
             "peer_not_found", "peer_identity_mismatch", "server_identity_mismatch",
-            "address_pool_full", "backup_limit", "port_in_use", "subnet_in_use", "revoked_history_exists" -> ProvisioningFailureCategory.CONFLICT
+            "address_pool_full", "backup_limit", "port_in_use", "subnet_in_use", "revoked_history_exists", "archive_limit", "operation_id_conflict" -> ProvisioningFailureCategory.CONFLICT
             "not_installed", "missing_server_metadata" -> ProvisioningFailureCategory.NOT_INSTALLED
-            "runtime_unknown" -> ProvisioningFailureCategory.RUNTIME_UNKNOWN
+            "runtime_unknown", "archive_inventory_unknown" -> ProvisioningFailureCategory.RUNTIME_UNKNOWN
             "missing_tool", "lock_failed", "snapshot_failed", "key_failed", "write_failed",
             "invalid_config", "apply_failed", "postcondition_failed", "archive_failed",
             "package_failed", "stop_failed", "forwarding_failed", "enable_failed",
@@ -506,6 +560,9 @@ object ProvisioningJson {
     private fun JSONObject.boolean(name: String): Boolean =
         get(name) as? Boolean ?: throw JSONException("Invalid Boolean type")
 
+    private fun JSONObject.nullableString(name: String): String? =
+        if (get(name) == JSONObject.NULL) null else string(name)
+
     private fun JSONObject.nullableBoolean(name: String): Boolean? =
         if (get(name) == JSONObject.NULL) null else boolean(name)
 
@@ -527,5 +584,4 @@ object ProvisioningJson {
     private const val MAX_MANAGED_PEERS = 253
     private val BACKUP_TIMESTAMP = Regex("[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z")
     private val BACKUP_INTERFACE = Regex("[A-Za-z0-9_.-]{1,15}")
-    private val BACKUP_ARCHIVE_NAME = Regex("[A-Za-z0-9_-]{1,32}\\.conf(\\.[A-Za-z0-9]{6})?")
 }

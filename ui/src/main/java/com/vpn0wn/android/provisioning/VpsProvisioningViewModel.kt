@@ -41,10 +41,10 @@ class VpsProvisioningViewModel internal constructor(
     enum class Step { SSH, DETECT, PLAN, APPLY }
     enum class AuthMode { KEY, PASSWORD }
     enum class SavedAccess { NONE, SAVED, METADATA_ONLY, UNKNOWN, CLEARED }
-    enum class Problem { INVALID_INPUT, CONNECTION_FAILED, INVALID_RESPONSE, ACCESS_MISSING, CONNECTION_CHANGED, STORAGE_FAILED, STORAGE_CONFLICT, CANCELLED, INSTALL_FAILED, INSTALL_PENDING, ADD_PENDING, REMOVE_PENDING, PEER_CHANGED, IDENTITY_UNAVAILABLE, PROFILE_UNAVAILABLE }
+    enum class Problem { INVALID_INPUT, CONNECTION_FAILED, INVALID_RESPONSE, ACCESS_MISSING, CONNECTION_CHANGED, STORAGE_FAILED, STORAGE_CONFLICT, CANCELLED, INSTALL_FAILED, INSTALL_PENDING, ADD_PENDING, REMOVE_PENDING, PEER_CHANGED, IDENTITY_UNAVAILABLE, PROFILE_UNAVAILABLE, ARCHIVE_UNAVAILABLE, ARCHIVE_FULL }
     enum class Installation { NONE, RUNNING, INSTALLED, OBSERVED, UNCERTAIN }
     enum class UserCreation { NONE, RUNNING, RETAINED, UNSAVED, UNCERTAIN, CREATED }
-    enum class UserRemoval { NONE, CHECKING, RUNNING, UNCERTAIN, REMOVED, OBSERVED }
+    enum class UserRemoval { NONE, CHECKING, RUNNING, UNCERTAIN, FAILED, REMOVED, OBSERVED }
     enum class BackupFailure { PASSWORD, INPUT, FORMAT, AUTHENTICATION, SNAPSHOT, CRYPTO }
 
     data class BackupSummary(val capturedAtUtc: String, val interfaceName: String, val version: Int,
@@ -97,6 +97,8 @@ class VpsProvisioningViewModel internal constructor(
         val removal: UserRemoval = UserRemoval.NONE,
         val pendingRemove: Boolean = false,
         val removalOwner: StoredVpsServer? = null,
+        val removalAction: PendingVpsRemove.Action = PendingVpsRemove.Action.REMOVE,
+        val removalAttempt: PendingVpsRemove? = null,
         val backupSummary: BackupSummary? = null,
         val backupFailure: BackupFailure? = null,
     )
@@ -152,6 +154,8 @@ class VpsProvisioningViewModel internal constructor(
         val pendingRemoval = store.pendingRemove(savedServer)
         mutableState.value = mutableState.value.copy(removeConfirmation = null, pendingRemove = pendingRemoval != null,
             removal = if (pendingRemoval == null) UserRemoval.NONE else UserRemoval.UNCERTAIN,
+            removalAction = pendingRemoval?.takeIf { it.owns(savedServer) }?.action ?: PendingVpsRemove.Action.REMOVE,
+            removalAttempt = pendingRemoval?.takeIf { it.owns(savedServer) },
             removalOwner = savedServer.takeIf { pendingRemoval?.owns(it) != false })
         val connection = try {
             store.loadConnection(savedServer) ?: run {
@@ -528,12 +532,18 @@ class VpsProvisioningViewModel internal constructor(
         "Created user could not be verified", category = ProvisioningFailureCategory.INVALID_RESPONSE,
     )
 
+    fun requestRemoveUserConfirmation(savedServer: StoredVpsServer, name: String, clientPublicKey: String): Job? =
+        requestPeerRemovalConfirmation(savedServer, name, clientPublicKey, PendingVpsRemove.Action.REMOVE)
+
+    fun requestRevokeUserConfirmation(savedServer: StoredVpsServer, name: String, clientPublicKey: String): Job? =
+        requestPeerRemovalConfirmation(savedServer, name, clientPublicKey, PendingVpsRemove.Action.REVOKE)
+
     // Existing pending writers have distinct admission outcomes before a destructive confirmation.
     @Suppress("ThrowsCount")
-    fun requestRemoveUserConfirmation(savedServer: StoredVpsServer, name: String, clientPublicKey: String): Job? = operate(
+    private fun requestPeerRemovalConfirmation(savedServer: StoredVpsServer, name: String, clientPublicKey: String, action: PendingVpsRemove.Action): Job? = operate(
         requireActive = false,
         initialState = mutableState.value.copy(serverId = savedServer.id, removeConfirmation = null,
-            removal = UserRemoval.CHECKING, pendingRemove = false, removalOwner = savedServer),
+            removal = UserRemoval.CHECKING, pendingRemove = false, removalOwner = savedServer, removalAction = action, removalAttempt = null),
     ) {
         val snapshot = mutableState.value.statusSnapshots[savedServer.id]?.takeIf { it.matches(savedServer) }
         val serverKey = snapshot?.status?.serverPublicKey
@@ -552,7 +562,8 @@ class VpsProvisioningViewModel internal constructor(
             return@operate
         }
         store.pendingRemove(savedServer)?.let { pending ->
-            mutableState.value = mutableState.value.copy(removalOwner = savedServer.takeIf(pending::owns))
+            mutableState.value = mutableState.value.copy(removalOwner = savedServer.takeIf(pending::owns),
+                removalAction = if (pending.owns(savedServer)) pending.action else action, removalAttempt = pending.takeIf { it.owns(savedServer) })
             throw VpsServerStore.RemovePendingException()
         }
         if (store.pendingAdd(savedServer) != null) throw VpsServerStore.AddPendingException()
@@ -562,7 +573,8 @@ class VpsProvisioningViewModel internal constructor(
             return@operate
         }
         try {
-            val attempt = PendingVpsRemove(savedServer.id, connection.endpoint, requireNotNull(connection.hostKeyFingerprint), serverKey, name, clientPublicKey)
+            val attempt = PendingVpsRemove(savedServer.id, connection.endpoint, requireNotNull(connection.hostKeyFingerprint), serverKey, name, clientPublicKey,
+                action, if (action == PendingVpsRemove.Action.REVOKE) UUID.randomUUID().toString() else null)
             attempt.validate()
             store.checkAddOwner(savedServer, attempt.fingerprint)
             val status = client.syncStatus(connection)
@@ -570,6 +582,14 @@ class VpsProvisioningViewModel internal constructor(
             if (status.interfaceName != DEFAULT_INTERFACE || status.serverPublicKey != serverKey || status.running == null ||
                 status.peers.singleOrNull { it.name == name }?.publicKey != clientPublicKey) {
                 mutableState.value = mutableState.value.copy(problem = Problem.PEER_CHANGED)
+                return@operate
+            }
+            if (action == PendingVpsRemove.Action.REVOKE && status.revokedArchives == null) {
+                mutableState.value = mutableState.value.copy(problem = Problem.ARCHIVE_UNAVAILABLE)
+                return@operate
+            }
+            if (action == PendingVpsRemove.Action.REVOKE && requireNotNull(status.revokedArchives).size >= VpsBackupResult.MAX_REVOKED_FILES) {
+                mutableState.value = mutableState.value.copy(problem = Problem.ARCHIVE_FULL)
                 return@operate
             }
             currentCoroutineContext().ensureActive()
@@ -582,6 +602,8 @@ class VpsProvisioningViewModel internal constructor(
 
     fun dismissRemoveUserConfirmation() { mutableState.value = mutableState.value.copy(removeConfirmation = null) }
 
+    // Admission, typed rollback and post-receipt failures require distinct settlement paths.
+    @Suppress("ThrowsCount")
     fun confirmRemoveUser(confirmation: RemoveUserConfirmation): Job? {
         if (mutableState.value.busy || mutableState.value.removeConfirmation !== confirmation) return null
         mutableState.value = mutableState.value.copy(removeConfirmation = null)
@@ -593,9 +615,10 @@ class VpsProvisioningViewModel internal constructor(
                 return@operate
             }
             var admitted = false
+            var receiptReceived = false
             try {
                 requireRemoveConnection(attempt, connection)
-                val result = client.removePeer(connection, attempt.name, attempt.clientPublicKey, attempt.serverPublicKey, onAdmitted = {
+                val onAdmitted: suspend () -> Unit = {
                     withContext(Dispatchers.Main.immediate) {
                         currentCoroutineContext().ensureActive()
                         val snapshot = mutableState.value.statusSnapshots[expected.id]
@@ -606,24 +629,46 @@ class VpsProvisioningViewModel internal constructor(
                         withContext(NonCancellable) {
                             store.admitRemove(expected, attempt)
                             admitted = true
-                            mutableState.value = mutableState.value.copy(pendingRemove = true, removal = UserRemoval.RUNNING, removalOwner = expected)
+                            mutableState.value = mutableState.value.copy(pendingRemove = true, removal = UserRemoval.RUNNING,
+                                removalOwner = expected, removalAction = attempt.action, removalAttempt = attempt)
                         }
                         currentCoroutineContext().ensureActive()
                     }
-                })
+                }
+                val result = try {
+                    when (attempt.action) {
+                        PendingVpsRemove.Action.REMOVE -> client.removePeer(connection, attempt.name, attempt.clientPublicKey,
+                            attempt.serverPublicKey, onAdmitted, onReceived = { receiptReceived = true })
+                        PendingVpsRemove.Action.REVOKE -> client.revokePeer(connection, attempt.name, attempt.clientPublicKey,
+                            attempt.serverPublicKey, requireNotNull(attempt.operationId), onAdmitted, onReceived = { receiptReceived = true })
+                    }
+                } catch (failure: ProvisioningException) {
+                    val rollback = failure.recovery == ProvisioningRecovery.UNCHANGED || failure.recovery == ProvisioningRecovery.RESTORED
+                    val rejectedRevoke = attempt.action == PendingVpsRemove.Action.REVOKE && failure.recovery == null &&
+                        failure.remoteCode in REJECTED_REVOKE_CODES
+                    if (!admitted || receiptReceived || !rollback && !rejectedRevoke) throw failure
+                    withContext(NonCancellable) {
+                        store.clearRejectedRemove(expected, attempt)
+                        mutableState.value = mutableState.value.copy(pendingRemove = false, removal = UserRemoval.FAILED,
+                            removalAttempt = null, recovery = failure.recovery, recoveryOwner = expected,
+                            statusSnapshots = mutableState.value.statusSnapshots - expected.id)
+                    }
+                    return@operate
+                }
                 mutableState.value = mutableState.value.copy(cleanupRequired = result.cleanupPath.isNotEmpty(), cleanupOwner = expected)
                 store.checkAddOwner(expected, attempt.fingerprint)
                 publishRemovedUser(expected, attempt, client.syncStatus(connection), UserRemoval.REMOVED)
             } catch (failure: ProvisioningException) {
-                if (admitted && failure.recovery == null && failure.remoteCode in REJECTED_REMOVE_CODES) {
+                if (admitted && !receiptReceived && failure.recovery == null && failure.remoteCode in REJECTED_REMOVE_CODES) {
                     withContext(NonCancellable) {
                         store.clearRejectedRemove(expected, attempt)
                         mutableState.value = mutableState.value.copy(pendingRemove = false, removal = UserRemoval.NONE,
-                            problem = Problem.PEER_CHANGED, statusSnapshots = mutableState.value.statusSnapshots - expected.id)
+                            removalAttempt = null, problem = Problem.PEER_CHANGED, statusSnapshots = mutableState.value.statusSnapshots - expected.id)
                     }
                     return@operate
                 }
-                mutableState.value = mutableState.value.copy(recovery = failure.recovery, recoveryOwner = expected)
+                mutableState.value = mutableState.value.copy(recovery = failure.recovery.takeIf { !receiptReceived },
+                    recoveryOwner = expected.takeIf { !receiptReceived })
                 throw failure
             } finally {
                 if (mutableState.value.pendingRemove && mutableState.value.removal == UserRemoval.RUNNING)
@@ -635,7 +680,7 @@ class VpsProvisioningViewModel internal constructor(
 
     fun reconcileRemoveUser(savedServer: StoredVpsServer): Job? = operate(requireActive = false,
         initialState = mutableState.value.copy(serverId = savedServer.id, removeConfirmation = null, removalOwner = savedServer,
-            pendingRemove = false, removal = UserRemoval.CHECKING),
+            pendingRemove = false, removal = UserRemoval.CHECKING, removalAction = PendingVpsRemove.Action.REMOVE, removalAttempt = null),
     ) {
         val attempt = store.pendingRemove(savedServer) ?: return@operate
         mutableState.value = mutableState.value.copy(pendingRemove = true, removal = UserRemoval.UNCERTAIN)
@@ -643,6 +688,7 @@ class VpsProvisioningViewModel internal constructor(
             mutableState.value = mutableState.value.copy(removalOwner = null)
             throw VpsServerStore.CredentialConflictException()
         }
+        mutableState.value = mutableState.value.copy(removalAction = attempt.action, removalAttempt = attempt)
         val connection = store.loadConnection(savedServer) ?: run {
             mutableState.value = mutableState.value.copy(problem = Problem.ACCESS_MISSING)
             return@operate
@@ -662,7 +708,7 @@ class VpsProvisioningViewModel internal constructor(
     }
 
     private suspend fun publishRemovedUser(expected: StoredVpsServer, attempt: PendingVpsRemove, status: VpsServerStatus, removal: UserRemoval) {
-        if (!attempt.observesAbsence(status)) throw VpsServerStore.RemovePendingException()
+        if (!attempt.observesCompletion(status)) throw VpsServerStore.RemovePendingException()
         store.checkAddOwner(expected, attempt.fingerprint)
         currentCoroutineContext().ensureActive()
         withContext(NonCancellable) {
@@ -671,6 +717,7 @@ class VpsProvisioningViewModel internal constructor(
                 profiles.load(expected, attempt.serverPublicKey, attempt.clientPublicKey)?.let { profiles.delete(it) }
             }
             mutableState.value = mutableState.value.copy(pendingRemove = false, removal = removal, problem = null,
+                removalAction = attempt.action, removalAttempt = null,
                 removalOwner = committed, statusSnapshots = mutableState.value.statusSnapshots + (expected.id to StatusSnapshot(committed, status, observedAt)))
         }
     }
@@ -754,6 +801,8 @@ class VpsProvisioningViewModel internal constructor(
                 detect = result, plan = null, step = Step.DETECT, pendingInstall = pending,
                 installation = if (pending) Installation.UNCERTAIN else Installation.NONE,
                 pendingRemove = pendingRemoval != null, removal = if (pendingRemoval != null) UserRemoval.UNCERTAIN else UserRemoval.NONE,
+                removalAction = pendingRemoval?.takeIf { attempt -> server?.let(attempt::owns) == true }?.action ?: PendingVpsRemove.Action.REMOVE,
+                removalAttempt = pendingRemoval?.takeIf { attempt -> server?.let(attempt::owns) == true },
                 removalOwner = server?.takeIf { pendingRemoval?.owns(it) != false },
             )
         } finally {
@@ -1141,6 +1190,7 @@ class VpsProvisioningViewModel internal constructor(
     private fun invalidInput() = ProvisioningException("SSH or deployment input is invalid", category = ProvisioningFailureCategory.INVALID_INPUT)
 
     private companion object {
+        val REJECTED_REVOKE_CODES = setOf("archive_inventory_unknown", "archive_limit", "operation_id_conflict")
         const val MAX_PORT = 65_535
         const val DEFAULT_INTERFACE = "wg0"
         val REJECTED_ADD_CODES = setOf("peer_exists", "server_identity_mismatch")

@@ -61,7 +61,7 @@ class Vpn0wnProvisioningClient(
     )
 
     suspend fun removePeer(connection: VpsConnection, name: String, expectedPublicKey: String, expectedServerPublicKey: String,
-        onAdmitted: suspend () -> Unit = {}): VpsPeerMutationResult {
+        onAdmitted: suspend () -> Unit = {}, onReceived: suspend () -> Unit = {}): VpsPeerMutationResult {
         val args = peerMutationArgs(name, expectedPublicKey) + listOf("--expected-server-public-key", expectedServerPublicKey)
         try {
             if (Key.fromBase64(expectedServerPublicKey).toBase64() != expectedServerPublicKey) throw invalidInput()
@@ -70,14 +70,31 @@ class Vpn0wnProvisioningClient(
         }
         return withClient(connection) { client, remoteDir ->
             onAdmitted()
-            parsePeerMutation(run(client, remoteDir, "remove-peer.sh", args).stdout, name, expectedPublicKey, revoked = false)
+            val result = parsePeerMutation(run(client, remoteDir, "remove-peer.sh", args).stdout, name, expectedPublicKey, revoked = false)
+            withContext(NonCancellable) { onReceived() }
+            result
         }
     }
 
-    suspend fun revokePeer(connection: VpsConnection, name: String, expectedPublicKey: String): VpsPeerMutationResult {
-        val args = peerMutationArgs(name, expectedPublicKey)
+    // Validate independent caller identities before transport, then reject an uncorrelated mutation receipt.
+    @Suppress("ThrowsCount")
+    suspend fun revokePeer(connection: VpsConnection, name: String, expectedPublicKey: String, expectedServerPublicKey: String,
+        operationId: String, onAdmitted: suspend () -> Unit = {}, onReceived: suspend () -> Unit = {}): VpsPeerMutationResult {
+        if (!VpsRevokedArchive.OPERATION_ID.matches(operationId)) throw invalidInput()
+        val args = peerMutationArgs(name, expectedPublicKey) +
+            listOf("--expected-server-public-key", expectedServerPublicKey, "--operation-id", operationId)
+        try {
+            if (Key.fromBase64(expectedServerPublicKey).toBase64() != expectedServerPublicKey) throw invalidInput()
+        } catch (_: KeyFormatException) {
+            throw invalidInput()
+        }
         return withClient(connection) { client, remoteDir ->
-            parsePeerMutation(run(client, remoteDir, "revoke-peer.sh", args).stdout, name, expectedPublicKey, revoked = true)
+            onAdmitted()
+            val result = parsePeerMutation(run(client, remoteDir, "revoke-peer.sh", args).stdout, name, expectedPublicKey, revoked = true)
+            if (result.operationId != operationId || result.archiveName != "$name.conf.$operationId")
+                throw ProvisioningException(ProvisioningFailureCategory.INVALID_RESPONSE.safeMessage, category = ProvisioningFailureCategory.INVALID_RESPONSE)
+            withContext(NonCancellable) { onReceived() }
+            result
         }
     }
 

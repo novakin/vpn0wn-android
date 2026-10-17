@@ -9,6 +9,11 @@ WG_LOCK_FILE="${WG_LOCK_FILE:-/run/lock/tunnl-wireguard-$WG_IFACE.lock}"
 WG_HOST_LOCK_FILE="${WG_HOST_LOCK_FILE:-/run/lock/tunnl-wireguard-host.lock}"
 FORWARD_CONF="${FORWARD_CONF:-/etc/sysctl.d/99-tunnl-wireguard-forward.conf}"
 
+REVOCATION_OPERATION_ID_PATTERN='[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+REVOKED_ARCHIVE_NAME_PATTERN="^([A-Za-z0-9_-]{1,32})\.conf(\.([A-Za-z0-9]{6}|$REVOCATION_OPERATION_ID_PATTERN))?$"
+MAX_REVOKED_ARCHIVES=1024
+MAX_REVOKED_ARCHIVE_BYTES=16384
+
 json_escape() {
   local s=${1-} controls control escaped index
   controls=$'\001\002\003\004\005\006\007\010\011\012\013\014\015\016\017\020\021\022\023\024\025\026\027\030\031\032\033\034\035\036\037'
@@ -49,6 +54,76 @@ require_public_key() {
   local LC_ALL=C
   # Match Android's key parser by rejecting nonzero base64 padding bits.
   [[ "$1" =~ ^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$ ]] || fail_json "invalid_public_key" "Expected public key must be a canonical WireGuard key." 64
+}
+
+read_revoked_archive_inventory() {
+  local directory="$TUNNL_DIR/revoked" file archive_name name suffix operation_id size content peer_key
+  local LC_ALL=C
+  local -a files=()
+  local -A seen_ids=()
+  REVOKED_ARCHIVE_NAMES=()
+  REVOKED_PEER_NAMES=()
+  REVOKED_PEER_KEYS=()
+  REVOKED_OPERATION_IDS=()
+  if [[ -e "$directory" || -L "$directory" ]]; then
+    [[ -d "$directory" && ! -L "$directory" ]] || return 1
+    set +m
+    shopt -s lastpipe
+    if ! find "$directory" -mindepth 1 -maxdepth 1 -print0 2>/dev/null |
+        mapfile -d '' -n "$((MAX_REVOKED_ARCHIVES + 1))" -t files; then return 1; fi
+  fi
+  [[ ${#files[@]} -le "$MAX_REVOKED_ARCHIVES" ]] || return 1
+  for file in "${files[@]}"; do
+    archive_name=${file##*/}
+    [[ "$archive_name" =~ $REVOKED_ARCHIVE_NAME_PATTERN ]] || return 1
+    name=${BASH_REMATCH[1]}
+    suffix=${BASH_REMATCH[3]:-}
+    operation_id=""
+    if [[ "$suffix" =~ ^$REVOCATION_OPERATION_ID_PATTERN$ ]]; then
+      operation_id=$suffix
+      [[ -z ${seen_ids[$operation_id]+set} ]] || return 1
+      seen_ids[$operation_id]=1
+    fi
+    [[ -f "$file" && ! -L "$file" ]] || return 1
+    size=$(stat -c %s -- "$file" 2>/dev/null) || return 1
+    [[ "$size" -gt 0 && "$size" -le "$MAX_REVOKED_ARCHIVE_BYTES" ]] || return 1
+    iconv -f UTF-8 -t UTF-8 -- "$file" >/dev/null 2>&1 || return 1
+    content=$(cat -- "$file" 2>/dev/null && printf '.') 2>/dev/null || return 1
+    content=${content%?}
+    [[ ${#content} -eq "$size" ]] || return 1
+    peer_key=$(awk -v name="$name" '
+      $0 == "# BEGIN_PEER " name {if (phase != 0) invalid=1; phase=1; next}
+      $0 == "# END_PEER " name {if (phase != 1) invalid=1; phase=2; next}
+      /^# (BEGIN|END)_PEER / {invalid=1; next}
+      phase != 1 {if ($0 !~ /^[[:space:]]*(#.*)?$/) invalid=1; next}
+      {
+        line=$0; sub(/#.*/, "", line); sub(/^[[:space:]]+/, "", line); sub(/[[:space:]]+$/, "", line)
+        if (line ~ /^\[/) {if (tolower(line) != "[peer]") invalid=1; sections++; next}
+        separator=index(line, "="); if (separator == 0) next
+        field=substr(line, 1, separator-1); sub(/[[:space:]]+$/, "", field)
+        if (tolower(field) == "publickey") {
+          keys++; key=substr(line, separator+1); sub(/^[[:space:]]+/, "", key); sub(/[[:space:]]+$/, "", key)
+        }
+      }
+      END {if (invalid || phase != 2 || sections != 1 || keys != 1) exit 1; print key}
+    ' <<< "$content") || return 1
+    (require_public_key "$peer_key") >/dev/null 2>&1 || return 1
+    REVOKED_ARCHIVE_NAMES+=("$archive_name")
+    REVOKED_PEER_NAMES+=("$name")
+    REVOKED_PEER_KEYS+=("$peer_key")
+    REVOKED_OPERATION_IDS+=("$operation_id")
+  done
+}
+
+revoked_archive_inventory_json() {
+  local index operation_json result='[' separator=''
+  for ((index=0; index<${#REVOKED_ARCHIVE_NAMES[@]}; index++)); do
+    operation_json=null
+    [[ -z "${REVOKED_OPERATION_IDS[index]}" ]] || operation_json=$(json_string "${REVOKED_OPERATION_IDS[index]}")
+    result+="$separator{\"archiveName\":$(json_string "${REVOKED_ARCHIVE_NAMES[index]}"),\"name\":$(json_string "${REVOKED_PEER_NAMES[index]}"),\"publicKey\":$(json_string "${REVOKED_PEER_KEYS[index]}"),\"operationId\":$operation_json}"
+    separator=','
+  done
+  printf '%s]' "$result"
 }
 
 require_owned_config() {
@@ -470,7 +545,12 @@ mutation_abort() {
     rm -f -- "$FORWARD_TEMP" 2>/dev/null || recovery=incomplete
   fi
   if [[ -n "$REVOKE_ARCHIVE" ]]; then
-    rm -f -- "$REVOKE_ARCHIVE" 2>/dev/null || recovery=incomplete
+    if [[ "$recovery" == incomplete ]]; then
+      RETAIN_ARTIFACT=$REVOKE_ARCHIVE
+    elif ! rm -f -- "$REVOKE_ARCHIVE" 2>/dev/null; then
+      recovery=incomplete
+      RETAIN_ARTIFACT=$REVOKE_ARCHIVE
+    fi
   fi
   if [[ "$recovery" != incomplete ]]; then
     rm -rf -- "$RECOVERY_DIR" 2>/dev/null || recovery=incomplete

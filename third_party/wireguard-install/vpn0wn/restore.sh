@@ -243,7 +243,7 @@ revoked_names=()
 revoked_bodies=()
 for file in "${revoked_files[@]}"; do
   archive_name=${file##*/}
-  [[ "$archive_name" =~ ^([A-Za-z0-9_-]{1,32})\.conf(\.[A-Za-z0-9]{6})?$ ]] || invalid_restore_config
+  [[ "$archive_name" =~ $REVOKED_ARCHIVE_NAME_PATTERN ]] || invalid_restore_config
   archived_peer_name=${BASH_REMATCH[1]}
   input_bytes=$((input_bytes + ${#archive_name}))
   read_restore_file "$file" "$MAX_REVOKED_BYTES"

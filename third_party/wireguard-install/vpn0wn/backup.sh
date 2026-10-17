@@ -46,7 +46,7 @@ fi
 [[ ${#revoked_files[@]} -le "$MAX_REVOKED_FILES" ]] || fail_json "backup_limit" "Backup state exceeds supported limits." 73
 for file in "${revoked_files[@]}"; do
   archive_name=${file##*/}
-  [[ "$archive_name" =~ ^[A-Za-z0-9_-]{1,32}\.conf(\.[A-Za-z0-9]{6})?$ ]] || fail_json "invalid_config" "Revoked backup names are unsupported." 73
+  [[ "$archive_name" =~ $REVOKED_ARCHIVE_NAME_PATTERN ]] || fail_json "invalid_config" "Revoked backup names are unsupported." 73
   read_snapshot_file "$file" "$MAX_REVOKED_BYTES"
   [[ -z "$revoked_json" ]] || revoked_json+=,
   revoked_json+="{\"archiveName\":$(json_string "$archive_name"),\"config\":$(json_string "$SNAPSHOT_CONTENT")}"
