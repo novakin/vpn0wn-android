@@ -45,6 +45,7 @@ import com.google.android.material.card.MaterialCardView
 import com.vpn0wn.android.BR
 import com.vpn0wn.android.R
 import com.vpn0wn.android.backend.HandshakeObservation
+import com.vpn0wn.android.backend.RecoveryResult
 import com.vpn0wn.android.backend.Statistics
 import com.vpn0wn.android.backend.Tunnel
 import com.vpn0wn.android.databinding.ObservableKeyedRecyclerViewAdapter.RowConfigurationHandler
@@ -252,6 +253,118 @@ object BindingAdapters {
         HandshakeObservation.AddressFamily.IPV4 -> "IPv4"
         HandshakeObservation.AddressFamily.IPV6 -> "IPv6"
         else -> "—"
+    }
+
+    @JvmStatic
+    @BindingAdapter("recoverySnapshot", "recoveryDiagnostics", "recoveryConfig", "recoveryState")
+    fun setRecoveryDiagnostics(
+        view: LinearLayout,
+        snapshot: ObservableTunnel.RecoverySnapshot?,
+        diagnostics: Map<Key, ObservableTunnel.PeerHandshakeDiagnostics>?,
+        config: Config?,
+        state: Tunnel.State?,
+    ) {
+        val context = view.context
+        val active = snapshot.takeIf { state == Tunnel.State.UP }
+        val unavailable = context.getString(R.string.vpn0wn_recovery_unavailable)
+        val counts = listOf(
+            R.id.recovery_counts_attempts to active?.chargedAttempts,
+            R.id.recovery_counts_admissions to active?.confirmedAdmissions,
+            R.id.recovery_counts_requests to active?.backendEntries,
+            R.id.recovery_counts_uncertain to active?.unknownSettlements,
+        )
+        for ((id, count) in counts) {
+            view.findViewById<TextView>(id).text = count?.let { context.getString(R.string.vpn0wn_recovery_count, it) } ?: unavailable
+        }
+        view.findViewById<TextView>(R.id.recovery_status).text = active?.let { recoveryStatus(context, it) } ?: unavailable
+        view.findViewById<TextView>(R.id.recovery_transport).setText(when (active?.transportState) {
+            ObservableTunnel.RecoveryTransportState.UNKNOWN -> R.string.vpn0wn_recovery_unknown
+            ObservableTunnel.RecoveryTransportState.READY -> R.string.vpn0wn_recovery_transport_ready
+            ObservableTunnel.RecoveryTransportState.UNAVAILABLE -> R.string.vpn0wn_recovery_transport_unavailable
+            null -> R.string.vpn0wn_recovery_unavailable
+        })
+        view.findViewById<TextView>(R.id.recovery_request_peer).text = recoveryRequestPeer(context, active, config)
+        view.findViewById<TextView>(R.id.recovery_result).text = active?.let { recoveryResult(context, it) } ?: unavailable
+        view.findViewById<TextView>(R.id.recovery_result_recorded).text = when {
+            active == null -> unavailable
+            active.lastResultRecordedElapsedRealtimeMillis == null -> context.getString(R.string.vpn0wn_recovery_time_unrecorded)
+            else -> context.getString(R.string.vpn0wn_recovery_uptime, active.lastResultRecordedElapsedRealtimeMillis)
+        }
+        view.findViewById<TextView>(R.id.recovery_authentication).text = recoveryAuthentication(context, active, diagnostics, config)
+    }
+
+    private fun recoveryStatus(context: Context, snapshot: ObservableTunnel.RecoverySnapshot): String {
+        val status = when (snapshot.status) {
+            ObservableTunnel.RecoveryStatus.IDLE -> R.string.vpn0wn_recovery_idle
+            ObservableTunnel.RecoveryStatus.PENDING -> R.string.vpn0wn_recovery_pending
+            ObservableTunnel.RecoveryStatus.REQUESTED -> R.string.vpn0wn_recovery_requested
+            ObservableTunnel.RecoveryStatus.BUSY_DEFERRED -> R.string.vpn0wn_recovery_busy_deferred
+            ObservableTunnel.RecoveryStatus.COMPLETED -> R.string.vpn0wn_recovery_completed
+            ObservableTunnel.RecoveryStatus.DROPPED_BUSY -> R.string.vpn0wn_recovery_dropped_busy
+            ObservableTunnel.RecoveryStatus.DROPPED_COOLDOWN -> R.string.vpn0wn_recovery_dropped_cooldown
+            ObservableTunnel.RecoveryStatus.DROPPED_ATTEMPT_LIMIT -> R.string.vpn0wn_recovery_dropped_attempt_limit
+            ObservableTunnel.RecoveryStatus.DROPPED_ENTRY_LIMIT -> R.string.vpn0wn_recovery_dropped_entry_limit
+            ObservableTunnel.RecoveryStatus.DROPPED_DOZE -> R.string.vpn0wn_recovery_dropped_doze
+            ObservableTunnel.RecoveryStatus.DISABLED -> R.string.vpn0wn_recovery_disabled
+            ObservableTunnel.RecoveryStatus.CANCELLED -> R.string.vpn0wn_recovery_cancelled
+            ObservableTunnel.RecoveryStatus.FAILED -> R.string.vpn0wn_recovery_failed
+            ObservableTunnel.RecoveryStatus.OBSOLETE -> R.string.vpn0wn_recovery_obsolete
+        }
+        val facts = mutableListOf(context.getString(status))
+        if (snapshot.requestPending) facts += context.getString(R.string.vpn0wn_recovery_pending_fact)
+        if (snapshot.automaticRecoveryDisabled) facts += context.getString(R.string.vpn0wn_recovery_disabled_fact)
+        return facts.joinToString("\n")
+    }
+
+    private fun recoveryResult(context: Context, snapshot: ObservableTunnel.RecoverySnapshot): String {
+        val outcome = when (snapshot.lastOutcome) {
+            RecoveryResult.Outcome.BUSY -> R.string.vpn0wn_recovery_result_busy
+            RecoveryResult.Outcome.OBSOLETE -> R.string.vpn0wn_recovery_result_obsolete
+            RecoveryResult.Outcome.UNAVAILABLE -> R.string.vpn0wn_recovery_result_unavailable
+            RecoveryResult.Outcome.TRANSPORT_FAILED -> R.string.vpn0wn_recovery_result_transport_failed
+            RecoveryResult.Outcome.INITIATION_STARTED -> R.string.vpn0wn_recovery_result_initiation_started
+            RecoveryResult.Outcome.INITIATION_SKIPPED -> R.string.vpn0wn_recovery_result_initiation_skipped
+            RecoveryResult.Outcome.INITIATION_FAILED -> R.string.vpn0wn_recovery_result_initiation_failed
+            RecoveryResult.Outcome.INITIATION_SEND_FAILED -> R.string.vpn0wn_recovery_result_send_failed
+            null -> null
+        }
+        val failure = when (snapshot.failureCategory) {
+            ObservableTunnel.RecoveryFailureCategory.CANCELLED -> R.string.vpn0wn_recovery_failure_cancelled
+            ObservableTunnel.RecoveryFailureCategory.INTERRUPTED -> R.string.vpn0wn_recovery_failure_interrupted
+            ObservableTunnel.RecoveryFailureCategory.IO -> R.string.vpn0wn_recovery_failure_io
+            ObservableTunnel.RecoveryFailureCategory.SERVICE_UNAVAILABLE -> R.string.vpn0wn_recovery_failure_service
+            ObservableTunnel.RecoveryFailureCategory.DEFECT -> R.string.vpn0wn_recovery_failure_defect
+            null -> null
+        }
+        return listOfNotNull(outcome, failure).takeIf { it.isNotEmpty() }
+            ?.joinToString("\n") { context.getString(it) } ?: context.getString(R.string.vpn0wn_recovery_result_unrecorded)
+    }
+
+    private fun recoveryRequestPeer(context: Context, snapshot: ObservableTunnel.RecoverySnapshot?, config: Config?): String {
+        if (snapshot == null) return context.getString(R.string.vpn0wn_recovery_unavailable)
+        val key = snapshot.lastRequestPeer ?: return context.getString(R.string.vpn0wn_recovery_peer_unrecorded)
+        val peer = config?.peers?.withIndex()?.filter { it.value.publicKey == key }?.singleOrNull()
+            ?: return context.getString(R.string.vpn0wn_recovery_peer_unavailable)
+        return context.getString(R.string.vpn0wn_peer_title, String.format(context.resources.configuration.locales[0], "%02d", peer.index + 1))
+    }
+
+    private fun recoveryAuthentication(
+        context: Context,
+        snapshot: ObservableTunnel.RecoverySnapshot?,
+        diagnostics: Map<Key, ObservableTunnel.PeerHandshakeDiagnostics>?,
+        config: Config?,
+    ): String {
+        if (snapshot == null) return context.getString(R.string.vpn0wn_recovery_unavailable)
+        val key = snapshot.lastRequestPeer
+        val requestTime = snapshot.lastRequestElapsedRealtimeMillis
+        val peer = key?.let { diagnostics?.get(it) }
+        val authenticated = peer?.lastAuthenticated?.takeIf {
+            it.peer() == key && it.event() == HandshakeObservation.Event.AUTHENTICATED && it.session().isActive &&
+                it.session() === peer.lastObservation.session() && requestTime != null && it.elapsedRealtimeMillis() > requestTime &&
+                config?.peers?.count { configured -> configured.publicKey == key } == 1
+        }
+        return authenticated?.let { context.getString(R.string.vpn0wn_recovery_authenticated_later, it.elapsedRealtimeMillis()) }
+            ?: context.getString(R.string.vpn0wn_recovery_unknown)
     }
 
     @JvmStatic
