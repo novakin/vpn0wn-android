@@ -1,6 +1,10 @@
 package com.vpn0wn.android.fragment
 
 import android.app.Application
+import android.content.ClipboardManager
+import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Rect
 import android.os.Bundle
 import android.os.Looper
@@ -33,6 +37,8 @@ import com.vpn0wn.android.provisioning.VpsDeployUserStatus
 import com.vpn0wn.android.provisioning.VpsPlanningTestPeer
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Step
+import com.vpn0wn.android.widget.VpsTopologyView
+import java.io.File
 import java.util.Base64
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
@@ -161,6 +167,66 @@ class VpsProvisioningLayoutTest {
             }
         } finally {
             fixture.close()
+        }
+    }
+
+    @Test fun diagramElisionKeepsCompleteNativeValuesAcrossConfigurations() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val cases = listOf(Triple(320, 640, false), Triple(320, 640, true), Triple(640, 320, false))
+        for ((width, height, rtl) in cases) for (night in listOf("notnight", "night")) {
+            val locale = if (rtl) "ar" else "en"
+            val direction = if (rtl) "ldrtl" else "ldltr"
+            val orientation = if (width > height) "land" else "port"
+            RuntimeEnvironment.setQualifiers("$locale-$direction-w${width}dp-h${height}dp-$orientation-$night-mdpi")
+            RuntimeEnvironment.setFontScale(if (rtl) 2f else 1f)
+            val expectedDirection = if (rtl) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
+            val fixture = provisioningLayoutFixture(folder, expectedDirection)
+            try {
+                val server = VpsDeployMapper.fromStored(VpsDeployFixtureData.storedServers().first(), VpsDeployFixtureData.NOW)
+                    .copy(name = "synthetic-server-with-a-long-context-name", endpoint = "2001:db8:1234:5678::42", cidr = "10.123.240.0/24")
+                val factory = VpsProvisioningFragment::class.java.getDeclaredMethod("detailScreen", VpsDeployServer::class.java)
+                    .apply { isAccessible = true }
+                val detail = factory.invoke(fixture.fragment, server) as View
+                fixture.root.removeAllViews()
+                fixture.root.addView(detail)
+                var drawReady = false
+                repeat(3) {
+                    measure(fixture.root, width, height)
+                    shadowOf(Looper.getMainLooper()).idle()
+                    drawReady = !fixture.root.viewTreeObserver.dispatchOnPreDraw()
+                }
+                assertTrue("Final native layout can draw", drawReady)
+                assertEquals("Actual locale", locale, detail.resources.configuration.locales[0].language)
+                assertEquals("Actual font scale", if (rtl) 2f else 1f, detail.resources.configuration.fontScale)
+                assertEquals("Actual root direction", expectedDirection, fixture.root.layoutDirection)
+                assertEquals("Actual detail direction", expectedDirection, detail.layoutDirection)
+                assertEquals("Actual theme", if (night == "night") Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO,
+                    detail.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)
+                assertTextFits(text(detail, server.name))
+                val scroll = descendants(detail).filterIsInstance<ScrollView>().single()
+                for ((label, value) in listOf(R.string.vpn0wn_label_endpoint to server.endpointAddress,
+                    R.string.vpn0wn_metric_cidr to server.cidr)) {
+                    val labelView = text(detail, fixture.activity.getString(label).uppercase(Locale.ROOT))
+                    val valueView = descendants(labelView.parent as View).filterIsInstance<TextView>().single { it !== labelView }
+                    assertEquals("Complete native source value", value, valueView.text.toString())
+                    val node = valueView.createAccessibilityNodeInfo()
+                    try { assertEquals("Complete accessible value", value, node.text.toString()) } finally { node.recycle() }
+                    if (label == R.string.vpn0wn_label_endpoint) {
+                        assertEquals("IPv6 socket display", "[2001:db8:1234:5678::42]:51820", value)
+                        val copy = descendants(labelView.parent.parent as View).filterIsInstance<ImageButton>().single()
+                        assertReachable(copy, scroll)
+                        assertTrue("Native copy control enabled", copy.isEnabled && copy.isClickable)
+                        assertTrue("Native copy action handled", copy.performClick())
+                        val clipboard = fixture.activity.getSystemService(ClipboardManager::class.java)
+                        assertEquals("Complete IPv6 socket copied", value, clipboard.primaryClip!!.getItemAt(0).text.toString())
+                    }
+                }
+                scroll.scrollTo(0, 0)
+                val name = "$width-${if (rtl) "large-rtl" else "normal"}-$night"
+                saveCanvasPreview(fixture.root, "server-$name")
+                saveCanvasPreview(descendants(detail).filterIsInstance<VpsTopologyView>().single(), "topology-$name")
+                assertTrue("Diagram checks open no SSH", fixture.peer.connections.isEmpty())
+            } finally { fixture.close() }
         }
     }
 
@@ -572,6 +638,15 @@ class VpsProvisioningLayoutTest {
     private fun descendants(root: View): Sequence<View> = sequence {
         yield(root)
         if (root is ViewGroup) for (index in 0 until root.childCount) yieldAll(descendants(root.getChildAt(index)))
+    }
+
+    private fun saveCanvasPreview(view: View, name: String) {
+        val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+        try {
+            view.draw(Canvas(bitmap))
+            val directory = File("../.artifacts/canvas-font-previews").apply { mkdirs() }
+            File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        } finally { bitmap.recycle() }
     }
 
     private fun measure(view: View, width: Int, height: Int) {

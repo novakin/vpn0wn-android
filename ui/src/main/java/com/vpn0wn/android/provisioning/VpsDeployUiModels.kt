@@ -40,7 +40,11 @@ data class VpsDeployServer(
     val usersKnown: Boolean = false,
 ) {
     val endpointAddress: String?
-        get() = if (endpoint != null && port != null) "$endpoint:$port" else null
+        get() {
+            if (endpoint == null || port == null) return null
+            val host = if (':' in endpoint && '[' !in endpoint && ']' !in endpoint) "[$endpoint]" else endpoint
+            return "$host:$port"
+        }
 }
 
 data class VpsDeployUser(

@@ -318,6 +318,14 @@ class AddPeerPresentationTest {
                 }
                 val statusName = if (snapshot == null) "connecting" else "up"
                 save(header, "topology-${case.name}-$statusName")
+                if (snapshot != null && preview.name in listOf("portrait", "large-rtl-portrait", "large-landscape")) {
+                    binding.throughputView.setAddress("10.8.0.2/32")
+                    binding.throughputView.setEndpoint("203.0.113.42:51820")
+                    binding.throughputView.setMtu("1420")
+                    binding.throughputView.setRates("123.4 MiB/s", "42.1 KiB/s")
+                    assertFalse("Complete schematic draw accepted", binding.root.viewTreeObserver.dispatchOnPreDraw())
+                    save(binding.tunnelSchematicCard, "canvas-throughput-${case.name}")
+                }
             }
         }
     }

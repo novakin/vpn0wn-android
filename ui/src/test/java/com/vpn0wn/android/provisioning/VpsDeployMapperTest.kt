@@ -74,6 +74,33 @@ class VpsDeployMapperTest {
     }
 
     @Test
+    fun endpointAddressBracketsIpv6OnceWithoutChangingObservedHost() {
+        for ((endpoint, expected) in listOf(
+            "2001:db8:1234:5678::42" to "[2001:db8:1234:5678::42]:51821",
+            "[2001:db8:1234:5678::42]" to "[2001:db8:1234:5678::42]:51821",
+            "fe80::42%wlan0" to "[fe80::42%wlan0]:51821",
+            "[fe80::42%wlan0]" to "[fe80::42%wlan0]:51821",
+        )) {
+            val stored = storedServer(lastSyncEpochSeconds = NOW).copy(endpoint = endpoint, listenPort = "51821")
+            val server = VpsDeployMapper.fromStored(stored, NOW)
+            assertEquals(expected, server.endpointAddress)
+            assertEquals("Observed spelling retained", endpoint, server.endpoint)
+            assertEquals("Stored host retained", endpoint, stored.endpoint)
+        }
+    }
+
+    @Test
+    fun endpointAddressPreservesIpv4HostnamesAndUnknownFields() {
+        val server = VpsDeployMapper.fromStored(storedServer(lastSyncEpochSeconds = NOW), NOW)
+        for (endpoint in listOf("203.0.113.42", "VPN.example", "vpn.example.")) {
+            assertEquals("$endpoint:51820", server.copy(endpoint = endpoint).endpointAddress)
+        }
+        assertEquals(null, server.copy(endpoint = null).endpointAddress)
+        assertEquals(null, server.copy(port = null).endpointAddress)
+        assertEquals(null, server.copy(endpoint = null, port = null).endpointAddress)
+    }
+
+    @Test
     fun refreshReplacesSavedMetadataIncludingStoppedAndUnknownValues() {
         val stored = storedServer(lastSyncEpochSeconds = NOW - 18L).copy(host = "192.0.2.10", running = true)
         for (running in listOf(true, false, null)) {
