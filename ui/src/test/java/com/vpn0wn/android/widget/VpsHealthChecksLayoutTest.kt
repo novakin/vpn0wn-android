@@ -3,7 +3,11 @@ package com.vpn0wn.android.widget
 
 import android.app.Application
 import android.content.Context
+import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.Rect
+import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
@@ -15,6 +19,7 @@ import com.vpn0wn.android.R
 import com.vpn0wn.android.provisioning.VpsDeployFixtureData
 import com.vpn0wn.android.provisioning.VpsDeployHealthCheck
 import com.vpn0wn.android.provisioning.VpsDeployMapper
+import java.io.File
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -24,6 +29,7 @@ import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -44,26 +50,33 @@ class VpsHealthChecksLayoutTest {
                 val orientation = if (width > height) "land" else "port"
                 RuntimeEnvironment.setQualifiers("$locale-$direction-w${width}dp-h${height}dp-$orientation-$night-mdpi")
                 RuntimeEnvironment.setFontScale(fontScale)
+                RuntimeEnvironment.setQualifiers("+$direction")
                 val controller = Robolectric.buildActivity(AppCompatActivity::class.java)
                 val activity = controller.get().apply { setTheme(R.style.AppTheme) }
                 controller.setup()
+                activity.supportActionBar?.hide()
                 try {
-                    val root = FrameLayout(activity).apply {
-                        layoutDirection = if (direction == "ldrtl") View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
-                    }
+                    val root = FrameLayout(activity)
                     activity.setContentView(root)
                     val mappedChecks = VpsDeployFixtureData.storedServers().map {
                         VpsDeployMapper.fromStored(activity.resources, it, VpsDeployFixtureData.NOW).health
                     }
-                    for (checks in mappedChecks + listOf(translatedLabelStressChecks(activity))) {
+                    val cases = mappedChecks + listOf(translatedLabelStressChecks(activity), compactSyntheticChecks())
+                    for ((caseIndex, checks) in cases.withIndex()) {
+                        val compact = caseIndex == cases.lastIndex
                         val layout = VpsHealthChecksLayout(activity, checks).apply { setPadding(14, 10, 14, 10) }
                         root.removeAllViews()
                         root.addView(layout, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.WRAP_CONTENT))
-                        root.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
-                            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY))
-                        root.layout(0, 0, width, height)
-                        assertEquals("Requested direction", root.layoutDirection, layout.layoutDirection)
+                        measure(root, width, height)
+                        val expectedDirection = if (direction == "ldrtl") View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
+                        assertEquals("Effective resource direction", expectedDirection, root.resources.configuration.layoutDirection)
+                        assertEquals("Inherited root direction", expectedDirection, root.layoutDirection)
+                        assertEquals("Inherited badge-layout direction", expectedDirection, layout.layoutDirection)
+                        assertEquals("Actual locale", locale, root.resources.configuration.locales[0].language)
+                        assertEquals("Actual font scale", fontScale, root.resources.configuration.fontScale, 0f)
+                        assertEquals("Actual system theme", if (night == "night") Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO,
+                            root.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)
                         val badges = (0 until layout.childCount).map { layout.getChildAt(it) }.filterIsInstance<TextView>()
                         assertEquals("All checks retained", checks.size, badges.size)
                         checks.zip(badges).forEach { (check, badge) -> assertVisibleCheck(layout, check, badge) }
@@ -74,8 +87,15 @@ class VpsHealthChecksLayoutTest {
                         if (direction == "ldrtl") assertEquals("RTL starts at right", layout.width - layout.paddingRight, first.right)
                         else assertEquals("LTR starts at left", layout.paddingLeft, first.left)
                         if (width == 160) assertTrue("Narrow checks wrap into rows", badges.map { it.top }.distinct().size > 1)
-                        if (width == 160 && fontScale == 2f) assertTrue("Wide labels grow vertically", badges.any { it.lineCount > 1 })
-                        if (width == 640 && fontScale == 1f) assertEquals("Roomy checks keep one row", 1, badges.map { it.top }.distinct().size)
+                        if (width == 160 && fontScale == 2f && !compact) assertTrue("Wide labels grow vertically", badges.any { it.lineCount > 1 })
+                        if (width == 640 && fontScale == 1f && compact) {
+                            assertEquals("Roomy compact checks keep one row", 1, badges.map { it.top }.distinct().size)
+                        }
+                        val frenchPreview = locale == "fr" && width in listOf(320, 640)
+                        val englishBaseline = locale == "en" && width == 640 && fontScale == 1f && night == "notnight" && direction == "ldltr"
+                        if (caseIndex == 0 && (frenchPreview || englishBaseline)) {
+                            capture(root, width, height, "$locale-$width-$fontScale-$night-$direction")
+                        }
                     }
                 } finally {
                     controller.pause().stop().destroy()
@@ -120,5 +140,47 @@ class VpsHealthChecksLayoutTest {
         VpsDeployHealthCheck(context.getString(R.string.vpn0wn_label_last_sync), true),
     )
 
+    private fun compactSyntheticChecks() = listOf(
+        VpsDeployHealthCheck("SSH", true),
+        VpsDeployHealthCheck("DNS", false),
+        VpsDeployHealthCheck("VPN", null),
+        VpsDeployHealthCheck("PEERS", true),
+    )
+
+    private fun measure(root: View, width: Int, height: Int) {
+        val viewport = root.rootView
+        var ready = false
+        repeat(LAYOUT_PASSES) {
+            viewport.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY))
+            viewport.layout(0, 0, viewport.measuredWidth, viewport.measuredHeight)
+            ready = !viewport.viewTreeObserver.dispatchOnPreDraw()
+            shadowOf(Looper.getMainLooper()).idle()
+        }
+        assertTrue("Settled native health traversal permits drawing", ready)
+        assertEquals("Requested health window width", width, viewport.width)
+        assertEquals("Requested health window height", height, viewport.height)
+        assertEquals("Health content fills the window width", width, root.width)
+        assertEquals("Health content fills the window height", height, root.height)
+    }
+
+    private fun capture(root: View, width: Int, height: Int, name: String) {
+        measure(root, width, height)
+        val project = File(requireNotNull(System.getProperty("user.dir"))).let { if (it.name == "ui") it.parentFile else it }
+        val output = System.getenv("VPN0WN_HEALTH_COPY_OUTPUT")?.let(::File)
+            ?: File(project, ".artifacts/vps-health-previews")
+        assertTrue("Health preview output directory is available", output.isDirectory || output.mkdirs())
+        val viewport = root.rootView
+        val bitmap = Bitmap.createBitmap(viewport.width, viewport.height, Bitmap.Config.ARGB_8888)
+        try {
+            viewport.draw(Canvas(bitmap))
+            File(output, "$name.png").outputStream().use { assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) }
+        } finally { bitmap.recycle() }
+    }
+
     private fun bounds(view: View) = Rect(view.left, view.top, view.right, view.bottom)
+
+    private companion object {
+        const val LAYOUT_PASSES = 3
+    }
 }

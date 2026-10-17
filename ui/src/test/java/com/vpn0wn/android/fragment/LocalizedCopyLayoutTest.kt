@@ -9,6 +9,7 @@ import android.graphics.Rect
 import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.res.ResourcesCompat
@@ -191,6 +192,7 @@ class LocalizedCopyLayoutTest {
                 val controller = Robolectric.buildActivity(AppCompatActivity::class.java)
                 controller.get().setTheme(R.style.AppTheme)
                 controller.setup()
+                controller.get().supportActionBar?.hide()
                 try { check(controller.get(), case) } finally { controller.pause().stop().destroy() }
             }
         } finally {
@@ -210,6 +212,8 @@ class LocalizedCopyLayoutTest {
         assertEquals("Inherited native direction", direction, root.layoutDirection)
         assertEquals(if (case.night) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO,
             config.uiMode and Configuration.UI_MODE_NIGHT_MASK)
+        assertEquals("Requested window width", case.width, root.rootView.width)
+        assertEquals("Requested window height", case.height, root.rootView.height)
         assertEquals(case.width, root.width)
         assertEquals(case.height, root.height)
     }
@@ -233,9 +237,16 @@ class LocalizedCopyLayoutTest {
 
     private fun assertFullyVisible(view: View) {
         val visible = Rect()
-        assertTrue("Native content is reachable", view.getGlobalVisibleRect(visible))
-        assertEquals("Complete visible width: ${view.javaClass.simpleName}", view.width, visible.width())
-        assertEquals("Complete visible height: ${view.javaClass.simpleName}", view.height, visible.height())
+        val reachable = view.getGlobalVisibleRect(visible)
+        val position = IntArray(2).also(view::getLocationInWindow)
+        val bounds = Rect(position[0], position[1], position[0] + view.width, position[1] + view.height)
+        val scroll = generateSequence(view.parent as? View) { it.parent as? View }.filterIsInstance<ScrollView>()
+            .joinToString { "${it.width}x${it.height}@scrollY=${it.scrollY}" }
+        val diagnostic = "${view.javaClass.simpleName} id=${view.id} text=${(view as? TextView)?.text}; " +
+            "bounds=$bounds visible=$visible decor=${view.rootView.width}x${view.rootView.height} scroll=$scroll"
+        assertTrue("Native content is reachable; $diagnostic", reachable)
+        assertEquals("Complete visible width; $diagnostic", view.width, visible.width())
+        assertEquals("Complete visible height; $diagnostic", view.height, visible.height())
     }
 
     private fun assertTarget(view: View) {
@@ -280,12 +291,13 @@ class LocalizedCopyLayoutTest {
     }
 
     private fun layout(root: View, case: Preview) {
+        val viewport = root.rootView
         var ready = false
         repeat(LAYOUT_PASSES) {
-            root.measure(View.MeasureSpec.makeMeasureSpec(case.width, View.MeasureSpec.EXACTLY),
+            viewport.measure(View.MeasureSpec.makeMeasureSpec(case.width, View.MeasureSpec.EXACTLY),
                 View.MeasureSpec.makeMeasureSpec(case.height, View.MeasureSpec.EXACTLY))
-            root.layout(0, 0, root.measuredWidth, root.measuredHeight)
-            ready = !root.viewTreeObserver.dispatchOnPreDraw()
+            viewport.layout(0, 0, viewport.measuredWidth, viewport.measuredHeight)
+            ready = !viewport.viewTreeObserver.dispatchOnPreDraw()
             shadowOf(Looper.getMainLooper()).idle()
         }
         assertTrue("Settled native traversal permits drawing", ready)
