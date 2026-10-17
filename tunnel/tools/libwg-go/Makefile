@@ -41,11 +41,14 @@ $(GRADLE_USER_HOME)/caches/golang/$(GO_TARBALL):
 	echo "$(GO_HASH_$(GO_PLATFORM))  $@.tmp" | sha256sum -c && \
 	mv "$@.tmp" "$@"'
 
-$(BUILDDIR)/go-$(GO_VERSION)/.prepared: $(GRADLE_USER_HOME)/caches/golang/$(GO_TARBALL)
-	mkdir -p "$(dir $@)"
-	flock "$@.lock" -c ' \
-	[ -f "$@" ] && exit 0; \
-	tar -C "$(dir $@)" --strip-components=1 -xzf "$^" && \
+$(BUILDDIR)/go-$(GO_VERSION)/.prepared: $(GRADLE_USER_HOME)/caches/golang/$(GO_TARBALL) goruntime-boottime-over-monotonic.diff Makefile
+	mkdir -p "$(BUILDDIR)"
+	flock "$(BUILDDIR)/go-$(GO_VERSION).lock" -c 'set -e; \
+	if [ "$@" -nt "$<" ] && [ "$@" -nt goruntime-boottime-over-monotonic.diff ] && [ "$@" -nt Makefile ]; then exit 0; fi; \
+	rm -rf "$(dir $@)"; \
+	echo "$(GO_HASH_$(GO_PLATFORM))  $<" | sha256sum -c; \
+	mkdir -p "$(dir $@)"; \
+	tar -C "$(dir $@)" --strip-components=1 -xzf "$<" && \
 	patch -p1 -f -N -r- -d "$(dir $@)" < goruntime-boottime-over-monotonic.diff && \
 	touch "$@"'
 
