@@ -18,7 +18,6 @@ import com.vpn0wn.android.model.TunnelManager
 import com.vpn0wn.android.model.TunnelTestEnvironment
 import com.vpn0wn.config.Config as TunnelConfig
 import java.io.IOException
-import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -33,6 +32,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -41,8 +41,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
-import org.json.JSONArray
-import org.json.JSONObject
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
@@ -57,14 +55,14 @@ class ConfigNamingDialogFragmentTest {
     @get:Rule val folder = TemporaryFolder()
 
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
-    fun nativeNamingFontProbeRecordsGlyphComparisonWithoutChangingProductFont() = namingTest {
+    fun nativeNamingFieldUsesPackagedMonoGlyphsAndSharedFeatures() = namingTest {
         name.setText("home-lab_01")
         val actual = TextPaint(name.paint)
         val expected = TextPaint(name.paint).apply {
             typeface = requireNotNull(ResourcesCompat.getFont(activity, R.font.jetbrains_mono_regular))
             fontFeatureSettings = "ss01, zero, tnum"
         }
-        val samples = JSONArray()
+        assertEquals("Configured shared features", "ss01, zero, tnum", actual.fontFeatureSettings)
         for (sample in listOf("home-lab_01", "0123456789", "a0O1Il")) {
             fun outline(paint: TextPaint): FloatArray {
                 val path = Path()
@@ -75,25 +73,12 @@ class ConfigNamingDialogFragmentTest {
             val expectedPath = outline(expected)
             assertTrue("Native actual outline exists", actualPath.isNotEmpty())
             assertTrue("Native packaged control outline exists", expectedPath.isNotEmpty())
-            val sameLength = actualPath.size == expectedPath.size
-            val maximumDelta = if (sameLength) actualPath.indices.maxOf { kotlin.math.abs(actualPath[it] - expectedPath[it]) } else null
-            samples.put(JSONObject().put("sample", sample)
-                .put("actualAdvance", actual.measureText(sample)).put("packagedAdvance", expected.measureText(sample))
-                .put("actualOutlineValues", actualPath.size).put("packagedOutlineValues", expectedPath.size)
-                .put("maximumOutlineDelta", maximumDelta ?: JSONObject.NULL)
-                .put("outlineMatches", sameLength && maximumDelta != null && maximumDelta <= 0.01f))
+            assertArrayEquals("Packaged Mono glyphs: $sample", expectedPath, actualPath, 0.01f)
+            assertEquals("Packaged Mono advance: $sample", expected.measureText(sample), actual.measureText(sample), 0.01f)
         }
-        val directory = File("../.artifacts/naming-font-probe").apply { mkdirs() }
-        File(directory, "native-comparison.json").writeText(JSONObject()
-            .put("kind", "diagnostic; not a font-acceptance verdict")
-            .put("actualFeatures", actual.fontFeatureSettings ?: JSONObject.NULL)
-            .put("packagedFeatures", expected.fontFeatureSettings)
-            .put("locale", activity.resources.configuration.locales[0].toLanguageTag())
-            .put("fontScale", activity.resources.configuration.fontScale)
-            .put("layoutDirection", name.layoutDirection).put("samples", samples).toString(2))
-        assertEquals("Probe preserves field content", "home-lab_01", name.text.toString())
-        assertTrue("Probe keeps native dialog", dialog.isShowing)
-        assertTrue("Probe creates no tunnel", environment.store.configs.isEmpty())
+        assertEquals("Font check preserves field content", "home-lab_01", name.text.toString())
+        assertTrue("Font check keeps native dialog", dialog.isShowing)
+        assertTrue("Font check creates no tunnel", environment.store.configs.isEmpty())
         assertEquals(0, store.calls.get())
     }
 

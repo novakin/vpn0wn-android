@@ -88,12 +88,12 @@
             <LinearLayout
                 android:id="@+id/endpoint_row"
                 style="@style/Vpn0wnDetailRow"
-                android:contentDescription="@{@string/endpoint + `: ` + endpointText.text}"
+                android:contentDescription="@{@string/endpoint + `: ` + BindingAdapters.optionalText(item.endpoint, ``)}"
                 android:foreground="?attr/selectableItemBackground"
                 android:minHeight="48dp"
                 android:orientation="vertical"
                 android:visibility="@{!item.endpoint.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                app:copyText="@{endpointText.text}">
+                app:copyText="@{BindingAdapters.optionalText(item.endpoint, ``)}">
 
                 <TextView
                     style="@style/Vpn0wnConfigRowLabel"
@@ -109,12 +109,12 @@
             <LinearLayout
                 android:id="@+id/allowed_ips_row"
                 style="@style/Vpn0wnDetailRow"
-                android:contentDescription="@{@string/allowed_ips + `: ` + allowedIpsText.text}"
+                android:contentDescription="@{@string/allowed_ips + `: ` + BindingAdapters.inetNetworksText(item.allowedIps)}"
                 android:foreground="?attr/selectableItemBackground"
                 android:minHeight="48dp"
                 android:orientation="vertical"
-                android:visibility="@{item.allowedIps.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                app:copyText="@{allowedIpsText.text}">
+                android:visibility="@{item == null || item.allowedIps.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
+                app:copyText="@{BindingAdapters.inetNetworksText(item.allowedIps)}">
 
                 <TextView
                     style="@style/Vpn0wnConfigRowLabel"
@@ -130,12 +130,12 @@
             <LinearLayout
                 android:id="@+id/persistent_keepalive_row"
                 style="@style/Vpn0wnDetailRow"
-                android:contentDescription="@{@string/persistent_keepalive + `: ` + persistentKeepaliveText.text}"
+                android:contentDescription="@{@string/persistent_keepalive + `: ` + BindingAdapters.persistentKeepaliveText(context, item)}"
                 android:foreground="?attr/selectableItemBackground"
                 android:minHeight="48dp"
                 android:orientation="vertical"
                 android:visibility="@{!item.persistentKeepalive.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                app:copyText="@{persistentKeepaliveText.text}">
+                app:copyText="@{BindingAdapters.persistentKeepaliveText(context, item)}">
 
                 <TextView
                     style="@style/Vpn0wnConfigRowLabel"
@@ -144,7 +144,7 @@
                 <TextView
                     android:id="@+id/persistent_keepalive_text"
                     style="@style/Vpn0wnConfigRowValue"
-                    android:text="@{item == null ? `` : @plurals/persistent_keepalive_seconds_unit(item.persistentKeepalive.orElse(0), item.persistentKeepalive.orElse(0))}"
+                    android:text="@{BindingAdapters.persistentKeepaliveText(context, item)}"
                     tools:text="every 25 seconds" />
             </LinearLayout>
 
@@ -222,12 +222,12 @@
             <LinearLayout
                 style="@style/Vpn0wnDetailRow"
                 android:id="@+id/latest_handshake_row"
-                android:contentDescription="@{@string/latest_handshake + `: ` + latestHandshakeText.text}"
+                android:contentDescription="@{@string/latest_handshake + `: ` + BindingAdapters.peerHandshake(statistics)}"
                 android:foreground="?attr/selectableItemBackground"
                 android:minHeight="48dp"
                 android:orientation="vertical"
                 android:visibility="@{BindingAdapters.peerHandshakeVisible(statistics) ? android.view.View.VISIBLE : android.view.View.GONE}"
-                app:copyText="@{latestHandshakeText.text}">
+                app:copyText="@{BindingAdapters.peerHandshake(statistics)}">
 
                 <TextView
                     android:id="@+id/latest_handshake_label"

@@ -163,12 +163,17 @@ class AddPeerPresentationTest {
         }
     }
 
-    @Test fun missingAndZeroStatisticsClearOldCellsAndWholeRows() = runTest {
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun missingAndZeroStatisticsClearOldCellsAndWholeRows() = runTest {
         environment = TunnelTestEnvironment(folder.root, backgroundScope)
-        val binding = peer(host())
+        val activity = host()
+        val binding = peer(activity)
+        activity.setContentView(binding.root)
         for (empty in listOf(null, Statistics.PeerStats(0L, 0L, 0L))) {
             binding.statistics = Statistics.PeerStats(2048L, 1024L, 1L)
             binding.executePendingBindings()
+            shadowOf(android.os.Looper.getMainLooper()).idle()
+            assertTrue("Populated handshake exposes its copy action", binding.latestHandshakeRow.isClickable)
             binding.statistics = empty
             binding.executePendingBindings()
             shadowOf(android.os.Looper.getMainLooper()).idle()

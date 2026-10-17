@@ -396,11 +396,11 @@
                     <LinearLayout
                         android:id="@+id/interface_name_row"
                         style="@style/Vpn0wnDetailRow"
-                        android:contentDescription="@{@string/tunnel_name + `: ` + interfaceNameText.text}"
+                        android:contentDescription="@{@string/tunnel_name + `: ` + (tunnel == null ? `` : tunnel.name)}"
                         android:foreground="?attr/selectableItemBackground"
                         android:minHeight="48dp"
                         android:orientation="vertical"
-                        app:copyText="@{interfaceNameText.text}">
+                        app:copyText="@{tunnel.name}">
 
                         <TextView
                             style="@style/Vpn0wnConfigRowLabel"
@@ -437,12 +437,12 @@
                     <LinearLayout
                         android:id="@+id/addresses_row"
                         style="@style/Vpn0wnDetailRow"
-                        android:contentDescription="@{@string/addresses + `: ` + addressesText.text}"
+                        android:contentDescription="@{@string/addresses + `: ` + BindingAdapters.inetNetworksText(config.interface.addresses)}"
                         android:foreground="?attr/selectableItemBackground"
                         android:minHeight="48dp"
                         android:orientation="vertical"
                         android:visibility="@{config.interface.addresses.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                        app:copyText="@{addressesText.text}">
+                        app:copyText="@{BindingAdapters.inetNetworksText(config.interface.addresses)}">
 
                         <TextView
                             style="@style/Vpn0wnConfigRowLabel"
@@ -458,12 +458,12 @@
                     <LinearLayout
                         android:id="@+id/dns_servers_row"
                         style="@style/Vpn0wnDetailRow"
-                        android:contentDescription="@{@string/dns_servers + `: ` + dnsServersText.text}"
+                        android:contentDescription="@{@string/dns_servers + `: ` + BindingAdapters.inetAddressesText(config.interface.dnsServers)}"
                         android:foreground="?attr/selectableItemBackground"
                         android:minHeight="48dp"
                         android:orientation="vertical"
                         android:visibility="@{config.interface.dnsServers.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                        app:copyText="@{dnsServersText.text}">
+                        app:copyText="@{BindingAdapters.inetAddressesText(config.interface.dnsServers)}">
 
                         <TextView
                             style="@style/Vpn0wnConfigRowLabel"
@@ -479,12 +479,12 @@
                     <LinearLayout
                         android:id="@+id/dns_search_domains_row"
                         style="@style/Vpn0wnDetailRow"
-                        android:contentDescription="@{@string/dns_search_domains + `: ` + dnsSearchDomainsText.text}"
+                        android:contentDescription="@{@string/dns_search_domains + `: ` + BindingAdapters.stringsText(config.interface.dnsSearchDomains)}"
                         android:foreground="?attr/selectableItemBackground"
                         android:minHeight="48dp"
                         android:orientation="vertical"
                         android:visibility="@{config.interface.dnsSearchDomains.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                        app:copyText="@{dnsSearchDomainsText.text}">
+                        app:copyText="@{BindingAdapters.stringsText(config.interface.dnsSearchDomains)}">
 
                         <TextView
                             style="@style/Vpn0wnConfigRowLabel"
@@ -509,11 +509,11 @@
                             style="@style/Vpn0wnDetailRow"
                             android:layout_width="0dp"
                             android:layout_weight="1"
-                            android:contentDescription="@{@string/listen_port + `: ` + listenPortText.text}"
+                            android:contentDescription="@{@string/listen_port + `: ` + BindingAdapters.optionalText(config.interface.listenPort, `—`)}"
                             android:foreground="?attr/selectableItemBackground"
                             android:minHeight="48dp"
                             android:orientation="vertical"
-                            app:copyText="@{listenPortText.text}">
+                            app:copyText="@{BindingAdapters.optionalText(config.interface.listenPort, `—`)}">
 
                             <TextView
                                 style="@style/Vpn0wnConfigRowLabel"
@@ -522,7 +522,7 @@
                             <TextView
                                 android:id="@+id/listen_port_text"
                                 style="@style/Vpn0wnConfigRowValue"
-                                android:text="@{config.interface.listenPort.isPresent() ? config.interface.listenPort.get().toString() : `—`}"
+                                android:text="@{BindingAdapters.optionalText(config.interface.listenPort, `—`)}"
                                 tools:text="51820" />
                         </LinearLayout>
 
@@ -531,11 +531,11 @@
                             style="@style/Vpn0wnDetailRow"
                             android:layout_width="0dp"
                             android:layout_weight="1"
-                            android:contentDescription="@{@string/mtu + `: ` + mtuText.text}"
+                            android:contentDescription="@{@string/mtu + `: ` + BindingAdapters.optionalText(config.interface.mtu, `—`)}"
                             android:foreground="?attr/selectableItemBackground"
                             android:minHeight="48dp"
                             android:orientation="vertical"
-                            app:copyText="@{mtuText.text}">
+                            app:copyText="@{BindingAdapters.optionalText(config.interface.mtu, `—`)}">
 
                             <TextView
                                 style="@style/Vpn0wnConfigRowLabel"
@@ -544,7 +544,7 @@
                             <TextView
                                 android:id="@+id/mtu_text"
                                 style="@style/Vpn0wnConfigRowValue"
-                                android:text="@{config.interface.mtu.isPresent() ? config.interface.mtu.get().toString() : `—`}"
+                                android:text="@{BindingAdapters.optionalText(config.interface.mtu, `—`)}"
                                 tools:text="1420" />
                         </LinearLayout>
                     </LinearLayout>
@@ -552,12 +552,12 @@
                     <LinearLayout
                         android:id="@+id/applications_row"
                         style="@style/Vpn0wnDetailRow"
-                        android:contentDescription="@{@string/applications + `: ` + applicationsText.text}"
+                        android:contentDescription="@{@string/applications + `: ` + BindingAdapters.applicationsText(context, config)}"
                         android:foreground="?attr/selectableItemBackground"
                         android:minHeight="48dp"
                         android:orientation="vertical"
                         android:visibility="@{config.interface.includedApplications.isEmpty() &amp;&amp; config.interface.excludedApplications.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
-                        app:copyText="@{applicationsText.text}"
+                        app:copyText="@{BindingAdapters.applicationsText(context, config)}"
                         tools:visibility="visible">
 
                         <TextView
@@ -568,7 +568,7 @@
                         <TextView
                             android:id="@+id/applications_text"
                             style="@style/Vpn0wnConfigRowValue"
-                            android:text="@{config.interface.includedApplications.isEmpty() ? @plurals/n_excluded_applications(config.interface.excludedApplications.size(), config.interface.excludedApplications.size()) : @plurals/n_included_applications(config.interface.includedApplications.size(), config.interface.includedApplications.size())}"
+                            android:text="@{BindingAdapters.applicationsText(context, config)}"
                             tools:text="2 excluded" />
                     </LinearLayout>
                 </LinearLayout>

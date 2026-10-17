@@ -77,6 +77,7 @@ class DetailCopyControlsTest {
                             binding.config = profile
                             binding.tunnel = ObservableTunnel(environment.manager, name, profile, Tunnel.State.DOWN)
                             binding.executePendingBindings()
+                            assertTrue("Addresses copy is ready after one populated bind", binding.addressesRow.isClickable)
                             shadowOf(Looper.getMainLooper()).idle()
                             measure(binding.root, width, height)
                             assertEquals(direction, binding.root.layoutDirection)
@@ -121,12 +122,14 @@ class DetailCopyControlsTest {
                             peerBinding.item = null
                             peerBinding.executePendingBindings()
                             shadowOf(Looper.getMainLooper()).idle()
+                            assertNull("Cleared peer remains unavailable after native scheduling", peerBinding.item)
                             for ((index, row) in listOf(peerBinding.endpointRow, peerBinding.allowedIpsRow, peerBinding.persistentKeepaliveRow).withIndex()) {
-                                assertEquals(View.GONE, row.visibility)
-                                assertFalse("Unavailable values retire copy", row.isClickable || row.isFocusable || row.hasOnClickListeners())
+                                val label = activity.getString(peerLabels[index])
+                                assertEquals("$label hides with its unavailable peer", View.GONE, row.visibility)
+                                assertFalse("$label retires its unavailable copy action", row.isClickable || row.isFocusable || row.hasOnClickListeners())
                                 val node = row.createAccessibilityNodeInfo()
                                 try {
-                                    assertEquals("Unavailable action clears its former value", activity.getString(peerLabels[index]) + ": ", node.contentDescription.toString())
+                                    assertEquals("Unavailable $label clears its former value", "$label: ", node.contentDescription.toString())
                                     assertFalse("Unavailable action is not clickable", node.isClickable)
                                 } finally { node.recycle() }
                             }
@@ -146,15 +149,18 @@ class DetailCopyControlsTest {
 
     private fun assertCopy(row: View, value: TextView, expected: String, label: String, scroll: ScrollView) {
         row.requestRectangleOnScreen(Rect(0, 0, row.width, row.height), true)
+        shadowOf(Looper.getMainLooper()).idle()
         assertEquals(expected, value.text.toString())
-        assertTrue("Row is the single copy owner", row.isClickable && row.isFocusable && row.hasOnClickListeners())
+        assertTrue("$label is the single copy owner for $expected", row.isClickable && row.isFocusable && row.hasOnClickListeners())
         assertFalse("Value has no competing action", value.isClickable || value.hasOnClickListeners())
         assertTrue("Native row feedback", requireNotNull(row.foreground).isStateful)
         assertTrue("Existing row supplies 48dp target", row.height >= 48 * row.resources.displayMetrics.density)
         val visible = Rect()
-        assertTrue(row.getGlobalVisibleRect(visible))
-        assertEquals(row.height, visible.height())
-        assertEquals(row.width, visible.width())
+        assertTrue("$label has visible bounds", row.getGlobalVisibleRect(visible))
+        val geometry = "$label: row=${row.width}x${row.height}, visible=$visible, " +
+            "scroll=${scroll.width}x${scroll.height}@${scroll.scrollY}, root=${row.rootView.width}x${row.rootView.height}"
+        assertEquals("Complete reachable height; $geometry", row.height, visible.height())
+        assertEquals("Complete reachable width; $geometry", row.width, visible.width())
         assertTrue("Row remains in native scroll content", descendants(scroll).any { it === row })
         val node = value.createAccessibilityNodeInfo()
         try { assertEquals("Complete accessible value", expected, node.text.toString()) } finally { node.recycle() }
@@ -186,12 +192,16 @@ class DetailCopyControlsTest {
             .setPersistentKeepalive(25 + seed).build()).build()
 
     private fun measure(view: View, width: Int, height: Int) {
-        repeat(2) {
-            view.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+        val viewport = view.rootView
+        var readyToDraw = false
+        repeat(3) {
+            viewport.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
                 View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY))
-            view.layout(0, 0, width, height)
+            viewport.layout(0, 0, viewport.measuredWidth, viewport.measuredHeight)
+            readyToDraw = !viewport.viewTreeObserver.dispatchOnPreDraw()
+            shadowOf(Looper.getMainLooper()).idle()
         }
-        assertFalse("Native draw accepted", view.viewTreeObserver.dispatchOnPreDraw())
+        assertTrue("Native decor traversal accepted", readyToDraw)
     }
 
     private fun descendants(view: View): Sequence<View> = sequence {

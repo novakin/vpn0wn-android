@@ -21,8 +21,14 @@ import com.vpn0wn.android.model.ObservableTunnel
 import com.vpn0wn.android.model.TunnelTestEnvironment
 import com.vpn0wn.android.widget.TunnelThroughputView
 import com.vpn0wn.config.Config
+import com.vpn0wn.config.InetAddresses
+import com.vpn0wn.config.InetNetwork
+import com.vpn0wn.config.Interface
+import com.vpn0wn.config.Peer
 import com.vpn0wn.crypto.Key
+import com.vpn0wn.crypto.KeyPair
 import java.util.Locale
+import java.util.Optional
 import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -59,6 +65,73 @@ class BindingAdaptersTest {
     @Test
     fun shortKeyTruncatesLongKeyWithMiddleEllipsis() {
         assertEquals("abcdef…uvwxyz", BindingAdapters.shortKey("abcdefghijklmnopqrstuvwxyz"))
+    }
+
+    @Test
+    fun typedTextAdaptersPreserveCompleteIpv6OrderAndNullElements() {
+        val view = TextView(context)
+        val networks = listOf(InetNetwork.parse("192.0.2.2/32"), null, InetNetwork.parse("2001:db8::2/128"))
+        val addresses = listOf(InetAddresses.parse("192.0.2.2"), null, InetAddresses.parse("2001:db8::2"))
+        val networkText = "192.0.2.2/32, null, 2001:db8:0:0:0:0:0:2/128"
+        val addressText = "192.0.2.2, null, 2001:db8:0:0:0:0:0:2"
+        assertEquals(networkText, BindingAdapters.inetNetworksText(networks))
+        BindingAdapters.setInetNetworkSetText(view, networks)
+        assertEquals(networkText, view.text.toString())
+        assertEquals(addressText, BindingAdapters.inetAddressesText(addresses))
+        BindingAdapters.setInetAddressSetText(view, addresses)
+        assertEquals(addressText, view.text.toString())
+        val strings = listOf("corp.example", null, "office.example")
+        assertEquals("corp.example, null, office.example", BindingAdapters.stringsText(strings))
+        BindingAdapters.setStringSetText(view, strings)
+        assertEquals("corp.example, null, office.example", view.text.toString())
+        BindingAdapters.setInetNetworkSetText(view, null)
+        assertEquals("", view.text.toString())
+        BindingAdapters.setInetAddressSetText(view, emptyList())
+        assertEquals("", view.text.toString())
+        BindingAdapters.setStringSetText(view, null)
+        assertEquals("", view.text.toString())
+    }
+
+    @Test
+    fun optionalTextPreservesEmptySetterAndExplicitUnknownMarker() {
+        val view = TextView(context)
+        BindingAdapters.setOptionalText(view, Optional.of(51820))
+        assertEquals("51820", view.text.toString())
+        assertEquals("51820", BindingAdapters.optionalText(Optional.of(51820), "—"))
+        for (missing in listOf(null, Optional.empty<Int>())) {
+            BindingAdapters.setOptionalText(view, missing)
+            assertEquals("", view.text.toString())
+            assertEquals("", BindingAdapters.optionalText(missing, ""))
+            assertEquals("—", BindingAdapters.optionalText(missing, "—"))
+        }
+    }
+
+    @Test
+    fun detailPluralFormattingPreservesLocaleCountsAndUnavailablePeer() {
+        val pair = KeyPair(Key.fromBytes(ByteArray(32)))
+        val empty = Config.Builder().setInterface(Interface.Builder().setKeyPair(pair).build()).build()
+        val excluded = Config.Builder().setInterface(Interface.Builder().setKeyPair(pair)
+            .excludeApplication("com.example.first").excludeApplication("com.example.second").build()).build()
+        val included = Config.Builder().setInterface(Interface.Builder().setKeyPair(pair)
+            .includeApplication("com.example.first").build()).build()
+        for (language in listOf("en", "fr", "ar")) {
+            val configuration = Configuration(context.resources.configuration).apply { setLocale(Locale.forLanguageTag(language)) }
+            val localized = context.createConfigurationContext(configuration)
+            for ((config, resource, count) in listOf(
+                Triple(null, R.plurals.n_included_applications, 0),
+                Triple(empty, R.plurals.n_excluded_applications, 0),
+                Triple(excluded, R.plurals.n_excluded_applications, 2),
+                Triple(included, R.plurals.n_included_applications, 1))) {
+                assertEquals("$language applications", localized.resources.getQuantityString(resource, count, count),
+                    BindingAdapters.applicationsText(localized, config))
+            }
+            for (seconds in listOf(0, 1, 25)) {
+                val peer = Peer.Builder().setPublicKey(pair.publicKey).setPersistentKeepalive(seconds).build()
+                assertEquals("$language keepalive $seconds", localized.resources.getQuantityString(
+                    R.plurals.persistent_keepalive_seconds_unit, seconds, seconds), BindingAdapters.persistentKeepaliveText(localized, peer))
+            }
+            assertEquals("", BindingAdapters.persistentKeepaliveText(localized, null))
+        }
     }
 
     @Test
