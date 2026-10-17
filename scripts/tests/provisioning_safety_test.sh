@@ -4,6 +4,7 @@ set -euo pipefail
 TEST_SCRIPT=$(realpath "${BASH_SOURCE[0]}")
 REPO_DIR=$(cd "$(dirname "$TEST_SCRIPT")/../.." && pwd)
 SCRIPTS="${TUNNL_TEST_SCRIPTS:-$REPO_DIR/third_party/wireguard-install/vpn0wn}"
+APP_SCRIPTS=$SCRIPTS
 
 # UID 0 is required by the real scripts, but tests must never gain host root.
 [[ "$EUID" -eq 0 && $(awk '$1 == 0 {print $2}' /proc/self/uid_map) != 0 ]] || {
@@ -2767,6 +2768,267 @@ test_restore_failed_forwarding_recovery_retains_snapshot() {
   assert_private "$recovery" 700
 }
 
+rotation_config() {
+  owned_config
+  ROTATION_OLD=$(printf '%-32.32s' PUBLIC-existing | base64 -w0)
+  ROTATION_NEW=$(printf '%-32.32s' PUBLIC-rotated | base64 -w0)
+  ROTATION_SERVER=$(printf '%-32.32s' PUBLIC-old | base64 -w0)
+  ROTATION_PSK=$(printf '%-32.32s' PSK-preserved | base64 -w0)
+  sed -i "/^PublicKey = /aPresharedKey = $ROTATION_PSK" "$WG_CONF"
+  /bin/cp "$WG_CONF" "$TEST_STATE/runtime.conf"
+  /bin/cp "$WG_CONF" "$TEST_ROOT/before.conf"
+  SCRIPTS="$TEST_ROOT/rotation"
+  mkdir -p "$SCRIPTS"
+  /bin/cp "$APP_SCRIPTS/common.sh" "$APP_SCRIPTS/rotate-peer.sh" "$SCRIPTS/"
+  cat > "$SCRIPTS/rotation-input" <<EOF
+version=1
+operationId=00112233-4455-4677-8899-aabbccddeeff
+name=existing
+serverPublicKey=$ROTATION_SERVER
+oldPublicKey=$ROTATION_OLD
+newPublicKey=$ROTATION_NEW
+address=10.8.0.2/32
+endpoint=vpn.example
+port=51820
+cidr=10.8.0.0/24
+dns=1.1.1.1, 1.0.0.1
+presharedKey=$ROTATION_PSK
+EOF
+  truncate -s -1 "$SCRIPTS/rotation-input"
+  chmod 600 "$SCRIPTS/rotation-input"
+  /bin/cp "$SCRIPTS/rotation-input" "$TEST_ROOT/original-input"
+  : > "$TEST_STATE/trace"
+}
+
+run_rotation() { run_script rotate-peer --input "$SCRIPTS/rotation-input" "$@"; }
+
+assert_rotation_private() {
+  ! grep -qF "$ROTATION_PSK" "$TEST_ROOT/response" "$TEST_ROOT/stderr" "$TEST_STATE/trace"
+  ! grep -Eq '^wg (genkey|genpsk) ' "$TEST_STATE/trace"
+  assert_private "$SCRIPTS/rotation-input" 600
+}
+
+test_c143_rotation_preserves_running_peer_settings_and_unrelated_config() {
+  rotation_config
+  printf '\n# unrelated bytes remain %s\n' "$ROTATION_OLD" >> "$WG_CONF"
+  /bin/cp "$WG_CONF" "$TEST_STATE/runtime.conf"
+  sed "s|^PublicKey = $ROTATION_OLD$|PublicKey = $ROTATION_NEW|" "$WG_CONF" > "$TEST_ROOT/expected.conf"
+  run_rotation
+  assert_success
+  cmp -s "$WG_CONF" "$TEST_ROOT/expected.conf"
+  [[ "$RESPONSE" == *'"mode":"rotate"'* && "$RESPONSE" == *'"running":true'* && "$RESPONSE" == *'"verified":true'* ]]
+  assert_rotation_private
+}
+
+test_c143_rotation_and_verification_preserve_known_stopped_state() {
+  rotation_config
+  /bin/rm "$TEST_STATE/runtime.conf"
+  run_rotation
+  assert_success
+  [[ "$RESPONSE" == *'"running":false'* && ! -e "$TEST_STATE/runtime.conf" ]]
+  : > "$TEST_STATE/trace"
+  run_rotation --verify
+  assert_success
+  [[ "$RESPONSE" == *'"running":false'* ]]
+  assert_no_mutations
+  assert_rotation_private
+}
+
+test_c143_rotation_old_observation_is_not_completion() {
+  rotation_config
+  run_rotation --verify
+  assert_failure peer_identity_mismatch
+  cmp -s "$WG_CONF" "$TEST_ROOT/before.conf"
+  assert_no_mutations
+  assert_rotation_private
+}
+
+test_c143_rotation_readonly_verifier_proves_exact_new_state() {
+  rotation_config
+  run_rotation
+  assert_success
+  /bin/cp "$WG_CONF" "$TEST_ROOT/after.conf"
+  : > "$TEST_STATE/trace"
+  run_rotation --verify
+  assert_success
+  [[ "$RESPONSE" == *'"mode":"verify"'* && "$RESPONSE" == *'"operationId":"00112233-4455-4677-8899-aabbccddeeff"'* ]]
+  cmp -s "$WG_CONF" "$TEST_ROOT/after.conf"
+  assert_no_mutations
+  assert_rotation_private
+}
+
+test_c143_rotation_rejects_private_and_public_setting_drift() {
+  rotation_config
+  for field in psk address endpoint port dns cidr extra; do
+    /bin/cp "$TEST_ROOT/before.conf" "$WG_CONF"
+    case "$field" in
+      psk) sed -i '/^PresharedKey = /d' "$WG_CONF" ;;
+      address) sed -i 's|^AllowedIPs = .*|AllowedIPs = 10.8.0.3/32|' "$WG_CONF" ;;
+      endpoint) sed -i 's|^# ENDPOINT .*|# ENDPOINT changed.example|' "$WG_CONF" ;;
+      port) sed -i 's|^ListenPort = .*|ListenPort = 51900|' "$WG_CONF" ;;
+      dns) sed -i 's|^# TUNNL_DNS .*|# TUNNL_DNS 8.8.8.8|' "$WG_CONF" ;;
+      cidr) sed -i 's|^# TUNNL_CIDR .*|# TUNNL_CIDR 10.9.0.0/24|' "$WG_CONF" ;;
+      extra) sed -i '/^AllowedIPs = /aPersistentKeepalive = 15' "$WG_CONF" ;;
+    esac
+    /bin/cp "$WG_CONF" "$TEST_STATE/runtime.conf"
+    run_rotation
+    assert_failure rotation_mismatch
+    assert_no_mutations
+    assert_rotation_private
+  done
+}
+
+test_c143_rotation_rejects_new_key_reuse_in_unmarked_peer() {
+  rotation_config
+  printf '\n[Peer]\nPublicKey = %s\nAllowedIPs = 10.8.0.3/32\n' "$ROTATION_NEW" >> "$WG_CONF"
+  /bin/cp "$WG_CONF" "$TEST_STATE/runtime.conf"
+  run_rotation
+  assert_failure new_peer_exists
+  assert_no_mutations
+}
+
+test_c143_rotation_requires_private_owned_regular_input() {
+  rotation_config
+  chmod 644 "$SCRIPTS/rotation-input"
+  run_rotation
+  assert_failure invalid_rotation_input
+  /bin/mv "$SCRIPTS/rotation-input" "$SCRIPTS/elsewhere"
+  chmod 600 "$SCRIPTS/elsewhere"
+  ln -s elsewhere "$SCRIPTS/rotation-input"
+  run_rotation
+  assert_failure invalid_rotation_input
+  run_script rotate-peer --input "$SCRIPTS/elsewhere"
+  assert_failure invalid_rotation_input
+  assert_no_mutations
+}
+
+test_c143_rotation_rejects_partial_duplicate_binary_and_oversized_input() {
+  rotation_config
+  for kind in partial duplicate binary oversized unknown; do
+    /bin/cp "$TEST_ROOT/original-input" "$SCRIPTS/rotation-input"
+    case "$kind" in
+      partial) sed -i '/^presharedKey=/d' "$SCRIPTS/rotation-input" ;;
+      duplicate) printf '\nname=existing' >> "$SCRIPTS/rotation-input" ;;
+      binary) printf '\0' >> "$SCRIPTS/rotation-input" ;;
+      oversized) head -c 4097 /dev/zero > "$SCRIPTS/rotation-input" ;;
+      unknown) printf '\nprivateKey=synthetic-must-never-be-uploaded' >> "$SCRIPTS/rotation-input" ;;
+    esac
+    run_rotation
+    assert_failure invalid_rotation_input
+    assert_no_mutations
+    assert_rotation_private
+  done
+}
+
+test_c143_rotation_rejects_unknown_runtime_before_apply() {
+  rotation_config
+  printf '*' > "$TEST_STATE/fail-wg-show"
+  run_rotation
+  assert_failure runtime_unknown
+  cmp -s "$WG_CONF" "$TEST_ROOT/before.conf"
+  assert_no_mutations
+  assert_rotation_private
+}
+
+test_c143_rotation_rejects_live_psk_drift_before_apply() {
+  rotation_config
+  sed -i '/^PresharedKey = /d' "$TEST_STATE/runtime.conf"
+  run_rotation
+  assert_failure runtime_unknown
+  assert_no_mutations
+  assert_rotation_private
+}
+
+test_c143_rotation_apply_failure_proves_restored_original() {
+  rotation_config
+  printf '1' > "$TEST_STATE/fail-wg-syncconf"
+  printf '1' > "$TEST_STATE/fail-systemctl-restart"
+  run_rotation
+  assert_failure apply_failed
+  [[ "$RESPONSE" == *'"recovery":"restored"'* ]]
+  assert_restored
+  assert_rotation_private
+}
+
+test_c143_rotation_incomplete_rollback_keeps_private_recovery() {
+  rotation_config
+  printf '*' > "$TEST_STATE/fail-wg-syncconf"
+  printf '*' > "$TEST_STATE/fail-systemctl-restart"
+  run_rotation
+  assert_failure apply_failed
+  [[ "$RESPONSE" == *'"recovery":"incomplete"'* ]]
+  local recovery
+  recovery=$(find "$WG_DIR" -maxdepth 1 -type d -name '.tunnl-recovery.*')
+  cmp -s "$recovery/previous.conf" "$TEST_ROOT/before.conf"
+  assert_private "$recovery/previous.conf" 600
+  assert_rotation_private
+}
+
+test_c143_rotation_verification_rejects_new_disk_with_old_runtime() {
+  rotation_config
+  sed -i "s|^PublicKey = $ROTATION_OLD$|PublicKey = $ROTATION_NEW|" "$WG_CONF"
+  run_rotation --verify
+  assert_failure runtime_unknown
+  assert_no_mutations
+  assert_rotation_private
+}
+
+test_c143_rotation_preserves_absent_terminal_newline() {
+  rotation_config
+  truncate -s -1 "$WG_CONF"
+  /bin/cp "$WG_CONF" "$TEST_STATE/runtime.conf"
+  sed "s|^PublicKey = $ROTATION_OLD$|PublicKey = $ROTATION_NEW|" "$WG_CONF" > "$TEST_ROOT/expected.conf"
+  run_rotation
+  assert_success
+  cmp -s "$WG_CONF" "$TEST_ROOT/expected.conf"
+  assert_rotation_private
+}
+
+test_c143_rotation_rechecks_identity_after_lock_wait() {
+  rotation_config
+  exec 88>"$WG_LOCK_FILE"
+  flock 88
+  bash "$SCRIPTS/rotate-peer.sh" --input "$SCRIPTS/rotation-input" > "$TEST_ROOT/response" 2> "$TEST_ROOT/stderr" &
+  local process=$!
+  sleep 0.2
+  sed -i "s|^PublicKey = $ROTATION_OLD$|PublicKey = $ROTATION_NEW|" "$WG_CONF"
+  /bin/cp "$WG_CONF" "$TEST_STATE/runtime.conf"
+  flock -u 88
+  set +e
+  wait "$process"
+  RESULT_CODE=$?
+  set -e
+  RESPONSE=$(cat "$TEST_ROOT/response")
+  assert_failure peer_identity_mismatch
+  assert_no_mutations
+  assert_rotation_private
+}
+
+test_c143_rotation_complete_inventory_rejects_compact_new_key() {
+  rotation_config
+  printf '\n[Peer]\nPublicKey=%s\nAllowedIPs=10.8.0.3/32\n' "$ROTATION_NEW" >> "$WG_CONF"
+  for running in true false; do
+    if [[ "$running" == true ]]; then /bin/cp "$WG_CONF" "$TEST_STATE/runtime.conf"; else /bin/rm -f "$TEST_STATE/runtime.conf"; fi
+    : > "$TEST_STATE/trace"
+    run_rotation
+    assert_failure new_peer_exists
+    assert_no_mutations
+  done
+}
+
+test_c143_rotation_complete_inventory_rejects_compact_old_key_at_verification() {
+  rotation_config
+  sed -i "s|^PublicKey = $ROTATION_OLD$|PublicKey = $ROTATION_NEW|" "$WG_CONF"
+  printf '\n[Peer]\npUbLiCkEy=%s\nAllowedIPs=10.8.0.3/32\n' "$ROTATION_OLD" >> "$WG_CONF"
+  for running in true false; do
+    if [[ "$running" == true ]]; then /bin/cp "$WG_CONF" "$TEST_STATE/runtime.conf"; else /bin/rm -f "$TEST_STATE/runtime.conf"; fi
+    : > "$TEST_STATE/trace"
+    run_rotation --verify
+    assert_failure new_peer_exists
+    assert_no_mutations
+  done
+}
+
 if [[ ${1-} == --case ]]; then
   setup
   "$2"
@@ -2774,6 +3036,15 @@ if [[ ${1-} == --case ]]; then
 fi
 
 tests=(
+  test_c143_rotation_preserves_running_peer_settings_and_unrelated_config test_c143_rotation_and_verification_preserve_known_stopped_state
+  test_c143_rotation_old_observation_is_not_completion test_c143_rotation_readonly_verifier_proves_exact_new_state
+  test_c143_rotation_rejects_private_and_public_setting_drift test_c143_rotation_rejects_new_key_reuse_in_unmarked_peer
+  test_c143_rotation_requires_private_owned_regular_input test_c143_rotation_rejects_partial_duplicate_binary_and_oversized_input
+  test_c143_rotation_rejects_unknown_runtime_before_apply test_c143_rotation_rejects_live_psk_drift_before_apply
+  test_c143_rotation_apply_failure_proves_restored_original test_c143_rotation_incomplete_rollback_keeps_private_recovery
+  test_c143_rotation_verification_rejects_new_disk_with_old_runtime test_c143_rotation_preserves_absent_terminal_newline
+  test_c143_rotation_rechecks_identity_after_lock_wait
+  test_c143_rotation_complete_inventory_rejects_compact_new_key test_c143_rotation_complete_inventory_rejects_compact_old_key_at_verification
   test_c143_revoke_correlates_and_flushes_before_apply
   test_c143_revoke_rejects_server_drift_and_invalid_operation_ids
   test_c143_revoke_does_not_reuse_or_delete_existing_operation

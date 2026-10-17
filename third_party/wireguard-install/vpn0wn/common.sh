@@ -423,7 +423,9 @@ verify_runtime_config() {
   actual_port=$(wg show "$WG_IFACE" listen-port 2>/dev/null) || return 1
   [[ "$expected_port" == "$actual_port" ]] || return 1
   peers=$(wg show "$WG_IFACE" peers 2>/dev/null) || return 1
-  [[ "$(printf '%s\n' "$peers" | sed '/^$/d' | LC_ALL=C sort)" == "$(awk '$1 == "PublicKey" {print $3}' "$config" | LC_ALL=C sort)" ]] || return 1
+  local configured_keys
+  configured_keys=$(configured_peer_public_keys "$config") || return 1
+  [[ "$(printf '%s\n' "$peers" | sed '/^$/d' | LC_ALL=C sort)" == "$(printf '%s\n' "$configured_keys" | sed '/^$/d' | LC_ALL=C sort)" ]] || return 1
   routes=$(wg show "$WG_IFACE" allowed-ips 2>/dev/null) || return 1
   [[ "$(printf '%s\n' "$routes" | awk '{key=$1; gsub(/,/, " "); for(i=2;i<=NF;i++) print key " " $i}' | LC_ALL=C sort)" == "$(peer_routes "$config")" ]] || return 1
   psks=$(wg show "$WG_IFACE" preshared-keys 2>/dev/null) || return 1
@@ -589,6 +591,124 @@ require_expected_peer() {
   validate_peer_markers || fail_json "invalid_config" "Peer markers are ambiguous." 74
   grep -qxF "# BEGIN_PEER $name" "$WG_CONF" && grep -qxF "# END_PEER $name" "$WG_CONF" || fail_json "peer_not_found" "Peer was not found." 73
   [[ $(peer_public_key "$name") == "$expected_public_key" ]] || fail_json "peer_identity_mismatch" "Peer identity changed; refresh before retrying." 73
+}
+
+configured_peer_public_keys() {
+  awk '
+    function finish_peer() {if (section == "peer" && keys != 1) invalid=1}
+    {
+      line=$0; sub(/#.*/, "", line); sub(/^[[:space:]]+/, "", line); sub(/[[:space:]]+$/, "", line)
+      if (line == "") next
+      if (line ~ /^\[/) {
+        finish_peer()
+        heading=tolower(line)
+        if (heading == "[peer]") {section="peer"; keys=0}
+        else if (heading == "[interface]") section="interface"
+        else {section=""; invalid=1}
+        next
+      }
+      separator=index(line, "=")
+      if (separator == 0 || section == "") {invalid=1; next}
+      field=substr(line, 1, separator-1); sub(/[[:space:]]+$/, "", field)
+      if (tolower(field) == "publickey") {
+        if (section != "peer") {invalid=1; next}
+        keys++
+        key=substr(line, separator+1); sub(/^[[:space:]]+/, "", key); sub(/[[:space:]]+$/, "", key)
+        if (key == "") invalid=1
+        print key
+      }
+    }
+    END {finish_peer(); exit invalid}
+  ' "$1"
+}
+
+read_rotation_input() {
+  local file=$1 size content line field value
+  local LC_ALL=C
+  [[ "$WG_IFACE" == wg0 && "$file" == "$SCRIPT_DIR/rotation-input" && -f "$file" && ! -L "$file" ]] ||
+    fail_json "invalid_rotation_input" "Rotation input is not an owned regular file." 64
+  [[ $(stat -c %a -- "$file" 2>/dev/null) == 600 ]] || fail_json "invalid_rotation_input" "Rotation input must be private." 64
+  size=$(stat -c %s -- "$file" 2>/dev/null) || fail_json "invalid_rotation_input" "Rotation input cannot be read." 64
+  [[ "$size" -gt 0 && "$size" -le 4096 ]] || fail_json "invalid_rotation_input" "Rotation input exceeds supported limits." 64
+  content=$(head -c 4097 -- "$file" 2>/dev/null && printf '.') || fail_json "invalid_rotation_input" "Rotation input cannot be read." 64
+  content=${content%?}
+  [[ ${#content} -eq "$size" && "${content//$'\n'/}" != *[[:cntrl:]]* ]] || fail_json "invalid_rotation_input" "Rotation input is invalid." 64
+  declare -gA ROTATION_INPUT=()
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" == *=* ]] || fail_json "invalid_rotation_input" "Rotation input is invalid." 64
+    field=${line%%=*}
+    value=${line#*=}
+    case "$field" in
+      version|operationId|name|serverPublicKey|oldPublicKey|newPublicKey|address|endpoint|port|cidr|dns|presharedKey) ;;
+      *) fail_json "invalid_rotation_input" "Rotation input contains an unsupported field." 64 ;;
+    esac
+    [[ ! -v ROTATION_INPUT[$field] && -n "$value" ]] || fail_json "invalid_rotation_input" "Rotation input is ambiguous." 64
+    ROTATION_INPUT[$field]=$value
+  done <<< "$content"
+  [[ ${#ROTATION_INPUT[@]} -eq 12 && ${ROTATION_INPUT[version]} == 1 &&
+      ${ROTATION_INPUT[operationId]} =~ ^$REVOCATION_OPERATION_ID_PATTERN$ &&
+      ${ROTATION_INPUT[name]} =~ ^[A-Za-z0-9_-]{1,32}$ ]] || fail_json "invalid_rotation_input" "Rotation identity is invalid." 64
+  for field in serverPublicKey oldPublicKey newPublicKey presharedKey; do require_public_key "${ROTATION_INPUT[$field]}"; done
+  [[ ${ROTATION_INPUT[oldPublicKey]} != "${ROTATION_INPUT[newPublicKey]}" &&
+      ${ROTATION_INPUT[newPublicKey]} != "${ROTATION_INPUT[serverPublicKey]}" ]] || fail_json "invalid_rotation_input" "Rotation keys are invalid." 64
+  [[ ${ROTATION_INPUT[address]} == */32 ]] || fail_json "invalid_rotation_input" "Rotation address is invalid." 64
+  require_ipv4_address "${ROTATION_INPUT[address]%/32}" invalid_rotation_input
+  require_endpoint "${ROTATION_INPUT[endpoint]}"
+  require_port "${ROTATION_INPUT[port]}"
+  require_ipv4_cidr_24 "${ROTATION_INPUT[cidr]}"
+  require_dns "${ROTATION_INPUT[dns]}"
+}
+
+read_managed_peer_settings() {
+  local name=$1 values
+  values=$(awk -v name="$name" '
+    $0 == "# BEGIN_PEER " name {inside=1; next}
+    $0 == "# END_PEER " name {inside=0; next}
+    inside {
+      sub(/#.*/, ""); gsub(/^[ \t]+|[ \t]+$/, "")
+      if ($0 == "") next
+      if ($0 == "[Peer]") {sections++; next}
+      if ($0 !~ /^[A-Za-z]+[ \t]*=[ \t]*[^ \t]+$/) {invalid=1; next}
+      field=$0; sub(/[ \t]*=.*/, "", field)
+      value=$0; sub(/^[^=]*=[ \t]*/, "", value)
+      if (field != "PublicKey" && field != "PresharedKey" && field != "AllowedIPs") invalid=1
+      if (field in found) invalid=1
+      found[field]=value
+    }
+    END {
+      if (invalid || sections != 1 || length(found) != 3) exit 1
+      print found["PublicKey"]; print found["PresharedKey"]; print found["AllowedIPs"]
+    }
+  ' "$WG_CONF") || return 1
+  mapfile -t MANAGED_PEER_SETTINGS <<< "$values"
+  [[ ${#MANAGED_PEER_SETTINGS[@]} -eq 3 ]]
+}
+
+require_rotation_state() {
+  local expected_key=$1 absent_key=$2 private_key server_key keys key
+  require_expected_peer "${ROTATION_INPUT[name]}" "$expected_key"
+  read_managed_peer_settings "${ROTATION_INPUT[name]}" || fail_json "rotation_mismatch" "Peer settings cannot be verified." 73
+  [[ ${MANAGED_PEER_SETTINGS[0]} == "$expected_key" && ${MANAGED_PEER_SETTINGS[1]} == "${ROTATION_INPUT[presharedKey]}" &&
+      ${MANAGED_PEER_SETTINGS[2]} == "${ROTATION_INPUT[address]}" ]] || fail_json "rotation_mismatch" "Peer settings changed." 73
+  keys=$(configured_peer_public_keys "$WG_CONF") || fail_json "invalid_config" "Peer inventory cannot be read." 74
+  declare -A seen_keys=()
+  while IFS= read -r key; do
+    [[ "$key" =~ ^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$ && ! -v seen_keys[$key] ]] || fail_json "invalid_config" "Peer inventory is ambiguous." 74
+    [[ "$key" != "$absent_key" ]] || fail_json "new_peer_exists" "Conflicting peer identity exists." 73
+    seen_keys[$key]=1
+  done <<< "$keys"
+  private_key=$(awk '$1 == "PrivateKey" && $2 == "=" {print $3; exit}' "$WG_CONF")
+  server_key=$(wg_public_key_from_private "$private_key" 2>/dev/null) || fail_json "server_identity_mismatch" "Server identity cannot be verified." 73
+  [[ "$server_key" == "${ROTATION_INPUT[serverPublicKey]}" ]] || fail_json "server_identity_mismatch" "Server identity changed." 73
+  [[ $(conf_value ENDPOINT) == "${ROTATION_INPUT[endpoint]}" && $(conf_value TUNNL_CIDR) == "${ROTATION_INPUT[cidr]}" &&
+      $(conf_value TUNNL_DNS) == "${ROTATION_INPUT[dns]}" &&
+      $(awk '$1 == "ListenPort" && $2 == "=" {print $3; exit}' "$WG_CONF") == "${ROTATION_INPUT[port]}" ]] ||
+    fail_json "rotation_mismatch" "Server settings changed." 73
+  wg-quick strip "$WG_CONF" >/dev/null 2>&1 || fail_json "invalid_config" "Managed configuration cannot be verified." 74
+  observe_runtime || fail_json "runtime_unknown" "Interface state cannot be verified." 74
+  if [[ "$RUNTIME_RUNNING" == true ]]; then
+    verify_runtime_config "$WG_CONF" || fail_json "runtime_unknown" "Live peer settings cannot be verified." 74
+  fi
 }
 
 prepare_peer_removal() {

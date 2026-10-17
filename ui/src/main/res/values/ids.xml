@@ -38,4 +38,6 @@
     <item name="vpn0wn_backup_import_progress" type="id" />
     <item name="vpn0wn_vps_user_removal_status" type="id" />
     <item name="vpn0wn_vps_reconcile_removal" type="id" />
+    <item name="vpn0wn_vps_user_rotation_status" type="id" />
+    <item name="vpn0wn_vps_reconcile_rotation" type="id" />
 </resources>
