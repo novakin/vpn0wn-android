@@ -558,6 +558,57 @@ class VpsProvisioningViewModel internal constructor(
             consume(profile)
         }
 
+    fun usePeerEndpoint(savedServer: StoredVpsServer, expectedServerPublicKey: String, clientPublicKey: String,
+        expectedFingerprint: String? = null, consume: suspend (VpsServerStatus, VpsPeerStatus, String) -> Unit): Job? =
+        operate(requireActive = false, initialState = mutableState.value.copy(serverId = savedServer.id, savedAccess = SavedAccess.NONE)) {
+            val connection = store.loadConnection(savedServer) ?: run {
+                mutableState.value = mutableState.value.copy(problem = Problem.ACCESS_MISSING)
+                return@operate
+            }
+            val fingerprint = requireNotNull(connection.hostKeyFingerprint)
+            val status = try {
+                if (expectedFingerprint != null && fingerprint != expectedFingerprint) throw VpsServerStore.CredentialConflictException()
+                store.checkPeerEndpointOwner(savedServer, fingerprint)
+                client.syncStatus(connection)
+            } finally {
+                (connection.credential as? VpsCredential.Password)?.clear()
+            }
+            store.checkPeerEndpointOwner(savedServer, fingerprint)
+            if (status.running == null || !hasNumericPeerEndpoint(status)) {
+                mutableState.value = mutableState.value.copy(problem = Problem.INVALID_RESPONSE)
+                return@operate
+            }
+            val peer = status.peers.singleOrNull { it.publicKey == clientPublicKey }
+            val runtimeMatches = if (status.running) status.runtimePeerPublicKeys?.count { it == clientPublicKey } == 1
+                else status.runtimePeerPublicKeys?.isEmpty() == true
+            if (status.interfaceName != DEFAULT_INTERFACE || status.serverPublicKey != expectedServerPublicKey || peer == null ||
+                status.configuredPeerPublicKeys?.count { it == clientPublicKey } != 1 || !runtimeMatches ||
+                status.revokedArchives?.none { it.publicKey == clientPublicKey } != true) {
+                mutableState.value = mutableState.value.copy(problem = Problem.PEER_CHANGED)
+                return@operate
+            }
+            store.checkPeerEndpointOwner(savedServer, fingerprint)
+            currentCoroutineContext().ensureActive()
+            consume(status, peer, fingerprint)
+        }
+
+    internal suspend fun checkPeerEndpointOwner(savedServer: StoredVpsServer, fingerprint: String) =
+        store.checkPeerEndpointOwner(savedServer, fingerprint)
+
+    private fun hasNumericPeerEndpoint(status: VpsServerStatus): Boolean {
+        val port = status.listenPort.toIntOrNull()
+        val bracketed = status.endpoint.startsWith('[') && status.endpoint.endsWith(']')
+        val host = if (bracketed) status.endpoint.substring(1, status.endpoint.lastIndex) else status.endpoint
+        if (port == null || port !in 1..MAX_PORT || port.toString() != status.listenPort ||
+            host.any { it == '[' || it == ']' } || bracketed && ':' !in host) return false
+        return try {
+            InetAddresses.parse(host)
+            true
+        } catch (_: ParseException) {
+            false
+        }
+    }
+
     // Input, pending owners and stale observations have distinct admission failures.
     @Suppress("ThrowsCount")
     fun requestAddUserConfirmation(savedServer: StoredVpsServer, name: String): Job? = operate(

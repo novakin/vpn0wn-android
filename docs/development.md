@@ -1,6 +1,6 @@
 # Development and contribution workflow
 
-Last updated: 2026-10-17 (Europe/Paris).
+Last updated: 2026-10-18 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Setup substantively updated 2026-10-17 (Europe/Paris); historical process/runtime evidence retains its original scope.
 
@@ -211,6 +211,10 @@ Before declaring completion, ask: **“Am I satisfied with this UI/UX result?”
 Run focused repository-native checks first. JVM test tasks compile their dependencies but do not assemble an APK. APK assembly still requires an explicit request. Commands below run from the repository root in an appropriate configured environment:
 
 UI `Test` tasks use one fresh worker per test class with the existing 2 GiB heap limit and default serial execution. Robolectric retains SDK/shadow/graphics sandboxes and resource maps across classes; a full-suite run exhausted the shared heap even though the focused profile controls passed. Worker recycling bounds that retained state per class and adds JVM/framework startup cost. Keep the complete suite as the acceptance check for this boundary; filtered success cannot establish cumulative suite behavior. This configuration changes test execution only, not app process ownership or runtime behavior.
+
+The two API29 profile export/import controls live in `VpsProfileExportWorkflowTest`, separate from the 47 controls in `VpsProvisioningWorkflowTest`. The shared abstract `VpsProvisioningWorkflowFixture` owns setup and cleanup and contains no tests. Class recycling cannot release different SDK/shadow/graphics sandboxes between methods within a class. Keep the existing heap, serial/fork policy, deadlines and 49-control inventory; the [CI ownership record](qa-test-plan.md#ui-ci-ownership-and-sdk-worker-controls--255) distinguishes the observed font-allocation failure from its unproved dominant heap owner.
+
+Positive native tile-result tests await the actual DataStore transaction before checking its returned membership, immediate persisted readback and Settings visibility/reopen behavior. The forwarding fixture must preserve real writes and settle real failures exceptionally. This is explicit operation sequencing, not proof of the cause of an earlier filtered-flow timeout; retain denial, removal and write-failure controls.
 
 The Detekt configuration is compatible with pinned 1.23.8 after the merged #20 repair. Source remediation under [issue #22](https://github.com/novakin/vpn0wn-android/issues/22) now passes native analysis with zero findings; the [dated source evidence](#detekt-source-remediation--2026-10-06) separates that local result from publication and future CI enforcement. The inherited 538/546 findings remain historical evidence below.
 

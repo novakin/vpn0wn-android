@@ -58,6 +58,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.vpn0wn.android.R
 import com.vpn0wn.android.model.ObservableTunnel
+import com.vpn0wn.android.model.TunnelManager
 import com.vpn0wn.android.backend.Tunnel
 import com.vpn0wn.android.provisioning.VpsDeployAction
 import com.vpn0wn.android.provisioning.VpsDeployServer
@@ -87,6 +88,8 @@ import com.vpn0wn.android.util.BiometricAuthenticator
 import com.vpn0wn.android.util.DownloadsFileSaver
 import com.vpn0wn.android.databinding.ConfigNamingDialogFragmentBinding
 import com.vpn0wn.android.provisioning.VpsUserProfile
+import com.vpn0wn.android.provisioning.VpsLocalEndpointUpdate
+import com.vpn0wn.android.provisioning.VpsServerStatus
 import com.vpn0wn.android.provisioning.VpsBackupArchive
 import com.vpn0wn.android.provisioning.VpsBackupArchiveException
 import com.vpn0wn.android.provisioning.VpsBackupDocument
@@ -98,6 +101,7 @@ import com.google.zxing.WriterException
 import com.google.zxing.qrcode.QRCodeWriter
 import com.journeyapps.barcodescanner.BarcodeEncoder
 import java.io.IOException
+import com.vpn0wn.config.InetEndpoint
 import com.vpn0wn.android.widget.VpsSectionHeaderLayout
 import com.vpn0wn.android.widget.VpsHealthChecksLayout
 import com.vpn0wn.android.widget.VpsCornerLayout
@@ -140,6 +144,9 @@ class VpsProvisioningFragment : BaseFragment() {
     @Volatile private var profileAction: ProfileAction? = null
     private var profileDialog: AlertDialog? = null
     private var profileJob: Job? = null
+    @Volatile private var endpointAction: EndpointAction? = null
+    private var endpointDialog: AlertDialog? = null
+    private var endpointJob: Job? = null
     @Volatile private var backupAction: BackupAction? = null
     private var backupDialog: AlertDialog? = null
     private var backupFields: List<EditText> = emptyList()
@@ -258,6 +265,7 @@ class VpsProvisioningFragment : BaseFragment() {
         retireBackupAction()
         retireRemoveUserAction()
         retireProfileAction()
+        retireEndpointAction()
         retireAddUserAction()
         installDialog?.dismiss()
         installDialog = null
@@ -279,6 +287,7 @@ class VpsProvisioningFragment : BaseFragment() {
         if (backupAction?.authenticating == false) retireBackupAction()
         retireRemoveUserAction()
         if (profileAction?.authenticating == false) retireProfileAction()
+        if (endpointAction?.authenticating == false) retireEndpointAction()
         retireAddUserAction()
         super.onStop()
     }
@@ -298,6 +307,7 @@ class VpsProvisioningFragment : BaseFragment() {
         profileAction?.takeUnless { ownsProfileAction(it, requireStarted = false) }?.let { retireProfileAction() }
         retireAddUserAction()
         updateServerProjection(TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()))
+        endpointAction?.takeUnless { ownsEndpointAction(it, requireStarted = false) }?.let { retireEndpointAction() }
         root.removeAllViews()
         root.addView(
             when (val current = screen) {
@@ -863,6 +873,15 @@ class VpsProvisioningFragment : BaseFragment() {
                 isEnabled = !provisionState.busy
                 alpha = if (provisionState.busy) 0.45f else 1f
             }.withMargins(top = 10))
+        val endpointEnabled = !provisionState.busy && user.status != VpsDeployUserStatus.REVOKED &&
+            knownEndpointServerKey(server.id) != null
+        scroll.addView(rowButton(str(R.string.vpn0wn_local_endpoint_update), R.drawable.ic_vpn0wn_refresh) {
+            requestEndpointUpdate(server, user)
+        }.apply {
+            id = R.id.vpn0wn_vps_local_endpoint_update
+            isEnabled = endpointEnabled
+            alpha = if (endpointEnabled) 1f else 0.45f
+        }.withMargins(top = 10))
         container.addView(scrollView, LinearLayout.LayoutParams(-1, 0, 1f))
         return container
     }
@@ -874,7 +893,7 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     private fun requestBackup(server: VpsDeployServer) {
-        if (!canBackup(server.id) || profileAction != null || !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
+        if (!canBackup(server.id) || profileAction != null || endpointAction != null || !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
         val stored = storedServers.singleOrNull { it.id == server.id } ?: return
         val action = BackupAction(stored, requireView())
         val owner = viewLifecycleOwner
@@ -1259,8 +1278,264 @@ class VpsProvisioningFragment : BaseFragment() {
         view?.findViewById<View>(R.id.vpn0wn_vps_import_backup)?.isEnabled = !provisionState.busy && !backupPickerOutstanding
     }
 
+    private fun knownEndpointServerKey(serverId: String): String? {
+        val stored = storedServers.singleOrNull { it.id == serverId } ?: return null
+        return provisionState.statusSnapshots[serverId]?.takeIf { it.matches(stored) }?.status?.serverPublicKey
+    }
+
+    // Inventory backends expose checked Exception; expected failures leave the local profile untouched.
+    @Suppress("TooGenericExceptionCaught")
+    private fun requestEndpointUpdate(server: VpsDeployServer, user: VpsDeployUser) {
+        if (endpointAction != null || profileAction != null || backupAction != null || provisionState.busy ||
+            user.status == VpsDeployUserStatus.REVOKED || !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
+        val stored = storedServers.singleOrNull { it.id == server.id } ?: return
+        val key = knownEndpointServerKey(server.id) ?: return
+        val action = EndpointAction(stored, key, user.id, requireView())
+        endpointAction = action
+        endpointJob = viewLifecycleOwner.lifecycleScope.launch {
+            try {
+                val tunnels = Application.getTunnelManager().getTunnels().map { it to it.name }
+                if (!ownsEndpointAction(action)) return@launch
+                if (tunnels.isEmpty()) {
+                    toast(str(R.string.vpn0wn_local_endpoint_no_tunnels))
+                    retireEndpointAction()
+                    return@launch
+                }
+                val dialog = MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.vpn0wn_local_endpoint_select)
+                    .setItems(tunnels.map { it.second }.toTypedArray()) { selected, index ->
+                        if (!ownsEndpointAction(action) || endpointDialog !== selected || !(selected as AlertDialog).isShowing) return@setItems
+                        endpointDialog = null
+                        selected.dismiss()
+                        action.tunnel = tunnels[index].first
+                        action.selectedName = tunnels[index].second
+                        checkEndpointUpdate(action)
+                    }.setNegativeButton(R.string.cancel, null).create()
+                endpointDialog = dialog
+                dialog.setOnDismissListener { if (endpointDialog === dialog) retireEndpointAction() }
+                dialog.show()
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener {
+                    if (endpointAction === action && endpointDialog === dialog) retireEndpointAction()
+                }
+            } catch (_: IOException) {
+                if (ownsEndpointAction(action)) toast(str(R.string.vpn0wn_local_endpoint_failed))
+                retireEndpointAction()
+            } catch (_: SecurityException) {
+                if (ownsEndpointAction(action)) toast(str(R.string.vpn0wn_local_endpoint_failed))
+                retireEndpointAction()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (defect: RuntimeException) {
+                throw defect
+            } catch (_: Exception) {
+                if (ownsEndpointAction(action)) toast(str(R.string.vpn0wn_local_endpoint_failed))
+                retireEndpointAction()
+            } finally {
+                if (endpointAction === action) endpointJob = null
+            }
+        }
+    }
+
+    // Checked Backend/ConfigStore failures stay distinct from joined-job failures, cancellation and runtime defects.
+    @Suppress("TooGenericExceptionCaught", "ThrowsCount")
+    private fun checkEndpointUpdate(action: EndpointAction, applying: Boolean = false) {
+        if (!ownsEndpointAction(action) || endpointJob?.isActive == true) return
+        endpointJob = viewLifecycleOwner.lifecycleScope.launch {
+            var access: Job? = null
+            var accessFailure: Throwable? = null
+            var review: VpsLocalEndpointUpdate? = null
+            var failure: Int? = null
+            var applied = false
+            try {
+                val tunnel = requireNotNull(action.tunnel)
+                if (!applying && (tunnel.name != action.selectedName || tunnel.state != Tunnel.State.DOWN)) {
+                    failure = R.string.vpn0wn_local_endpoint_changed
+                } else {
+                    val config = if (applying) null else tunnel.getConfigAsync()
+                    access = provision.usePeerEndpoint(action.server, action.serverPublicKey, action.clientPublicKey,
+                        expectedFingerprint = action.fingerprint) { status, peer, fingerprint ->
+                        ensureEndpointAction(action)
+                        try {
+                            val endpoint = endpointFromStatus(status)
+                            if (applying) {
+                                val captured = requireNotNull(action.review)
+                                if (status.serverPublicKey != captured.serverPublicKey || peer.publicKey != captured.clientPublicKey ||
+                                    endpoint != captured.newEndpoint) {
+                                    failure = R.string.vpn0wn_local_endpoint_changed
+                                } else {
+                                    captured.apply(Application.getTunnelManager()) {
+                                        ensureEndpointAction(action)
+                                        provision.checkPeerEndpointOwner(action.server, requireNotNull(action.fingerprint))
+                                        ensureEndpointAction(action)
+                                    }
+                                    applied = true
+                                }
+                            } else if (tunnel.name != action.selectedName || tunnel.state != Tunnel.State.DOWN) {
+                                failure = R.string.vpn0wn_local_endpoint_changed
+                            } else {
+                                review = VpsLocalEndpointUpdate.create(tunnel, requireNotNull(config), action.serverPublicKey,
+                                    action.clientPublicKey, endpoint)
+                                action.fingerprint = fingerprint
+                            }
+                        } catch (rejected: VpsLocalEndpointUpdate.RejectedException) {
+                            failure = endpointRejection(rejected.reason)
+                        } catch (_: TunnelManager.ConfigUpdateRejectedException) {
+                            failure = R.string.vpn0wn_local_endpoint_changed
+                        } catch (_: TunnelManager.BackendSwitchPendingException) {
+                            failure = R.string.vpn0wn_local_endpoint_restart
+                        } catch (cancelled: CancellationException) {
+                            throw cancelled
+                        } catch (defect: RuntimeException) {
+                            throw defect
+                        } catch (_: Exception) {
+                            failure = R.string.vpn0wn_local_endpoint_failed
+                        }
+                    }
+                    access?.invokeOnCompletion { accessFailure = it }
+                    access?.join()
+                    accessFailure?.let { throw it }
+                }
+                ensureEndpointAction(action)
+                endpointJob = null
+                val captured = review
+                when {
+                    failure != null -> {
+                        toast(str(requireNotNull(failure)))
+                        retireEndpointAction()
+                    }
+                    applying && applied -> {
+                        val unchanged = requireNotNull(action.review).let { it.oldEndpoint == it.newEndpoint }
+                        toast(str(if (unchanged) R.string.vpn0wn_local_endpoint_unchanged else R.string.vpn0wn_local_endpoint_updated))
+                        retireEndpointAction()
+                    }
+                    captured != null -> {
+                        action.review = captured
+                        showEndpointReview(action, captured)
+                    }
+                    else -> {
+                        toast(provisionState.problem?.let(::problemText) ?: str(R.string.vpn0wn_local_endpoint_failed))
+                        retireEndpointAction()
+                    }
+                }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: IOException) {
+                if (ownsEndpointAction(action)) toast(str(R.string.vpn0wn_local_endpoint_failed))
+                retireEndpointAction()
+            } catch (_: SecurityException) {
+                if (ownsEndpointAction(action)) toast(str(R.string.vpn0wn_local_endpoint_failed))
+                retireEndpointAction()
+            } catch (defect: RuntimeException) {
+                throw defect
+            } catch (_: Exception) {
+                if (ownsEndpointAction(action)) toast(str(R.string.vpn0wn_local_endpoint_failed))
+                retireEndpointAction()
+            } finally {
+                access?.cancel()
+                if (endpointAction === action) endpointJob = null
+            }
+        }
+    }
+
+    private fun endpointFromStatus(status: VpsServerStatus): InetEndpoint {
+        val host = status.endpoint.let { if (':' in it && !it.startsWith('[')) "[$it]" else it }
+        return InetEndpoint.parse("$host:${status.listenPort}")
+    }
+
+    private fun endpointRejection(reason: VpsLocalEndpointUpdate.Reason): Int = when (reason) {
+        VpsLocalEndpointUpdate.Reason.CLIENT_IDENTITY -> R.string.vpn0wn_local_endpoint_client_mismatch
+        VpsLocalEndpointUpdate.Reason.SERVER_IDENTITY -> R.string.vpn0wn_local_endpoint_server_mismatch
+        VpsLocalEndpointUpdate.Reason.MISSING_ENDPOINT -> R.string.vpn0wn_local_endpoint_missing
+        VpsLocalEndpointUpdate.Reason.NON_LITERAL_ENDPOINT, VpsLocalEndpointUpdate.Reason.INVALID_PORT -> R.string.vpn0wn_local_endpoint_literal
+    }
+
+    private fun showEndpointReview(action: EndpointAction, review: VpsLocalEndpointUpdate) {
+        val content = panel {
+            configLine(str(R.string.name), review.tunnelName, wrap = true)
+            configLine(str(R.string.vpn0wn_local_endpoint_server_key), review.serverPublicKey, wrap = true, direction = View.TEXT_DIRECTION_LTR)
+            configLine(str(R.string.vpn0wn_local_endpoint_client_key), review.clientPublicKey, wrap = true, direction = View.TEXT_DIRECTION_LTR)
+            configLine(str(R.string.vpn0wn_local_endpoint_old), review.oldEndpoint.toString(), wrap = true, direction = View.TEXT_DIRECTION_LTR)
+            configLine(str(R.string.vpn0wn_local_endpoint_new), review.newEndpoint.toString(), wrap = true, direction = View.TEXT_DIRECTION_LTR)
+            configLine(str(R.string.vpn0wn_local_endpoint_scope_label), str(R.string.vpn0wn_local_endpoint_scope), wrap = true)
+        }
+        val dialog = MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.vpn0wn_local_endpoint_update)
+            .setView(ScrollView(requireContext()).apply { id = R.id.vpn0wn_local_endpoint_review; addView(content) })
+            .setNegativeButton(R.string.cancel, null).setPositiveButton(R.string.vpn0wn_local_endpoint_confirm, null).create()
+        endpointDialog = dialog
+        dialog.setOnDismissListener { if (endpointDialog === dialog) retireEndpointAction() }
+        dialog.show()
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener {
+            if (endpointAction === action && endpointDialog === dialog) retireEndpointAction()
+        }
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            if (!ownsEndpointAction(action) || endpointDialog !== dialog || !dialog.isShowing || action.authenticating) return@setOnClickListener
+            endpointDialog = null
+            dialog.dismiss()
+            action.authenticating = true
+            try {
+                authenticateEndpointUpdate(action)
+            } catch (failure: RuntimeException) {
+                retireEndpointAction()
+                throw failure
+            }
+        }
+    }
+
+    private fun authenticateEndpointUpdate(action: EndpointAction) {
+        val owner = viewLifecycleOwner
+        BiometricAuthenticator.authenticate(R.string.vpn0wn_local_endpoint_authenticate, this) { result ->
+            if (!ownsEndpointAction(action, requireStarted = false) || !action.authenticating || action.authenticationResultAccepted) return@authenticate
+            if (result is BiometricAuthenticator.Result.Failure && result.code == null) {
+                if (ownsEndpointAction(action)) toast(str(R.string.biometric_auth_error))
+                return@authenticate
+            }
+            action.authenticationResultAccepted = true
+            if (result is BiometricAuthenticator.Result.Cancelled) {
+                retireEndpointAction()
+                return@authenticate
+            }
+            owner.lifecycleScope.launch {
+                owner.lifecycle.withStarted {
+                    if (endpointAction !== action) return@withStarted
+                    if (!ownsEndpointAction(action)) {
+                        retireEndpointAction()
+                        return@withStarted
+                    }
+                    action.authenticating = false
+                    if (result is BiometricAuthenticator.Result.Success || result is BiometricAuthenticator.Result.NoAuthenticationConfigured) {
+                        checkEndpointUpdate(action, applying = true)
+                    } else {
+                        toast(str(R.string.biometric_auth_error))
+                        retireEndpointAction()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun ownsEndpointAction(action: EndpointAction, requireStarted: Boolean = true): Boolean {
+        val selected = screen as? Screen.User ?: return false
+        return endpointAction === action && view === action.ownerView && selected.serverId == action.server.id &&
+            selected.userId == action.clientPublicKey && storedServers.singleOrNull { it.id == action.server.id } == action.server &&
+            server(action.server.id)?.users?.singleOrNull { it.id == action.clientPublicKey }?.let { it.status != VpsDeployUserStatus.REVOKED } == true &&
+            (!requireStarted || viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+    }
+
+    private suspend fun ensureEndpointAction(action: EndpointAction) {
+        currentCoroutineContext().ensureActive()
+        if (!ownsEndpointAction(action)) throw CancellationException("Endpoint update is no longer authorized")
+    }
+
+    private fun retireEndpointAction() {
+        endpointAction = null
+        endpointJob?.cancel()
+        endpointJob = null
+        val dialog = endpointDialog
+        endpointDialog = null
+        dialog?.dismiss()
+    }
+
     private fun requestProfileAction(server: VpsDeployServer, user: VpsDeployUser, use: ProfileUse) {
-        if (profileAction != null || backupAction != null || provisionState.busy || !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
+        if (profileAction != null || backupAction != null || endpointAction != null || provisionState.busy || !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
         val stored = storedServers.singleOrNull { it.id == server.id } ?: return
         val action = ProfileAction(stored, user.id, user.name, use, requireView())
         if (!ownsProfileSelection(action) || exportProhibited(action)) return
@@ -1647,6 +1922,14 @@ class VpsProvisioningFragment : BaseFragment() {
             }.withMargins(bottom = 10))
             parent.addView(rowButton(str(R.string.vpn0wn_cancel_check)) {
                 if (profileAction === action) retireProfileAction()
+            }.withMargins(bottom = 10))
+        }
+        endpointAction?.takeIf { provisionState.busy && ownsEndpointAction(it) }?.let { endpoint ->
+            parent.addView(mono(str(R.string.vpn0wn_profile_checking), 11, R.color.vpn0wn_ink_2).apply {
+                accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+            }.withMargins(bottom = 10))
+            parent.addView(rowButton(str(R.string.vpn0wn_cancel_check)) {
+                if (endpointAction === endpoint) retireEndpointAction()
             }.withMargins(bottom = 10))
         }
         val saved = when (provisionState.savedAccess.takeIf { operationSelected }) {
@@ -2262,13 +2545,15 @@ class VpsProvisioningFragment : BaseFragment() {
 
     // Local text/padding values preserve the configuration-row presentation.
     @Suppress("MagicNumber")
-    private fun LinearLayout.configLine(title: String, value: String, copy: Boolean = false, wrap: Boolean = false) {
+    private fun LinearLayout.configLine(title: String, value: String, copy: Boolean = false, wrap: Boolean = false,
+        direction: Int = View.TEXT_DIRECTION_INHERIT) {
         val row = horizontal(Gravity.CENTER_VERTICAL).apply {
             setPadding(dp(14), dp(10), dp(14), dp(10))
         }
         row.addView(vertical().apply {
             addView(label(title))
             addView(mono(value, 13, R.color.vpn0wn_ink).apply {
+                textDirection = direction
                 setSingleLine(!wrap)
                 ellipsize = if (wrap) null else android.text.TextUtils.TruncateAt.END
                 setPadding(0, dp(2), 0, 0)
@@ -2634,6 +2919,16 @@ class VpsProvisioningFragment : BaseFragment() {
     private enum class ProfileUse { QR, EXPORT, IMPORT }
     private class ProfileAction(val server: StoredVpsServer, val clientPublicKey: String, val name: String,
         val use: ProfileUse, val ownerView: View, var authenticating: Boolean = true) {
+        var authenticationResultAccepted = false
+    }
+
+    private class EndpointAction(val server: StoredVpsServer, val serverPublicKey: String, val clientPublicKey: String,
+        val ownerView: View) {
+        var tunnel: ObservableTunnel? = null
+        var selectedName: String? = null
+        var review: VpsLocalEndpointUpdate? = null
+        var fingerprint: String? = null
+        var authenticating = false
         var authenticationResultAccepted = false
     }
 

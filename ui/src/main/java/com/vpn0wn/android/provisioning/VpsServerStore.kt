@@ -422,6 +422,21 @@ class VpsServerStore internal constructor(
         requireNoRotation(dataStore.data.first(), expected)
     }
 
+    // Every durable writer must reject endpoint review before its uncertain result can be trusted.
+    @Suppress("ThrowsCount")
+    suspend fun checkPeerEndpointOwner(expected: StoredVpsServer, fingerprint: String) = mutate {
+        requireCurrentCredential(expected, fingerprint)
+        val preferences = dataStore.data.first()
+        requireNoRestore(preferences, expected)
+        requireNoRotation(preferences, expected)
+        if (PendingVpsInstall.decode(preferences[PENDING_INSTALLS].orEmpty()).any { it.matches(expected) })
+            throw InstallPendingException(expected)
+        if (PendingVpsAdd.decode(preferences[PENDING_ADDS].orEmpty()).any { it.matches(expected) })
+            throw AddPendingException(expected)
+        PendingVpsRemove.decode(preferences[PENDING_REMOVALS].orEmpty()).firstOrNull { it.matches(expected) }
+            ?.let { throw removePendingFailure(preferences, it) }
+    }
+
     suspend fun pendingRotation(expected: StoredVpsServer): PendingVpsRotate? = mutate {
         if (currentServers().singleOrNull { it.id == expected.id } != expected) throw ServerChangedException()
         pendingRotations().firstOrNull { it.matches(expected) }

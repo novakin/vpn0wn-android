@@ -708,6 +708,27 @@
     <string name="vpn0wn_health_recent_sync">synchronisation récente</string>
     <string name="vpn0wn_health_wg_running">wg en cours d’exécution</string>
     <string name="vpn0wn_user_metadata">%1$s · création %2$s</string>
+    <string name="vpn0wn_local_endpoint_update">Modifier l’endpoint local</string>
+    <string name="vpn0wn_local_endpoint_select">Choisir un tunnel local</string>
+    <string name="vpn0wn_local_endpoint_no_tunnels">Aucun tunnel local disponible.</string>
+    <string name="vpn0wn_local_endpoint_confirm">Mettre à jour</string>
+    <string name="vpn0wn_local_endpoint_authenticate">Autoriser la modification locale</string>
+    <string name="vpn0wn_local_endpoint_server_key">CLÉ PUBLIQUE DU SERVEUR</string>
+    <string name="vpn0wn_local_endpoint_client_key">CLÉ PUBLIQUE DU CLIENT</string>
+    <string name="vpn0wn_local_endpoint_old">ENDPOINT LOCAL ACTUEL</string>
+    <string name="vpn0wn_local_endpoint_new">ENDPOINT SERVEUR VÉRIFIÉ</string>
+    <string name="vpn0wn_local_endpoint_scope_label">MODIFICATION LOCALE UNIQUEMENT</string>
+    <string name="vpn0wn_local_endpoint_scope">Seul l’endpoint du pair correspondant change dans ce tunnel arrêté. Clés, adresses, DNS, routes, keepalive et autres pairs restent inchangés. Le tunnel reste DOWN, sans connexion automatique. Cela ne prouve ni la santé du VPN ni l’accès à Internet. Les profils déjà exportés et les autres applications restent inchangés.</string>
+    <string name="vpn0wn_local_endpoint_changed">Le tunnel ou le serveur a changé, ou le tunnel n’est pas arrêté. Vérifiez à nouveau.</string>
+    <string name="vpn0wn_local_endpoint_client_mismatch">La clé publique du client de ce tunnel est différente.</string>
+    <string name="vpn0wn_local_endpoint_server_mismatch">Ce tunnel ne contient pas exactement un pair avec la clé publique du serveur vérifié.</string>
+    <string name="vpn0wn_local_endpoint_missing">Le pair local correspondant n’a pas d’endpoint.</string>
+    <string name="vpn0wn_local_endpoint_literal">Les deux endpoints doivent utiliser des adresses IP littérales et des ports non nuls.</string>
+    <string name="vpn0wn_local_endpoint_failed">La modification locale a échoué. Vérifiez le tunnel avant de réessayer.</string>
+    <string name="vpn0wn_local_endpoint_restart">Un changement de moteur attend le redémarrage de l’application. Redémarrez avant la modification locale.</string>
+    <string name="vpn0wn_local_endpoint_updated">Endpoint local modifié. Le tunnel reste DOWN.</string>
+    <string name="vpn0wn_local_endpoint_unchanged">L’endpoint est déjà à jour. Le tunnel reste DOWN.</string>
+
     <string name="vpn0wn_recovery_title">récupération</string>
     <string name="vpn0wn_recovery_status_label">ÉTAT DE RÉCUPÉRATION</string>
     <string name="vpn0wn_recovery_attempts_label">TENTATIVES DE TRANSPORT COMPTÉES</string>
