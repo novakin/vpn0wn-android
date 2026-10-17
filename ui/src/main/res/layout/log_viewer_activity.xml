@@ -24,51 +24,48 @@
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="32dp"
+            android:layout_height="wrap_content"
             android:gravity="center_vertical"
+            android:minHeight="48dp"
             android:orientation="horizontal">
 
             <androidx.appcompat.widget.AppCompatImageButton
                 android:id="@+id/back_button"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:background="@android:color/transparent"
-                android:contentDescription="@string/cancel"
-                android:padding="4dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/vpn0wn_navigate_back"
+                android:padding="15dp"
                 app:srcCompat="@drawable/ic_vpn0wn_chevron_left"
                 app:tint="@color/vpn0wn_ink_2" />
 
             <TextView
                 style="@style/Vpn0wnLabelText"
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
+                android:layout_weight="1"
                 android:text="@string/vpn0wn_log_stream_subtitle"
                 android:textColor="@color/vpn0wn_ink_3" />
 
-            <View
-                android:layout_width="0dp"
-                android:layout_height="1dp"
-                android:layout_weight="1" />
-
             <androidx.appcompat.widget.AppCompatImageButton
                 android:id="@+id/refresh_button"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
-                android:background="@android:color/transparent"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/refresh"
-                android:padding="7dp"
+                android:padding="15dp"
                 app:srcCompat="@drawable/ic_vpn0wn_refresh"
                 app:tint="@color/vpn0wn_ink_2" />
 
             <androidx.appcompat.widget.AppCompatImageButton
                 android:id="@+id/share_button"
-                android:layout_width="32dp"
-                android:layout_height="32dp"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
                 android:layout_marginStart="8dp"
-                android:background="@android:color/transparent"
+                android:background="?attr/selectableItemBackgroundBorderless"
                 android:contentDescription="@string/log_export_title"
-                android:padding="7dp"
+                android:padding="15dp"
                 app:srcCompat="@drawable/ic_vpn0wn_share"
                 app:tint="@color/vpn0wn_ink_2" />
         </LinearLayout>
@@ -81,20 +78,19 @@
             android:orientation="horizontal">
 
             <TextView
+                style="@style/Vpn0wnTopBarTitleText"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:fontFamily="@font/jetbrains_mono_medium"
-                android:includeFontPadding="false"
                 android:text="@string/log_viewer_title"
-                android:textColor="@color/vpn0wn_ink"
-                android:textSize="18sp" />
+                android:textColor="@color/vpn0wn_ink" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/live_toggle"
                 style="@style/Widget.Material3.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
                 android:fontFamily="@font/jetbrains_mono_medium"
                 android:text="@string/vpn0wn_log_live"
                 android:textColor="@color/vpn0wn_signal_deep"

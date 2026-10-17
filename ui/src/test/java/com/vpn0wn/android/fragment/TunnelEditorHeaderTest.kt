@@ -51,6 +51,7 @@ class TunnelEditorHeaderTest {
         val fragment = activity.supportFragmentManager.findFragmentById(R.id.editor_fragment) as TunnelEditorFragment
         val binding = DataBindingUtil.getBinding<TunnelEditorFragmentBinding>(fragment.requireView())!!
         try {
+            assertTrue("Editor Close has native feedback", requireNotNull(binding.editorCloseButton.background).isStateful)
             binding.config = ConfigProxy(TunnelTestEnvironment.profile(51821))
             binding.name = "qa-editor"
             binding.executePendingBindings()
