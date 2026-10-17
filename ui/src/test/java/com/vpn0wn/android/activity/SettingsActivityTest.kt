@@ -73,6 +73,7 @@ import org.robolectric.annotation.GraphicsMode
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.Executor
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.Consumer
 
 @RunWith(RobolectricTestRunner::class)
@@ -81,10 +82,13 @@ import java.util.function.Consumer
 class SettingsActivityTest {
     @get:Rule val folder = TemporaryFolder()
     private var quickTileMembershipPhase: String? = null
+    private var quickTileMembershipDetails: (() -> String)? = null
     @get:Rule val quickTileMembershipFailure = object : TestWatcher() {
         override fun failed(failure: Throwable, description: Description) {
             val phase = quickTileMembershipPhase ?: return
-            failure.addSuppressed(AssertionError("Quick tile membership phase: $phase"))
+            failure.addSuppressed(AssertionError(
+                "Quick tile membership phase: $phase\n${quickTileMembershipDetails?.invoke().orEmpty()}"
+            ))
         }
     }
     private val controllers = mutableListOf<ActivityController<SettingsActivity>>()
@@ -96,6 +100,9 @@ class SettingsActivityTest {
         TileRequests.result = android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED
         TileRequests.deferResult = false
         TileRequests.pendingResult = null
+        TileRequests.requestCount = 0
+        TileRequests.requestedResult = null
+        TileRequests.observeResult = null
     }
 
     @After fun tearDown() {
@@ -296,11 +303,61 @@ class SettingsActivityTest {
         TileRequests.result = android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED
         val activity = openSettingsWithLoadedMembership()
         assertTrue(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
+        val dataStore = com.vpn0wn.android.Application.getPreferencesDataStore()
+        val membershipKey = booleanPreferencesKey("quick_tile_added")
+        val preRequestRevision = UserKnobs.quickTileRemovalRevision
+        val writes = AtomicInteger()
+        val writeStages = StringBuffer("not entered")
+        val observingStore = object : DataStore<Preferences> by dataStore {
+            override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences {
+                val operation = writes.incrementAndGet()
+                writeStages.append("; update=$operation entered")
+                try {
+                    return dataStore.updateData { previous ->
+                        writeStages.append("; update=$operation transform revision=${UserKnobs.quickTileRemovalRevision}")
+                        transform(previous).also {
+                            writeStages.append("; update=$operation transformed=${it[membershipKey]} revision=${UserKnobs.quickTileRemovalRevision}")
+                        }
+                    }.also { writeStages.append("; update=$operation committed=${it[membershipKey]}") }
+                } catch (failure: Throwable) {
+                    writeStages.append("; update=$operation failed=${failure.javaClass.name}")
+                    throw failure
+                }
+            }
+        }
+        testEnvironment.replacePreferences(observingStore)
+        var callbacks = 0
+        var callbackOwner = "not delivered"
+        var awaitingOwner = "not reached"
+        var membershipObserved = false
+        var lastMembership: Boolean? = null
+        TileRequests.observeResult = { result ->
+            callbacks++
+            val scope = com.vpn0wn.android.Application.getCoroutineScope()
+            callbackOwner = "result=$result appMatches=${com.vpn0wn.android.Application.get() === testEnvironment.application} " +
+                "storeMatches=${com.vpn0wn.android.Application.getPreferencesDataStore() === observingStore} " +
+                "scopeMatches=${scope === testEnvironment.applicationScope} scopeActive=${scope.coroutineContext[Job]?.isActive} " +
+                "revision=${UserKnobs.quickTileRemovalRevision} main=${Looper.myLooper() == Looper.getMainLooper()}"
+        }
+        quickTileMembershipDetails = {
+            "requests=${TileRequests.requestCount} requestedResult=${TileRequests.requestedResult} callbacks=$callbacks " +
+                "callback=[$callbackOwner] preRequestRevision=$preRequestRevision awaiting=[$awaitingOwner] " +
+                "writes=${writes.get()} stages=[$writeStages] observed=$membershipObserved lastMembership=$lastMembership"
+        }
         fragment(activity).findPreference<Preference>("quick_tile")!!.performClick()
         shadowOf(Looper.getMainLooper()).idle()
         runCurrent()
+        val scope = com.vpn0wn.android.Application.getCoroutineScope()
+        awaitingOwner = "appMatches=${com.vpn0wn.android.Application.get() === testEnvironment.application} " +
+            "storeMatches=${com.vpn0wn.android.Application.getPreferencesDataStore() === observingStore} " +
+            "scopeMatches=${scope === testEnvironment.applicationScope} scopeActive=${scope.coroutineContext[Job]?.isActive} " +
+            "revision=${UserKnobs.quickTileRemovalRevision}"
         quickTileMembershipPhase = "persisted membership"
-        assertEquals(true, UserKnobs.quickTileAdded.first { it == true })
+        assertEquals(true, UserKnobs.quickTileAdded.first {
+            membershipObserved = true
+            lastMembership = it
+            it == true
+        })
         quickTileMembershipPhase = "settle after persistence"
         settle(activity)
         assertFalse(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
@@ -310,6 +367,8 @@ class SettingsActivityTest {
         settle(reopened)
         assertFalse(fragment(reopened).findPreference<Preference>("quick_tile")!!.isVisible)
         quickTileMembershipPhase = null
+        quickTileMembershipDetails = null
+        TileRequests.observeResult = null
     }
 
     @Test @Config(sdk = [33]) fun cancelledAddKeepsUnknownMembershipAndAvailableRow() = runTest {
@@ -757,7 +816,14 @@ class SettingsActivityTest {
             assertFalse(label.isBlank())
             assertEquals(R.drawable.ic_tile, icon.resId)
             val requestResult = result
-            val deliver = { executor.execute { callback.accept(requestResult) } }
+            requestCount++
+            requestedResult = requestResult
+            val deliver = {
+                executor.execute {
+                    observeResult?.invoke(requestResult)
+                    callback.accept(requestResult)
+                }
+            }
             if (deferResult) pendingResult = deliver else deliver()
         }
 
@@ -765,6 +831,9 @@ class SettingsActivityTest {
             var result = android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED
             var deferResult = false
             var pendingResult: (() -> Unit)? = null
+            var requestCount = 0
+            var requestedResult: Int? = null
+            var observeResult: ((Int) -> Unit)? = null
         }
     }
 }
