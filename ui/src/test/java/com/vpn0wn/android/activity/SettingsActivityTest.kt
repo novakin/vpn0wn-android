@@ -43,7 +43,11 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -52,7 +56,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import org.junit.After
+import kotlinx.coroutines.withContext
 import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Rule
@@ -92,6 +96,7 @@ class SettingsActivityTest {
         }
     }
     private val controllers = mutableListOf<ActivityController<SettingsActivity>>()
+    private val lifecycleJobs = mutableSetOf<Job>()
     private lateinit var testEnvironment: TunnelTestEnvironment
 
     @Before fun resetPlatform() {
@@ -105,12 +110,7 @@ class SettingsActivityTest {
         TileRequests.observeResult = null
     }
 
-    @After fun tearDown() {
-        controllers.forEach { it.pause().stop().destroy() }
-        Dispatchers.resetMain()
-    }
-
-    @Test fun userspaceKeepsSystemVpnConnectionActionAndNativeActions() = runTest {
+    @Test fun userspaceKeepsSystemVpnConnectionActionAndNativeActions() = settingsTest {
         environment()
         val activity = openSettings()
         settle(activity)
@@ -126,14 +126,14 @@ class SettingsActivityTest {
         assertNonemptyCategories(fragment)
     }
 
-    @Test fun kernelSupportFilesystemProbeRunsOffMain() = runTest {
+    @Test fun kernelSupportFilesystemProbeRunsOffMain() = settingsTest {
         environment()
         val activity = openSettings()
         settle(activity)
         assertEquals(false, KernelSupport.probedOnMain)
     }
 
-    @Test @Config(sdk = [36]) fun preferenceStructuresHaveNoInvalidResourceIdsAfterRecreation() = runTest {
+    @Test @Config(sdk = [36]) fun preferenceStructuresHaveNoInvalidResourceIdsAfterRecreation() = settingsTest {
         val env = environment()
         KernelSupport.available = true
         val shell = ProbeShell(env.application)
@@ -168,7 +168,7 @@ class SettingsActivityTest {
         }
     }
 
-    @Test @Config(sdk = [33]) fun modernAndroidKeepsTileAndRemovesEmptyAppearance() = runTest {
+    @Test @Config(sdk = [33]) fun modernAndroidKeepsTileAndRemovesEmptyAppearance() = settingsTest {
         environment()
         val activity = openSettings()
         settle(activity)
@@ -181,7 +181,7 @@ class SettingsActivityTest {
         assertNonemptyCategories(fragment)
     }
 
-    @Test @Config(sdk = [33]) fun addedTileIsRemovedWithoutRemovingControlSection() = runTest {
+    @Test @Config(sdk = [33]) fun addedTileIsRemovedWithoutRemovingControlSection() = settingsTest {
         environment()
         UserKnobs.setQuickTileAdded(true)
         val activity = openSettings()
@@ -192,7 +192,7 @@ class SettingsActivityTest {
         assertNotNull(fragment.findPreference<Preference>("settings_control"))
     }
 
-    @Test fun adminRestrictionRemovesExportButKeepsLogs() = runTest {
+    @Test fun adminRestrictionRemovesExportButKeepsLogs() = settingsTest {
         val env = environment()
         val restrictions = env.application.getSystemService(Context.RESTRICTIONS_SERVICE) as RestrictionsManager
         shadowOf(restrictions).setApplicationRestrictions(Bundle().apply { putBoolean("disable_config_export", true) })
@@ -203,7 +203,7 @@ class SettingsActivityTest {
         assertNotNull(fragment(activity).findPreference<Preference>("settings_data"))
     }
 
-    @Test fun pendingBackendDefersConnectionHeaderUntilSystemVpnActionIsReady() = runTest {
+    @Test fun pendingBackendDefersConnectionHeaderUntilSystemVpnActionIsReady() = settingsTest {
         val env = environment()
         val pending = CompletableDeferred<Backend>()
         setApplicationField(env, "futureBackend", pending)
@@ -216,7 +216,7 @@ class SettingsActivityTest {
         assertTrue(fragment(activity).findPreference<Preference>("system_vpn_settings")!!.isEnabled)
     }
 
-    @Test fun kernelBackendKeepsSwitchKeysValuesAndActionOwner() = runTest {
+    @Test fun kernelBackendKeepsSwitchKeysValuesAndActionOwner() = settingsTest {
         val env = environment()
         KernelSupport.available = true
         val shell = ProbeShell(env.application)
@@ -243,7 +243,7 @@ class SettingsActivityTest {
         assertEquals(0, shell.calls)
     }
 
-    @Test fun rootProbeFailureRemovesKernelActionAndKeepsSystemVpnGroup() = runTest {
+    @Test fun rootProbeFailureRemovesKernelActionAndKeepsSystemVpnGroup() = settingsTest {
         val env = environment()
         KernelSupport.available = true
         val shell = ProbeShell(env.application)
@@ -261,7 +261,7 @@ class SettingsActivityTest {
         assertEquals(2, shell.calls)
     }
 
-    @Test fun remoteControlValueAndLogNavigationSurviveRecreation() = runTest {
+    @Test fun remoteControlValueAndLogNavigationSurviveRecreation() = settingsTest {
         environment()
         val activity = openSettings()
         settle(activity)
@@ -279,85 +279,47 @@ class SettingsActivityTest {
         assertTrue(recreated.isFinishing)
     }
 
-    @Test @Config(sdk = [33]) fun tileSuccessRemovesOnlyTileAndPreservesExpandedGroups() = runTest {
+    @Test @Config(sdk = [33]) fun tileSuccessRemovesOnlyTileAndPreservesExpandedGroups() = settingsTest {
+        quickTileMembershipPhase = "initial membership"
         environment()
         val activity = openSettingsWithLoadedMembership()
         assertTrue(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
+        val membershipObserved = observeQuickTileMembership()
+        quickTileMembershipPhase = "native request"
         fragment(activity).findPreference<Preference>("quick_tile")!!.performClick()
         shadowOf(android.os.Looper.getMainLooper()).idle()
         runCurrent()
-        assertEquals(true, UserKnobs.quickTileAdded.first { it == true })
+        quickTileMembershipPhase = "persisted membership"
+        assertEquals(true, UserKnobs.quickTileAdded.first(membershipObserved))
+        quickTileMembershipPhase = "settle after persistence"
         settle(activity)
         assertFalse(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
         assertNotNull(fragment(activity).findPreference<Preference>("allow_remote_control_intents"))
         assertEquals(Int.MAX_VALUE, fragment(activity).preferenceScreen.initialExpandedChildrenCount)
+        quickTileMembershipPhase = "Settings recreation"
         controllers.last().recreate()
         val recreated = controllers.last().get()
+        quickTileMembershipPhase = "recreated Settings settle"
         settle(recreated)
         assertFalse(fragment(recreated).findPreference<Preference>("quick_tile")!!.isVisible)
+        quickTileMembershipPhase = null
+        quickTileMembershipDetails = null
+        TileRequests.observeResult = null
     }
 
-    @Test @Config(sdk = [33]) fun alreadyAddedResultRetainsMembershipAcrossReopening() = runTest {
+    @Test @Config(sdk = [33]) fun alreadyAddedResultRetainsMembershipAcrossReopening() = settingsTest {
         quickTileMembershipPhase = "initial membership"
         environment()
         TileRequests.result = android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED
         val activity = openSettingsWithLoadedMembership()
         assertTrue(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
-        val dataStore = com.vpn0wn.android.Application.getPreferencesDataStore()
-        val membershipKey = booleanPreferencesKey("quick_tile_added")
-        val preRequestRevision = UserKnobs.quickTileRemovalRevision
-        val writes = AtomicInteger()
-        val writeStages = StringBuffer("not entered")
-        val observingStore = object : DataStore<Preferences> by dataStore {
-            override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences {
-                val operation = writes.incrementAndGet()
-                writeStages.append("; update=$operation entered")
-                try {
-                    return dataStore.updateData { previous ->
-                        writeStages.append("; update=$operation transform revision=${UserKnobs.quickTileRemovalRevision}")
-                        transform(previous).also {
-                            writeStages.append("; update=$operation transformed=${it[membershipKey]} revision=${UserKnobs.quickTileRemovalRevision}")
-                        }
-                    }.also { writeStages.append("; update=$operation committed=${it[membershipKey]}") }
-                } catch (failure: Throwable) {
-                    writeStages.append("; update=$operation failed=${failure.javaClass.name}")
-                    throw failure
-                }
-            }
-        }
-        testEnvironment.replacePreferences(observingStore)
-        var callbacks = 0
-        var callbackOwner = "not delivered"
-        var awaitingOwner = "not reached"
-        var membershipObserved = false
-        var lastMembership: Boolean? = null
-        TileRequests.observeResult = { result ->
-            callbacks++
-            val scope = com.vpn0wn.android.Application.getCoroutineScope()
-            callbackOwner = "result=$result appMatches=${com.vpn0wn.android.Application.get() === testEnvironment.application} " +
-                "storeMatches=${com.vpn0wn.android.Application.getPreferencesDataStore() === observingStore} " +
-                "scopeMatches=${scope === testEnvironment.applicationScope} scopeActive=${scope.coroutineContext[Job]?.isActive} " +
-                "revision=${UserKnobs.quickTileRemovalRevision} main=${Looper.myLooper() == Looper.getMainLooper()}"
-        }
-        quickTileMembershipDetails = {
-            "requests=${TileRequests.requestCount} requestedResult=${TileRequests.requestedResult} callbacks=$callbacks " +
-                "callback=[$callbackOwner] preRequestRevision=$preRequestRevision awaiting=[$awaitingOwner] " +
-                "writes=${writes.get()} stages=[$writeStages] observed=$membershipObserved lastMembership=$lastMembership"
-        }
+        val membershipObserved = observeQuickTileMembership()
+        quickTileMembershipPhase = "native request"
         fragment(activity).findPreference<Preference>("quick_tile")!!.performClick()
         shadowOf(Looper.getMainLooper()).idle()
         runCurrent()
-        val scope = com.vpn0wn.android.Application.getCoroutineScope()
-        awaitingOwner = "appMatches=${com.vpn0wn.android.Application.get() === testEnvironment.application} " +
-            "storeMatches=${com.vpn0wn.android.Application.getPreferencesDataStore() === observingStore} " +
-            "scopeMatches=${scope === testEnvironment.applicationScope} scopeActive=${scope.coroutineContext[Job]?.isActive} " +
-            "revision=${UserKnobs.quickTileRemovalRevision}"
         quickTileMembershipPhase = "persisted membership"
-        assertEquals(true, UserKnobs.quickTileAdded.first {
-            membershipObserved = true
-            lastMembership = it
-            it == true
-        })
+        assertEquals(true, UserKnobs.quickTileAdded.first(membershipObserved))
         quickTileMembershipPhase = "settle after persistence"
         settle(activity)
         assertFalse(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
@@ -371,7 +333,7 @@ class SettingsActivityTest {
         TileRequests.observeResult = null
     }
 
-    @Test @Config(sdk = [33]) fun cancelledAddKeepsUnknownMembershipAndAvailableRow() = runTest {
+    @Test @Config(sdk = [33]) fun cancelledAddKeepsUnknownMembershipAndAvailableRow() = settingsTest {
         environment()
         TileRequests.result = android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_NOT_ADDED
         val activity = openSettings()
@@ -384,7 +346,7 @@ class SettingsActivityTest {
         assertNull(activity.findViewById<TextView>(com.google.android.material.R.id.snackbar_text))
     }
 
-    @Test @Config(sdk = [33]) fun requestErrorsKeepUnknownMembershipAndExistingFeedback() = runTest {
+    @Test @Config(sdk = [33]) fun requestErrorsKeepUnknownMembershipAndExistingFeedback() = settingsTest {
         environment()
         val results = listOf(
             android.app.StatusBarManager.TILE_ADD_REQUEST_ERROR_MISMATCHED_PACKAGE,
@@ -410,7 +372,7 @@ class SettingsActivityTest {
         }
     }
 
-    @Test @Config(sdk = [33]) fun membershipChangesUpdateOnlyTheTileWhileSettingsStaysOpen() = runTest {
+    @Test @Config(sdk = [33]) fun membershipChangesUpdateOnlyTheTileWhileSettingsStaysOpen() = settingsTest {
         environment()
         val activity = openSettings()
         settle(activity)
@@ -426,7 +388,7 @@ class SettingsActivityTest {
         assertEquals(Int.MAX_VALUE, fragment(activity).preferenceScreen.initialExpandedChildrenCount)
     }
 
-    @Test @Config(sdk = [33]) fun loadingMembershipDoesNotExposeSetupUntilItsFirstValue() = runTest {
+    @Test @Config(sdk = [33]) fun loadingMembershipDoesNotExposeSetupUntilItsFirstValue() = settingsTest {
         val env = environment()
         val dataStore = com.vpn0wn.android.Application.getPreferencesDataStore()
         val loaded = CompletableDeferred<Unit>()
@@ -444,7 +406,7 @@ class SettingsActivityTest {
         assertTrue(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
     }
 
-    @Test @Config(sdk = [33]) fun unavailableMembershipKeepsSetupHiddenWithoutWritingAbsence() = runTest {
+    @Test @Config(sdk = [33]) fun unavailableMembershipKeepsSetupHiddenWithoutWritingAbsence() = settingsTest {
         val env = environment()
         val dataStore = com.vpn0wn.android.Application.getPreferencesDataStore()
         val unavailableStore = object : DataStore<Preferences> by dataStore {
@@ -457,7 +419,7 @@ class SettingsActivityTest {
         assertNull(UserKnobs.quickTileAdded.first())
     }
 
-    @Test @Config(sdk = [33]) fun membershipReadFailureAfterLoadedRemovalHidesTheAvailableRow() = runTest {
+    @Test @Config(sdk = [33]) fun membershipReadFailureAfterLoadedRemovalHidesTheAvailableRow() = settingsTest {
         val env = environment()
         UserKnobs.setQuickTileAdded(false)
         val dataStore = com.vpn0wn.android.Application.getPreferencesDataStore()
@@ -480,7 +442,7 @@ class SettingsActivityTest {
         assertEquals(false, UserKnobs.quickTileAdded.first())
     }
 
-    @Test @Config(sdk = [33]) fun lateSuccessfulResultPersistsAfterSettingsDestruction() = runTest {
+    @Test @Config(sdk = [33]) fun lateSuccessfulResultPersistsAfterSettingsDestruction() = settingsTest {
         environment()
         TileRequests.deferResult = true
         val activity = openSettingsWithLoadedMembership()
@@ -497,7 +459,7 @@ class SettingsActivityTest {
         assertFalse(fragment(reopened).findPreference<Preference>("quick_tile")!!.isVisible)
     }
 
-    @Test @Config(sdk = [33]) fun removalWinsOverDeferredSuccessfulResultsAfterSettingsSurvivesOrCloses() = runTest {
+    @Test @Config(sdk = [33]) fun removalWinsOverDeferredSuccessfulResultsAfterSettingsSurvivesOrCloses() = settingsTest {
         environment()
         val successfulResults = listOf(
             android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED,
@@ -533,7 +495,7 @@ class SettingsActivityTest {
         }
     }
 
-    @Test @Config(sdk = [33]) fun successfulResultPersistenceFailureLeavesUnknownFallback() = runTest {
+    @Test @Config(sdk = [33]) fun successfulResultPersistenceFailureLeavesUnknownFallback() = settingsTest {
         val env = environment()
         val activity = openSettings()
         settle(activity)
@@ -555,7 +517,7 @@ class SettingsActivityTest {
         assertTrue(tile.isVisible)
     }
 
-    @Test fun versionRowKeepsNativeArtworkWithoutGenericIconTint() = runTest {
+    @Test fun versionRowKeepsNativeArtworkWithoutGenericIconTint() = settingsTest {
         environment()
         val activity = openSettings()
         settle(activity)
@@ -567,7 +529,7 @@ class SettingsActivityTest {
         assertNotNull(icon.drawable)
     }
 
-    @Test @Config(sdk = [28, 33]) fun offlineCreditsAndVersionNavigationSurviveRecreationWithoutPersistingAction() = runTest {
+    @Test @Config(sdk = [28, 33]) fun offlineCreditsAndVersionNavigationSurviveRecreationWithoutPersistingAction() = settingsTest {
         environment()
         val activity = openSettings()
         settle(activity)
@@ -591,7 +553,7 @@ class SettingsActivityTest {
         assertEquals(preferencesBefore, com.vpn0wn.android.Application.getPreferencesDataStore().data.first().asMap())
     }
 
-    @Test @Config(sdk = [33]) fun rootInsetsAreIdempotentAndLeaveImeInsetsForDescendants() = runTest {
+    @Test @Config(sdk = [33]) fun rootInsetsAreIdempotentAndLeaveImeInsetsForDescendants() = settingsTest {
         environment()
         val activity = openSettings()
         val root = activity.findViewById<View>(R.id.settings_root)
@@ -617,7 +579,7 @@ class SettingsActivityTest {
     }
 
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
-    fun inflatedPreferenceAndHeaderPreserveTheirFontRolesInBothSystemModes() = runTest {
+    fun inflatedPreferenceAndHeaderPreserveTheirFontRolesInBothSystemModes() = settingsTest {
         environment()
         for (mode in listOf("notnight", "night")) {
             RuntimeEnvironment.setQualifiers("en-$mode")
@@ -646,7 +608,7 @@ class SettingsActivityTest {
     }
 
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
-    fun renderedSmallPortraitLandscapeAndLargeFontRtlStayUsableInBothThemes() = runTest {
+    fun renderedSmallPortraitLandscapeAndLargeFontRtlStayUsableInBothThemes() = settingsTest {
         environment()
         val cases = listOf(
             LayoutCase("portrait-light", 320, 640, 1f, "en", false),
@@ -693,6 +655,103 @@ class SettingsActivityTest {
         }
     }
 
+    @Test fun fixtureCleanupWaitsForRealIoCancellationBeforeReturning() = settingsTest {
+        val ownerNames = listOf("application", "activity", "fragment", "view")
+        for ((index, ownerName) in ownerNames.withIndex()) {
+            val env = environment()
+            val activity = openSettings()
+            settle(activity)
+            val owner = listOf(env.applicationScope, activity.lifecycleScope, fragment(activity).lifecycleScope,
+                fragment(activity).viewLifecycleOwner.lifecycleScope)[index]
+            val entered = CompletableDeferred<Unit>()
+            val cancelling = CompletableDeferred<Unit>()
+            val release = CompletableDeferred<Unit>()
+            val completedOnMain = AtomicInteger()
+            val worker = owner.launch(Dispatchers.IO) {
+                try {
+                    entered.complete(Unit)
+                    awaitCancellation()
+                } finally {
+                    withContext(NonCancellable + Dispatchers.IO) {
+                        cancelling.complete(Unit)
+                        release.await()
+                        withContext(Dispatchers.Main) { completedOnMain.incrementAndGet() }
+                    }
+                }
+            }
+            var cleanup: Job? = null
+            try {
+                entered.await()
+                worker.cancel()
+                cancelling.await()
+                val closing = async { closeSettings() }
+                cleanup = closing
+                runCurrent()
+                assertFalse("Cleanup must await the $ownerName IO cancellation descendant", closing.isCompleted)
+                release.complete(Unit)
+                closing.await()
+                assertTrue("$ownerName worker completed", worker.isCompleted)
+                assertTrue("$ownerName owner completed", owner.coroutineContext[Job]!!.isCompleted)
+                assertEquals("$ownerName finalizer reached Main", 1, completedOnMain.get())
+            } finally {
+                release.complete(Unit)
+                withContext(NonCancellable) {
+                    worker.cancel()
+                    worker.join()
+                    cleanup?.join()
+                }
+            }
+        }
+    }
+
+    private fun settingsTest(body: suspend TestScope.() -> Unit) = runTest {
+        val result = runCatching { body() }
+        if (result.isFailure && quickTileMembershipPhase != null) {
+            val details = quickTileMembershipDetails?.invoke().orEmpty()
+            quickTileMembershipDetails = { details }
+        }
+        val cleanup = runCatching { closeSettings() }
+        Dispatchers.resetMain()
+        val failure = result.exceptionOrNull()
+        if (failure != null) {
+            cleanup.exceptionOrNull()?.let { if (it !== failure) failure.addSuppressed(it) }
+            throw failure
+        }
+        cleanup.getOrThrow()
+    }
+
+    private suspend fun closeSettings() = withContext(NonCancellable) {
+        val destruction = controllers.map { controller ->
+            runCatching {
+                captureLifecycleJobs(controller.get())
+                controller.pause().stop().destroy()
+            }
+        }
+        controllers.clear()
+        try {
+            lifecycleJobs.forEach { it.cancel() }
+            shadowOf(Looper.getMainLooper()).idle()
+        } finally {
+            try {
+                if (::testEnvironment.isInitialized) testEnvironment.close()
+            } finally {
+                lifecycleJobs.toList().joinAll()
+                lifecycleJobs.clear()
+            }
+        }
+        destruction.forEach { it.getOrThrow() }
+    }
+
+    private fun captureLifecycleJobs(activity: SettingsActivity) {
+        lifecycleJobs += activity.lifecycleScope.coroutineContext[Job]!!
+        activity.supportFragmentManager.fragments.forEach { fragment ->
+            lifecycleJobs += fragment.lifecycleScope.coroutineContext[Job]!!
+            fragment.viewLifecycleOwnerLiveData.value?.lifecycleScope?.coroutineContext?.get(Job)?.let {
+                lifecycleJobs += it
+            }
+        }
+    }
+
     private fun textViews(view: View): List<TextView> {
         if (view is TextView) return listOf(view)
         if (view !is android.view.ViewGroup) return emptyList()
@@ -706,9 +765,69 @@ class SettingsActivityTest {
 
     private data class LayoutCase(val name: String, val width: Int, val height: Int, val fontScale: Float, val locale: String, val night: Boolean)
 
+    private fun quickTileMembershipOwnerDetails(): String {
+        val scope = com.vpn0wn.android.Application.getCoroutineScope()
+        return "appMatches=${com.vpn0wn.android.Application.get() === testEnvironment.application} " +
+            "scopeMatches=${scope === testEnvironment.applicationScope} scopeActive=${scope.coroutineContext[Job]?.isActive} " +
+            "revision=${UserKnobs.quickTileRemovalRevision} main=${Looper.myLooper() == Looper.getMainLooper()} " +
+            "looperIdle=${shadowOf(Looper.getMainLooper()).isIdle}"
+    }
+
+    private fun observeQuickTileMembership(): (Boolean?) -> Boolean {
+        val dataStore = com.vpn0wn.android.Application.getPreferencesDataStore()
+        val membershipKey = booleanPreferencesKey("quick_tile_added")
+        val preRequestRevision = UserKnobs.quickTileRemovalRevision
+        val writes = AtomicInteger()
+        val writeStages = StringBuffer("not entered")
+        val observingStore = object : DataStore<Preferences> by dataStore {
+            override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences {
+                val operation = writes.incrementAndGet()
+                writeStages.append("; update=$operation entered")
+                try {
+                    return dataStore.updateData { previous ->
+                        writeStages.append("; update=$operation transform revision=${UserKnobs.quickTileRemovalRevision}")
+                        transform(previous).also {
+                            writeStages.append("; update=$operation transformed=${it[membershipKey]} revision=${UserKnobs.quickTileRemovalRevision}")
+                        }
+                    }.also { writeStages.append("; update=$operation committed=${it[membershipKey]}") }
+                } catch (failure: Throwable) {
+                    writeStages.append("; update=$operation failed=${failure.javaClass.name}")
+                    throw failure
+                }
+            }
+        }
+        testEnvironment.replacePreferences(observingStore)
+        var callbacks = 0
+        var callbackOwner = "not delivered"
+        var membershipObserved = false
+        var lastMembership: Boolean? = null
+        TileRequests.observeResult = { result ->
+            callbacks++
+            callbackOwner = "result=$result ${quickTileMembershipOwnerDetails()} " +
+                "storeMatches=${com.vpn0wn.android.Application.getPreferencesDataStore() === observingStore}"
+        }
+        quickTileMembershipDetails = {
+            "requests=${TileRequests.requestCount} requestedResult=${TileRequests.requestedResult} callbacks=$callbacks " +
+                "callback=[$callbackOwner] preRequestRevision=$preRequestRevision current=[${quickTileMembershipOwnerDetails()} " +
+                "storeMatches=${com.vpn0wn.android.Application.getPreferencesDataStore() === observingStore}] " +
+                "writes=${writes.get()} stages=[$writeStages] observed=$membershipObserved lastMembership=$lastMembership"
+        }
+        return {
+            membershipObserved = true
+            lastMembership = it
+            it == true
+        }
+    }
+
     private fun TestScope.environment(): TunnelTestEnvironment {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         testEnvironment = TunnelTestEnvironment(folder.root, backgroundScope)
+        if (quickTileMembershipPhase != null) {
+            quickTileMembershipDetails = {
+                "requests=${TileRequests.requestCount} requestedResult=${TileRequests.requestedResult} " +
+                    "owner=[${quickTileMembershipOwnerDetails()}]"
+            }
+        }
         val shell = ProbeShell(testEnvironment.application)
         setApplicationField(testEnvironment, "rootShell", shell)
         setApplicationField(testEnvironment, "toolsInstaller", ToolsInstaller(testEnvironment.application, shell))
@@ -726,10 +845,12 @@ class SettingsActivityTest {
         beforeStart()
         controller.start().postCreate(null).resume().visible().topActivityResumed(true)
         controller.get().supportFragmentManager.executePendingTransactions()
+        captureLifecycleJobs(controller.get())
         return controller.get()
     }
 
     private suspend fun TestScope.openSettingsWithLoadedMembership(): SettingsActivity {
+        val phase = quickTileMembershipPhase
         val dataStore = com.vpn0wn.android.Application.getPreferencesDataStore()
         val membershipLoaded = CompletableDeferred<Unit>()
         val observingStore = object : DataStore<Preferences> by dataStore {
@@ -742,22 +863,31 @@ class SettingsActivityTest {
         }
         val activity = openSettings { setApplicationField(testEnvironment, "preferencesDataStore", observingStore) }
         runCurrent()
+        if (phase != null) quickTileMembershipPhase = "$phase: initial Settings settle"
         settle(activity)
+        if (phase != null) quickTileMembershipPhase = "$phase: membership emission"
         membershipLoaded.await()
         runCurrent()
         setApplicationField(testEnvironment, "preferencesDataStore", dataStore)
+        quickTileMembershipPhase = phase
         return activity
     }
 
     private suspend fun TestScope.settle(activity: SettingsActivity) {
+        val phase = quickTileMembershipPhase
+        captureLifecycleJobs(activity)
         activity.supportFragmentManager.executePendingTransactions()
         runCurrent()
+        if (phase != null) quickTileMembershipPhase = "$phase: fragment children"
         fragment(activity).lifecycleScope.coroutineContext[Job]!!.children.toList().joinAll()
         val policyJob = SettingsActivity.SettingsFragment::class.java.getDeclaredField("vpnPolicyJob")
             .apply { isAccessible = true }.get(fragment(activity)) as Job?
+        if (phase != null) quickTileMembershipPhase = "$phase: VPN policy job"
         policyJob?.join()
+        if (phase != null) quickTileMembershipPhase = "$phase: activity children"
         activity.lifecycleScope.coroutineContext[Job]!!.children.toList().joinAll()
         runCurrent()
+        quickTileMembershipPhase = phase
     }
 
     private fun fragment(activity: SettingsActivity) =

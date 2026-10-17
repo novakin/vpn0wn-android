@@ -18,6 +18,8 @@ import com.vpn0wn.android.model.ObservableTunnel
 import com.vpn0wn.android.util.ErrorMessages
 import com.vpn0wn.android.util.RootShell.RootShellException
 import java.io.IOException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 /**
@@ -25,15 +27,23 @@ import kotlinx.coroutines.launch
  */
 abstract class BaseActivity : AppCompatActivity() {
     private val selectionChangeRegistry = SelectionChangeRegistry()
+    private val selectionListenersReady = CompletableDeferred<Unit>()
+    private var selectionRestoreJob: Job? = null
+    private var pendingTunnelName: String? = null
+    private var selection: ObservableTunnel? = null
     private var created = false
-    var selectedTunnel: ObservableTunnel? = null
+    var selectedTunnel: ObservableTunnel?
+        get() = selection
         set(value) {
-            val oldTunnel = field
+            selectionRestoreJob?.cancel()
+            selectionRestoreJob = null
+            pendingTunnelName = null
+            val oldTunnel = selection
             if (oldTunnel == value) return
-            field = value
+            selection = value
             if (created) {
                 if (!onSelectedTunnelChanged(oldTunnel, value)) {
-                    field = oldTunnel
+                    selection = oldTunnel
                 } else {
                     selectionChangeRegistry.notifyCallbacks(oldTunnel, 0, value)
                 }
@@ -54,26 +64,32 @@ abstract class BaseActivity : AppCompatActivity() {
             else -> null
         }
         if (savedTunnelName != null) {
-            lifecycleScope.launch {
+            pendingTunnelName = savedTunnelName
+            selectionRestoreJob = lifecycleScope.launch {
                 val tunnel = try {
                     Application.getTunnelManager().getTunnels()[savedTunnelName]
                 } catch (failure: IOException) {
                     reportInventoryFailure(failure)
-                    created = true
                     return@launch
                 } catch (failure: RootShellException) {
                     reportInventoryFailure(failure)
-                    created = true
                     return@launch
                 }
-                if (tunnel == null)
-                    created = true
-                selectedTunnel = tunnel
-                created = true
+                pendingTunnelName = null
+                val oldTunnel = selection
+                if (oldTunnel == tunnel) return@launch
+                selection = tunnel
+                selectionListenersReady.await()
+                // Restored fragments already own navigation; replaying it can pop a saved editor.
+                selectionChangeRegistry.notifyCallbacks(oldTunnel, 0, tunnel)
             }
-        } else {
-            created = true
         }
+    }
+
+    override fun onPostCreate(savedInstanceState: Bundle?) {
+        super.onPostCreate(savedInstanceState)
+        created = true
+        selectionListenersReady.complete(Unit)
     }
 
     private fun reportInventoryFailure(failure: Exception) {
@@ -83,7 +99,7 @@ abstract class BaseActivity : AppCompatActivity() {
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
-        if (selectedTunnel != null) outState.putString(KEY_SELECTED_TUNNEL, selectedTunnel!!.name)
+        (selectedTunnel?.name ?: pendingTunnelName)?.let { outState.putString(KEY_SELECTED_TUNNEL, it) }
         super.onSaveInstanceState(outState)
     }
 

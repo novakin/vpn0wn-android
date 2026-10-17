@@ -529,12 +529,12 @@ class AppDataTransferManagerTest {
             }
         }
         setApplicationField(env, "preferencesDataStore", delayedStore)
-        env.manager.getTunnels()
+        val restoring = async { env.manager.restoreState(true) }
         readingRestore.await()
         try {
             assertEquals(1, env.manager.importAppData(archive(mapOf("new" to TunnelTestEnvironment.profile()))))
             finishRestoreRead.complete(Unit)
-            loadingJob(env.manager).join()
+            restoring.await()
 
             assertEquals(Tunnel.State.DOWN, env.manager.getTunnels()["new"]!!.state)
             assertTrue(env.backend.getRunningTunnelNames().isEmpty())
@@ -583,7 +583,7 @@ class AppDataTransferManagerTest {
             }
         }
         setApplicationField(env, "preferencesDataStore", delayedStore)
-        old.setNameAsync("renamed")
+        val renaming = async { old.setNameAsync("renamed") }
         writingSelection.await()
         val importing = async {
             env.manager.importAppData(archive(mapOf("new" to TunnelTestEnvironment.profile()), selection = "new"))
@@ -591,8 +591,9 @@ class AppDataTransferManagerTest {
         try {
             runCurrent()
             assertFalse(importing.isCompleted)
-            assertEquals(setOf("renamed"), env.store.configs.keys)
+            assertFalse(env.store.configs.containsKey("new"))
             finishSelectionWrite.complete(Unit)
+            assertEquals("renamed", renaming.await())
             assertEquals(1, importing.await())
             runCurrent()
 
