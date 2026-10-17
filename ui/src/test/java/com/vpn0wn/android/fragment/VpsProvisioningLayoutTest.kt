@@ -5,6 +5,7 @@ import android.graphics.Rect
 import android.os.Bundle
 import android.os.Looper
 import android.text.InputType
+import android.text.method.PasswordTransformationMethod
 import android.view.View
 import android.view.ViewGroup
 import android.widget.EditText
@@ -15,6 +16,7 @@ import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.graphics.ColorUtils
+import androidx.core.content.res.ResourcesCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.ViewModel
@@ -77,6 +79,60 @@ class VpsProvisioningLayoutTest {
     @Test fun credentialModesFitNormalText() = verifyCredentialLayout(1f)
 
     @Test fun credentialModesFitEnlargedText() = verifyCredentialLayout(2f)
+
+    @Test fun sshCredentialsStayMaskedAfterNativeSingleLineSetupAndModeChanges() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        for (locale in listOf("en", "fr")) for (night in listOf("night", "notnight")) {
+            for ((width, height, fontScale) in listOf(Triple(320, 640, 1f), Triple(640, 320, 2f))) {
+                val rtl = fontScale > 1f
+                val direction = if (rtl) "ldrtl" else "ldltr"
+                val orientation = if (width > height) "land" else "port"
+                RuntimeEnvironment.setQualifiers("$locale-$direction-w${width}dp-h${height}dp-$orientation-$night-mdpi")
+                RuntimeEnvironment.setFontScale(fontScale)
+                val fixture = provisioningLayoutFixture(folder, if (rtl) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR)
+                try {
+                    val password = "synthetic-ssh-password"
+                    val passphrase = "synthetic-ssh-passphrase"
+                    val privateKey = "synthetic-private-key-line-one\nsynthetic-private-key-line-two"
+                    fixture.model.begin()
+                    fixture.model.edit(fixture.model.draft.copy(privateKey = privateKey, passphrase = passphrase,
+                        password = password.toCharArray()))
+                    settle()
+                    measure(fixture.root, width, height)
+                    assertMaskedCredential(fixture.root.findViewById(R.id.vpn0wn_vps_ssh_passphrase), passphrase)
+                    val key = fixture.root.findViewById<EditText>(R.id.vpn0wn_vps_ssh_private_key)
+                    assertEquals(privateKey, key.text.toString())
+                    assertEquals(5, key.minLines)
+                    assertTrue("Private key remains multiline", key.maxLines > 1 && key.layout.lineCount >= 2)
+                    assertTrue(key.inputType and InputType.TYPE_TEXT_FLAG_MULTI_LINE != 0)
+                    assertFalse(key.transformationMethod is PasswordTransformationMethod)
+                    assertEquals(ResourcesCompat.getFont(key.context, R.font.jetbrains_mono_regular), key.typeface)
+                    val host = fixture.root.findViewById<EditText>(R.id.vpn0wn_vps_ssh_host)
+                    host.setText("198.51.100.42")
+                    assertEquals(1, host.maxLines)
+                    assertFalse(host.transformationMethod is PasswordTransformationMethod)
+                    val hostNode = host.createAccessibilityNodeInfo()
+                    try {
+                        assertFalse("Host remains ordinary text", hostNode.isPassword)
+                        assertTrue(hostNode.isEditable)
+                    } finally { hostNode.recycle() }
+                    clickAction(fixture, R.string.vpn0wn_auth_password)
+                    measure(fixture.root, width, height)
+                    assertMaskedCredential(fixture.root.findViewById(R.id.vpn0wn_vps_ssh_password), password)
+                    clickAction(fixture, R.string.vpn0wn_auth_ssh_key)
+                    fixture.root.findViewById<EditText>(R.id.vpn0wn_vps_ssh_passphrase).setText(passphrase)
+                    clickAction(fixture, R.string.vpn0wn_auth_ssh_key)
+                    measure(fixture.root, width, height)
+                    assertMaskedCredential(fixture.root.findViewById(R.id.vpn0wn_vps_ssh_passphrase), passphrase)
+                    clickAction(fixture, R.string.vpn0wn_auth_password)
+                    fixture.root.findViewById<EditText>(R.id.vpn0wn_vps_ssh_password).setText(password)
+                    measure(fixture.root, width, height)
+                    assertMaskedCredential(fixture.root.findViewById(R.id.vpn0wn_vps_ssh_password), password)
+                    assertTrue("Masking check opens no SSH transport", fixture.peer.connections.isEmpty())
+                } finally { fixture.close() }
+            }
+        }
+    }
 
     @Test fun allFiveTrackerStagesFitNormalTextAtTheRenderer() = verifyTrackerLayout(1f)
 
@@ -407,6 +463,23 @@ class VpsProvisioningLayoutTest {
     private fun TestScope.settle() {
         runCurrent()
         shadowOf(Looper.getMainLooper()).idle()
+    }
+
+    private fun assertMaskedCredential(field: EditText, secret: String) {
+        assertEquals(secret, field.text.toString())
+        assertTrue("SSH credential retains native password masking", field.transformationMethod is PasswordTransformationMethod)
+        val transformed = requireNotNull(field.transformationMethod).getTransformation(field.text, field).toString()
+        assertEquals(secret.length, transformed.length)
+        assertFalse("Native transformation conceals the complete credential", transformed.contains(secret))
+        assertFalse("Painted layout conceals the complete credential", field.layout.text.toString().contains(secret))
+        assertEquals(1, field.maxLines)
+        assertEquals(InputType.TYPE_TEXT_VARIATION_PASSWORD, field.inputType and InputType.TYPE_MASK_VARIATION)
+        assertEquals(ResourcesCompat.getFont(field.context, R.font.jetbrains_mono_regular), field.typeface)
+        val node = field.createAccessibilityNodeInfo()
+        try {
+            assertTrue("Native accessibility marks credential as password", node.isPassword)
+            assertTrue("Credential remains editable", node.isEditable)
+        } finally { node.recycle() }
     }
 
     private fun assertAccessibleAction(view: View, role: String, checked: Boolean? = null) {

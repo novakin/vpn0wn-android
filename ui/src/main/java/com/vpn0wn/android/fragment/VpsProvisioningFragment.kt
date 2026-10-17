@@ -1521,6 +1521,8 @@ class VpsProvisioningFragment : BaseFragment() {
                 id = fieldId
                 setText(value)
                 this.hint = hint
+                // Single-line setup replaces Android's password transformation.
+                setSingleLine(minLines == 1)
                 this.inputType = inputType
                 isSaveEnabled = false
                 isEnabled = !provisionState.busy
@@ -1528,7 +1530,6 @@ class VpsProvisioningFragment : BaseFragment() {
                 this.textSize = textSize.toFloat()
                 setTextColor(color(R.color.vpn0wn_ink))
                 setHintTextColor(color(R.color.vpn0wn_ink_3))
-                setSingleLine(minLines == 1)
                 this.minLines = minLines
                 gravity = if (minLines > 1) Gravity.TOP else Gravity.CENTER_VERTICAL
                 background = rounded(R.color.vpn0wn_paper_3, R.color.vpn0wn_rule_strong, dp(4))
