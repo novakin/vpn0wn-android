@@ -53,32 +53,7 @@ peer_keys_json() {
 }
 
 configured_peer_keys_json=null
-if configured_peer_keys=$(awk '
-  function finish_peer() {if (section == "peer" && keys != 1) invalid=1}
-  {
-    line=$0; sub(/#.*/, "", line); sub(/^[[:space:]]+/, "", line); sub(/[[:space:]]+$/, "", line)
-    if (line == "") next
-    if (line ~ /^\[/) {
-      finish_peer()
-      heading=tolower(line)
-      if (heading == "[peer]") {section="peer"; keys=0}
-      else if (heading == "[interface]") section="interface"
-      else {section=""; invalid=1}
-      next
-    }
-    separator=index(line, "=")
-    if (separator == 0 || section == "") {invalid=1; next}
-    field=substr(line, 1, separator-1); sub(/[[:space:]]+$/, "", field)
-    if (tolower(field) == "publickey") {
-      if (section != "peer") {invalid=1; next}
-      keys++
-      key=substr(line, separator+1); sub(/^[[:space:]]+/, "", key); sub(/[[:space:]]+$/, "", key)
-      if (key == "") invalid=1
-      print key
-    }
-  }
-  END {finish_peer(); exit invalid}
-' "$WG_CONF"); then
+if configured_peer_keys=$(configured_peer_public_keys "$WG_CONF"); then
   configured_peer_keys_json=$(peer_keys_json "$configured_peer_keys") || configured_peer_keys_json=null
 fi
 

@@ -77,6 +77,8 @@ import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Installation
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.AddUserConfirmation
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.UserCreation
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.UserRemoval
+import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.UserRotation
+import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.RemoveUserConfirmation
 import com.vpn0wn.android.provisioning.ProvisioningRecovery
 import com.vpn0wn.android.util.vpn0wnStyle
 import com.vpn0wn.android.util.AdminKnobs
@@ -127,6 +129,9 @@ class VpsProvisioningFragment : BaseFragment() {
     private var addUserAction: AddUserAction? = null
     private var removeUserDialog: AlertDialog? = null
     private var removeUserAction: RemoveUserAction? = null
+    private var rotateUserDialog: AlertDialog? = null
+    private var rotateUserAction: RotateUserAction? = null
+    private var rotationAuthentication: RotationAuthentication? = null
     private lateinit var downloadsFileSaver: DownloadsFileSaver
     @Volatile private var profileAction: ProfileAction? = null
     private var profileDialog: AlertDialog? = null
@@ -222,6 +227,7 @@ class VpsProvisioningFragment : BaseFragment() {
                         render()
                     }
                     showRemoveUserConfirmation(state)
+                    showRotateUserConfirmation(state)
                     val settledProblem = !state.busy && state.problem != null
                     if (settledProblem && (state.problem != previous?.problem || previous?.busy == true)) {
                         root.findViewById<View>(R.id.vpn0wn_vps_operation_problem)?.let { problem ->
@@ -239,6 +245,8 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     override fun onDestroyView() {
+        rotationAuthentication = null
+        retireRotateUserAction()
         retireBackupImport()
         retireBackupAction()
         retireRemoveUserAction()
@@ -255,6 +263,7 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     override fun onStop() {
+        if (rotationAuthentication == null) retireRotateUserAction()
         backupImportAction?.takeUnless { it.waitingForPicker || it.authenticating }?.let { retireBackupImport() }
         if (backupAction?.authenticating == false) retireBackupAction()
         retireRemoveUserAction()
@@ -267,6 +276,9 @@ class VpsProvisioningFragment : BaseFragment() {
     override fun onSelectedTunnelChanged(oldTunnel: ObservableTunnel?, newTunnel: ObservableTunnel?) = Unit
 
     private fun render() {
+        rotationAuthentication?.takeUnless { ownsServerFeedback(it.server) && view === it.view }?.let { rotationAuthentication = null }
+        if (rotateUserAction?.let { !ownsRotateUserAction(it, requireStarted = false) } == true ||
+            rotateUserDialog != null && provisionState.busy) retireRotateUserAction()
         backupImportAction?.takeUnless { ownsBackupImport(it, requireStarted = false) }?.let { retireBackupImport() }
         backupAction?.takeUnless { ownsBackupAction(it, requireStarted = false) }?.let { retireBackupAction() }
         if (removeUserAction?.let { !ownsRemoveUserAction(it, requireStarted = false) } == true ||
@@ -717,8 +729,8 @@ class VpsProvisioningFragment : BaseFragment() {
         scroll.addView(actionGrid(listOf(
             VpsDeployAction(R.drawable.ic_vpn0wn_qr, str(R.string.vpn0wn_action_show_qr), str(R.string.vpn0wn_action_show_qr_sub), R.color.vpn0wn_signal_deep, exportDisabled || user.status == VpsDeployUserStatus.REVOKED) { requestProfileAction(server, user, ProfileUse.QR) },
             VpsDeployAction(R.drawable.ic_vpn0wn_share, str(R.string.vpn0wn_action_export), str(R.string.vpn0wn_action_export_sub), R.color.vpn0wn_ink, exportDisabled) { requestProfileAction(server, user, ProfileUse.EXPORT) },
-            VpsDeployAction(R.drawable.ic_vpn0wn_refresh, str(R.string.vpn0wn_action_rotate_key), str(R.string.vpn0wn_action_rotate_key_sub), R.color.vpn0wn_ink, user.status == VpsDeployUserStatus.REVOKED) {
-                toast(str(R.string.vpn0wn_peer_mutation_unavailable))
+            VpsDeployAction(R.drawable.ic_vpn0wn_refresh, str(R.string.vpn0wn_action_rotate_key), str(R.string.vpn0wn_action_rotate_key_sub), R.color.vpn0wn_ink, !canManageUsers(server.id)) {
+                requestRotateUser(server, user)
             },
             VpsDeployAction(R.drawable.ic_vpn0wn_trash, str(R.string.vpn0wn_action_revoke), str(R.string.vpn0wn_action_revoke_sub), R.color.vpn0wn_error, !canManageUsers(server.id)) {
                 requestRemoveUser(server, user, PendingVpsRemove.Action.REVOKE)
@@ -1492,6 +1504,13 @@ class VpsProvisioningFragment : BaseFragment() {
             })
         addUserCreationStatus(parent)
         addUserRemovalStatus(parent)
+        addUserRotationStatus(parent)
+        val removalOwned = provisionState.removal != UserRemoval.NONE && ownsServerFeedback(provisionState.removalOwner) &&
+            provisionState.serverId == provisionState.removalOwner?.id
+        val rotationOwned = provisionState.rotation != UserRotation.NONE && ownsServerFeedback(provisionState.rotationOwner) &&
+            provisionState.serverId == provisionState.rotationOwner?.id
+        if (provisionState.busy && (removalOwned || rotationOwned))
+            parent.addView(rowButton(str(R.string.vpn0wn_close_connection), R.drawable.ic_vpn0wn_refresh) { provision.cancelOperation() })
     }
 
     private fun problemText(problem: Problem): String = str(when (problem) {
@@ -1508,6 +1527,8 @@ class VpsProvisioningFragment : BaseFragment() {
         Problem.ADD_PENDING -> R.string.vpn0wn_user_add_pending
         Problem.REMOVE_PENDING -> if (!ownsServerFeedback(provisionState.removalOwner)) R.string.vpn0wn_user_foreign_mutation_pending
             else if (provisionState.removalAction == PendingVpsRemove.Action.REVOKE) R.string.vpn0wn_user_revoke_uncertain else R.string.vpn0wn_user_remove_uncertain
+        Problem.ROTATE_PENDING -> if (!ownsServerFeedback(provisionState.rotationOwner)) R.string.vpn0wn_user_foreign_mutation_pending
+            else R.string.vpn0wn_user_rotate_uncertain
         Problem.PEER_CHANGED -> if (provisionState.removalAction == PendingVpsRemove.Action.REVOKE) R.string.vpn0wn_user_revoke_changed else R.string.vpn0wn_user_remove_changed
         Problem.IDENTITY_UNAVAILABLE -> R.string.vpn0wn_user_identity_required
         Problem.PROFILE_UNAVAILABLE -> R.string.vpn0wn_profile_unavailable
@@ -1527,7 +1548,132 @@ class VpsProvisioningFragment : BaseFragment() {
         val stored = storedServers.find { it.id == serverId } ?: return false
         val snapshot = provisionState.statusSnapshots[serverId]
         return !provisionState.busy && snapshot?.matches(stored) == true && snapshot.status.serverPublicKey != null &&
-            !(provisionState.serverId == serverId && (provisionState.pendingAdd || provisionState.pendingInstall || provisionState.pendingRemove))
+            !(provisionState.serverId == serverId && (provisionState.pendingAdd || provisionState.pendingInstall || provisionState.pendingRemove || provisionState.pendingRotation))
+    }
+
+    private data class RotateUserAction(val server: StoredVpsServer, val name: String, val publicKey: String)
+    private class RotationAuthentication(val server: StoredVpsServer, val view: View, var terminalAccepted: Boolean = false)
+
+    private fun requestRotateUser(server: VpsDeployServer, user: VpsDeployUser) {
+        if (!canManageUsers(server.id) || rotationAuthentication != null) return
+        val stored = storedServers.singleOrNull { it.id == server.id } ?: return
+        retireProfileAction()
+        retireRemoveUserAction()
+        retireRotateUserAction()
+        val action = RotateUserAction(stored, user.name, user.key)
+        rotateUserAction = action
+        authenticateRotation(stored) {
+            if (!ownsRotateUserAction(action) || provisionState.busy ||
+                provision.requestRotateUserConfirmation(stored, action.name, action.publicKey) == null) retireRotateUserAction()
+        }
+    }
+
+    private fun authenticateRotation(server: StoredVpsServer, authorized: () -> Unit) {
+        if (rotationAuthentication != null || view == null || !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
+        val owner = viewLifecycleOwner
+        val authentication = RotationAuthentication(server, requireView())
+        rotationAuthentication = authentication
+        try {
+            BiometricAuthenticator.authenticate(R.string.vpn0wn_user_rotate_authenticate, this) { result ->
+                if (rotationAuthentication !== authentication || authentication.terminalAccepted) return@authenticate
+                if (result is BiometricAuthenticator.Result.Failure && result.code == null) {
+                    if (owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) toast(str(R.string.biometric_auth_error))
+                    return@authenticate
+                }
+                authentication.terminalAccepted = true
+                if (result is BiometricAuthenticator.Result.Cancelled) {
+                    rotationAuthentication = null
+                    retireRotateUserAction()
+                    return@authenticate
+                }
+                owner.lifecycleScope.launch {
+                    owner.lifecycle.withStarted {
+                        if (rotationAuthentication !== authentication) return@withStarted
+                        if (view !== authentication.view || !ownsServerFeedback(server) ||
+                            storedServers.singleOrNull { it.id == server.id } != server || provisionState.busy) {
+                            rotationAuthentication = null
+                            retireRotateUserAction()
+                            return@withStarted
+                        }
+                        rotationAuthentication = null
+                        if (result is BiometricAuthenticator.Result.Success || result is BiometricAuthenticator.Result.NoAuthenticationConfigured) authorized()
+                        else { toast(str(R.string.biometric_auth_error)); retireRotateUserAction() }
+                    }
+                }
+            }
+        } catch (failure: RuntimeException) {
+            if (rotationAuthentication === authentication) rotationAuthentication = null
+            retireRotateUserAction()
+            throw failure
+        }
+    }
+
+    private fun ownsRotateUserAction(action: RotateUserAction, requireStarted: Boolean = true): Boolean =
+        (screen as? Screen.User)?.let { it.serverId == action.server.id && it.userId == action.publicKey } == true &&
+            storedServers.singleOrNull { it.id == action.server.id } == action.server && view != null &&
+            (!requireStarted || viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+
+    private fun showRotateUserConfirmation(state: State) {
+        val action = rotateUserAction ?: return
+        if (state.busy || rotateUserDialog != null || rotationAuthentication != null) return
+        val confirmation = state.rotateConfirmation
+        if (!ownsRotateUserAction(action) || confirmation == null || confirmation.server != action.server ||
+            confirmation.name != action.name || confirmation.clientPublicKey != action.publicKey) {
+            retireRotateUserAction()
+            return
+        }
+        val host = confirmation.ssh.host.let { if (':' in it) "[$it]" else it }
+        val dialog = MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.vpn0wn_user_rotate_title)
+            .setMessage(getString(R.string.vpn0wn_user_rotate_confirmation, confirmation.name, confirmation.ssh.user, host,
+                confirmation.ssh.port, confirmation.fingerprint, confirmation.serverPublicKey, confirmation.clientPublicKey))
+            .setNegativeButton(android.R.string.cancel, null).setPositiveButton(R.string.vpn0wn_user_confirm_rotate, null).create()
+        rotateUserDialog = dialog
+        dialog.setOnDismissListener { if (rotateUserDialog === dialog) retireRotateUserAction() }
+        dialog.show()
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            if (!ownsRotateUserAction(action) || rotateUserDialog !== dialog || !dialog.isShowing ||
+                provisionState.rotateConfirmation !== confirmation) return@setOnClickListener
+            rotateUserAction = null
+            rotateUserDialog = null
+            dialog.dismiss()
+            provision.confirmRotateUser(confirmation)
+        }
+    }
+
+    private fun retireRotateUserAction() {
+        rotateUserAction = null
+        val dialog = rotateUserDialog
+        rotateUserDialog = null
+        dialog?.dismiss()
+        provision.dismissRotateUserConfirmation()
+    }
+
+    // Status spacing reuses the existing native user-action feedback.
+    @Suppress("MagicNumber")
+    private fun addUserRotationStatus(parent: LinearLayout) {
+        val owner = provisionState.rotationOwner ?: return
+        if (!ownsServerFeedback(owner) || provisionState.serverId != owner.id) return
+        val message = when (provisionState.rotation) {
+            UserRotation.NONE -> null
+            UserRotation.CHECKING -> R.string.vpn0wn_user_rotate_checking
+            UserRotation.RUNNING -> R.string.vpn0wn_user_rotating
+            UserRotation.UNCERTAIN -> R.string.vpn0wn_user_rotate_uncertain
+            UserRotation.FAILED -> R.string.vpn0wn_user_rotate_failed
+            UserRotation.ROTATED -> if (owner.running == false) R.string.vpn0wn_user_rotated_stopped else R.string.vpn0wn_user_rotated
+            UserRotation.OBSERVED -> if (owner.running == false) R.string.vpn0wn_user_rotate_observed_stopped else R.string.vpn0wn_user_rotate_observed
+        }
+        if (message != null) parent.addView(mono(str(message), 11, R.color.vpn0wn_ink_2).apply {
+            id = R.id.vpn0wn_vps_user_rotation_status
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+            setPadding(dp(14), dp(8), dp(14), dp(8))
+        })
+        provisionState.rotationAttempt?.takeIf { provisionState.pendingRotation && it.owns(owner) }?.let { attempt ->
+            parent.addView(mono(str(R.string.vpn0wn_user_rotate_pending_operation, attempt.operationId, attempt.oldClientPublicKey,
+                attempt.newClientPublicKey), 11, R.color.vpn0wn_ink_2).apply { setTextIsSelectable(true); setPadding(dp(14), dp(8), dp(14), dp(8)) })
+        }
+        if (provisionState.pendingRotation) parent.addView(rowButton(str(R.string.vpn0wn_user_rotate_reconcile), R.drawable.ic_vpn0wn_refresh) {
+            storedServers.singleOrNull { it.id == owner.id }?.let { current -> authenticateRotation(current) { provision.reconcileUserRotation(current) } }
+        }.apply { id = R.id.vpn0wn_vps_reconcile_rotation; isEnabled = !provisionState.busy && rotationAuthentication == null })
     }
 
     private data class RemoveUserAction(val server: StoredVpsServer, val name: String, val publicKey: String, val action: PendingVpsRemove.Action)
@@ -1625,8 +1771,6 @@ class VpsProvisioningFragment : BaseFragment() {
         if (provisionState.pendingRemove) parent.addView(rowButton(str(if (revoke) R.string.vpn0wn_user_revoke_reconcile else R.string.vpn0wn_user_remove_reconcile), R.drawable.ic_vpn0wn_refresh) {
             storedServers.singleOrNull { it.id == owner.id }?.let { provision.reconcileRemoveUser(it) }
         }.apply { id = R.id.vpn0wn_vps_reconcile_removal; isEnabled = !provisionState.busy })
-        if (provisionState.busy && provisionState.removal != UserRemoval.NONE)
-            parent.addView(rowButton(str(R.string.vpn0wn_close_connection), R.drawable.ic_vpn0wn_refresh) { provision.cancelOperation() })
     }
 
     // Literal spacing and text sizes reuse the existing native form treatment.

@@ -60,6 +60,7 @@ import com.vpn0wn.android.provisioning.VpsProvisioningViewModel
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Step
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.UserCreation
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.UserRemoval
+import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.UserRotation
 import com.vpn0wn.android.provisioning.VpsUserProfileFile
 import com.vpn0wn.android.provisioning.VpsUserProfileFileTest
 import com.vpn0wn.android.provisioning.VpsUserProfileStore
@@ -1086,6 +1087,187 @@ class VpsProvisioningWorkflowTest {
             settle()
             assertEquals(0, revocationCommands(fixture))
         } finally { fixture.close() }
+    }
+
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
+    fun rotateAuthenticationWaitsForCapturedViewRestartAndRequiresExactConfirmation() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        val profiles = profileStore {}
+        val fixture = fixture(profiles = profiles)
+        try {
+            openRotationUser(fixture, profiles)
+            AppDataTransferSettingsTest.Authentication.expectedTitleRes = R.string.vpn0wn_user_rotate_authenticate
+            click(fixture, R.string.vpn0wn_action_rotate_key)
+            val callback = AppDataTransferSettingsTest.Authentication.callbacks.single()
+            val statusCount = profileStatusCommands(fixture)
+            fixture.controller.pause().stop()
+            callback(BiometricAuthenticator.Result.Success(null))
+            callback(BiometricAuthenticator.Result.Cancelled)
+            settle()
+            assertEquals(statusCount, profileStatusCommands(fixture))
+            assertNull(fixture.model.state.value.rotateConfirmation)
+            fixture.controller.start().resume()
+            fixture.model.state.first { !it.busy && it.rotateConfirmation != null }
+            settle()
+            assertEquals(statusCount + 1, profileStatusCommands(fixture))
+            val dialog = ShadowDialog.getLatestDialog() as AlertDialog
+            val confirmation = requireNotNull(fixture.model.state.value.rotateConfirmation)
+            val message = dialog.findViewById<TextView>(android.R.id.message)!!.text.toString()
+            for (identity in listOf(confirmation.server.host, PROFILE_PIN, PROFILE_SERVER_KEY, PROFILE_CLIENT_KEY))
+                assertTrue(message.contains(identity))
+            assertEquals(0, rotationCommands(fixture, verify = false))
+            dialog.getButton(DialogInterface.BUTTON_NEGATIVE).performClick()
+            settle()
+            dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            settle()
+            assertEquals(0, rotationCommands(fixture, verify = false))
+            click(fixture, R.string.vpn0wn_action_rotate_key)
+            AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.NoAuthenticationConfigured)
+            fixture.model.state.first { !it.busy && it.rotateConfirmation != null }
+            settle()
+            (ShadowDialog.getLatestDialog() as AlertDialog).getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            fixture.model.state.first { !it.busy && it.rotation == UserRotation.ROTATED }
+            settle()
+            assertEquals(1, rotationCommands(fixture, verify = false))
+            assertEquals(1, rotationCommands(fixture, verify = true))
+            assertEquals(fixture.activity.getString(R.string.vpn0wn_user_rotated),
+                fixture.root.findViewById<TextView>(R.id.vpn0wn_vps_user_rotation_status).text.toString())
+        } finally { fixture.close() }
+    }
+
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
+    fun rotateReconciliationAuthenticationDefersOnceAndNeverResendsMutation() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        val profiles = profileStore {}
+        val fixture = fixture(profiles = profiles)
+        try {
+            openRotationUser(fixture, profiles)
+            val store = Vpn0wnApplication.getVpsServerStore()
+            val stored = store.servers.first().single()
+            requireNotNull(fixture.model.requestRotateUserConfirmation(stored, "phone", PROFILE_CLIENT_KEY)).join()
+            fixture.peer.rotateFailure = ProvisioningException("synthetic lost reply")
+            requireNotNull(fixture.model.confirmRotateUser(requireNotNull(fixture.model.state.value.rotateConfirmation))).join()
+            settle()
+            val attempt = requireNotNull(store.pendingRotation(stored))
+            assertNotNull(text(fixture.root, fixture.activity.getString(R.string.vpn0wn_user_rotate_pending_operation,
+                attempt.operationId, attempt.oldClientPublicKey, attempt.newClientPublicKey)))
+            AppDataTransferSettingsTest.Authentication.expectedTitleRes = R.string.vpn0wn_user_rotate_authenticate
+            fixture.root.findViewById<View>(R.id.vpn0wn_vps_reconcile_rotation).performClick()
+            val callback = AppDataTransferSettingsTest.Authentication.callbacks.single()
+            fixture.controller.pause().stop()
+            callback(BiometricAuthenticator.Result.NoAuthenticationConfigured)
+            callback(BiometricAuthenticator.Result.Success(null))
+            settle()
+            assertEquals(0, rotationCommands(fixture, verify = true))
+            fixture.controller.start().resume()
+            fixture.model.state.first { !it.busy && it.rotation == UserRotation.OBSERVED }
+            settle()
+            assertEquals(1, rotationCommands(fixture, verify = true))
+            assertEquals(1, rotationCommands(fixture, verify = false))
+            assertNull(store.pendingRotation(store.servers.first().single()))
+        } finally { fixture.close() }
+    }
+
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
+    fun rotateAuthenticationAndReviewRetireOnNavigationOrDestroyedView() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        val profiles = profileStore {}
+        val fixture = fixture(profiles = profiles)
+        try {
+            openRotationUser(fixture, profiles)
+            AppDataTransferSettingsTest.Authentication.expectedTitleRes = R.string.vpn0wn_user_rotate_authenticate
+            click(fixture, R.string.vpn0wn_action_rotate_key)
+            val old = AppDataTransferSettingsTest.Authentication.callbacks.single()
+            fixture.controller.recreate()
+            settle()
+            old(BiometricAuthenticator.Result.Success(null))
+            settle()
+            assertNull(fixture.model.state.value.rotateConfirmation)
+            val stored = Vpn0wnApplication.getVpsServerStore().servers.first().single()
+            openServer(fixture, stored)
+            clickableAncestor(text(fixture.root, "phone")).performClick()
+            settle()
+            click(fixture, R.string.vpn0wn_action_rotate_key)
+            AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.Success(null))
+            fixture.model.state.first { !it.busy && it.rotateConfirmation != null }
+            settle()
+            val dialog = ShadowDialog.getLatestDialog() as AlertDialog
+            fixture.activity.onBackPressedDispatcher.onBackPressed()
+            settle()
+            assertFalse(dialog.isShowing)
+            dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            settle()
+            assertEquals(0, rotationCommands(fixture, verify = false))
+        } finally { fixture.close() }
+    }
+
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class])
+    fun completedRemovalAndAnotherUsersRotationShareOneCloseControlIncludingRecovery() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        val profiles = profileStore {}
+        val fixture = fixture(profiles = profiles)
+        try {
+            openRotationUser(fixture, profiles)
+            val store = Vpn0wnApplication.getVpsServerStore()
+            val stored = store.servers.first().single()
+            val tabletKey = com.vpn0wn.crypto.KeyPair()
+            val tabletResult = VpsProfileFixture.result().copy(name = "tablet", address = "10.8.0.3", publicKey = tabletKey.publicKey.toBase64(),
+                config = VpsProfileFixture.text().replace(VpsProfileFixture.client.privateKey.toBase64(), tabletKey.privateKey.toBase64())
+                    .replace("10.8.0.2/32", "10.8.0.3/32"))
+            profiles.saveGenerated(stored, PROFILE_SERVER_KEY, VpsProfileFixture.request.copy(name = "tablet"), tabletResult)
+            val after = JSONObject(requireNotNull(fixture.peer.statusOutput)).apply {
+                getJSONArray("peers").getJSONObject(0).put("name", "tablet").put("publicKey", tabletResult.publicKey).put("allowedIps", "10.8.0.3/32")
+                put("configuredPeerPublicKeys", JSONArray(listOf(tabletResult.publicKey)))
+                put("runtimePeerPublicKeys", JSONArray(listOf(tabletResult.publicKey)))
+            }
+            fixture.peer.statusOutput = JSONObject(requireNotNull(fixture.peer.statusOutput)).apply {
+                getJSONArray("peers").put(after.getJSONArray("peers").getJSONObject(0))
+                put("configuredPeerPublicKeys", JSONArray(listOf(PROFILE_CLIENT_KEY, tabletResult.publicKey)))
+                put("runtimePeerPublicKeys", JSONArray(listOf(PROFILE_CLIENT_KEY, tabletResult.publicKey)))
+            }.toString()
+            fixture.peer.removeOutput = removalReceipt()
+            fixture.peer.afterRemove = { fixture.peer.statusOutput = after.toString() }
+            requestRemovalReview(fixture).getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            fixture.model.state.first { !it.busy && it.removal == UserRemoval.REMOVED }
+            settle()
+            val current = store.servers.first().single()
+            backToFleet(fixture)
+            awaitRenderedServer(fixture, current)
+            openServer(fixture, current)
+            clickableAncestor(text(fixture.root, "tablet")).performClick()
+            settle()
+            assertEquals(UserRemoval.REMOVED, fixture.model.state.value.removal)
+            requireNotNull(fixture.model.requestRotateUserConfirmation(current, "tablet", tabletResult.publicKey)).join()
+            fixture.peer.blockRotate = CompletableDeferred()
+            requireNotNull(fixture.model.confirmRotateUser(requireNotNull(fixture.model.state.value.rotateConfirmation)))
+            fixture.peer.rotateEntered.await()
+            settle()
+            val close = fixture.activity.getString(R.string.vpn0wn_close_connection)
+            assertEquals(1, descendants(fixture.root).filterIsInstance<TextView>().count { it.text.toString() == close })
+            fixture.model.cancelOperation()
+            fixture.model.state.first { !it.busy }
+            fixture.peer.blockVerifyRotation = CompletableDeferred()
+            requireNotNull(fixture.model.reconcileUserRotation(current))
+            fixture.peer.verifyRotationEntered.await()
+            settle()
+            assertEquals(1, descendants(fixture.root).filterIsInstance<TextView>().count { it.text.toString() == close })
+            fixture.model.cancelOperation()
+            fixture.model.state.first { !it.busy }
+        } finally { fixture.close() }
+    }
+
+    private suspend fun TestScope.openRotationUser(fixture: Fixture, profiles: VpsUserProfileStore) {
+        openProfileUser(fixture, profiles)
+        fixture.peer.statusOutput = JSONObject(requireNotNull(fixture.peer.statusOutput))
+            .put("configuredPeerPublicKeys", JSONArray(listOf(PROFILE_CLIENT_KEY)))
+            .put("runtimePeerPublicKeys", JSONArray(listOf(PROFILE_CLIENT_KEY))).toString()
+    }
+    private fun rotationCommands(fixture: Fixture, verify: Boolean) = fixture.peer.commands.count {
+        it.contains("./'rotate-peer.sh'") && it.contains("'--verify'") == verify
     }
 
     private fun revocationCommands(fixture: Fixture) = fixture.peer.commands.count { it.contains("./'revoke-peer.sh'") }
@@ -2148,6 +2330,8 @@ class VpsProvisioningWorkflowTest {
             peer.blockInstall?.complete(Unit)
             peer.blockRemove?.complete(Unit)
             peer.blockRevoke?.complete(Unit)
+            peer.blockRotate?.complete(Unit)
+            peer.blockVerifyRotation?.complete(Unit)
             try { controller.pause().stop().destroy() } finally {
                 try { modelJob.cancelAndJoin() } finally { environment.close() }
             }
