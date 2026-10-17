@@ -501,7 +501,7 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 
 ### Done
 
-- **Local encrypted-backup inspection — #196, 2026-10-17:** Fragment picker/authentication/password/safe-summary source passes 18 local controls and scoped review of 12 synthetic EN/FR day/night/stress originals; final integrated-head delivery and [native/provider acceptance](qa-test-plan.md#local-encrypted-backup-inspection-controls--196) remain separate.
+- [x] **Local encrypted-backup inspection — #196, 2026-10-17:** Fragment picker/authentication/password/safe-summary source passes the final 221-test shared gate with zero Detekt findings. Existing Backup/profile actions also retain one terminal authentication result until their captured view restarts. Author and independent review accept all 12 final frozen synthetic EN/FR day/night/stress originals within their recorded geometry limits; source delivery and [installed/native acceptance](qa-test-plan.md#local-encrypted-backup-inspection-controls--196) remain separate.
 
 - [x] **Correlated Revoke source — #143, 2026-10-17:** `VpsProvisioningFragment` adds a distinct Revoke action/review, operation-aware pending feedback and owned public recovery correlation. The existing ViewModel/store/client/script owners require complete peer absence plus the exact archived operation before settlement. Remove stays separate; known failed attempts preserve private profiles and unknown outcomes stay fenced. [Contracts](backend-contracts.md#correlated-user-revocation--143) and [QA](qa-test-plan.md#correlated-user-revocation-controls--143) own behavior and actual verification; scoped synthetic output is accepted, with installed Android/native/live acceptance remaining separate.
 
