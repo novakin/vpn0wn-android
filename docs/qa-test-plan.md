@@ -8,6 +8,12 @@ The layer lists below are target requirements, not a passing coverage report. [S
 
 ## Test Layers
 
+### Recovery service publication fixture — #73
+
+`TunnelRecoveryTest.Fixture.recreateService` prepares the expected native service identity, VPN preparation result and synthetic TUN descriptor before invoking `ServiceController.create()`. The real `GoBackend.VpnService.onCreate` completes the shared service future inside that call; a waiting rename activation can resume immediately. Publishing the fixture expectations afterwards allowed the strict native service-identity assertion to race with setup. Production service ownership and the assertion remain unchanged.
+
+`servicePublicationIncludesNativeFixtureReadiness` attaches an inline continuation to the pending service future and checks the exact expected service and new valid descriptor at publication. The control fails against the previous ordering without sleeps, retries or timeout changes. Full recovery-class and final-head CI results belong in the owning PR acceptance record; this host fixture repair does not establish Android lifecycle or VPN behavior.
+
 ### Application routing selection controls — #212
 
 `AppListDialogFragmentTest` uses the actual Fragment, Material dialog, native action buttons and fragment-result consumer under Robolectric API28. Controls keep coroutine inventory publication pending while delivering native button callbacks, preserve loaded selection/mode, permit intentional Toggle all clearing, distinguish genuine empty success, retain Cancel, reject both expected inventory-failure classes and cancel old publication across detach/reattach. The final scroll-aware eight-method host gate passes with zero failures/errors/skips and zero Detekt findings. The fixture retains actual resource/load ownership and restores prior singleton/dispatcher/locale/font/qualifier/shadow state. Invalid harness attempts remain retained locally and excluded from product evidence; the original audit probe retains its distinct source scope.
