@@ -84,6 +84,7 @@ class VpsUserRemovalTest {
     @After fun tearDown() = runTest {
         withContext(NonCancellable) {
             peer.blockRemove?.complete(Unit)
+            peer.blockRevoke?.complete(Unit)
             peer.blockUpload?.complete(Unit)
             peer.blockStatus?.complete(Unit)
             owners.forEach(ViewModelStore::clear)
@@ -459,6 +460,35 @@ class VpsUserRemovalTest {
         assertTrue(removeCommands().isEmpty())
     }
 
+    @Test fun foreignRemoveAndRevokeIntentsNeverProjectTheirActionOntoSelectedServer() = runTest {
+        val model = ready()
+        val original = server()
+        val other = original.copy(id = "other-record")
+        store.upsert(other)
+        store.saveCredential(other, PIN, VpsCredential.Password("synthetic-password".toCharArray()))
+        val endpoint = VpsEndpoint(other.host, other.sshPort, other.sshUser)
+        for (action in PendingVpsRemove.Action.entries) {
+            val attempt = PendingVpsRemove(other.id, endpoint, PIN, SERVER_KEY, "phone", CLIENT_KEY, action,
+                if (action == PendingVpsRemove.Action.REVOKE) "00112233-4455-4677-8899-aabbccddeeff" else null)
+            store.admitRemove(other, attempt)
+            requireNotNull(model.requestRevokeUserConfirmation(original, "phone", CLIENT_KEY)).join()
+            assertEquals(Problem.REMOVE_PENDING, model.state.value.problem)
+            assertNull(model.state.value.removalOwner)
+            assertNull(model.state.value.removeConfirmation)
+            requireNotNull(model.syncStatus(original)).join()
+            assertNull(model.state.value.removalOwner)
+            assertEquals(PendingVpsRemove.Action.REMOVE, model.state.value.removalAction)
+            requireNotNull(model.reconcileRemoveUser(original)).join()
+            assertNull(model.state.value.removalOwner)
+            assertEquals(PendingVpsRemove.Action.REMOVE, model.state.value.removalAction)
+            assertEquals(attempt, store.pendingRemove(original))
+            store.clearRejectedRemove(other, attempt)
+        }
+        assertTrue(revokeCommands().isEmpty())
+        assertTrue(removeCommands().isEmpty())
+        assertNotNull(profiles().load(original, SERVER_KEY, CLIENT_KEY))
+    }
+
     @Test fun cancellationAfterAdmissionRetainsDurableIntentAndDrainsOwnedConnection() = runTest {
         val model = ready()
         val confirmation = prepare(model)
@@ -519,6 +549,371 @@ class VpsUserRemovalTest {
         assertEquals(current, server())
     }
 
+    @Test fun confirmedRevokeRequiresArchiveAndAbsenceBeforeDeletingOnlyExactProfile() = runTest {
+        val unrelated = VpsProfileFixture.server.copy(id = "unrelated")
+        profiles().saveGenerated(unrelated, SERVER_KEY, VpsProfileFixture.request, VpsProfileFixture.result())
+        for (running in listOf(true, false)) {
+            profiles().saveGenerated(server(), SERVER_KEY, VpsProfileFixture.request, VpsProfileFixture.result())
+            peer.statusOutput = status(true, running = running, runtimeKeys = if (running) listOf(CLIENT_KEY) else emptyList())
+            val model = ready()
+            val confirmation = prepareRevoke(model)
+            val attempt = confirmation.attempt
+            peer.afterRevoke = { peer.statusOutput = status(false, running = running, archives = archives(attempt)) }
+            requireNotNull(model.confirmRemoveUser(confirmation)).join()
+            assertEquals(UserRemoval.REMOVED, model.state.value.removal)
+            assertEquals(PendingVpsRemove.Action.REVOKE, model.state.value.removalAction)
+            assertFalse(model.state.value.pendingRemove)
+            assertNull(store.pendingRemove(server()))
+            assertNull(profiles().load(server(), SERVER_KEY, CLIENT_KEY))
+            assertNotNull(profiles().load(unrelated, SERVER_KEY, CLIENT_KEY))
+            val command = revokeCommands().last()
+            assertTrue(command.contains("'--expected-public-key' ${CLIENT_KEY.shellQuote()}"))
+            assertTrue(command.contains("'--expected-server-public-key' ${SERVER_KEY.shellQuote()}"))
+            assertTrue(command.contains("'--operation-id' ${requireNotNull(attempt.operationId).shellQuote()}"))
+        }
+        assertTrue(removeCommands().isEmpty())
+        assertEquals(peer.connections.size, peer.closes.get())
+    }
+
+    @Test fun revokeDismissAndPreAdmissionCancellationKeepProfileWithoutJournalOrWriter() = runTest {
+        val model = ready()
+        val dismissed = prepareRevoke(model)
+        model.dismissRemoveUserConfirmation()
+        assertNull(model.confirmRemoveUser(dismissed))
+        val confirmation = prepareRevoke(model)
+        peer.uploadEntered = CompletableDeferred()
+        peer.blockUpload = CompletableDeferred()
+        val job = requireNotNull(model.confirmRemoveUser(confirmation))
+        peer.uploadEntered.await()
+        job.cancelAndJoin()
+        assertTrue(revokeCommands().isEmpty())
+        assertNull(store.pendingRemove(server()))
+        assertNotNull(profiles().load(server(), SERVER_KEY, CLIENT_KEY))
+    }
+
+    @Test fun unknownHistoryRejectsFreshRevokeWithoutInventingPendingIntent() = runTest {
+        val model = ready()
+        peer.statusOutput = status(true, archives = null)
+        requireNotNull(model.requestRevokeUserConfirmation(server(), "phone", CLIENT_KEY)).join()
+        assertEquals(Problem.ARCHIVE_UNAVAILABLE, model.state.value.problem)
+        assertNull(model.state.value.removeConfirmation)
+        assertFalse(model.state.value.pendingRemove)
+        assertNull(store.pendingRemove(server()))
+        assertTrue(revokeCommands().isEmpty())
+    }
+
+    @Test fun lostRevokeResponseRetainsOperationAcrossReconstructionAndReconcilesWithoutWriter() = runTest {
+        val model = ready()
+        val confirmation = prepareRevoke(model)
+        peer.afterRevoke = { peer.statusOutput = status(false, archives = archives(confirmation.attempt)) }
+        peer.revokeFailure = ProvisioningException("synthetic lost response")
+        requireNotNull(model.confirmRemoveUser(confirmation)).join()
+        assertEquals(confirmation.attempt, store.pendingRemove(server()))
+        assertNotNull(profiles().load(server(), SERVER_KEY, CLIENT_KEY))
+        val recreated = model(VpsServerStore(preferences, credentialFile))
+        requireNotNull(recreated.syncStatus(server())).join()
+        assertEquals(PendingVpsRemove.Action.REVOKE, recreated.state.value.removalAction)
+        requireNotNull(recreated.reconcileRemoveUser(server())).join()
+        assertEquals(UserRemoval.OBSERVED, recreated.state.value.removal)
+        assertNull(store.pendingRemove(server()))
+        assertNull(profiles().load(server(), SERVER_KEY, CLIENT_KEY))
+        assertEquals(1, revokeCommands().size)
+    }
+
+    @Test fun revokeCannotSettleAbsentPeerWithoutExactCompleteSameOperationArchive() = runTest {
+        val model = ready()
+        val confirmation = prepareRevoke(model)
+        val attempt = confirmation.attempt
+        peer.afterRevoke = { peer.statusOutput = status(false) }
+        requireNotNull(model.confirmRemoveUser(confirmation)).join()
+        val wrongOperation = attempt.copy(operationId = "00112233-4455-4677-8899-aabbccddeeff")
+        val wrongName = attempt.copy(name = "other")
+        val wrongKey = attempt.copy(clientPublicKey = OTHER_KEY)
+        val duplicate = archives(attempt).put(archives(attempt).getJSONObject(0))
+        for (observation in listOf(
+            status(false, archives = null), status(false), status(false, archives = archives(wrongOperation)),
+            status(false, archives = archives(wrongName)), status(false, archives = archives(wrongKey)),
+            status(false, archives = duplicate), status(true, archives = archives(attempt)),
+            status(false, runtimeKeys = listOf(CLIENT_KEY), archives = archives(attempt)),
+            status(false, configuredKeys = null, archives = archives(attempt)),
+        )) {
+            peer.statusOutput = observation
+            requireNotNull(model.reconcileRemoveUser(server())).join()
+            assertTrue(model.state.value.pendingRemove)
+            assertEquals(UserRemoval.UNCERTAIN, model.state.value.removal)
+            assertNotNull(profiles().load(server(), SERVER_KEY, CLIENT_KEY))
+        }
+        peer.statusOutput = status(false, archives = archives(attempt))
+        requireNotNull(model.reconcileRemoveUser(server())).join()
+        assertEquals(UserRemoval.OBSERVED, model.state.value.removal)
+        assertNull(profiles().load(server(), SERVER_KEY, CLIENT_KEY))
+        assertEquals(1, revokeCommands().size)
+    }
+
+    @Test fun admittedRevokeCancellationRetainsJournalAndProfileAndClosesConnection() = runTest {
+        val model = ready()
+        val confirmation = prepareRevoke(model)
+        peer.blockRevoke = CompletableDeferred()
+        val job = requireNotNull(model.confirmRemoveUser(confirmation))
+        peer.revokeEntered.await()
+        assertEquals(confirmation.attempt, store.pendingRemove(server()))
+        job.cancel()
+        peer.blockRevoke!!.complete(Unit)
+        job.join()
+        assertEquals(UserRemoval.UNCERTAIN, model.state.value.removal)
+        assertNotNull(profiles().load(server(), SERVER_KEY, CLIENT_KEY))
+        assertEquals(peer.connections.size, peer.closes.get())
+    }
+
+    @Test fun invalidRevokeReceiptCannotDeleteProfileEvenWhenLaterStatusWouldProveCompletion() = runTest {
+        val model = ready()
+        val confirmation = prepareRevoke(model)
+        peer.revokeOutput = JSONObject(requireNotNull(peer.revokeOutput)).put("operationId", "00112233-4455-4677-8899-aabbccddeeff").toString()
+        peer.afterRevoke = { peer.statusOutput = status(false, archives = archives(confirmation.attempt)) }
+        requireNotNull(model.confirmRemoveUser(confirmation)).join()
+        assertEquals(Problem.INVALID_RESPONSE, model.state.value.problem)
+        assertNotNull(profiles().load(server(), SERVER_KEY, CLIENT_KEY))
+        assertEquals(confirmation.attempt, store.pendingRemove(server()))
+        requireNotNull(model.reconcileRemoveUser(server())).join()
+        assertEquals(UserRemoval.OBSERVED, model.state.value.removal)
+        assertEquals(1, revokeCommands().size)
+    }
+
+    @Test fun revokeProfileStorageFailureRetainsIntentForReadOnlySettlementRetry() = runTest {
+        val model = ready()
+        val confirmation = prepareRevoke(model)
+        peer.afterRevoke = { peer.statusOutput = status(false, archives = archives(confirmation.attempt)) }
+        failProfileSync = true
+        requireNotNull(model.confirmRemoveUser(confirmation)).join()
+        assertEquals(Problem.STORAGE_FAILED, model.state.value.problem)
+        assertNotNull(profiles().load(server(), SERVER_KEY, CLIENT_KEY))
+        assertNotNull(store.pendingRemove(server()))
+        failProfileSync = false
+        requireNotNull(model.reconcileRemoveUser(server())).join()
+        assertNull(profiles().load(server(), SERVER_KEY, CLIENT_KEY))
+        assertNull(store.pendingRemove(server()))
+        assertEquals(1, revokeCommands().size)
+    }
+
+    @Test fun revokeJournalKeepsLegacyRemoveSchemaAndRejectsInvalidActionCorrelation() = runTest {
+        val remove = PendingVpsRemove(server().id, VpsEndpoint(server().host, server().sshPort, server().sshUser), PIN, SERVER_KEY, "phone", CLIENT_KEY)
+        val legacy = PendingVpsRemove.encode(listOf(remove))
+        assertFalse(legacy.contains("operationId"))
+        assertFalse(legacy.contains("action"))
+        assertEquals(remove, PendingVpsRemove.decode(legacy).single())
+        val revoke = remove.copy(action = PendingVpsRemove.Action.REVOKE, operationId = "00112233-4455-4677-8899-aabbccddeeff")
+        val encoded = PendingVpsRemove.encode(listOf(revoke))
+        assertEquals(revoke, PendingVpsRemove.decode(encoded).single())
+        for (invalid in listOf(
+            JSONArray(encoded).apply { getJSONObject(0).put("action", "remove") },
+            JSONArray(encoded).apply { getJSONObject(0).put("operationId", revoke.operationId!!.uppercase()) },
+            JSONArray(encoded).apply { getJSONObject(0).remove("operationId") },
+            JSONArray(legacy).apply { getJSONObject(0).put("operationId", revoke.operationId) },
+        )) assertThrows(IOException::class.java) { PendingVpsRemove.decode(invalid.toString()) }
+        store.admitRemove(server(), revoke)
+        var deleted = false
+        assertTrue(runCatching {
+            store.settleRemove(server(), revoke, ProvisioningJson.parseStatus(status(false)), OBSERVED_AT) { deleted = true }
+        }.exceptionOrNull() is VpsServerStore.RemovePendingException)
+        assertFalse(deleted)
+        assertEquals(revoke, store.pendingRemove(server()))
+    }
+
+    @Test fun receivedTypedUnchangedOrRestoredPeerFailureSettlesFailedAndRequiresNewReviewForBothActions() = runTest {
+        for (action in PendingVpsRemove.Action.entries) for (recovery in listOf("unchanged", "restored")) {
+            peer.statusOutput = status(true)
+            val model = ready()
+            val confirmation = if (action == PendingVpsRemove.Action.REMOVE) prepare(model) else prepareRevoke(model)
+            val failure = JSONObject().put("ok", false).put("error", "apply_failed").put("message", "synthetic failure")
+                .put("recovery", recovery).toString()
+            if (action == PendingVpsRemove.Action.REMOVE) {
+                peer.afterRemove = {}
+                peer.removeOutput = failure
+                peer.removeExitCode = 74
+            } else {
+                peer.afterRevoke = {}
+                peer.revokeOutput = failure
+                peer.revokeExitCode = 74
+            }
+            requireNotNull(model.confirmRemoveUser(confirmation)).join()
+            assertEquals(UserRemoval.FAILED, model.state.value.removal)
+            assertFalse(model.state.value.pendingRemove)
+            assertNull(store.pendingRemove(server()))
+            assertNull(model.state.value.removalAttempt)
+            assertNotNull(profiles().load(server(), SERVER_KEY, CLIENT_KEY))
+            assertFalse(model.state.value.statusSnapshots.containsKey(server().id))
+            assertNull(model.confirmRemoveUser(confirmation))
+            assertEquals(if (recovery == "unchanged") ProvisioningRecovery.UNCHANGED else ProvisioningRecovery.RESTORED,
+                model.state.value.recovery)
+            peer.removeExitCode = 0
+            peer.revokeExitCode = 0
+        }
+        assertEquals(4, removeCommands().size + revokeCommands().size)
+    }
+
+    @Test fun typedCleanupFailureAfterValidReceiptCannotClearPeerIntentOrPublishRollbackForBothActions() = runTest {
+        for (action in PendingVpsRemove.Action.entries) for (recovery in listOf(ProvisioningRecovery.UNCHANGED, ProvisioningRecovery.RESTORED)) {
+            peer.statusOutput = status(true)
+            val model = ready()
+            val confirmation = if (action == PendingVpsRemove.Action.REMOVE) prepare(model) else prepareRevoke(model)
+            peer.afterRemove = {}
+            peer.afterRevoke = {}
+            peer.removeOutput = JSONObject().put("ok", true).put("name", "phone").put("publicKey", CLIENT_KEY)
+                .put("removed", true).put("revoked", false).toString()
+            peer.closeFailure = ProvisioningException("synthetic close failure", category = ProvisioningFailureCategory.MUTATION_FAILED, recovery = recovery)
+            requireNotNull(model.confirmRemoveUser(confirmation)).join()
+            peer.closeFailure = null
+            assertTrue(model.state.value.pendingRemove)
+            assertEquals(UserRemoval.UNCERTAIN, model.state.value.removal)
+            assertNull(model.state.value.recovery)
+            assertNotNull(profiles().load(server(), SERVER_KEY, CLIENT_KEY))
+            assertEquals(confirmation.attempt, store.pendingRemove(server()))
+            peer.statusOutput = if (action == PendingVpsRemove.Action.REVOKE) status(false, archives = archives(confirmation.attempt)) else status(false)
+            requireNotNull(model.reconcileRemoveUser(server())).join()
+            profiles().saveGenerated(server(), SERVER_KEY, VpsProfileFixture.request, VpsProfileFixture.result())
+        }
+        assertEquals(4, removeCommands().size + revokeCommands().size)
+    }
+
+    @Test fun typedLaterStatusFailureCannotBeMistakenForRollbackAfterReceipt() = runTest {
+        for (action in PendingVpsRemove.Action.entries) {
+            peer.statusOutput = status(true)
+            val model = ready()
+            val confirmation = if (action == PendingVpsRemove.Action.REMOVE) prepare(model) else prepareRevoke(model)
+            val failure = ProvisioningException("synthetic later status failure", category = ProvisioningFailureCategory.MUTATION_FAILED,
+                recovery = ProvisioningRecovery.RESTORED)
+            if (action == PendingVpsRemove.Action.REMOVE) peer.afterRemove = { peer.statusFailure = failure }
+            else peer.afterRevoke = { peer.statusFailure = failure }
+            requireNotNull(model.confirmRemoveUser(confirmation)).join()
+            assertTrue(model.state.value.pendingRemove)
+            assertNull(model.state.value.recovery)
+            assertNotNull(profiles().load(server(), SERVER_KEY, CLIENT_KEY))
+            assertEquals(confirmation.attempt, store.pendingRemove(server()))
+            peer.statusFailure = null
+            peer.statusOutput = if (action == PendingVpsRemove.Action.REVOKE) status(false, archives = archives(confirmation.attempt)) else status(false)
+            requireNotNull(model.reconcileRemoveUser(server())).join()
+            profiles().saveGenerated(server(), SERVER_KEY, VpsProfileFixture.request, VpsProfileFixture.result())
+        }
+    }
+
+    @Test fun typedRollbackCannotClearChangedLocalOwnerOrLoseProfile() = runTest {
+        val model = ready()
+        val original = server()
+        val confirmation = prepareRevoke(model)
+        peer.afterRevoke = { runBlocking { preferences.edit { it[VpsServerStore.SERVERS] = VpsServerStore.encodeServers(listOf(original.copy(name = "changed"))) } } }
+        peer.revokeOutput = JSONObject().put("ok", false).put("error", "apply_failed").put("message", "synthetic failure")
+            .put("recovery", "restored").toString()
+        peer.revokeExitCode = 74
+        requireNotNull(model.confirmRemoveUser(confirmation)).join()
+        assertEquals(Problem.CONNECTION_CHANGED, model.state.value.problem)
+        assertTrue(model.state.value.pendingRemove)
+        assertEquals(confirmation.attempt, store.pendingRemove(server()))
+        assertNotNull(profiles().load(original, SERVER_KEY, CLIENT_KEY))
+    }
+
+    @Test fun absentUnknownOrIncompleteRollbackReceiptNeverClearsEitherActionIntent() = runTest {
+        for (action in PendingVpsRemove.Action.entries) for (recovery in listOf(null, "unknown-recovery", "incomplete")) {
+            peer.statusOutput = status(true)
+            val model = ready()
+            val confirmation = if (action == PendingVpsRemove.Action.REMOVE) prepare(model) else prepareRevoke(model)
+            val failure = JSONObject().put("ok", false).put("error", "apply_failed").put("message", "synthetic failure")
+            if (recovery != null) failure.put("recovery", recovery)
+            if (action == PendingVpsRemove.Action.REMOVE) {
+                peer.afterRemove = {}; peer.removeOutput = failure.toString(); peer.removeExitCode = 74
+            } else {
+                peer.afterRevoke = {}; peer.revokeOutput = failure.toString(); peer.revokeExitCode = 74
+            }
+            requireNotNull(model.confirmRemoveUser(confirmation)).join()
+            assertTrue(model.state.value.pendingRemove)
+            assertEquals(UserRemoval.UNCERTAIN, model.state.value.removal)
+            assertEquals(confirmation.attempt, store.pendingRemove(server()))
+            assertNotNull(profiles().load(server(), SERVER_KEY, CLIENT_KEY))
+            peer.statusOutput = if (action == PendingVpsRemove.Action.REVOKE) status(false, archives = archives(confirmation.attempt)) else status(false)
+            requireNotNull(model.reconcileRemoveUser(server())).join()
+            profiles().saveGenerated(server(), SERVER_KEY, VpsProfileFixture.request, VpsProfileFixture.result())
+            peer.removeExitCode = 0; peer.revokeExitCode = 0
+        }
+        assertEquals(6, removeCommands().size + revokeCommands().size)
+    }
+
+    @Test fun knownArchivePretransactionRejectionsSettleOnlyActualRevokeDispatchAsFailed() = runTest {
+        for (action in PendingVpsRemove.Action.entries) for (code in listOf("archive_inventory_unknown", "archive_limit", "operation_id_conflict")) {
+            peer.statusOutput = status(true)
+            val model = ready()
+            val confirmation = if (action == PendingVpsRemove.Action.REMOVE) prepare(model) else prepareRevoke(model)
+            val failure = JSONObject().put("ok", false).put("error", code).put("message", "synthetic rejection").toString()
+            if (action == PendingVpsRemove.Action.REMOVE) {
+                peer.afterRemove = {}; peer.removeOutput = failure; peer.removeExitCode = 73
+            } else {
+                peer.afterRevoke = {}; peer.revokeOutput = failure; peer.revokeExitCode = 73
+            }
+            requireNotNull(model.confirmRemoveUser(confirmation)).join()
+            assertNotNull(profiles().load(server(), SERVER_KEY, CLIENT_KEY))
+            if (action == PendingVpsRemove.Action.REVOKE) {
+                assertEquals(UserRemoval.FAILED, model.state.value.removal)
+                assertFalse(model.state.value.pendingRemove)
+                assertNull(store.pendingRemove(server()))
+                assertFalse(model.state.value.statusSnapshots.containsKey(server().id))
+            } else {
+                assertEquals(UserRemoval.UNCERTAIN, model.state.value.removal)
+                assertEquals(confirmation.attempt, store.pendingRemove(server()))
+                peer.statusOutput = status(false)
+                requireNotNull(model.reconcileRemoveUser(server())).join()
+                profiles().saveGenerated(server(), SERVER_KEY, VpsProfileFixture.request, VpsProfileFixture.result())
+            }
+            peer.removeExitCode = 0; peer.revokeExitCode = 0
+        }
+        assertEquals(6, removeCommands().size + revokeCommands().size)
+    }
+
+    @Test fun archiveRejectionFromCleanupOrLaterStatusAfterReceiptCannotClearRevoke() = runTest {
+        for (code in listOf("archive_inventory_unknown", "archive_limit", "operation_id_conflict")) for (cleanup in listOf(true, false)) {
+            peer.statusOutput = status(true)
+            val model = ready()
+            val confirmation = prepareRevoke(model)
+            val failure = ProvisioningException("synthetic late rejection", category = ProvisioningFailureCategory.CONFLICT, remoteCode = code)
+            peer.afterRevoke = if (cleanup) ({}) else ({ peer.statusFailure = failure })
+            if (cleanup) peer.closeFailure = failure
+            requireNotNull(model.confirmRemoveUser(confirmation)).join()
+            peer.closeFailure = null; peer.statusFailure = null
+            assertTrue(model.state.value.pendingRemove)
+            assertEquals(confirmation.attempt, store.pendingRemove(server()))
+            assertNotNull(profiles().load(server(), SERVER_KEY, CLIENT_KEY))
+            peer.statusOutput = status(false, archives = archives(confirmation.attempt))
+            requireNotNull(model.reconcileRemoveUser(server())).join()
+            profiles().saveGenerated(server(), SERVER_KEY, VpsProfileFixture.request, VpsProfileFixture.result())
+        }
+        assertEquals(6, revokeCommands().size)
+    }
+
+    @Test fun fullKnownArchiveHistoryRejectsFreshRevokeBeforeIntent() = runTest {
+        val model = ready()
+        val full = JSONArray().apply {
+            repeat(VpsBackupResult.MAX_REVOKED_FILES) { index -> put(JSONObject().put("archiveName", "old$index.conf")
+                .put("name", "old$index").put("publicKey", CLIENT_KEY).put("operationId", JSONObject.NULL)) }
+        }
+        peer.statusOutput = status(true, archives = full)
+        requireNotNull(model.requestRevokeUserConfirmation(server(), "phone", CLIENT_KEY)).join()
+        assertEquals(Problem.ARCHIVE_FULL, model.state.value.problem)
+        assertNull(model.state.value.removeConfirmation)
+        assertFalse(model.state.value.pendingRemove)
+        assertNull(store.pendingRemove(server()))
+        assertTrue(revokeCommands().isEmpty())
+    }
+
+    private suspend fun prepareRevoke(model: VpsProvisioningViewModel): VpsProvisioningViewModel.RemoveUserConfirmation {
+        requireNotNull(model.requestRevokeUserConfirmation(server(), "phone", CLIENT_KEY)).join()
+        return requireNotNull(model.state.value.removeConfirmation).also { confirmation ->
+            peer.revokeOutput = JSONObject().put("ok", true).put("name", "phone").put("publicKey", CLIENT_KEY)
+                .put("removed", true).put("revoked", true).put("archiveName", confirmation.attempt.archiveName)
+                .put("archive", "/fixture/revoked/${confirmation.attempt.archiveName}")
+                .put("operationId", confirmation.attempt.operationId).toString()
+        }
+    }
+
+    private fun archives(attempt: PendingVpsRemove): JSONArray = JSONArray().put(JSONObject()
+        .put("archiveName", attempt.archiveName).put("name", attempt.name).put("publicKey", attempt.clientPublicKey).put("operationId", attempt.operationId))
+    private fun revokeCommands() = peer.commands.filter { it.contains("./'revoke-peer.sh'") }
     private suspend fun ready() = model().also { requireNotNull(it.syncStatus(server())).join() }
     private fun model(serverStore: VpsServerStore = store) = VpsProvisioningViewModel(
         ApplicationProvider.getApplicationContext(), serverStore, peer, { OBSERVED_AT }, profiles(),
@@ -539,12 +934,13 @@ class VpsUserRemovalTest {
     private fun removeCommands() = peer.commands.filter { it.contains("./'remove-peer.sh'") }
     private fun status(hasPeer: Boolean, running: Boolean? = true, clientKey: String = CLIENT_KEY, serverKey: String = SERVER_KEY,
         runtimeKeys: List<String>? = if (hasPeer) listOf(clientKey) else emptyList(),
-        configuredKeys: List<String>? = if (hasPeer) listOf(clientKey) else emptyList()): String = JSONObject()
+        configuredKeys: List<String>? = if (hasPeer) listOf(clientKey) else emptyList(), archives: JSONArray? = JSONArray()): String = JSONObject()
         .put("ok", true).put("interface", "wg0").put("running", running ?: JSONObject.NULL)
         .put("endpoint", VpsProfileFixture.server.endpoint).put("listenPort", "51820").put("cidr", "10.8.0.0/24")
         .put("dns", "1.1.1.1").put("serverPublicKey", serverKey)
         .put("runtimePeerPublicKeys", runtimeKeys?.let(::JSONArray) ?: JSONObject.NULL)
         .put("configuredPeerPublicKeys", configuredKeys?.let(::JSONArray) ?: JSONObject.NULL)
+        .put("revokedArchives", archives ?: JSONObject.NULL)
         .put("peers", JSONArray().apply {
             if (hasPeer) put(JSONObject().put("name", "phone").put("publicKey", clientKey).put("allowedIps", "10.8.0.2/32")
                 .put("latestHandshake", JSONObject.NULL).put("rxBytes", JSONObject.NULL).put("txBytes", JSONObject.NULL))

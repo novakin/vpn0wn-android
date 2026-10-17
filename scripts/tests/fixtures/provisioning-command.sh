@@ -6,6 +6,7 @@ action=${1:-none}
 case "$command_name" in
   cp) action=copy ;;
   mv) action=rename ;;
+  sync) action=flush ;;
   rm)
     if [[ "$action" == -*r* ]]; then action=cleanup; else action=remove; fi
     ;;
@@ -246,6 +247,7 @@ case "$command_name" in
       printf '1: %s inet %s scope global\n' "$WG_IFACE" "$(cat "$address_file")"
     fi
     ;;
+  sync) [[ $# -eq 2 && "$1" == -f && -e "$2" ]] ;;
   cp|mv|rm) exec "/bin/$command_name" "$@" ;;
   *) exit 2 ;;
 esac

@@ -13,6 +13,37 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class ProvisioningJsonTest {
+    @Test fun revocationHistoryKeepsLegacyNamesAndExactOperationCorrelationWithoutPrivateBodies() {
+        val operationId = "00112233-4455-4677-8899-aabbccddeeff"
+        val key = "UFVCTElDLTIgICAgICAgICAgICAgICAgICAgICAgICA="
+        val base = JSONObject().put("ok", true).put("interface", "wg0").put("running", true)
+            .put("endpoint", "vpn.example").put("listenPort", "51820").put("cidr", "10.8.0.0/24")
+            .put("dns", "1.1.1.1").put("peers", JSONArray())
+        fun archive(name: String, operation: String? = null) = JSONObject().put("archiveName", name).put("name", "phone")
+            .put("publicKey", key).put("operationId", operation ?: JSONObject.NULL)
+        val history = JSONArray().put(archive("phone.conf")).put(archive("phone.conf.ABC123"))
+            .put(archive("phone.conf.$operationId", operationId))
+        assertEquals(null, ProvisioningJson.parseStatus(base.toString()).revokedArchives)
+        assertEquals(null, ProvisioningJson.parseStatus(JSONObject(base.toString()).put("revokedArchives", JSONObject.NULL).toString()).revokedArchives)
+        val parsed = ProvisioningJson.parseStatus(JSONObject(base.toString()).put("revokedArchives", history).toString()).revokedArchives!!
+        assertEquals(3, parsed.size)
+        assertEquals(operationId, parsed.last().operationId)
+        assertEquals(listOf(key, key, key), parsed.map { it.publicKey })
+        for (invalid in listOf(
+            JSONArray().put(archive("phone.conf.$operationId")),
+            JSONArray().put(archive("phone.conf.ABC123", operationId)),
+            JSONArray().put(archive("phone.conf.$operationId", operationId.uppercase())),
+            JSONArray().put(archive("other.conf.ABC123")),
+            JSONArray().put(archive("phone.conf.ABC123").put("publicKey", "private-invalid-key")),
+            JSONArray().put(history.getJSONObject(2)).put(history.getJSONObject(2)),
+            JSONArray().put(archive("phone.conf")).put(archive("phone.conf")),
+            JSONArray().apply { repeat(1025) { put(archive("phone.conf")) } },
+            "partial-history",
+        )) assertThrows(ProvisioningException::class.java) {
+            ProvisioningJson.parseStatus(JSONObject(base.toString()).put("revokedArchives", invalid).toString())
+        }
+    }
+
     @Test fun peerInventoriesAreNullableCanonicalAndDistinct() {
         val key = "UFVCTElDLTIgICAgICAgICAgICAgICAgICAgICAgICA="
         val base = JSONObject().put("ok", true).put("interface", "wg0").put("running", true)
@@ -432,7 +463,9 @@ class ProvisioningJsonTest {
         assertEquals("tablet", revoked.name)
         assertTrue(revoked.removed)
         assertTrue(revoked.revoked)
-        assertTrue(revoked.archive.endsWith(".conf.synthetic"))
+        assertTrue(revoked.archive.endsWith("/tablet.conf.ABC123"))
+        assertEquals("tablet.conf.ABC123", revoked.archiveName)
+        assertEquals(null, revoked.operationId)
         assertEquals(1, ProvisioningJson.parseBackup(fixture("backup")).revokedCount)
         assertTrue(ProvisioningJson.parseUninstall(fixture("uninstall")).uninstalled)
     }

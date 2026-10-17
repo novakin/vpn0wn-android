@@ -23,7 +23,7 @@ setup() {
   mkdir -p "$TEST_STATE" "$WG_DIR" "$TEST_ROOT/bin"
   /bin/cp "$REPO_DIR/scripts/tests/fixtures/provisioning-command.sh" "$TEST_ROOT/bin/command"
   chmod 700 "$TEST_ROOT/bin/command"
-  for tool in wg wg-quick systemctl apt-get dpkg-query sysctl ip iptables ss cp mv rm; do
+  for tool in wg wg-quick systemctl apt-get dpkg-query sysctl ip iptables ss cp mv rm sync; do
     ln -s command "$TEST_ROOT/bin/$tool"
   done
   export PATH="$TEST_ROOT/bin:$PATH"
@@ -117,7 +117,7 @@ assert_failure() {
 }
 
 assert_no_mutations() {
-  ! grep -Eq '^(apt-get|cp|mv|rm) |^sysctl -w |^systemctl (enable|disable|stop|start|restart) |^wg (genkey|genpsk|syncconf|set) ' "$TEST_STATE/trace"
+  ! grep -Eq '^(apt-get|cp|mv|rm|sync) |^sysctl -w |^systemctl (enable|disable|stop|start|restart) |^wg (genkey|genpsk|syncconf|set) ' "$TEST_STATE/trace"
 }
 
 assert_restored() {
@@ -647,6 +647,197 @@ test_c3_runtime_unknown() {
   assert_no_mutations
 }
 
+test_c143_revoke_correlates_and_flushes_before_apply() {
+  local operation_id=00112233-4455-4677-8899-aabbccddeeff key server_key archive psk
+  owned_config
+  key=$(printf '%-32.32s' PUBLIC-existing | base64 -w0)
+  server_key=$(printf '%-32.32s' PUBLIC-old | base64 -w0)
+  psk=$(printf '%-32.32s' PSK-correlated | base64 -w0)
+  sed -i "/^PublicKey = /aPresharedKey = $psk" "$WG_CONF"
+  /bin/cp "$WG_CONF" "$TEST_STATE/runtime.conf"
+  awk '/^# BEGIN_PEER existing$/,/^# END_PEER existing$/' "$WG_CONF" > "$TEST_ROOT/expected.archive"
+  archive="$TUNNL_DIR/revoked/existing.conf.$operation_id"
+  run_script revoke-peer --name existing --expected-public-key "$key" --expected-server-public-key "$server_key" --operation-id "$operation_id"
+  assert_success
+  [[ "$RESPONSE" == *"\"operationId\":\"$operation_id\""* && "$RESPONSE" == *"\"archiveName\":\"existing.conf.$operation_id\""* ]]
+  cmp -s "$archive" "$TEST_ROOT/expected.archive"
+  assert_private "$archive" 600
+  ! grep -q '^# BEGIN_PEER existing$' "$WG_CONF"
+  [[ -z $(awk '$1 == "PublicKey" {print $3}' "$TEST_STATE/runtime.conf") ]]
+  awk '/^sync -f / {flush=NR} /^wg syncconf / {if (!flush || flush >= NR) exit 1; applied=1} END {if (!applied) exit 1}' "$TEST_STATE/trace"
+  run_script sync-status
+  assert_success
+  [[ "$RESPONSE" == *"\"archiveName\":\"existing.conf.$operation_id\",\"name\":\"existing\",\"publicKey\":\"$key\",\"operationId\":\"$operation_id\""* ]]
+  [[ "$RESPONSE" != *"$psk"* ]]
+}
+
+test_c143_revoke_rejects_server_drift_and_invalid_operation_ids() {
+  owned_config
+  key=$(printf '%-32.32s' PUBLIC-existing | base64 -w0)
+  wrong_server=$(printf '%-32.32s' PUBLIC-other | base64 -w0)
+  for invalid in bad 00112233-4455-4677-8899-AABBCCDDEEFF 00112233-4455-4677-8899-aabbccddeeffx; do
+    run_script revoke-peer --name existing --expected-public-key "$key" --operation-id "$invalid"
+    assert_failure invalid_operation_id
+  done
+  run_script revoke-peer --name existing --expected-public-key "$key" --expected-server-public-key "$wrong_server" --operation-id 00112233-4455-4677-8899-aabbccddeeff
+  assert_failure server_identity_mismatch
+  assert_restored
+  assert_no_mutations
+}
+
+test_c143_revoke_does_not_reuse_or_delete_existing_operation() {
+  owned_config
+  operation_id=00112233-4455-4677-8899-aabbccddeeff
+  mkdir -p "$TUNNL_DIR/revoked"
+  restore_peer other history 10.9.0.9 old > "$TUNNL_DIR/revoked/other.conf.$operation_id"
+  /bin/cp "$TUNNL_DIR/revoked/other.conf.$operation_id" "$TEST_ROOT/expected.archive"
+  : > "$TEST_STATE/trace"
+  run_script revoke-peer --name existing --operation-id "$operation_id"
+  assert_failure operation_id_conflict
+  cmp -s "$TUNNL_DIR/revoked/other.conf.$operation_id" "$TEST_ROOT/expected.archive"
+  [[ ! -e "$TUNNL_DIR/revoked/existing.conf.$operation_id" ]]
+  assert_restored
+  assert_no_mutations
+}
+
+test_c143_revoke_archive_publication_is_no_clobber() {
+  owned_config
+  operation_id=00112233-4455-4677-8899-aabbccddeeff
+  cat > "$TEST_ROOT/bin/ln" <<'SH'
+#!/usr/bin/env bash
+case "$(cat "$TEST_STATE/archive-collision")" in
+  file) printf 'foreign-private-history' > "${@: -1}" ;;
+  directory) mkdir "${@: -1}"; printf 'survivor' > "${@: -1}/survivor" ;;
+  symlink) mkdir "$TEST_STATE/foreign-history"; printf 'survivor' > "$TEST_STATE/foreign-history/survivor"; /bin/ln -s "$TEST_STATE/foreign-history" "${@: -1}" ;;
+esac
+exec /bin/ln "$@"
+SH
+  chmod 700 "$TEST_ROOT/bin/ln"
+  for collision in file directory symlink; do
+    /bin/rm -rf -- "$TUNNL_DIR/revoked" "$TEST_STATE/foreign-history"
+    printf '%s' "$collision" > "$TEST_STATE/archive-collision"
+    : > "$TEST_STATE/trace"
+    run_script revoke-peer --name existing --operation-id "$operation_id"
+    assert_failure archive_failed
+    archive="$TUNNL_DIR/revoked/existing.conf.$operation_id"
+    if [[ "$collision" == file ]]; then
+      [[ $(cat "$archive") == foreign-private-history ]]
+    else
+      [[ $(cat "$archive/survivor") == survivor && ! -e "$archive/revoked.conf" ]]
+    fi
+    assert_restored
+    ! grep -q '^wg syncconf ' "$TEST_STATE/trace"
+  done
+}
+
+test_c143_revoke_flush_failure_precedes_apply() {
+  owned_config
+  printf '1' > "$TEST_STATE/fail-sync-flush"
+  run_script revoke-peer --name existing --operation-id 00112233-4455-4677-8899-aabbccddeeff
+  assert_failure archive_failed
+  assert_restored
+  [[ "$RESPONSE" == *'"recovery":"unchanged"'* ]]
+  [[ -z $(find "$TUNNL_DIR/revoked" -type f) ]]
+  ! grep -q '^wg syncconf ' "$TEST_STATE/trace"
+}
+
+test_c143_revoke_rejects_invalid_new_archive_before_apply() {
+  owned_config
+  python3 - "$WG_CONF" <<'PY'
+import pathlib, sys
+path=pathlib.Path(sys.argv[1])
+text=path.read_text()
+text=text.replace('# END_PEER existing', '# '+('oversized-comment-'*1024)+'\n# END_PEER existing')
+path.write_text(text)
+PY
+  /bin/cp "$WG_CONF" "$TEST_ROOT/original.conf"
+  /bin/cp "$WG_CONF" "$TEST_STATE/runtime.conf"
+  run_script revoke-peer --name existing --operation-id 00112233-4455-4677-8899-aabbccddeeff
+  assert_failure archive_failed
+  cmp -s "$WG_CONF" "$TEST_ROOT/original.conf"
+  cmp -s "$TEST_STATE/runtime.conf" "$TEST_ROOT/original.conf"
+  [[ -z $(find "$TUNNL_DIR/revoked" -type f) ]]
+  ! grep -Eq '^sync -f |^wg syncconf ' "$TEST_STATE/trace"
+}
+
+test_c143_revoke_incomplete_recovery_preserves_archive() {
+  owned_config
+  operation_id=00112233-4455-4677-8899-aabbccddeeff
+  awk '/^# BEGIN_PEER existing$/,/^# END_PEER existing$/' "$WG_CONF" > "$TEST_ROOT/expected.archive"
+  printf '1,2,3' > "$TEST_STATE/fail-wg-syncconf"
+  printf '1,2' > "$TEST_STATE/fail-systemctl-restart"
+  run_script revoke-peer --name existing --operation-id "$operation_id"
+  assert_failure apply_failed
+  [[ "$RESPONSE" == *'"recovery":"incomplete"'* ]]
+  cmp -s "$TUNNL_DIR/revoked/existing.conf.$operation_id" "$TEST_ROOT/expected.archive"
+  assert_private "$TUNNL_DIR/revoked/existing.conf.$operation_id" 600
+  [[ -n $(find "$WG_DIR" -maxdepth 1 -type d -name '.tunnl-recovery.*') ]]
+}
+
+test_c143_archive_inventory_preserves_legacy_and_correlated_history() {
+  owned_config
+  operation_id=00112233-4455-4677-8899-aabbccddeeff
+  mkdir -p "$TUNNL_DIR/revoked"
+  for name in existing.conf existing.conf.ABC123 "existing.conf.$operation_id"; do
+    restore_peer existing historical 10.9.0.2 private > "$TUNNL_DIR/revoked/$name"
+    printf '# historical UTF-8: café\n\n' >> "$TUNNL_DIR/revoked/$name"
+  done
+  run_script sync-status
+  assert_success
+  python3 - "$TEST_ROOT/response" "$operation_id" <<'PY'
+import base64, json, pathlib, sys
+status=json.loads(pathlib.Path(sys.argv[1]).read_text())
+archives={entry['archiveName']:entry for entry in status['revokedArchives']}
+assert len(archives)==3
+for name,entry in archives.items():
+    assert entry['name']=='existing'
+    assert entry['publicKey']==base64.b64encode(b'PUBLIC-historical'.ljust(32)).decode()
+    assert entry['operationId']==(sys.argv[2] if name.endswith(sys.argv[2]) else None)
+assert base64.b64encode(b'PSK-private'.ljust(32)).decode() not in json.dumps(status)
+PY
+}
+
+test_c143_invalid_archive_inventory_stays_unknown() {
+  owned_config
+  operation_id=00112233-4455-4677-8899-aabbccddeeff
+  for state in empty truncated wrong-name duplicate-key duplicate-operation symlink oversized binary; do
+    /bin/rm -rf -- "$TUNNL_DIR/revoked"
+    mkdir -p "$TUNNL_DIR/revoked"
+    archive="$TUNNL_DIR/revoked/existing.conf.$operation_id"
+    restore_peer existing historical 10.9.0.2 private > "$archive"
+    case "$state" in
+      empty) : > "$archive" ;;
+      truncated) sed -i '$d' "$archive" ;;
+      wrong-name) sed -i 's/PEER existing/PEER other/g' "$archive" ;;
+      duplicate-key) sed -i '/^PublicKey = /p' "$archive" ;;
+      duplicate-operation) restore_peer other historical 10.9.0.2 private > "$TUNNL_DIR/revoked/other.conf.$operation_id" ;;
+      symlink) /bin/mv "$archive" "$TEST_ROOT/private.archive"; ln -s "$TEST_ROOT/private.archive" "$archive" ;;
+      oversized) head -c 16385 /dev/zero > "$archive" ;;
+      binary) printf '\0' >> "$archive" ;;
+    esac
+    run_script sync-status
+    assert_success
+    [[ "$RESPONSE" == *'"revokedArchives":null'* && "$RESPONSE" != *'"revokedArchives":[]'* ]]
+  done
+}
+
+test_c143_failed_archive_enumeration_discards_partial_inventory() {
+  owned_config
+  mkdir -p "$TUNNL_DIR/revoked"
+  restore_peer existing historical 10.9.0.2 private > "$TUNNL_DIR/revoked/existing.conf.ABC123"
+  cat > "$TEST_ROOT/bin/find" <<'SH'
+#!/usr/bin/env bash
+printf '%s\0' "$TUNNL_DIR/revoked/existing.conf.ABC123"
+printf 'synthetic-secret-enumeration-error' >&2
+exit 1
+SH
+  chmod 700 "$TEST_ROOT/bin/find"
+  run_script sync-status
+  assert_success
+  [[ "$RESPONSE" == *'"revokedArchives":null'* ]]
+  ! grep -q synthetic-secret-enumeration-error "$TEST_ROOT/response" "$TEST_ROOT/stderr"
+}
+
 test_c3_revoke_effective_and_private() {
   owned_config
   run_script revoke-peer --name existing
@@ -672,7 +863,7 @@ test_c3_revoke_apply_failure() {
 
 test_c3_revoke_archive_failure() {
   owned_config
-  printf '2' > "$TEST_STATE/fail-mv-rename"
+  printf '1' > "$TEST_STATE/fail-mv-rename"
   run_script revoke-peer --name existing
   assert_failure archive_failed
   assert_restored
@@ -1133,6 +1324,8 @@ check_contract_fixture() {
   local name=$1 expected="$REPO_DIR/ui/src/test/resources/provisioning/$1.json"
   if [[ "$name" == backup ]]; then
     sed -E 's/\.conf\.[A-Za-z0-9]{6}/.conf.ABC123/g; s/"capturedAtUtc":"[^"]+"/"capturedAtUtc":"2026-10-16T00:00:00Z"/' "$TEST_ROOT/response" > "$TEST_ROOT/normalized"
+  elif [[ "$name" == revoke-peer ]]; then
+    sed -E "s|$TEST_ROOT|/fixture|g; s/\\.conf\\.[A-Za-z0-9]{6}/.conf.ABC123/g" "$TEST_ROOT/response" > "$TEST_ROOT/normalized"
   else
     sed -E "s|$TEST_ROOT|/fixture|g; s/\\.conf\\.[A-Za-z0-9]{6}/.conf.synthetic/g" "$TEST_ROOT/response" > "$TEST_ROOT/normalized"
   fi
@@ -1318,7 +1511,7 @@ test_backup_complete_snapshot() {
   owned_config
   mkdir -p "$TUNNL_DIR/revoked"
   printf '# quoted "comment" \\ path\t\r\n# UTF-8: café\n\n' >> "$WG_CONF"
-  for name in alice.conf alice.conf.AAAAAA alice.conf.BBBBBB; do
+  for name in alice.conf alice.conf.AAAAAA alice.conf.BBBBBB alice.conf.00112233-4455-4677-8899-aabbccddeeff; do
     printf '# BEGIN_PEER alice\n[Peer]\nPresharedKey = synthetic-private-psk\n# END_PEER alice\n\n' > "$TUNNL_DIR/revoked/$name"
   done
   run_script backup
@@ -1334,7 +1527,7 @@ assert snapshot['snapshotVersion'] == 1
 datetime.datetime.strptime(snapshot['capturedAtUtc'], '%Y-%m-%dT%H:%M:%SZ')
 assert snapshot['interface'] == 'wg0'
 assert snapshot['config'].encode() == config.read_bytes()
-assert snapshot['revokedCount'] == '3'
+assert snapshot['revokedCount'] == '4'
 assert {entry['archiveName']: entry['config'].encode() for entry in snapshot['revoked']} == {
     file.name: file.read_bytes() for file in revoked.iterdir()
 }
@@ -1561,13 +1754,16 @@ test_restore_preserves_psk_and_historical_reuse() {
   restore_peer phone phone 10.8.0.3 current >> "$RESTORE_INPUT/server.conf"
   restore_peer existing first 10.8.0.2 historical > "$RESTORE_INPUT/revoked/existing.conf"
   restore_peer existing second 10.9.0.2 > "$RESTORE_INPUT/revoked/existing.conf.ABC123"
+  restore_peer existing third 10.9.0.2 older > "$RESTORE_INPUT/revoked/existing.conf.00112233-4455-4677-8899-aabbccddeeff"
   run_restore
   assert_success
-  [[ "$RESPONSE" == *'"peerCount":2'* && "$RESPONSE" == *'"revokedCount":2'* ]]
+  [[ "$RESPONSE" == *'"peerCount":2'* && "$RESPONSE" == *'"revokedCount":3'* ]]
   cmp -s "$RESTORE_INPUT/revoked/existing.conf" "$TUNNL_DIR/revoked/existing.conf"
   cmp -s "$RESTORE_INPUT/revoked/existing.conf.ABC123" "$TUNNL_DIR/revoked/existing.conf.ABC123"
   assert_private "$TUNNL_DIR/revoked/existing.conf" 600
   assert_private "$TUNNL_DIR/revoked/existing.conf.ABC123" 600
+  cmp -s "$RESTORE_INPUT/revoked/existing.conf.00112233-4455-4677-8899-aabbccddeeff" "$TUNNL_DIR/revoked/existing.conf.00112233-4455-4677-8899-aabbccddeeff"
+  assert_private "$TUNNL_DIR/revoked/existing.conf.00112233-4455-4677-8899-aabbccddeeff" 600
   [[ $(awk '$1 == "PublicKey" {print $3}' "$WG_CONF" | wc -l) -eq 2 ]]
   [[ $(awk '$1 == "PresharedKey" {print $3}' "$WG_CONF") == "$(printf '%-32.32s' PSK-current | base64 -w0)" ]]
   [[ $(awk '$1 == "PresharedKey" {print $3}' "$TEST_STATE/runtime.conf") == "$(printf '%-32.32s' PSK-current | base64 -w0)" ]]
@@ -2176,6 +2372,15 @@ if [[ ${1-} == --case ]]; then
 fi
 
 tests=(
+  test_c143_revoke_correlates_and_flushes_before_apply
+  test_c143_revoke_rejects_server_drift_and_invalid_operation_ids
+  test_c143_revoke_does_not_reuse_or_delete_existing_operation
+  test_c143_revoke_archive_publication_is_no_clobber test_c143_revoke_rejects_invalid_new_archive_before_apply
+  test_c143_revoke_flush_failure_precedes_apply
+  test_c143_revoke_incomplete_recovery_preserves_archive
+  test_c143_archive_inventory_preserves_legacy_and_correlated_history
+  test_c143_invalid_archive_inventory_stays_unknown
+  test_c143_failed_archive_enumeration_discards_partial_inventory
   test_c143_configured_inventory_covers_unmarked_running_and_stopped_peers test_c143_invalid_configured_inventory_stays_unknown
   test_c143_duplicate_runtime_inventory_stays_unknown
   test_c143_runtime_inventory_observes_live_only_peers test_c143_failed_runtime_inventory_discards_partial_stdout

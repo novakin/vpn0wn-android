@@ -89,6 +89,11 @@ elif [[ "$running" == true ]] && runtime_peer_keys=$(wg show "$WG_IFACE" peers 2
   runtime_peer_keys_json=$(peer_keys_json "$runtime_peer_keys") || runtime_peer_keys_json=null
 fi
 
+revoked_archives_json=null
+if read_revoked_archive_inventory; then
+  revoked_archives_json=$(revoked_archive_inventory_json)
+fi
+
 dump=""
 if [[ "$running" == true ]]; then
   dump=$(wg show "$WG_IFACE" dump 2>/dev/null) || dump=""
@@ -104,7 +109,7 @@ json_counter() {
   fi
 }
 
-printf '{"ok":true,"interface":%s,"running":%s,"endpoint":%s,"listenPort":%s,"cidr":%s,"dns":%s,"serverPublicKey":%s,"runtimePeerPublicKeys":%s,"configuredPeerPublicKeys":%s,"peers":[' \
+printf '{"ok":true,"interface":%s,"running":%s,"endpoint":%s,"listenPort":%s,"cidr":%s,"dns":%s,"serverPublicKey":%s,"runtimePeerPublicKeys":%s,"configuredPeerPublicKeys":%s,"revokedArchives":%s,"peers":[' \
   "$(json_string "$WG_IFACE")" \
   "$running" \
   "$(json_string "$endpoint")" \
@@ -113,7 +118,8 @@ printf '{"ok":true,"interface":%s,"running":%s,"endpoint":%s,"listenPort":%s,"ci
   "$(json_string "$dns")" \
   "$server_public_key_json" \
   "$runtime_peer_keys_json" \
-  "$configured_peer_keys_json"
+  "$configured_peer_keys_json" \
+  "$revoked_archives_json"
 
 first=true
 awk '

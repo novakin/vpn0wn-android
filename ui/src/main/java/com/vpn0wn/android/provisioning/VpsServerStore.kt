@@ -293,7 +293,7 @@ class VpsServerStore internal constructor(
     suspend fun settleRemove(expected: StoredVpsServer, attempt: PendingVpsRemove, status: VpsServerStatus,
         syncedAtEpochSeconds: Long, removeProfile: suspend () -> Unit): StoredVpsServer = mutate {
         requireCurrentCredential(expected, attempt.fingerprint)
-        if (!attempt.owns(expected) || !attempt.observesAbsence(status)) throw RemovePendingException()
+        if (!attempt.owns(expected) || !attempt.observesCompletion(status)) throw RemovePendingException()
         if (attempt !in pendingRemovals()) throw RemovePendingException()
         val updated = observedRecord(expected, status, syncedAtEpochSeconds)
         removeProfile()

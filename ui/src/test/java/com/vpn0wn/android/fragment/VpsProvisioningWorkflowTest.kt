@@ -52,6 +52,7 @@ import com.vpn0wn.android.provisioning.VpsCredential
 import com.vpn0wn.android.provisioning.ProvisioningException
 import com.vpn0wn.android.provisioning.ProvisioningRecovery
 import com.vpn0wn.android.provisioning.StoredVpsServer
+import com.vpn0wn.android.provisioning.PendingVpsRemove
 import com.vpn0wn.android.provisioning.VpsCredentialFileTest
 import com.vpn0wn.android.provisioning.VpsPlanningTestPeer
 import com.vpn0wn.android.provisioning.VpsProfileFixture
@@ -986,8 +987,192 @@ class VpsProvisioningWorkflowTest {
         } finally { fixture.close() }
     }
 
-    private suspend fun TestScope.requestRemovalReview(fixture: Fixture): AlertDialog {
-        click(fixture, R.string.vpn0wn_action_remove_user)
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class])
+    fun revokeCancelThenConfirmShowsExactOperationAndKeepsDistinctRemoveAction() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        val profiles = profileStore {}
+        val fixture = fixture(profiles = profiles)
+        try {
+            openProfileUser(fixture, profiles)
+            val stored = Vpn0wnApplication.getVpsServerStore().servers.first().single()
+            assertNotNull(text(fixture.root, fixture.activity.getString(R.string.vpn0wn_action_remove_user)))
+            val cancelled = requestRemovalReview(fixture, revoke = true)
+            val first = requireNotNull(fixture.model.state.value.removeConfirmation).attempt
+            assertEquals(PendingVpsRemove.Action.REVOKE, first.action)
+            val message = cancelled.findViewById<TextView>(android.R.id.message)!!.text.toString()
+            for (identity in listOf(stored.host, PROFILE_PIN, PROFILE_SERVER_KEY, PROFILE_CLIENT_KEY, requireNotNull(first.operationId)))
+                assertTrue(message.contains(identity))
+            cancelled.getButton(DialogInterface.BUTTON_NEGATIVE).performClick()
+            settle()
+            cancelled.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            settle()
+            assertEquals(0, revocationCommands(fixture))
+            assertNotNull(profiles.load(stored, PROFILE_SERVER_KEY, PROFILE_CLIENT_KEY))
+            val dialog = requestRemovalReview(fixture, revoke = true)
+            val attempt = requireNotNull(fixture.model.state.value.removeConfirmation).attempt
+            assertNotEquals(first.operationId, attempt.operationId)
+            fixture.peer.revokeOutput = revocationReceipt(attempt)
+            fixture.peer.afterRevoke = { fixture.peer.statusOutput = revocationStatus(stored, attempt) }
+            dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            fixture.model.state.first { !it.busy && it.removal == UserRemoval.REMOVED }
+            settle()
+            assertEquals(1, revocationCommands(fixture))
+            assertEquals(0, removalCommands(fixture))
+            assertNull(profiles.load(stored, PROFILE_SERVER_KEY, PROFILE_CLIENT_KEY))
+            assertEquals(fixture.activity.getString(R.string.vpn0wn_user_revoked),
+                fixture.root.findViewById<TextView>(R.id.vpn0wn_vps_user_removal_status).text.toString())
+        } finally { fixture.close() }
+    }
+
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class])
+    fun absentPeerWithoutOperationArchiveStaysPendingAcrossRecreationUntilReadOnlyReconciliation() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        val profiles = profileStore {}
+        val fixture = fixture(profiles = profiles)
+        try {
+            openProfileUser(fixture, profiles)
+            val store = Vpn0wnApplication.getVpsServerStore()
+            val stored = store.servers.first().single()
+            val dialog = requestRemovalReview(fixture, revoke = true)
+            val attempt = requireNotNull(fixture.model.state.value.removeConfirmation).attempt
+            fixture.peer.revokeOutput = revocationReceipt(attempt)
+            fixture.peer.afterRevoke = { fixture.peer.statusOutput = removalStatus(stored) }
+            dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            fixture.model.state.first { !it.busy && it.pendingRemove }
+            settle()
+            assertNotNull(profiles.load(stored, PROFILE_SERVER_KEY, PROFILE_CLIENT_KEY))
+            fixture.controller.recreate()
+            settle()
+            openServer(fixture, store.servers.first().single())
+            assertEquals(fixture.activity.getString(R.string.vpn0wn_user_revoke_uncertain),
+                fixture.root.findViewById<TextView>(R.id.vpn0wn_vps_user_removal_status).text.toString())
+            assertNotNull(text(fixture.root, fixture.activity.getString(R.string.vpn0wn_user_revoke_pending_operation,
+                attempt.operationId, attempt.archiveName)))
+            assertFalse(fixture.root.findViewById<View>(R.id.vpn0wn_vps_add_user).isEnabled)
+            fixture.peer.statusOutput = revocationStatus(stored, attempt)
+            fixture.root.findViewById<View>(R.id.vpn0wn_vps_reconcile_removal).performClick()
+            fixture.model.state.first { !it.busy && it.removal == UserRemoval.OBSERVED }
+            settle()
+            assertEquals(1, revocationCommands(fixture))
+            assertNull(profiles.load(stored, PROFILE_SERVER_KEY, PROFILE_CLIENT_KEY))
+            assertEquals(fixture.activity.getString(R.string.vpn0wn_user_revoke_observed),
+                fixture.root.findViewById<TextView>(R.id.vpn0wn_vps_user_removal_status).text.toString())
+        } finally { fixture.close() }
+    }
+
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class])
+    fun revokeReviewRetiresOnStopAndNavigationWithoutLettingLateButtonsMutate() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        val profiles = profileStore {}
+        val fixture = fixture(profiles = profiles)
+        try {
+            openProfileUser(fixture, profiles)
+            val stopped = requestRemovalReview(fixture, revoke = true)
+            fixture.controller.pause().stop()
+            assertFalse(stopped.isShowing)
+            stopped.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            settle()
+            fixture.controller.start().resume()
+            settle()
+            assertNull(fixture.model.state.value.removeConfirmation)
+            val navigated = requestRemovalReview(fixture, revoke = true)
+            fixture.activity.onBackPressedDispatcher.onBackPressed()
+            settle()
+            assertFalse(navigated.isShowing)
+            navigated.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            settle()
+            assertEquals(0, revocationCommands(fixture))
+        } finally { fixture.close() }
+    }
+
+    private fun revocationCommands(fixture: Fixture) = fixture.peer.commands.count { it.contains("./'revoke-peer.sh'") }
+
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class])
+    fun receivedTypedRollbackShowsFailedForBothActionsAndRequiresFreshExplicitReview() = runTest {
+        for (revoke in listOf(false, true)) {
+            VpsUserProfileFileTest.resetNativeFiles()
+            val profiles = profileStore {}
+            val fixture = fixture(profiles = profiles)
+            try {
+                openProfileUser(fixture, profiles)
+                val store = Vpn0wnApplication.getVpsServerStore()
+                val stored = store.servers.first().single()
+                val dialog = requestRemovalReview(fixture, revoke)
+                val original = requireNotNull(fixture.model.state.value.removeConfirmation)
+                val failure = JSONObject().put("ok", false).put("error", "apply_failed").put("message", "synthetic failure")
+                    .put("recovery", "restored").toString()
+                if (revoke) { fixture.peer.revokeOutput = failure; fixture.peer.revokeExitCode = 74 }
+                else { fixture.peer.removeOutput = failure; fixture.peer.removeExitCode = 74 }
+                dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+                fixture.model.state.first { !it.busy && it.removal == UserRemoval.FAILED }
+                settle()
+                assertEquals(fixture.activity.getString(if (revoke) R.string.vpn0wn_user_revoke_failed else R.string.vpn0wn_user_remove_failed),
+                    fixture.root.findViewById<TextView>(R.id.vpn0wn_vps_user_removal_status).text.toString())
+                assertNull(store.pendingRemove(stored))
+                assertNotNull(profiles.load(stored, PROFILE_SERVER_KEY, PROFILE_CLIENT_KEY))
+                assertFalse(fixture.root.findViewById<View>(R.id.vpn0wn_vps_add_user).isEnabled)
+                dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+                settle()
+                assertNull(fixture.model.confirmRemoveUser(original))
+                assertEquals(1, removalCommands(fixture) + revocationCommands(fixture))
+                fixture.peer.statusOutput = profileStatus(stored, withPeer = true)
+                requireNotNull(fixture.model.syncStatus(stored)).join()
+                settle()
+                clickableAncestor(text(fixture.root, "phone")).performClick()
+                settle()
+                val next = requestRemovalReview(fixture, revoke)
+                if (revoke) assertNotEquals(original.attempt.operationId, fixture.model.state.value.removeConfirmation!!.attempt.operationId)
+                next.getButton(DialogInterface.BUTTON_NEGATIVE).performClick()
+                settle()
+                assertEquals(1, removalCommands(fixture) + revocationCommands(fixture))
+            } finally { fixture.close() }
+        }
+    }
+
+    @Test
+    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class])
+    fun foreignPendingRemoveAndRevokeShowOnlyGenericConflictForSelectedServer() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        val profiles = profileStore {}
+        val fixture = fixture(profiles = profiles)
+        try {
+            openProfileUser(fixture, profiles)
+            val store = Vpn0wnApplication.getVpsServerStore()
+            val stored = store.servers.first().single()
+            val other = stored.copy(id = "foreign-record")
+            store.upsert(other)
+            store.saveCredential(other, PROFILE_PIN, VpsCredential.Password("synthetic-password".toCharArray()))
+            for (action in PendingVpsRemove.Action.entries) {
+                val attempt = PendingVpsRemove(other.id, com.vpn0wn.android.provisioning.VpsEndpoint(other.host, other.sshPort, other.sshUser),
+                    PROFILE_PIN, PROFILE_SERVER_KEY, "phone", PROFILE_CLIENT_KEY, action,
+                    if (action == PendingVpsRemove.Action.REVOKE) "00112233-4455-4677-8899-aabbccddeeff" else null)
+                store.admitRemove(other, attempt)
+                requireNotNull(fixture.model.requestRevokeUserConfirmation(stored, "phone", PROFILE_CLIENT_KEY)).join()
+                settle()
+                assertEquals(fixture.activity.getString(R.string.vpn0wn_user_foreign_mutation_pending),
+                    fixture.root.findViewById<TextView>(R.id.vpn0wn_vps_operation_problem).text.toString())
+                assertNull(fixture.root.findViewById<View>(R.id.vpn0wn_vps_user_removal_status))
+                assertNull(fixture.root.findViewById<View>(R.id.vpn0wn_vps_reconcile_removal))
+                assertFalse(descendants(fixture.root).filterIsInstance<TextView>().any { it.text.toString().contains("00112233-4455-4677-8899-aabbccddeeff") })
+                store.clearRejectedRemove(other, attempt)
+            }
+            assertEquals(0, revocationCommands(fixture))
+            assertEquals(0, removalCommands(fixture))
+        } finally { fixture.close() }
+    }
+    private fun revocationReceipt(attempt: PendingVpsRemove): String = JSONObject(removalReceipt()).put("revoked", true)
+        .put("archive", "/fixture/revoked/${attempt.archiveName}")
+        .put("archiveName", attempt.archiveName).put("operationId", attempt.operationId).toString()
+    private fun revocationStatus(server: StoredVpsServer, attempt: PendingVpsRemove): String = JSONObject(removalStatus(server))
+        .put("revokedArchives", JSONArray().put(JSONObject().put("archiveName", attempt.archiveName).put("name", attempt.name)
+            .put("publicKey", attempt.clientPublicKey).put("operationId", attempt.operationId))).toString()
+
+    private suspend fun TestScope.requestRemovalReview(fixture: Fixture, revoke: Boolean = false): AlertDialog {
+        click(fixture, if (revoke) R.string.vpn0wn_action_revoke else R.string.vpn0wn_action_remove_user)
         fixture.model.state.first { !it.busy && it.removeConfirmation != null }
         settle()
         return (ShadowDialog.getLatestDialog() as AlertDialog).also { assertTrue(it.isShowing) }
@@ -1785,6 +1970,7 @@ class VpsProvisioningWorkflowTest {
         .put("ok", true).put("interface", "wg0").put("running", true)
         .put("endpoint", server.endpoint).put("listenPort", server.listenPort).put("cidr", server.cidr)
         .put("dns", server.dns).put("serverPublicKey", PROFILE_SERVER_KEY)
+        .put("revokedArchives", JSONArray())
         .put("peers", JSONArray().apply {
             if (withPeer) put(JSONObject().put("name", "phone").put("publicKey", PROFILE_CLIENT_KEY).put("allowedIps", "10.8.0.2/32")
                 .put("latestHandshake", JSONObject.NULL).put("rxBytes", JSONObject.NULL).put("txBytes", JSONObject.NULL))
@@ -1852,6 +2038,7 @@ class VpsProvisioningWorkflowTest {
                 peer.blockStatus?.complete(Unit)
                 peer.blockInstall?.complete(Unit)
                 peer.blockRemove?.complete(Unit)
+                peer.blockRevoke?.complete(Unit)
                 try { controller.pause().stop().destroy() } catch (cleanup: Throwable) {
                     if (cleanup !== failure) failure.addSuppressed(cleanup)
                 }
@@ -1932,6 +2119,7 @@ class VpsProvisioningWorkflowTest {
             peer.blockStatus?.complete(Unit)
             peer.blockInstall?.complete(Unit)
             peer.blockRemove?.complete(Unit)
+            peer.blockRevoke?.complete(Unit)
             try { controller.pause().stop().destroy() } finally {
                 try { modelJob.cancelAndJoin() } finally { environment.close() }
             }

@@ -16,7 +16,13 @@ data class PendingVpsRemove(
     val serverPublicKey: String,
     val name: String,
     val clientPublicKey: String,
+    val action: Action = Action.REMOVE,
+    val operationId: String? = null,
 ) {
+    enum class Action { REMOVE, REVOKE }
+
+    val archiveName: String? get() = operationId?.let { "$name.conf.$it" }
+
     fun matches(server: StoredVpsServer): Boolean = serverId == server.id ||
         ssh == VpsEndpoint(server.host, server.sshPort, server.sshUser)
 
@@ -30,8 +36,17 @@ data class PendingVpsRemove(
             (status.running == false && (status.runtimePeerPublicKeys == null || status.runtimePeerPublicKeys.isEmpty()) ||
                 status.running == true && status.runtimePeerPublicKeys?.none { it == clientPublicKey } == true)
 
+    internal fun observesCompletion(status: VpsServerStatus): Boolean {
+        if (!observesAbsence(status)) return false
+        if (action == Action.REMOVE) return operationId == null
+        val archive = status.revokedArchives?.singleOrNull { it.operationId == operationId } ?: return false
+        return operationId != null && archive.archiveName == archiveName && archive.name == name && archive.publicKey == clientPublicKey
+    }
+
     internal fun validate() {
         if (serverId.isBlank() || ssh.host.isBlank() || ssh.user.isBlank() || ssh.port !in 1..MAX_PORT || !PendingVpsAdd.NAME.matches(name)) invalid()
+        if (action == Action.REMOVE && operationId != null ||
+            action == Action.REVOKE && (operationId == null || !VpsRevokedArchive.OPERATION_ID.matches(operationId))) invalid()
         try {
             JschRemoteShellClientFactory.decodeHostFingerprint(fingerprint)
             if (Key.fromBase64(serverPublicKey).toBase64() != serverPublicKey ||
@@ -51,9 +66,11 @@ data class PendingVpsRemove(
             return JSONArray().apply {
                 attempts.forEach { attempt ->
                     attempt.validate()
-                    put(JSONObject().put("serverId", attempt.serverId).put("host", attempt.ssh.host)
+                    val item = JSONObject().put("serverId", attempt.serverId).put("host", attempt.ssh.host)
                         .put("sshPort", attempt.ssh.port).put("user", attempt.ssh.user).put("fingerprint", attempt.fingerprint)
-                        .put("serverPublicKey", attempt.serverPublicKey).put("name", attempt.name).put("clientPublicKey", attempt.clientPublicKey))
+                        .put("serverPublicKey", attempt.serverPublicKey).put("name", attempt.name).put("clientPublicKey", attempt.clientPublicKey)
+                    if (attempt.action == Action.REVOKE) item.put("action", "revoke").put("operationId", attempt.operationId)
+                    put(item)
                 }
             }.toString()
         }
@@ -66,9 +83,18 @@ data class PendingVpsRemove(
                 if (tokener.nextClean() != '\u0000' || array.length() > MAX_ATTEMPTS) invalid()
                 val attempts = (0 until array.length()).map { index ->
                     val item = array.getJSONObject(index)
-                    if (item.keys().asSequence().toSet() != FIELDS) invalid()
+                    val fields = item.keys().asSequence().toSet()
+                    val action = when (fields) {
+                        FIELDS -> Action.REMOVE
+                        FIELDS + setOf("action", "operationId") -> {
+                            if (item.text("action") != "revoke") invalid()
+                            Action.REVOKE
+                        }
+                        else -> invalid()
+                    }
                     PendingVpsRemove(item.text("serverId"), VpsEndpoint(item.text("host"), item.get("sshPort") as? Int ?: invalid(), item.text("user")),
-                        item.text("fingerprint"), item.text("serverPublicKey"), item.text("name"), item.text("clientPublicKey"))
+                        item.text("fingerprint"), item.text("serverPublicKey"), item.text("name"), item.text("clientPublicKey"), action,
+                        if (action == Action.REVOKE) item.text("operationId") else null)
                         .also { it.validate() }
                 }
                 if (attempts.map { it.serverId }.distinct().size != attempts.size || attempts.map { it.ssh }.distinct().size != attempts.size) invalid()
