@@ -26,6 +26,8 @@ import org.robolectric.annotation.GraphicsMode
 @Config(application = Application::class, sdk = [28])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class CanvasTypographyTest {
+    private val resources get() = RuntimeEnvironment.getApplication().resources
+
     @Test fun throughputUsesPackagedRegularAndMediumWithoutSyntheticBold() {
         val context = context()
         val view = TunnelThroughputView(context)
@@ -39,14 +41,14 @@ class CanvasTypographyTest {
     @Test fun topologyUsesPackagedRegularAndSharedFeatures() {
         val context = context()
         val view = VpsTopologyView(context)
-        view.bind(VpsDeployMapper.fromStored(VpsDeployFixtureData.storedServers().first(), VpsDeployFixtureData.NOW))
+        view.bind(VpsDeployMapper.fromStored(resources, VpsDeployFixtureData.storedServers().first(), VpsDeployFixtureData.NOW))
         assertFont(context, paint(view, "paint"), R.font.jetbrains_mono_regular)
     }
 
     @Test fun topologyFitsLongValuesAndRefitsOnResizeAndRebindWithoutMutatingServer() {
         val context = context()
         val view = VpsTopologyView(context)
-        val server = VpsDeployMapper.fromStored(VpsDeployFixtureData.storedServers().first(), VpsDeployFixtureData.NOW)
+        val server = VpsDeployMapper.fromStored(resources, VpsDeployFixtureData.storedServers().first(), VpsDeployFixtureData.NOW)
             .copy(name = "synthetic-server-with-a-long-context-name-and-extra-device-context", endpoint = "2001:db8:1234:5678::42", cidr = "10.123.240.0/24")
         view.bind(server)
         val density = context.resources.displayMetrics.density

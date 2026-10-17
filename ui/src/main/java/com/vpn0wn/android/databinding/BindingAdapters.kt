@@ -351,6 +351,15 @@ object BindingAdapters {
     }
 
     @JvmStatic
+    fun applicationsLabel(context: Context, config: Config?): String {
+        val local = config?.getInterface()
+        val excluded = local?.includedApplications?.isEmpty() == true
+        val count = (if (excluded) local?.excludedApplications else local?.includedApplications)?.size ?: 0
+        val resource = if (excluded) R.plurals.set_excluded_applications else R.plurals.set_included_applications
+        return context.resources.getQuantityString(resource, count, count)
+    }
+
+    @JvmStatic
     fun persistentKeepaliveText(context: Context, peer: Peer?): String {
         val seconds = peer?.persistentKeepalive?.orElse(0) ?: return ""
         return context.resources.getQuantityString(R.plurals.persistent_keepalive_seconds_unit, seconds, seconds)
@@ -646,15 +655,16 @@ object BindingAdapters {
     }
 
     @JvmStatic
-    fun tunnelPeerBadge(config: Config?): String {
-        val peer = config?.peers?.firstOrNull() ?: return "NO PEER"
-        return if (peer.preSharedKey.isPresent) "PSK" else "NO PSK"
+    fun tunnelPeerBadge(context: Context, config: Config?): String {
+        val peer = config?.peers?.firstOrNull() ?: return context.getString(R.string.vpn0wn_no_peer)
+        return if (peer.preSharedKey.isPresent) "PSK" else context.getString(R.string.vpn0wn_no_psk)
     }
 
     @JvmStatic
-    fun tunnelRoute(config: Config?): String {
-        val address = config?.`interface`?.addresses?.firstOrNull()?.toString() ?: "address pending"
-        val endpoint = config?.peers?.firstOrNull()?.endpoint?.map { it.toString() }?.orElse("endpoint pending") ?: "endpoint pending"
+    fun tunnelRoute(context: Context, config: Config?): String {
+        val address = config?.`interface`?.addresses?.firstOrNull()?.toString() ?: context.getString(R.string.vpn0wn_address_pending)
+        val endpoint = config?.peers?.firstOrNull()?.endpoint?.map { it.toString() }?.orElse(null)
+            ?: context.getString(R.string.vpn0wn_endpoint_pending)
         return "$address -> $endpoint"
     }
 

@@ -198,9 +198,9 @@ Each row records explicit declarations, directly absent translatable defaults, k
 
 Direct absence outside French is 409–534 keys. Hindi-India inherits nine keys from Hindi, reducing 435 directly absent keys to 426. These are explicit fallback/completeness limits, not a full-localization or release-ready verdict.
 
-### Current hardcoded-consumer audit — unresolved under #195
+### Workflow-follow-up hardcoded-consumer audit — historical input under #195
 
-The final workflow audit rechecked the following actual consumers at the reviewed source. They are app-owned language that still bypasses locale resources; they are not silently included in resource-node reading totals. The smallest future correction belongs at each existing owner, preserving technical IDs, actual user/server values and approved style/layout roles. This bounded numeric/terminology slice does not extract those consumers or close #195.
+The final workflow audit rechecked the following actual consumers at its reviewed source. This is the pre-extraction inventory; the resource-backed follow-up below owns the later source status. They are app-owned language that still bypasses locale resources; they are not silently included in resource-node reading totals. The smallest future correction belongs at each existing owner, preserving technical IDs, actual user/server values and approved style/layout roles. This bounded numeric/terminology slice does not extract those consumers or close #195.
 
 | Existing owner | Confirmed remaining display text / reuse boundary |
 | --- | --- |
@@ -212,3 +212,57 @@ The final workflow audit rechecked the following actual consumers at the reviewe
 | `provisioning/VpsDeployMapper.kt:28–29,67–68,85–91`; `fragment/VpsProvisioningFragment.kt:834` | Awaiting detect, unknown, generated Device NN/device fallbacks, server record, endpoint, recent sync, wg running and created metadata. Extend current presentation resources; do not rename persisted/server/user values or claim sync proves VPN health. |
 
 Technical constants, examples in `tools:text`, required legal/protocol text and identical technical words are not automatically localization defects. New workflow UI uses resources; `51820` remains a technical hint. Actual output at compact/enlarged portrait/landscape, both themes, real RTL and relevant accessibility/focus/scroll paths remains required. The prior 188 synthetic originals are not current installed or complete-screen acceptance. #195 remains open for fallback, hardcoded copy, qualified per-language review and wider native/runtime criteria; #238 owns the separate whole-screen consistency work.
+
+## Resource-backed native copy follow-up — 2026-10-17
+
+Source candidate based on `0f2e58bad506740eb27c9beba7d44dac5edf4b8f`, with live #195 read as OPEN before editing. This bounded extraction follows the confirmed inventory above. It changes resource ownership and localized presentation; it does not establish full translation, native output, published-head or release acceptance.
+
+`log_viewer_activity.xml` reuses `vpn0wn_filter_all`; DEBUG/INFO/WARN/ERROR retain their severity identities. Editor and Detail field captions reuse existing translated name/key/address/DNS/port/endpoint/AllowedIPs/keepalive resources and their existing Mono/all-caps styles. The editor application section reuses the neutral Applications caption because its existing selector supports both inclusion and exclusion. `BindingAdapters.applicationsLabel` resolves the existing included/excluded application plurals for the complete count-and-phrase label instead of concatenating English in XML. The small editor actions/hints, topology title and download/upload labels have EN/FR resources. MTU, PSK, section numbers, actual configuration values and tools-only examples remain technical or design text.
+
+`TunnelDetailFragment.updateStats` formats the real peer number through `vpn0wn_peer_title`; changing only the XML placeholder would leave the runtime title hardcoded. `BindingAdapters.tunnelPeerBadge/tunnelRoute` take their presenting Context and localize missing peer/PSK/address/endpoint text while retaining present PSK and actual addresses/endpoints. Both Home and Detail route callers use that owner. `VpsDeployMapper.fromStored/fromStatus` take presenting Resources for absent detect/engine/device text and health labels. User/server names, keys, peer IDs, timestamps, unknown markers, sync/running predicates and persisted records remain unchanged. `VpsProvisioningFragment.userScreen` formats the existing device/creation metadata through one typed resource; an unknown creation time remains `—`.
+
+Twenty-two new resource declarations have English and French values, with matching typed positional signatures. Resource XML scanning passes all 52 values files and the six affected layouts, preserves the exact leading notices and finds no unresolved affected string reference. Default main now contains 656 declarations, including 652 translatable defaults. French supplies all 652 translatable defaults; the 34 other locale qualifiers intentionally receive the 22 new keys through fallback. Across all main default/locale text files, this adds 44 declarations and 44 text nodes to the prior inventory, for 8,214 declarations and 8,861 text nodes. The prior all-language model reading and language-quality limits retain their original scope.
+
+| Qualifier | Direct absent translatable defaults | Explicit same-language parent keys | Absent after parent |
+| --- | ---: | ---: | ---: |
+| `values-ar-rSA` | 431 | 0 | 431 |
+| `values-ca-rES` | 431 | 0 | 431 |
+| `values-cs-rCZ` | 431 | 0 | 431 |
+| `values-da-rDK` | 431 | 0 | 431 |
+| `values-de` | 431 | 0 | 431 |
+| `values-el-rGR` | 539 | 0 | 539 |
+| `values-es-rES` | 431 | 0 | 431 |
+| `values-et-rEE` | 434 | 0 | 434 |
+| `values-fa-rIR` | 431 | 0 | 431 |
+| `values-fi-rFI` | 556 | 0 | 556 |
+| `values-fr` | 0 | 0 | 0 |
+| `values-hi` | 480 | 0 | 480 |
+| `values-hi-rIN` | 457 | 9 | 448 |
+| `values-hu-rHU` | 535 | 0 | 535 |
+| `values-in` | 431 | 0 | 431 |
+| `values-it` | 431 | 0 | 431 |
+| `values-ja` | 431 | 0 | 431 |
+| `values-ko-rKR` | 431 | 0 | 431 |
+| `values-nl-rNL` | 439 | 0 | 439 |
+| `values-no-rNO` | 431 | 0 | 431 |
+| `values-pa-rIN` | 431 | 0 | 431 |
+| `values-pl-rPL` | 431 | 0 | 431 |
+| `values-pt-rBR` | 431 | 0 | 431 |
+| `values-pt-rPT` | 442 | 0 | 442 |
+| `values-ro-rRO` | 434 | 0 | 434 |
+| `values-ru` | 431 | 0 | 431 |
+| `values-si-rLK` | 457 | 0 | 457 |
+| `values-sk-rSK` | 479 | 0 | 479 |
+| `values-sl` | 431 | 0 | 431 |
+| `values-sv-rSE` | 431 | 0 | 431 |
+| `values-tr-rTR` | 431 | 0 | 431 |
+| `values-uk-rUA` | 431 | 0 | 431 |
+| `values-vi-rVN` | 528 | 0 | 528 |
+| `values-zh-rCN` | 431 | 0 | 431 |
+| `values-zh-rTW` | 431 | 0 | 431 |
+
+`BindingAdaptersTest` adds French missing-versus-present route/PSK controls and resolves complete application labels in English, French and Arabic, including the existing Arabic implicit-count forms. `VpsDeployMapperTest` adds actual French fallback/health projection with unchanged stored names, technical values and unknown creation time. `LocalizedResourcesTest` adds real inflated French editor/Detail/Logs label/action/hint controls and typed metadata/numbering with explicit Arabic English fallback. Existing native mapper tests now supply the current presentation resources; the health-layout matrix remaps its real checks after each locale is selected. The pure store test keeps storage assertions, while absent endpoint/listener presentation remains covered by the dedicated mapper controls.
+
+Author verdict: source corrections are satisfactory within the bounded inventory; UI/UX verification remains incomplete until focused unit/static/localization checks and affected native output are inspected. UI/UX Pro Max informed visible labels and complete action names; Interface Design and Design System informed preserving hierarchy, existing tokens/fonts, native controls and layout ownership. Frontend Design was consulted for precise, consistent copy; its direction-changing workflow is inapplicable because no visual direction is changed. No Gradle, lint, APK, device or live-server command ran during this extraction. The final PR must record actual executed checks and output/review results before acceptance.
+
+The confirmed remaining hardcoded production text in this inventory is `TunnelThroughputView` DEVICE/ENCRYPTED/PEER Canvas labels; CHACHA20-POLY1305 and MTU remain protocol/technical identities. Canvas extraction needs its own glyph/width/RTL output proof and stays with the bounded #143/#195/#238 Canvas work. Qualified semantic review remains unperformed for every language; direct missing-key fallback outside French is 431–556, with Hindi-India reduced from 457 to 448 by its explicit Hindi parent. Wider installed, compact/enlarged portrait/landscape, both-theme, real RTL and accessibility/focus/scroll acceptance remains open. #195 remains open.

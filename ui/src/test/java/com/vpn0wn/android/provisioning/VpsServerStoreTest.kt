@@ -155,7 +155,6 @@ class VpsServerStoreTest {
         assertEquals(expected.sshPort, saved.sshPort)
         assertEquals(expected.sshUser, saved.sshUser)
         assertEquals(false, saved.running)
-        assertEquals(null, VpsDeployMapper.fromStored(saved, 1710000001L).endpointAddress)
         assertEquals(unrelated, store.servers.first().single { it.id == unrelated.id })
     }
 

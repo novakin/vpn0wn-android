@@ -75,6 +75,8 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @OptIn(ExperimentalCoroutinesApi::class)
 class VpsProvisioningLayoutTest {
+    private val resources get() = RuntimeEnvironment.getApplication().resources
+
     @get:Rule val folder = TemporaryFolder()
 
     @After fun tearDown() {
@@ -152,7 +154,7 @@ class VpsProvisioningLayoutTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         val fixture = provisioningLayoutFixture(folder, View.LAYOUT_DIRECTION_LTR)
         try {
-            val server = VpsDeployMapper.fromStored(VpsDeployFixtureData.storedServers().first(), VpsDeployFixtureData.NOW)
+            val server = VpsDeployMapper.fromStored(resources, VpsDeployFixtureData.storedServers().first(), VpsDeployFixtureData.NOW)
             val factory = VpsProvisioningFragment::class.java.getDeclaredMethod("detailScreen", VpsDeployServer::class.java)
                 .apply { isAccessible = true }
             val detail = factory.invoke(fixture.fragment, server) as View
@@ -182,7 +184,7 @@ class VpsProvisioningLayoutTest {
             val expectedDirection = if (rtl) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
             val fixture = provisioningLayoutFixture(folder, expectedDirection)
             try {
-                val server = VpsDeployMapper.fromStored(VpsDeployFixtureData.storedServers().first(), VpsDeployFixtureData.NOW)
+                val server = VpsDeployMapper.fromStored(resources, VpsDeployFixtureData.storedServers().first(), VpsDeployFixtureData.NOW)
                     .copy(name = "synthetic-server-with-a-long-context-name", endpoint = "2001:db8:1234:5678::42", cidr = "10.123.240.0/24")
                 val factory = VpsProvisioningFragment::class.java.getDeclaredMethod("detailScreen", VpsDeployServer::class.java)
                     .apply { isAccessible = true }
@@ -244,7 +246,7 @@ class VpsProvisioningLayoutTest {
                     for ((endpoint, port) in listOf("" to "", "vpn.example" to "invalid", "" to "51821", "vpn.example" to "51821")) {
                         val stored = VpsDeployFixtureData.storedServers().first().copy(host = "192.0.2.10", endpoint = endpoint,
                             listenPort = port, provider = "", region = "")
-                        val server = VpsDeployMapper.fromStored(stored, VpsDeployFixtureData.NOW)
+                        val server = VpsDeployMapper.fromStored(resources, stored, VpsDeployFixtureData.NOW)
                         val factory = VpsProvisioningFragment::class.java.getDeclaredMethod("detailScreen", VpsDeployServer::class.java)
                             .apply { isAccessible = true }
                         val detail = factory.invoke(fixture.fragment, server) as View
@@ -306,7 +308,7 @@ class VpsProvisioningLayoutTest {
                 val rtl = direction == "ldrtl"
                 val fixture = provisioningLayoutFixture(folder, if (rtl) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR)
                 try {
-                    val server = VpsDeployMapper.fromStored(VpsDeployFixtureData.storedServers().first(), VpsDeployFixtureData.NOW)
+                    val server = VpsDeployMapper.fromStored(resources, VpsDeployFixtureData.storedServers().first(), VpsDeployFixtureData.NOW)
                     val factory = VpsProvisioningFragment::class.java.getDeclaredMethod("userRow",
                         VpsDeployServer::class.java, VpsDeployUser::class.java, Int::class.javaPrimitiveType).apply { isAccessible = true }
                     for (state in VpsDeployUserStatus.entries) {

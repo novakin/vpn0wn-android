@@ -164,7 +164,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="10dp"
-                            android:text="LOCAL SIDE" />
+                            android:text="@string/vpn0wn_local_side" />
                     </LinearLayout>
 
                     <!-- Interface FieldGroup card -->
@@ -188,7 +188,7 @@
 
                                 <TextView
                                     style="@style/Vpn0wnConfigRowLabel"
-                                    android:text="NAME" />
+                                    android:text="@string/name" />
 
                                 <EditText
                                     android:id="@+id/interface_name_text"
@@ -213,7 +213,7 @@
 
                                 <TextView
                                     style="@style/Vpn0wnConfigRowLabel"
-                                    android:text="PRIVATE KEY" />
+                                    android:text="@string/private_key" />
 
                                 <LinearLayout
                                     android:layout_width="match_parent"
@@ -243,7 +243,7 @@
                                         style="@style/Vpn0wnPillButton"
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:text="regen"
+                                        android:text="@string/vpn0wn_regenerate_key"
                                         android:textColor="@color/vpn0wn_ink_2" />
                                 </LinearLayout>
                             </LinearLayout>
@@ -260,7 +260,7 @@
 
                                 <TextView
                                     style="@style/Vpn0wnConfigRowLabel"
-                                    android:text="PUBLIC KEY" />
+                                    android:text="@string/public_key" />
 
                                 <EditText
                                     android:id="@+id/public_key_text"
@@ -287,7 +287,7 @@
 
                                 <TextView
                                     style="@style/Vpn0wnConfigRowLabel"
-                                    android:text="ADDRESSES" />
+                                    android:text="@string/addresses" />
 
                                 <EditText
                                     android:id="@+id/addresses_label_text"
@@ -312,7 +312,7 @@
 
                                 <TextView
                                     style="@style/Vpn0wnConfigRowLabel"
-                                    android:text="DNS SERVERS" />
+                                    android:text="@string/dns_servers" />
 
                                 <EditText
                                     android:id="@+id/dns_servers_text"
@@ -345,7 +345,7 @@
 
                                     <TextView
                                         style="@style/Vpn0wnConfigRowLabel"
-                                        android:text="LISTEN PORT" />
+                                        android:text="@string/listen_port" />
 
                                     <EditText
                                         android:id="@+id/listen_port_text"
@@ -406,7 +406,7 @@
 
                                     <TextView
                                         style="@style/Vpn0wnConfigRowLabel"
-                                        android:text="EXCLUDED APPS" />
+                                        android:text="@string/applications" />
 
                                     <TextView
                                         style="@style/Vpn0wnMonoSubText"
@@ -426,7 +426,7 @@
                                     android:nextFocusDown="@id/peers_layout"
                                     android:nextFocusForward="@id/peers_layout"
                                     android:onClick="@{fragment::onRequestSetExcludedIncludedApplications}"
-                                    android:text="configure"
+                                    android:text="@string/vpn0wn_configure"
                                     android:textColor="@color/vpn0wn_ink_2" />
                             </LinearLayout>
                         </LinearLayout>

@@ -187,7 +187,7 @@ class TunnelDetailFragment : BaseFragment(), MenuProvider {
         for (i in 0 until binding.peersLayout.childCount) {
             val peer: TunnelDetailPeerBinding = DataBindingUtil.getBinding(binding.peersLayout.getChildAt(i))
                 ?: continue
-            peer.peerTitle.text = "PEER #${(i + 1).toString().padStart(2, '0')}"
+            peer.peerTitle.text = getString(R.string.vpn0wn_peer_title, (i + 1).toString().padStart(2, '0'))
             peer.statistics = peer.item?.publicKey?.let { statistics?.peer(it) }
         }
     }

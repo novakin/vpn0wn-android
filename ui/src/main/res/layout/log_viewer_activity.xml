@@ -131,7 +131,7 @@
                 style="@style/Vpn0wnFilterChip"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="ALL" />
+                android:text="@string/vpn0wn_filter_all" />
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/filter_debug"

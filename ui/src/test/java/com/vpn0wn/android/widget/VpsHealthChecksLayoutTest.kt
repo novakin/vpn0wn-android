@@ -38,9 +38,6 @@ class VpsHealthChecksLayoutTest {
     @Test fun enlargedChecksRetainCompleteTextInNarrowAndMirroredLayouts() = verifyLayouts(2f)
 
     private fun verifyLayouts(fontScale: Float) {
-        val mappedChecks = VpsDeployFixtureData.storedServers().map {
-            VpsDeployMapper.fromStored(it, VpsDeployFixtureData.NOW).health
-        }
         for (locale in listOf("en", "fr")) for (night in listOf("night", "notnight")) {
             for (direction in listOf("ldltr", "ldrtl")) for (width in listOf(160, 320, 640)) {
                 val height = if (width == 640) 320 else 640
@@ -55,6 +52,9 @@ class VpsHealthChecksLayoutTest {
                         layoutDirection = if (direction == "ldrtl") View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
                     }
                     activity.setContentView(root)
+                    val mappedChecks = VpsDeployFixtureData.storedServers().map {
+                        VpsDeployMapper.fromStored(activity.resources, it, VpsDeployFixtureData.NOW).health
+                    }
                     for (checks in mappedChecks + listOf(translatedLabelStressChecks(activity))) {
                         val layout = VpsHealthChecksLayout(activity, checks).apply { setPadding(14, 10, 14, 10) }
                         root.removeAllViews()

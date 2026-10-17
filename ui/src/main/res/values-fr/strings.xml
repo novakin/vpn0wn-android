@@ -686,4 +686,26 @@
     <string name="vpn0wn_restore_reconcile">Vérifier la restauration en attente</string>
     <string name="vpn0wn_restore_foreign">Une restauration en attente appartient à un autre serveur enregistré pour cette cible SSH. Vérifiez-la depuis ce serveur d’origine avant toute modification.</string>
     <string name="vpn0wn_restore_confirmation">Restaurer uniquement vers cette destination vierge :\n%1$s@%2$s:%3$d\nEmpreinte SSH : %4$s\n\nSauvegarde du : %5$s\nClé serveur WireGuard : %6$s\nAdresse VPN : %7$s:%8$s\nRéseau : %9$s\nDNS : %10$s\nPairs actifs : %11$d · Archives de révocation : %12$d\n\nCette action écrit les clés et utilisateurs sauvegardés, active le transfert IP et démarre/active le service VPN. Les profils clients et le serveur source restent intacts. Une ancienne sauvegarde peut précéder des révocations ultérieures. Une nouvelle adresse exige une mise à jour des clients. Confirmez après vérification indépendante de l’empreinte SSH.</string>
+    <string name="vpn0wn_local_side">CÔTÉ LOCAL</string>
+    <string name="vpn0wn_regenerate_key">régénérer</string>
+    <string name="vpn0wn_configure">configurer</string>
+    <string name="vpn0wn_remove_peer">supprimer</string>
+    <string name="vpn0wn_paste_base64_key">coller une clé Base64</string>
+    <string name="vpn0wn_endpoint_hint">hôte:port</string>
+    <string name="vpn0wn_tunnel_topology">FIG.01 - TOPOLOGIE DU TUNNEL</string>
+    <string name="vpn0wn_download">↓ RÉCEPTION</string>
+    <string name="vpn0wn_upload">↑ ENVOI</string>
+    <string name="vpn0wn_peer_title">PAIR #%1$s</string>
+    <string name="vpn0wn_no_peer">AUCUN PAIR</string>
+    <string name="vpn0wn_no_psk">AUCUNE PSK</string>
+    <string name="vpn0wn_address_pending">adresse en attente</string>
+    <string name="vpn0wn_endpoint_pending">point de terminaison en attente</string>
+    <string name="vpn0wn_awaiting_detect">En attente de détection</string>
+    <string name="vpn0wn_unknown">inconnu</string>
+    <string name="vpn0wn_default_device_name">Appareil %1$s</string>
+    <string name="vpn0wn_device">appareil</string>
+    <string name="vpn0wn_health_server_record">fiche serveur</string>
+    <string name="vpn0wn_health_recent_sync">synchronisation récente</string>
+    <string name="vpn0wn_health_wg_running">wg en cours d’exécution</string>
+    <string name="vpn0wn_user_metadata">%1$s · création %2$s</string>
 </resources>

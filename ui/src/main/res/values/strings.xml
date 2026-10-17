@@ -695,4 +695,26 @@
     <string name="vpn0wn_restore_reconcile">Verify pending restore</string>
     <string name="vpn0wn_restore_foreign">A pending restoration belongs to another saved server at this SSH target. Verify it through that original server record before making changes.</string>
     <string name="vpn0wn_restore_confirmation">Restore only to this fresh destination:\n%1$s@%2$s:%3$d\nSSH fingerprint: %4$s\n\nBackup captured: %5$s\nWireGuard server key: %6$s\nVPN endpoint: %7$s:%8$s\nNetwork: %9$s\nDNS: %10$s\nActive peers: %11$d · Revocation records: %12$d\n\nThis writes the captured keys and users, enables forwarding and starts/enables the VPN service. Existing client profiles and the source server are not changed. An older backup may predate later revocations. A changed endpoint requires a client update. Confirm only after reviewing the independent destination SSH fingerprint.</string>
+    <string name="vpn0wn_local_side">LOCAL SIDE</string>
+    <string name="vpn0wn_regenerate_key">regen</string>
+    <string name="vpn0wn_configure">configure</string>
+    <string name="vpn0wn_remove_peer">remove</string>
+    <string name="vpn0wn_paste_base64_key">paste Base64 key</string>
+    <string name="vpn0wn_endpoint_hint">host:port</string>
+    <string name="vpn0wn_tunnel_topology">FIG.01 - TUNNEL TOPOLOGY</string>
+    <string name="vpn0wn_download">↓ DOWNLOAD</string>
+    <string name="vpn0wn_upload">↑ UPLOAD</string>
+    <string name="vpn0wn_peer_title">PEER #%1$s</string>
+    <string name="vpn0wn_no_peer">NO PEER</string>
+    <string name="vpn0wn_no_psk">NO PSK</string>
+    <string name="vpn0wn_address_pending">address pending</string>
+    <string name="vpn0wn_endpoint_pending">endpoint pending</string>
+    <string name="vpn0wn_awaiting_detect">Awaiting detect</string>
+    <string name="vpn0wn_unknown">unknown</string>
+    <string name="vpn0wn_default_device_name">Device %1$s</string>
+    <string name="vpn0wn_device">device</string>
+    <string name="vpn0wn_health_server_record">server record</string>
+    <string name="vpn0wn_health_recent_sync">recent sync</string>
+    <string name="vpn0wn_health_wg_running">wg running</string>
+    <string name="vpn0wn_user_metadata">%1$s · created %2$s</string>
 </resources>
