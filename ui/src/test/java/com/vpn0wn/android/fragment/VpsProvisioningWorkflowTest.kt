@@ -4,27 +4,16 @@ package com.vpn0wn.android.fragment
 import android.app.Application
 import android.app.Activity
 import android.Manifest
-import android.content.ContentProvider
-import android.content.ContentValues
-import android.content.Context
 import android.content.DialogInterface
 import android.content.Intent
-import android.content.RestrictionsManager
-import android.content.pm.ProviderInfo
 import android.content.pm.PackageManager
-import android.database.Cursor
-import android.database.MatrixCursor
 import android.graphics.Rect
 import android.graphics.drawable.BitmapDrawable
-import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.os.Looper
 import android.os.Parcel
-import android.os.ParcelFileDescriptor
-import android.provider.MediaStore
 import android.view.View
-import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
@@ -33,13 +22,8 @@ import android.widget.Button
 import android.widget.TextView
 import android.widget.ScrollView
 import androidx.appcompat.app.AlertDialog
-import androidx.appcompat.app.AppCompatActivity
-import androidx.fragment.app.Fragment
-import androidx.fragment.app.FragmentManager
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewModelScope
 import com.vpn0wn.android.Application as Vpn0wnApplication
 import com.vpn0wn.android.R
 import com.vpn0wn.android.activity.AppDataTransferSettingsTest
@@ -52,19 +36,16 @@ import com.vpn0wn.android.provisioning.ProvisioningRecovery
 import com.vpn0wn.android.provisioning.StoredVpsServer
 import com.vpn0wn.android.provisioning.PendingVpsRemove
 import com.vpn0wn.android.provisioning.VpsCredentialFileTest
-import com.vpn0wn.android.provisioning.VpsPlanningTestPeer
 import com.vpn0wn.android.provisioning.VpsProfileFixture
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Step
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.UserCreation
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.UserRemoval
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.UserRotation
-import com.vpn0wn.android.provisioning.VpsUserProfileFile
 import com.vpn0wn.android.provisioning.VpsUserProfileFileTest
 import com.vpn0wn.android.provisioning.VpsUserProfileStore
 import com.vpn0wn.android.provisioning.VpsAddPeerResult
 import com.vpn0wn.android.util.BiometricAuthenticator
-import com.vpn0wn.android.util.TunnelImporter
 import com.vpn0wn.config.Config as TunnelConfig
 import com.google.android.material.textfield.TextInputLayout
 import com.google.zxing.BinaryBitmap
@@ -75,65 +56,34 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.WriterException
 import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.QRCodeReader
-import java.io.File
 import java.io.IOException
 import java.util.Base64
-import javax.crypto.KeyGenerator
-import kotlin.coroutines.CoroutineContext
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.MainCoroutineDispatcher
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancelAndJoin
-import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import org.junit.After
-import org.junit.Before
 import org.junit.Assert.*
-import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.json.JSONArray
 import org.json.JSONObject
-import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
-import org.robolectric.android.controller.ActivityController
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import org.robolectric.shadows.ShadowDialog
-import org.robolectric.shadows.ShadowContentResolver
 import org.robolectric.shadows.ShadowEnvironment
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, sdk = [28])
 @OptIn(ExperimentalCoroutinesApi::class)
-class VpsProvisioningWorkflowTest {
-    @get:Rule val folder = TemporaryFolder()
-
-    @After fun tearDown() { Dispatchers.resetMain() }
-
-    @Before fun resetAuthentication() {
-        AppDataTransferSettingsTest.Authentication.calls = 0
-        AppDataTransferSettingsTest.Authentication.autoCancel = false
-        AppDataTransferSettingsTest.Authentication.expectedTitleRes = R.string.vpn0wn_profile_authenticate
-        AppDataTransferSettingsTest.Authentication.callbacks.clear()
-    }
-
+internal class VpsProvisioningWorkflowTest : VpsProvisioningWorkflowFixture() {
     @Test fun actualActionsRequireExplicitConfirmationBeforeInstallation() = runTest {
         val fixture = fixture()
         try {
@@ -1559,32 +1509,6 @@ class VpsProvisioningWorkflowTest {
     }
 
     @Test
-    @Config(sdk = [29], shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
-    fun exportRestrictionAtOutputDeletesOwnedFileBeforeAnyProfileBytesAreWritten() = runTest {
-        VpsUserProfileFileTest.resetNativeFiles()
-        val profiles = profileStore {}
-        val fixture = fixture(profiles = profiles)
-        try {
-            openProfileUser(fixture, profiles)
-            val output = ProfileOutputProvider(folder.newFile()).apply {
-                onOpened = { setProfileExportRestriction(fixture, true) }
-                attachInfo(fixture.activity, ProviderInfo().apply { authority = "media" })
-            }
-            ShadowContentResolver.registerProviderInternal("media", output)
-            click(fixture, R.string.vpn0wn_action_export)
-            AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.Success(null))
-            finishProfileAction(fixture)
-            assertEquals(1, output.inserts)
-            assertEquals(1, output.opens)
-            assertEquals(1, output.deletes)
-            assertEquals(0L, output.bytesAtDeletion)
-            assertFalse(output.file.exists())
-            assertTrue(output.name!!.endsWith(".conf"))
-            assertEquals(2, profileStatusCommands(fixture))
-        } finally { fixture.close() }
-    }
-
-    @Test
     @Config(shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
     fun legacyProfileExportSettlesPermissionBeforeFreshStatusAndAllowsDeniedRetry() = runTest {
         VpsUserProfileFileTest.resetNativeFiles()
@@ -1714,40 +1638,6 @@ class VpsProvisioningWorkflowTest {
             assertEquals(setOf("phone"), fixture.environment.store.configs.keys)
             assertTrue(fixture.environment.backend.appliedConfigs.isEmpty())
         } finally { fixture.close() }
-    }
-
-    @Test
-    @Config(sdk = [29], shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
-    fun exportedProfilesWithShortOrThirtyTwoCharacterNamesRoundTripThroughFileImporter() = runTest {
-        for (peerName in listOf("phone", "p".repeat(32))) {
-            VpsUserProfileFileTest.resetNativeFiles()
-            val profiles = profileStore {}
-            val fixture = fixture(profiles = profiles)
-            try {
-                openProfileUser(fixture, profiles, result = VpsProfileFixture.result().copy(name = peerName))
-                val output = ProfileOutputProvider(folder.newFile()).apply {
-                    attachInfo(fixture.activity, ProviderInfo().apply { authority = "media" })
-                }
-                ShadowContentResolver.registerProviderInternal("media", output)
-                click(fixture, R.string.vpn0wn_action_export)
-                AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.Success(null))
-                finishProfileAction(fixture)
-                val exportedName = requireNotNull(output.name)
-                val tunnelName = exportedName.removeSuffix(".conf")
-                assertTrue(exportedName.endsWith(".conf"))
-                assertFalse(Tunnel.isNameInvalid(tunnelName))
-                assertTrue(tunnelName.length <= Tunnel.NAME_MAX_LENGTH)
-                assertEquals(VpsProfileFixture.profile().payload(), output.file.readText())
-                val messages = mutableListOf<CharSequence>()
-                TunnelImporter.importTunnel(fixture.activity.contentResolver, Uri.parse("content://media/external/downloads/1")) { messages.add(it) }
-                assertEquals(listOf(fixture.activity.getString(R.string.import_success, tunnelName)), messages.map { it.toString() })
-                val imported = fixture.environment.manager.getTunnels().single()
-                assertEquals(tunnelName, imported.name)
-                assertEquals(Tunnel.State.DOWN, imported.state)
-                assertEquals(VpsProfileFixture.profile().payload(), fixture.environment.store.configs.getValue(tunnelName).toWgQuickString())
-                assertTrue(fixture.environment.backend.appliedConfigs.isEmpty())
-            } finally { fixture.close() }
-        }
     }
 
     @Test
@@ -1918,50 +1808,6 @@ class VpsProvisioningWorkflowTest {
         } finally { fixture.close() }
     }
 
-    private suspend fun TestScope.openProfileUser(fixture: Fixture, profiles: VpsUserProfileStore,
-        stored: StoredVpsServer = VpsProfileFixture.server, result: VpsAddPeerResult = VpsProfileFixture.result(),
-        serverPublicKey: String = PROFILE_SERVER_KEY) {
-        val store = Vpn0wnApplication.getVpsServerStore()
-        store.upsert(stored)
-        store.saveCredential(stored, PROFILE_PIN, VpsCredential.Password(PASSWORD.toCharArray()))
-        profiles.saveGenerated(stored, serverPublicKey, VpsProfileFixture.request.copy(name = result.name), result)
-        fixture.peer.statusOutput = JSONObject(profileStatus(stored, withPeer = true)).apply {
-            put("serverPublicKey", serverPublicKey)
-            getJSONArray("peers").getJSONObject(0).put("name", result.name).put("publicKey", result.publicKey)
-        }.toString()
-        requireNotNull(fixture.model.syncStatus(stored)).join()
-        val current = store.servers.first().single()
-        awaitRenderedServer(fixture, current)
-        openServer(fixture, current)
-        clickableAncestor(text(fixture.root, result.name)).performClick()
-        settle()
-        assertNotNull(fixture.root.findViewById<View>(R.id.vpn0wn_vps_profile_import))
-    }
-
-    private fun profileStatusCommands(fixture: Fixture) = fixture.peer.commands.count { it.contains("./'sync-status.sh'") }
-
-    private suspend fun TestScope.awaitRenderedServer(fixture: Fixture, expected: StoredVpsServer) {
-        val root = fixture.root as ViewGroup
-        val projection = VpsProvisioningFragment::class.java.getDeclaredField("storedServers").apply { isAccessible = true }
-        val published = CompletableDeferred<Unit>()
-        fun observe() {
-            val records = projection.get(fixture.fragment) as List<*>
-            if (records.singleOrNull { (it as StoredVpsServer).id == expected.id } == expected &&
-                descendants(root).filterIsInstance<TextView>().any { it.text.toString() == expected.name }) published.complete(Unit)
-        }
-        root.setOnHierarchyChangeListener(object : ViewGroup.OnHierarchyChangeListener {
-            override fun onChildViewAdded(parent: View?, child: View?) = observe()
-            override fun onChildViewRemoved(parent: View?, child: View?) = Unit
-        })
-        try {
-            observe()
-            settle()
-            withContext(Dispatchers.Default) { withTimeout(10_000) { published.await() } }
-            settle()
-        } finally { root.setOnHierarchyChangeListener(null) }
-    }
-
-
     private fun TestScope.assertProfileViewReachable(view: View) {
         assertTrue("Target is measured", view.width > 0 && view.height > 0)
         view.requestRectangleOnScreen(Rect(0, 0, view.width, view.height), true)
@@ -2011,73 +1857,12 @@ class VpsProvisioningWorkflowTest {
         assertFalse(pending.getBoolean(fixture.activity))
     }
 
-    private fun setProfileExportRestriction(fixture: Fixture, disabled: Boolean) {
-        val restrictions = fixture.environment.application.getSystemService(Context.RESTRICTIONS_SERVICE) as RestrictionsManager
-        shadowOf(restrictions).setApplicationRestrictions(Bundle().apply { putBoolean("disable_config_export", disabled) })
-    }
-
     private fun profileDialog(fixture: Fixture): AlertDialog? = VpsProvisioningFragment::class.java.getDeclaredField("profileDialog")
         .apply { isAccessible = true }.get(fixture.activity.supportFragmentManager.fragments.filterIsInstance<VpsProvisioningFragment>().single()) as? AlertDialog
-
-    private suspend fun TestScope.finishProfileAction(fixture: Fixture) {
-        settle()
-        val job = VpsProvisioningFragment::class.java.getDeclaredField("profileJob").apply { isAccessible = true }.get(fixture.fragment) as? Job
-        job?.join()
-        settle()
-    }
-
-    private class ProfileOutputProvider(val file: File) : ContentProvider() {
-        var inserts = 0
-        var opens = 0
-        var deletes = 0
-        var name: String? = null
-        var bytesAtDeletion: Long? = null
-        var onOpened: (() -> Unit)? = null
-        override fun onCreate() = true
-        override fun getType(uri: Uri) = "application/x-wireguard-profile"
-        override fun insert(uri: Uri, values: ContentValues?): Uri {
-            inserts++
-            name = values!!.getAsString(MediaStore.MediaColumns.DISPLAY_NAME)
-            return Uri.parse("content://media/external/downloads/1")
-        }
-        override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
-            opens++
-            val descriptor = ParcelFileDescriptor.open(file, if (mode == "r") ParcelFileDescriptor.MODE_READ_ONLY else ParcelFileDescriptor.MODE_WRITE_ONLY)
-            if (mode != "r") onOpened?.invoke()
-            return descriptor
-        }
-        override fun query(uri: Uri, projection: Array<out String>?, selection: String?, selectionArgs: Array<out String>?, sortOrder: String?): Cursor =
-            MatrixCursor(requireNotNull(projection)).apply {
-                addRow(projection.map { if (it == MediaStore.MediaColumns.DISPLAY_NAME) name else file.absolutePath })
-            }
-        override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int {
-            assertEquals(Uri.parse("content://media/external/downloads/1"), uri)
-            deletes++
-            bytesAtDeletion = file.length()
-            return if (file.delete()) 1 else 0
-        }
-        override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<out String>?) = 0
-    }
-
-    private suspend fun TestScope.openServer(fixture: Fixture, server: StoredVpsServer) {
-        clickableAncestor(text(fixture.root, server.name)).performClick()
-        settle()
-        fixture.model.state.first { !it.busy }
-        settle()
-        assertTrue(fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status).isEnabled)
-    }
 
     private fun TestScope.backToFleet(fixture: Fixture) {
         fixture.activity.onBackPressedDispatcher.onBackPressed()
         settle()
-    }
-
-    private fun profileStore(beforeSync: () -> Unit): VpsUserProfileStore {
-        val key = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
-        return VpsUserProfileStore(VpsUserProfileFile(File(folder.newFolder(), "profiles"), { key }, sync = {
-            beforeSync()
-            it.fd.sync()
-        }))
     }
 
     private suspend fun TestScope.prepareUnsavedUserAndSelectOtherServer(fixture: Fixture): Pair<StoredVpsServer, StoredVpsServer> {
@@ -2125,16 +1910,6 @@ class VpsProvisioningWorkflowTest {
         form.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
     }
 
-    private fun profileStatus(server: StoredVpsServer, withPeer: Boolean = false): String = JSONObject()
-        .put("ok", true).put("interface", "wg0").put("running", true)
-        .put("endpoint", server.endpoint).put("listenPort", server.listenPort).put("cidr", server.cidr)
-        .put("dns", server.dns).put("serverPublicKey", PROFILE_SERVER_KEY)
-        .put("revokedArchives", JSONArray())
-        .put("peers", JSONArray().apply {
-            if (withPeer) put(JSONObject().put("name", "phone").put("publicKey", PROFILE_CLIENT_KEY).put("allowedIps", "10.8.0.2/32")
-                .put("latestHandshake", JSONObject.NULL).put("rxBytes", JSONObject.NULL).put("txBytes", JSONObject.NULL))
-        }).toString()
-
     private suspend fun TestScope.prepareUserCreation(fixture: Fixture, confirmedIdentity: Boolean = true) {
         fillAccess(fixture)
         click(fixture, R.string.vpn0wn_continue)
@@ -2163,55 +1938,6 @@ class VpsProvisioningWorkflowTest {
         }
     }
 
-    // A failed setup must drain Android, ViewModel and DataStore owners before resetting Main.
-    @Suppress("TooGenericExceptionCaught")
-    private suspend fun TestScope.fixture(immediateMain: Boolean = false, profiles: VpsUserProfileStore? = null): Fixture {
-        val scheduled = StandardTestDispatcher(testScheduler)
-        Dispatchers.setMain(if (immediateMain) ThreadBoundMainDispatcher(Thread.currentThread(), scheduled) else scheduled)
-        val environment = TunnelTestEnvironment(folder.newFolder(), backgroundScope)
-        val controller = Robolectric.buildActivity(HostActivity::class.java)
-        val peer = VpsPlanningTestPeer()
-        var modelJob: Job? = null
-        try {
-            Vpn0wnApplication.getVpsServerStore().servers.first()
-            controller.get().setTheme(R.style.AppTheme)
-            controller.setup()
-            val model = VpsProvisioningViewModel(controller.get().application, Vpn0wnApplication.getVpsServerStore(), peer,
-                profiles = profiles ?: VpsUserProfileStore(controller.get().application))
-            val createdModelJob = requireNotNull(model.viewModelScope.coroutineContext[Job])
-            modelJob = createdModelJob
-            controller.get().supportFragmentManager.registerFragmentLifecycleCallbacks(object : FragmentManager.FragmentLifecycleCallbacks() {
-                override fun onFragmentPreCreated(fm: FragmentManager, fragment: Fragment, savedInstanceState: Bundle?) {
-                    if (fragment is VpsProvisioningFragment) ViewModelProvider(fragment, object : ViewModelProvider.Factory {
-                        override fun <T : ViewModel> create(modelClass: Class<T>): T = modelClass.cast(model)!!
-                    })[VpsProvisioningViewModel::class.java]
-                }
-            }, false)
-            val fragment = VpsProvisioningFragment()
-            controller.get().supportFragmentManager.beginTransaction().add(android.R.id.content, fragment).commitNow()
-            settle()
-            return Fixture(environment, controller, fragment, peer, model, createdModelJob)
-        } catch (failure: Throwable) {
-            withContext(NonCancellable) {
-                peer.blockDetect?.complete(Unit)
-                peer.blockStatus?.complete(Unit)
-                peer.blockInstall?.complete(Unit)
-                peer.blockRemove?.complete(Unit)
-                peer.blockRevoke?.complete(Unit)
-                try { controller.pause().stop().destroy() } catch (cleanup: Throwable) {
-                    if (cleanup !== failure) failure.addSuppressed(cleanup)
-                }
-                try { modelJob?.cancelAndJoin() } catch (cleanup: Throwable) {
-                    if (cleanup !== failure) failure.addSuppressed(cleanup)
-                }
-                try { environment.close() } catch (cleanup: Throwable) {
-                    if (cleanup !== failure) failure.addSuppressed(cleanup)
-                }
-            }
-            throw failure
-        }
-    }
-
     private fun TestScope.fillAccess(fixture: Fixture) {
         val add = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_add_server).removePrefix("+ ").trim())
         clickableAncestor(add).performClick()
@@ -2230,16 +1956,6 @@ class VpsProvisioningWorkflowTest {
         assertTrue(fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status).isEnabled)
     }
 
-    private fun TestScope.click(fixture: Fixture, resource: Int) {
-        clickableAncestor(text(fixture.root, fixture.activity.getString(resource))).performClick()
-        settle()
-    }
-
-    private fun TestScope.settle() {
-        runCurrent()
-        shadowOf(Looper.getMainLooper()).idle()
-    }
-
     private fun input(root: View, hint: String): EditText = descendants(root).filterIsInstance<EditText>().single { it.hint.toString() == hint }
     private fun assertLabeledInputs(root: View) {
         val labels = descendants(root).filterIsInstance<TextView>().filter { it !is EditText }.toList()
@@ -2256,56 +1972,5 @@ class VpsProvisioningWorkflowTest {
         view.measure(View.MeasureSpec.makeMeasureSpec((width * density).toInt(), View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec((height * density).toInt(), View.MeasureSpec.EXACTLY))
         view.layout(0, 0, view.measuredWidth, view.measuredHeight)
-    }
-    private fun text(root: View, value: String, clickable: Boolean = false): TextView = descendants(root).filterIsInstance<TextView>().first {
-        it.text.toString() == value && (!clickable || it.isClickable)
-    }
-    private fun clickableAncestor(view: View): View = if (view.isClickable) view else clickableAncestor(view.parent as View)
-    private fun descendants(root: View): Sequence<View> = sequence {
-        yield(root)
-        if (root is ViewGroup) for (index in 0 until root.childCount) yieldAll(descendants(root.getChildAt(index)))
-    }
-
-    private class Fixture(
-        val environment: TunnelTestEnvironment,
-        val controller: ActivityController<HostActivity>,
-        val fragment: VpsProvisioningFragment,
-        val peer: VpsPlanningTestPeer,
-        val model: VpsProvisioningViewModel,
-        private val modelJob: Job,
-    ) {
-        val activity get() = controller.get()
-        val root get() = activity.supportFragmentManager.fragments.filterIsInstance<VpsProvisioningFragment>().single().requireView()
-        suspend fun close() = withContext(NonCancellable) {
-            peer.blockDetect?.complete(Unit)
-            peer.blockStatus?.complete(Unit)
-            peer.blockInstall?.complete(Unit)
-            peer.blockRemove?.complete(Unit)
-            peer.blockRevoke?.complete(Unit)
-            peer.blockRotate?.complete(Unit)
-            peer.blockVerifyRotation?.complete(Unit)
-            try { controller.pause().stop().destroy() } finally {
-                try { modelJob.cancelAndJoin() } finally { environment.close() }
-            }
-        }
-    }
-
-    class HostActivity : AppCompatActivity()
-
-    // Match Android thread affinity; an always-unconfined Main conflates the nested error emissions.
-    private class ThreadBoundMainDispatcher(
-        private val mainThread: Thread,
-        private val scheduled: CoroutineDispatcher,
-    ) : MainCoroutineDispatcher() {
-        override val immediate get() = this
-        override fun isDispatchNeeded(context: CoroutineContext) = Thread.currentThread() !== mainThread
-        override fun dispatch(context: CoroutineContext, block: Runnable) = scheduled.dispatch(context, block)
-    }
-
-    private companion object {
-        const val PASSWORD = "synthetic-rotation-password"
-        val PROFILE_SERVER_KEY = VpsProfileFixture.serverKey.publicKey.toBase64()
-        val PROFILE_CLIENT_KEY = VpsProfileFixture.client.publicKey.toBase64()
-        val PROFILE_PIN = "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(ByteArray(32) { it.toByte() })
     }
 }

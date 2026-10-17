@@ -284,13 +284,15 @@ class SettingsActivityTest {
         environment()
         val activity = openSettingsWithLoadedMembership()
         assertTrue(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
-        val membershipObserved = observeQuickTileMembership()
+        val membershipCommitted = observeQuickTileTransaction()
         quickTileMembershipPhase = "native request"
         fragment(activity).findPreference<Preference>("quick_tile")!!.performClick()
         shadowOf(android.os.Looper.getMainLooper()).idle()
         runCurrent()
-        quickTileMembershipPhase = "persisted membership"
-        assertEquals(true, UserKnobs.quickTileAdded.first(membershipObserved))
+        quickTileMembershipPhase = "committed membership"
+        assertEquals(true, membershipCommitted.await()[booleanPreferencesKey("quick_tile_added")])
+        quickTileMembershipPhase = "persisted membership readback"
+        assertEquals(true, UserKnobs.quickTileAdded.first())
         quickTileMembershipPhase = "settle after persistence"
         settle(activity)
         assertFalse(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
@@ -313,13 +315,15 @@ class SettingsActivityTest {
         TileRequests.result = android.app.StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED
         val activity = openSettingsWithLoadedMembership()
         assertTrue(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
-        val membershipObserved = observeQuickTileMembership()
+        val membershipCommitted = observeQuickTileTransaction()
         quickTileMembershipPhase = "native request"
         fragment(activity).findPreference<Preference>("quick_tile")!!.performClick()
         shadowOf(Looper.getMainLooper()).idle()
         runCurrent()
-        quickTileMembershipPhase = "persisted membership"
-        assertEquals(true, UserKnobs.quickTileAdded.first(membershipObserved))
+        quickTileMembershipPhase = "committed membership"
+        assertEquals(true, membershipCommitted.await()[booleanPreferencesKey("quick_tile_added")])
+        quickTileMembershipPhase = "persisted membership readback"
+        assertEquals(true, UserKnobs.quickTileAdded.first())
         quickTileMembershipPhase = "settle after persistence"
         settle(activity)
         assertFalse(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
@@ -443,20 +447,33 @@ class SettingsActivityTest {
     }
 
     @Test @Config(sdk = [33]) fun lateSuccessfulResultPersistsAfterSettingsDestruction() = settingsTest {
+        quickTileMembershipPhase = "initial membership"
         environment()
         TileRequests.deferResult = true
         val activity = openSettingsWithLoadedMembership()
         assertTrue(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
+        val membershipCommitted = observeQuickTileTransaction()
+        quickTileMembershipPhase = "native request"
         fragment(activity).findPreference<Preference>("quick_tile")!!.performClick()
+        quickTileMembershipPhase = "Settings destruction"
         controllers.last().pause().stop().destroy()
         controllers.removeAt(controllers.lastIndex)
+        quickTileMembershipPhase = "late native result"
         TileRequests.pendingResult!!.invoke()
         shadowOf(Looper.getMainLooper()).idle()
         runCurrent()
-        assertEquals(true, UserKnobs.quickTileAdded.first { it == true })
+        quickTileMembershipPhase = "committed membership"
+        assertEquals(true, membershipCommitted.await()[booleanPreferencesKey("quick_tile_added")])
+        quickTileMembershipPhase = "persisted membership readback"
+        assertEquals(true, UserKnobs.quickTileAdded.first())
+        quickTileMembershipPhase = "Settings reopening"
         val reopened = openSettings()
+        quickTileMembershipPhase = "reopened Settings settle"
         settle(reopened)
         assertFalse(fragment(reopened).findPreference<Preference>("quick_tile")!!.isVisible)
+        quickTileMembershipPhase = null
+        quickTileMembershipDetails = null
+        TileRequests.observeResult = null
     }
 
     @Test @Config(sdk = [33]) fun removalWinsOverDeferredSuccessfulResultsAfterSettingsSurvivesOrCloses() = settingsTest {
@@ -773,9 +790,10 @@ class SettingsActivityTest {
             "looperIdle=${shadowOf(Looper.getMainLooper()).isIdle}"
     }
 
-    private fun observeQuickTileMembership(): (Boolean?) -> Boolean {
+    private fun observeQuickTileTransaction(): CompletableDeferred<Preferences> {
         val dataStore = com.vpn0wn.android.Application.getPreferencesDataStore()
         val membershipKey = booleanPreferencesKey("quick_tile_added")
+        val membershipCommitted = CompletableDeferred<Preferences>()
         val preRequestRevision = UserKnobs.quickTileRemovalRevision
         val writes = AtomicInteger()
         val writeStages = StringBuffer("not entered")
@@ -789,9 +807,13 @@ class SettingsActivityTest {
                         transform(previous).also {
                             writeStages.append("; update=$operation transformed=${it[membershipKey]} revision=${UserKnobs.quickTileRemovalRevision}")
                         }
-                    }.also { writeStages.append("; update=$operation committed=${it[membershipKey]}") }
+                    }.also {
+                        writeStages.append("; update=$operation committed=${it[membershipKey]}")
+                        membershipCommitted.complete(it)
+                    }
                 } catch (failure: Throwable) {
                     writeStages.append("; update=$operation failed=${failure.javaClass.name}")
+                    membershipCommitted.completeExceptionally(failure)
                     throw failure
                 }
             }
@@ -799,8 +821,6 @@ class SettingsActivityTest {
         testEnvironment.replacePreferences(observingStore)
         var callbacks = 0
         var callbackOwner = "not delivered"
-        var membershipObserved = false
-        var lastMembership: Boolean? = null
         TileRequests.observeResult = { result ->
             callbacks++
             callbackOwner = "result=$result ${quickTileMembershipOwnerDetails()} " +
@@ -810,13 +830,9 @@ class SettingsActivityTest {
             "requests=${TileRequests.requestCount} requestedResult=${TileRequests.requestedResult} callbacks=$callbacks " +
                 "callback=[$callbackOwner] preRequestRevision=$preRequestRevision current=[${quickTileMembershipOwnerDetails()} " +
                 "storeMatches=${com.vpn0wn.android.Application.getPreferencesDataStore() === observingStore}] " +
-                "writes=${writes.get()} stages=[$writeStages] observed=$membershipObserved lastMembership=$lastMembership"
+                "writes=${writes.get()} stages=[$writeStages] transactionCompleted=${membershipCommitted.isCompleted}"
         }
-        return {
-            membershipObserved = true
-            lastMembership = it
-            it == true
-        }
+        return membershipCommitted
     }
 
     private fun TestScope.environment(): TunnelTestEnvironment {
