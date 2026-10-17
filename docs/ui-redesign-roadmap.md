@@ -336,6 +336,8 @@ Two-row header. Row 1: `left` slot + `sub` label (10px mono caps) + `right` slot
 #### `IconBtn`
 32×32px touch target. Transparent background, no border; active state: `--paper-3` bg + `--rule-strong` border. Color: `--ink-2`.
 
+These are prototype dimensions. Native Detail Back/Edit use separate 48dp targets, existing glyph sizes and selectable platform feedback; [#193 controls](qa-test-plan.md#detail-header-action-controls--193) own their output and interaction verification.
+
 #### `SectionHeader`
 Engineering section label. `§NN` prefix in `--rule-strong` + mono section title + horizontal `1px --rule` divider. Hint text right-aligned.
 
@@ -500,6 +502,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 ### Done
 
 - **Exact user removal and recovery feedback — #143 (2026-10-17; source):** the existing destructive User tile now says Remove user and opens fresh exact SSH/pin/server/client review. EN/FR native confirmation, lifecycle-retired callbacks, coarse progress/uncertainty/read-only reconciliation and verified/observed stopped/live outcomes reuse current tokens and typography. Peer disappearance returns to its server Detail with feedback intact; other servers cannot inherit it. No revoke archive or rotation is claimed. [Contracts](backend-contracts.md#confirmed-exact-identity-user-removal--143) and [QA controls](qa-test-plan.md#confirmed-user-removal-controls--143) own behavior, output review and remaining native/live limits.
+
+- [x] **Detail header native action targets — #193, 2026-10-17:** `tunnel_detail_fragment.xml` gives Back/Edit separate 48×48dp bounds, reuses localized Back and native selectable feedback, and centers the title beside Edit. The existing MainActivity transaction hides retained phone Home controls during Detail and restores them on Back; tablet Home stays visible. Existing 24dp/18dp icon viewports, artwork, fonts, palette and Fragment/DataBinding actions remain. [QA controls](qa-test-plan.md#detail-header-action-controls--193) cover compact portrait/landscape, both resource night modes, 2× French/Arabic RTL output and actual navigation. [Installed acceptance](reviews/2026-10-17-detail-header-acceptance.md) adds twelve API34 Pixel configurations with safe-area, native Tab, padding-edge taps and visible feedback, plus checked restoration. Existing long-name ellipsis remains; human/TalkBack, release and whole-app acceptance stay separate.
 
 - [x] **Observed VPS metadata presentation — #143, 2026-10-17:** fleet/detail/user endpoint rows and the topology preserve unknown VPN metadata as `—`, using existing Mono styles and palette. Missing/invalid listeners no longer imply 51820; absent endpoints never borrow the SSH host. Incomplete endpoints expose no copy action. Missing provider/region labels no longer masquerade SSH user/host as hosting metadata. [QA controls](qa-test-plan.md#observed-vps-metadata-controls--143) record bounded synthetic Android View proof and native/live limits.
 
