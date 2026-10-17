@@ -1,8 +1,10 @@
 # Translation source inventory and semantic review — #195
 
-Last updated: 2026-10-16 (Europe/Paris).
+Last updated: 2026-10-17 (Europe/Paris).
 
 ## Verdict and scope
+
+The 2026-10-16 sections below retain their original resource, check and output scopes. The [2026-10-17 workflow-copy follow-up](#final-workflow-copy-follow-up--2026-10-17) records the later resource inventory, evidence reuse and pending verification without replacing those historical receipts.
 
 The mechanical inventory and model semantic reading pass cover default English and all **35 locale qualifiers**, totaling **7,982 explicit resource declarations and 8,595 text nodes**. One text node is one string value or one declared plural item; inherited/default fallback is not counted as translated local text. This is a bounded source translation review for [#195](https://github.com/novakin/vpn0wn-android/issues/195), not the separately requested post-merge whole-codebase/security audit.
 
@@ -125,3 +127,88 @@ Root inspected 20 successful-run originals, one from every configuration: Arabic
 Six earlier failed runs remain retained, with 0/0/0/0/8/12 PNGs. The first setup failures concerned synthetic stat metadata and the wrong two-state-summary getter. The two font failures established the real product defect above. Later dialog failures concerned missing traversal settlement before capture and queued dismissal before an assertion; normal looper settlement and actual attachment assertions fixed the harness without removing indicators, substituting fonts or weakening checks. Partial captures are not promoted to a successful matrix.
 
 Manual dialog compositing and synthetic filesystem metadata do not establish installed WindowManager/insets, OS authentication/Keystore/provider behavior, physical touch, IME, spoken TalkBack, complete glyph/locale/size coverage, live SSH/VPN or release behavior. Existing English fallback, hardcoded editor chrome and wider RTL/fidelity/accessibility work remain under #195 and their UI owners, including #34/#35. This partial slice does not close those issues, provisioning #143 or backup #196. The post-delivery whole-code/security review remains separately owned by [#208](https://github.com/novakin/vpn0wn-android/issues/208).
+
+## Final workflow copy follow-up — 2026-10-17
+
+This follow-up reviews source based on guarded-restore head `1ba888c596f2a28dd19cd081bc118c3515391ca5` plus the scoped resource/test/documentation changes described here. That restore source was delivered in PR #239 as `87770c0e`; native/live acceptance and #196 completion remain separate. The current signed source also incorporates the reviewed shared-header/Canvas predecessor, with PR #241 still awaiting final CI and merge; the original local test-input identities below remain unchanged. Live #195 was read as OPEN with its original final-workflow, fallback, language-quality, native-output and independent-review criteria. This records implementation, scoped local checks and synthetic output generation, not final published-head acceptance.
+
+### Corrected behavior and pending proof
+
+Indonesian `persistent_keepalive_seconds_unit[other]` now uses `%d` instead of a literal ten seconds. `tunnel_detail_peer.xml` supplies the configured value as quantity and format argument. The new `LocalizedResourcesTest.indonesianKeepaliveUsesTheConfiguredInterval` resolves the actual Android plural at 25 seconds and requires `setiap 25 detik`; it passed in the scoped gate below. Existing Ukrainian repeated-one and Arabic implicit-count forms remain unchanged.
+
+Default/French `vpn0wn_user_removed_stopped` and `vpn0wn_user_remove_observed_stopped` now say removal/suppression instead of revocation. `VpsProvisioningFragment.addUserRemovalStatus` selects these for REMOVE on a stopped interface, while REVOKE has separate archived-operation messages. Its polite accessibility live region uses the same corrected text. `vpn0wn_restore_confirmation` now names `%12$d` Revocation records/Archives de révocation, matching `vpn0wn_backup_revoked_count` and the actual `plan.revokedCount`. IDs, argument positions/types, count categories, persisted records and remote behavior are preserved.
+
+Scoped author source verdict: satisfied with these caller-backed corrections and the evidence-reuse boundary; independent bounded source/output review is complete, while final integrated-head review/CI, publication and full-issue acceptance remain separate. Interface Design, Design System, Frontend Design and UI/UX Pro Max informed precise actions, complete warnings and preserved component roles. No fonts/layouts, new localization framework or general grammar normalization are included. Root's frozen eight-file gate passed 77 tests across five complete classes, with zero failures/errors/skips and zero Detekt findings, using in-process Java 21 offline execution. Fresh XML reports and source hashes were independently checked; `LocalizedResourcesTest` contributes 15, `QuantityFormatterTest` 2, `AddPeerPresentationTest` 10, `VpsProvisioningWorkflowTest` 49 and `VpsFreshRestoreLayoutTest` 1. Thirty fresh restore originals retain that eight-file scope. Six confirmation originals were inspected: EN day/night shows the corrected count label, full warning and native actions; the French stress top/bottom is legible, but the changed middle term is outside those two views. The earlier fixture requested RTL without establishing effective native resource/view direction; those images are not relabeled as settled RTL proof.
+
+The later ninth-file test-only supplement passes the complete one-test `VpsFreshRestoreLayoutTest` with zero failures/errors/skips and zero Detekt findings. It produces 33 originals, including actual revocation-record middle frames in EN day/night and enlarged French stress. Robolectric 4.16 reapplies locale direction after combined qualifiers; applying additive direction last, before Activity/dialog creation, preserves the selected locale and makes the actual resource and settled/captured view-direction assertions meaningful. Controlled qualifiers/font scale are restored; no manual dialog-decor direction assignment or product change is needed. This repeats one existing control and is not 78 distinct tests.
+
+A separate ignored temporary method derived from the current `VpsProvisioningWorkflowTest` passes one native control and emits 32 originals for actual fixture REMOVE and read-only observed stopped settlement: EN/FR, day/night, 320×640 at 1× LTR and 640×320 at 2× RTL, with top/copy frames for both outcomes. Resource locale/font/night/direction and settled frame/Fragment direction are asserted without manually assigning view direction. Exact tracked WorkflowTest bytes and all nine frozen source hashes are restored/verified afterward; the temporary method is not committed. Its first runner attempt stopped before Gradle because PowerShell converted the null `File.Replace` backup argument to an empty path. Failed preparation evidence remains retained; a disposable-file proof verified the typed-null correction before the successful run. Independent ultra accepted all thirty-two distinct originals across the two fresh sets: nineteen restore and thirteen removal images, with the other thirty-three files verified as exact duplicates. The changed English/French terminology is visible, including the complete French revocation-record label. This scoped synthetic output verdict does not establish installed behavior or qualified language review.
+
+Selected localization lint passes with zero errors and 694 warnings: 585 `MissingTranslation`, 92 `MissingQuantity` and 17 `ImpliedQuantity`. The selected `StringFormatInvalid`, `StringFormatCount`, `StringFormatMatches`, `StringFormatTrivial`, `ExtraTranslation` and `BidiSpoofing` checks report no findings. All 109 plural-warning signatures match the historical 600-warning report after normalizing checkout prefixes and shifted line numbers; exact ID, severity, message, source text and locale remain equal. They are disclosed unresolved plural/caller-boundary limits, not automatically harmless findings. The 94 additional missing-translation keys exactly match the 94 added workflow declarations already inventoried below; no prior missing-translation warning key disappeared. No new format defect is identified by these nine selected checks, which are not a full Android lint pass or qualified language review. No APK, ADB or live operation ran. Historical test/lint/image results retain their own source scopes; installed/accessibility, wider output and final-head review/CI remain separate.
+
+### Historical input and semantic evidence reuse
+
+All 36 original pre-repair resource SHA-256 values in the retained coverage manifest match commit `60281d87e08271cbd5090af03d5d0e6e8efd2b19` exactly. The later corrected resources were accepted through PR #207 at `b5db3cce80dda73d46e942d58076ce0045606638`, merged by `56509a3ad8ed1c8a5e912b87b637990bf4d15135`. The initial `ee1cf841` checkpoint matches only the 34 non-default/non-French original files; the recovered complete snapshot removes ambiguity about the integrated reading inputs without rewriting old hashes.
+
+Compared with accepted b5db3cce resources, 33 locale files remain byte-identical. Indonesian changes only the confirmed interval leaf. Default and French each add 94 declarations and change three retained keys, with none removed; 537 English/533 French retained declarations remain unchanged. The 97 added/changed EN/FR workflow keys were independently model-read against backup/import, remove/revoke, rotation and restore callers; their positional/typed signatures match, and this follow-up rechecks its affected terminology delta. Existing dormant `vpn0wn_peer_mutation_unavailable` remains stale after rotation integration but has no production caller; it is retained-resource drift, not a reproduced visible failure. No language receives native-speaker certification from model reading.
+
+### Current locale and fallback inventory
+
+Static inspection parses all 52 UI/tunnel source-set values XML files, with no parse/duplicate errors and all 37 leading text-file modification notices preserved. UI main now contains 634 declarations/630 translatable defaults; all main default/locale files total 8,170 declarations and 8,817 text nodes. Tunnel defines no text resources. French explicitly supplies all 630 translatable defaults; all 34 other qualifiers omit the 94 added workflow keys. No locale-only extra key is present. Format comparison retains twelve legitimate plural count-presence differences; this mechanical scan is not Android compilation, native quantity selection or a comprehensive format parser.
+
+Each row records explicit declarations, directly absent translatable defaults, keys supplied by an explicitly available same-language parent, remaining absence after that parent, exact-default text candidates and semantic status. `Carried model` means historical model reading/corrected-source evidence reused across unchanged file bytes, not a new language review. `Model delta` adds the independent EN/FR workflow reading; `Interval fix` adds the Indonesian caller-backed repair. Qualified native review is unperformed for every row. Same-default candidates include legitimate technical literals and are not automatically defects or completed translations. Remaining absence uses English fallback where Android selects the default; these counts do not simulate sibling-region Android resolution. Only Hindi-India has the explicit Hindi parent here.
+
+| Qualifier | Explicit | Direct absent | Parent keys | Absent after parent | Same-default candidates | Semantic status |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| `values-ar-rSA` | 221 | 409 | 0 | 409 | 2 | Carried model |
+| `values-ca-rES` | 221 | 409 | 0 | 409 | 10 | Carried model |
+| `values-cs-rCZ` | 221 | 409 | 0 | 409 | 13 | Carried model |
+| `values-da-rDK` | 221 | 409 | 0 | 409 | 15 | Carried model |
+| `values-de` | 221 | 409 | 0 | 409 | 13 | Carried model |
+| `values-el-rGR` | 113 | 517 | 0 | 517 | 9 | Carried model |
+| `values-es-rES` | 221 | 409 | 0 | 409 | 11 | Carried model |
+| `values-et-rEE` | 218 | 412 | 0 | 412 | 9 | Carried model |
+| `values-fa-rIR` | 221 | 409 | 0 | 409 | 9 | Carried model |
+| `values-fi-rFI` | 96 | 534 | 0 | 534 | 8 | Carried model |
+| `values-fr` | 630 | 0 | 0 | 0 | 43 | Model delta |
+| `values-hi` | 172 | 458 | 0 | 458 | 11 | Carried model |
+| `values-hi-rIN` | 195 | 435 | 9 | 426 | 2 | Carried model |
+| `values-hu-rHU` | 117 | 513 | 0 | 513 | 3 | Carried model |
+| `values-in` | 221 | 409 | 0 | 409 | 11 | Interval fix |
+| `values-it` | 221 | 409 | 0 | 409 | 14 | Carried model |
+| `values-ja` | 221 | 409 | 0 | 409 | 9 | Carried model |
+| `values-ko-rKR` | 221 | 409 | 0 | 409 | 9 | Carried model |
+| `values-nl-rNL` | 213 | 417 | 0 | 417 | 18 | Carried model |
+| `values-no-rNO` | 221 | 409 | 0 | 409 | 11 | Carried model |
+| `values-pa-rIN` | 221 | 409 | 0 | 409 | 9 | Carried model |
+| `values-pl-rPL` | 221 | 409 | 0 | 409 | 11 | Carried model |
+| `values-pt-rBR` | 221 | 409 | 0 | 409 | 12 | Carried model |
+| `values-pt-rPT` | 210 | 420 | 0 | 420 | 13 | Carried model |
+| `values-ro-rRO` | 218 | 412 | 0 | 412 | 9 | Carried model |
+| `values-ru` | 221 | 409 | 0 | 409 | 2 | Carried model |
+| `values-si-rLK` | 195 | 435 | 0 | 435 | 6 | Carried model |
+| `values-sk-rSK` | 173 | 457 | 0 | 457 | 7 | Carried model |
+| `values-sl` | 221 | 409 | 0 | 409 | 2 | Carried model |
+| `values-sv-rSE` | 221 | 409 | 0 | 409 | 10 | Carried model |
+| `values-tr-rTR` | 221 | 409 | 0 | 409 | 8 | Carried model |
+| `values-uk-rUA` | 221 | 409 | 0 | 409 | 12 | Carried model |
+| `values-vi-rVN` | 124 | 506 | 0 | 506 | 3 | Carried model |
+| `values-zh-rCN` | 221 | 409 | 0 | 409 | 11 | Carried model |
+| `values-zh-rTW` | 221 | 409 | 0 | 409 | 5 | Carried model |
+
+Direct absence outside French is 409–534 keys. Hindi-India inherits nine keys from Hindi, reducing 435 directly absent keys to 426. These are explicit fallback/completeness limits, not a full-localization or release-ready verdict.
+
+### Current hardcoded-consumer audit — unresolved under #195
+
+The final workflow audit rechecked the following actual consumers at the reviewed source. They are app-owned language that still bypasses locale resources; they are not silently included in resource-node reading totals. The smallest future correction belongs at each existing owner, preserving technical IDs, actual user/server values and approved style/layout roles. This bounded numeric/terminology slice does not extract those consumers or close #195.
+
+| Existing owner | Confirmed remaining display text / reuse boundary |
+| --- | --- |
+| `layout/log_viewer_activity.xml:138` | ALL filter; existing `vpn0wn_filter_all` already provides a resource owner. DEBUG/INFO/WARN/ERROR remain deliberate severity codes. |
+| `layout/tunnel_editor_fragment.xml:167,246,409,429`; `tunnel_editor_peer.xml:73,89` | LOCAL SIDE, regen, EXCLUDED APPS, configure, remove and paste Base64 key. Field captions in both files also remain hardcoded; reuse existing name/key/address/DNS/port/endpoint/AllowedIPs/keepalive resources where they fit. |
+| `layout/tunnel_detail_fragment.xml:153,290,327,538`; `tunnel_detail_peer.xml` | Topology title, download/upload, field captions and included/excluded app counts. Count and translated phrase need one existing resource/plural owner; technical identifiers and actual values remain. |
+| `fragment/TunnelDetailFragment.kt:190`; `widget/TunnelThroughputView.kt:260–262` | Runtime PEER #NN title and DEVICE/ENCRYPTED/PEER Canvas labels. XML placeholder changes cannot localize the generated title; localized Canvas labels require their own glyph/width/RTL output proof. CHACHA20-POLY1305/MTU remain technical identities. |
+| `databinding/BindingAdapters.kt:622–629` | NO PEER, NO PSK, address pending and endpoint pending are rendered through actual bindings. Preserve PSK identity and user/configuration addresses. |
+| `provisioning/VpsDeployMapper.kt:28–29,67–68,85–91`; `fragment/VpsProvisioningFragment.kt:834` | Awaiting detect, unknown, generated Device NN/device fallbacks, server record, endpoint, recent sync, wg running and created metadata. Extend current presentation resources; do not rename persisted/server/user values or claim sync proves VPN health. |
+
+Technical constants, examples in `tools:text`, required legal/protocol text and identical technical words are not automatically localization defects. New workflow UI uses resources; `51820` remains a technical hint. Actual output at compact/enlarged portrait/landscape, both themes, real RTL and relevant accessibility/focus/scroll paths remains required. The prior 188 synthetic originals are not current installed or complete-screen acceptance. #195 remains open for fallback, hardcoded copy, qualified per-language review and wider native/runtime criteria; #238 owns the separate whole-screen consistency work.
