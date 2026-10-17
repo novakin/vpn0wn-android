@@ -51,6 +51,7 @@ class LocalizedResourcesTest {
         assertTrue(peerText.contains("Clé pré-partagée"))
         assertEquals("coller une clé Base64", editorPeer.publicKeyText.hint.toString())
         assertEquals("hôte:port", editorPeer.endpointText.hint.toString())
+        assertEquals("(facultatif, non recommandé)", editorPeer.persistentKeepaliveText.hint.toString())
         assertTrue(detailText.contains("FIG.01 - TOPOLOGIE DU TUNNEL"))
         assertTrue(detailText.contains("↓ RÉCEPTION"))
         assertTrue(detailText.contains("↑ ENVOI"))
