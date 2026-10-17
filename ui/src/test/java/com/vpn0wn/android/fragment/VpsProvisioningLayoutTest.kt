@@ -204,11 +204,14 @@ class VpsProvisioningLayoutTest {
                 assertEquals("Actual detail direction", expectedDirection, detail.layoutDirection)
                 assertEquals("Actual theme", if (night == "night") Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO,
                     detail.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)
-                assertTextFits(text(detail, server.name))
+                assertTextFits(detail.findViewById(R.id.vpn0wn_vps_hero_server))
                 val scroll = descendants(detail).filterIsInstance<ScrollView>().single()
                 for ((label, value) in listOf(R.string.vpn0wn_label_endpoint to server.endpointAddress,
                     R.string.vpn0wn_metric_cidr to server.cidr)) {
-                    val labelView = text(detail, fixture.activity.getString(label).uppercase(Locale.ROOT))
+                    val labelView = descendants(detail).filterIsInstance<TextView>().single {
+                        it.text.toString() == fixture.activity.getString(label).uppercase(Locale.ROOT) &&
+                            (it.parent as ViewGroup).childCount == 2
+                    }
                     val valueView = descendants(labelView.parent as View).filterIsInstance<TextView>().single { it !== labelView }
                     assertEquals("Complete native source value", value, valueView.text.toString())
                     val node = valueView.createAccessibilityNodeInfo()
@@ -261,7 +264,10 @@ class VpsProvisioningLayoutTest {
                             }
                         }
                         assertTrue("Metadata pre-draw completes", drawReady)
-                        val endpointLabel = text(detail, fixture.activity.getString(R.string.vpn0wn_label_endpoint).uppercase(Locale.ROOT))
+                        val endpointLabel = descendants(detail).filterIsInstance<TextView>().single {
+                            it.text.toString() == fixture.activity.getString(R.string.vpn0wn_label_endpoint).uppercase(Locale.ROOT) &&
+                                (it.parent as ViewGroup).childCount == 2
+                        }
                         val endpointRow = endpointLabel.parent.parent as View
                         val expectedAddress = if (endpoint.isNotBlank() && port == "51821") "vpn.example:51821" else "—"
                         val endpointValue = descendants(endpointLabel.parent as View).filterIsInstance<TextView>().single { it !== endpointLabel }
