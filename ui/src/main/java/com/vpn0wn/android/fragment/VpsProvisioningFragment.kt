@@ -1528,7 +1528,18 @@ class VpsProvisioningFragment : BaseFragment() {
         }
         val row = horizontal(Gravity.CENTER_VERTICAL)
         row.addView(iconButton(leftIcon, str(R.string.vpn0wn_navigate_back), onLeft))
-        row.addView(label(sub).apply { setPadding(dp(8), 0, 0, 0) }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
+        row.addView(vertical().apply {
+            setPaddingRelative(dp(8), 0, dp(8), 0)
+            val artwork = requireNotNull(AppCompatResources.getDrawable(requireContext(), R.drawable.vpnown_wordmark))
+            val height = resources.getDimensionPixelSize(R.dimen.vpnown_home_wordmark_height)
+            val width = (height * artwork.intrinsicWidth.toFloat() / artwork.intrinsicHeight).toInt()
+            addView(ImageView(requireContext()).apply {
+                id = R.id.vpn0wn_vps_wordmark
+                setImageDrawable(artwork)
+                contentDescription = str(R.string.vpn0wn_home_wordmark).replace('ø', '0')
+            }, LinearLayout.LayoutParams(width, height).apply { gravity = Gravity.START })
+            addView(label(sub).apply { setPadding(0, dp(4), 0, 0) })
+        }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
         right.forEach { row.addView(it) }
         bar.addView(row)
         bar.addView(mono(title, if (big) 26 else 18, R.color.vpn0wn_ink, medium = true).apply { setPadding(0, dp(8), 0, 0) })

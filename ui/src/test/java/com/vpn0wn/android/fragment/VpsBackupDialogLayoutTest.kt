@@ -3,6 +3,7 @@ package com.vpn0wn.android.fragment
 
 import android.app.Application
 import android.content.DialogInterface
+import android.content.res.Configuration
 import android.graphics.Rect
 import android.os.Looper
 import android.view.View
@@ -11,6 +12,7 @@ import android.widget.EditText
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.res.ResourcesCompat
 import com.vpn0wn.android.R
 import com.vpn0wn.android.provisioning.StoredVpsServer
 import com.vpn0wn.android.provisioning.VpsProfileFixture
@@ -25,6 +27,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -45,7 +48,61 @@ import org.robolectric.annotation.GraphicsMode
 class VpsBackupDialogLayoutTest {
     @get:Rule val folder = TemporaryFolder()
 
-    @After fun tearDown() { Dispatchers.resetMain() }
+    @After fun tearDown() {
+        RuntimeEnvironment.setQualifiers("")
+        RuntimeEnvironment.setFontScale(1f)
+        Dispatchers.resetMain()
+    }
+
+    @Test fun backupDialogUsesTheConfiguredProseAndMonoFonts() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        RuntimeEnvironment.setQualifiers("en-rUS-w360dp-h800dp-port-notnight-mdpi")
+        RuntimeEnvironment.setFontScale(1f)
+        val fixture = provisioningLayoutFixture(folder, View.LAYOUT_DIRECTION_LTR)
+        try {
+            val dialog = showPasswordForm(fixture)
+            val root = requireNotNull(dialog.window).decorView
+            repeat(3) {
+                measure(root, 360, 800)
+                root.viewTreeObserver.dispatchOnPreDraw()
+                settle()
+            }
+            val roles = listOf(
+                "title" to requireNotNull(dialog.findViewById<TextView>(androidx.appcompat.R.id.alertTitle)),
+                "body" to requireNotNull(dialog.findViewById<TextView>(R.id.vpn0wn_backup_progress)),
+                "positive" to dialog.getButton(DialogInterface.BUTTON_POSITIVE),
+                "negative" to dialog.getButton(DialogInterface.BUTTON_NEGATIVE),
+                "private-field" to requireNotNull(dialog.findViewById<EditText>(R.id.vpn0wn_backup_password)),
+            )
+            val prose = requireNotNull(ResourcesCompat.getFont(fixture.activity, R.font.inter_tight))
+            val mono = requireNotNull(ResourcesCompat.getFont(fixture.activity, R.font.jetbrains_mono_regular))
+            val systemSans = android.graphics.Typeface.create("sans-serif", android.graphics.Typeface.NORMAL)
+            for ((name, view) in roles) {
+                val expected = if (name == "private-field") mono else prose
+                val expectedOutline = fontOutline(view, expected)
+                assertEquals("Configured $name style", expected.style, view.typeface.style)
+                assertEquals("Configured $name weight", expected.weight, view.typeface.weight)
+                assertFalse("$name font control distinguishes system sans", expectedOutline.contentEquals(fontOutline(view, systemSans)))
+                assertTrue("Configured $name glyphs", expectedOutline.contentEquals(fontOutline(view, view.typeface)))
+            }
+            assertEquals("Explicit private-field Mono override", mono, roles.last().second.typeface)
+        } finally {
+            fixture.close()
+            RuntimeEnvironment.setFontScale(1f)
+        }
+    }
+
+    private fun fontOutline(view: TextView, font: android.graphics.Typeface): FloatArray {
+        val specimen = "Hamburgefontsiv agy 0O1Il WMWM"
+        val paint = android.graphics.Paint(view.paint).apply {
+            typeface = font
+            textSize = 48f
+        }
+        val path = android.graphics.Path()
+        paint.getTextPath(specimen, 0, specimen.length, 0f, 0f, path)
+        assertFalse("Font specimen has native outlines", path.isEmpty)
+        return path.approximate(0.25f)
+    }
 
     @Test
     fun backupDialogKeepsGuidanceLabelsAndActionsReachableAtSupportedNativeSizes() = runTest {
@@ -55,19 +112,17 @@ class VpsBackupDialogLayoutTest {
             for ((index, qualifiers) in cases.withIndex()) {
                 RuntimeEnvironment.setQualifiers(qualifiers)
                 RuntimeEnvironment.setFontScale(if (index == 2) 2f else 1f)
-                val fixture = provisioningLayoutFixture(folder, if (index == 2) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR)
+                val direction = if (index == 2) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
+                // Robolectric 4.16 reapplies locale direction after combined qualifiers.
+                RuntimeEnvironment.setQualifiers(if (direction == View.LAYOUT_DIRECTION_RTL) "+ldrtl" else "+ldltr")
+                assertPreviewResources(RuntimeEnvironment.getApplication().resources.configuration, index)
+                val fixture = provisioningLayoutFixture(folder, direction)
                 try {
                     val dialog = showPasswordForm(fixture)
 
                     val root = dialog.window!!.decorView
-                    root.layoutDirection = if (index == 2) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
                     val width = if (index == 2) 640 else 360
                     val height = if (index == 2) 320 else 800
-                    assertEquals(if (index == 2) "fr" else "en", root.resources.configuration.locales[0].language)
-                    assertEquals(if (index == 2) 2f else 1f, root.resources.configuration.fontScale, 0f)
-                    assertEquals(if (index == 2) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR, root.layoutDirection)
-                    assertEquals(if (index == 1) android.content.res.Configuration.UI_MODE_NIGHT_YES else android.content.res.Configuration.UI_MODE_NIGHT_NO,
-                        root.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK)
                     var ready = false
                     repeat(3) {
                         measure(root, width, height)
@@ -75,6 +130,8 @@ class VpsBackupDialogLayoutTest {
                         settle()
                     }
                     assertTrue("Backup preview draw is not cancelled", ready)
+                    assertPreviewResources(root.resources.configuration, index)
+                    assertEquals("Settled backup decor retains requested direction", direction, root.layoutDirection)
                     for (id in listOf(R.string.vpn0wn_backup_password_note, R.string.vpn0wn_backup_password,
                         R.string.vpn0wn_backup_confirm_password, R.string.vpn0wn_backup_show_passwords)) {
                         val value = fixture.activity.getString(id)
@@ -105,6 +162,8 @@ class VpsBackupDialogLayoutTest {
                             settle()
                         }
                         assertTrue("Backup capture draw is not cancelled", ready)
+                        assertPreviewResources(root.resources.configuration, index)
+                        assertEquals("Captured backup decor retains requested direction", direction, root.layoutDirection)
                         val bitmap = android.graphics.Bitmap.createBitmap(root.width, root.height, android.graphics.Bitmap.Config.ARGB_8888)
                         try {
                             root.draw(android.graphics.Canvas(bitmap))
@@ -114,6 +173,14 @@ class VpsBackupDialogLayoutTest {
                 } finally { fixture.close() }
             }
         } finally { RuntimeEnvironment.setFontScale(1f) }
+    }
+
+    private fun assertPreviewResources(configuration: Configuration, index: Int) {
+        assertEquals(if (index == 2) "fr" else "en", configuration.locales[0].language)
+        assertEquals(if (index == 2) 2f else 1f, configuration.fontScale, 0f)
+        assertEquals(if (index == 2) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR, configuration.layoutDirection)
+        assertEquals(if (index == 1) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO,
+            configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)
     }
 
     private fun TestScope.assertProfileViewReachable(view: View) {
