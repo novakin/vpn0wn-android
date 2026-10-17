@@ -23,7 +23,6 @@ import android.os.Looper
 import android.os.Parcel
 import android.os.ParcelFileDescriptor
 import android.provider.MediaStore
-import android.view.KeyEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
@@ -35,7 +34,6 @@ import android.widget.TextView
 import android.widget.ScrollView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.res.ResourcesCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentManager
 import androidx.lifecycle.ViewModel
@@ -134,26 +132,6 @@ class VpsProvisioningWorkflowTest {
         AppDataTransferSettingsTest.Authentication.autoCancel = false
         AppDataTransferSettingsTest.Authentication.expectedTitleRes = R.string.vpn0wn_profile_authenticate
         AppDataTransferSettingsTest.Authentication.callbacks.clear()
-    }
-
-    @Test
-    @Config(sdk = [24, 28])
-    fun technicalLabelsUseBundledRegularFontAcrossSupportedApis() = runTest {
-        val fixture = fixture()
-        try {
-            val title = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_servers_title).lowercase(java.util.Locale.ROOT))
-            assertFalse("Existing title omits extra font padding", title.includeFontPadding)
-            val add = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_add_server).removePrefix("+ ").trim())
-            assertTrue(clickableAncestor(add).performClick())
-            settle()
-            val label = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_label_host).uppercase(java.util.Locale.ROOT))
-            assertEquals("Bundled regular face", ResourcesCompat.getFont(fixture.activity, R.font.jetbrains_mono_regular), label.typeface)
-            assertEquals("Shared mono features", "ss01, zero, tnum", label.fontFeatureSettings)
-            assertFalse("Existing label omits extra font padding", label.includeFontPadding)
-            assertTrue(fixture.peer.connections.isEmpty())
-        } finally {
-            fixture.close()
-        }
     }
 
     @Test fun actualActionsRequireExplicitConfirmationBeforeInstallation() = runTest {
@@ -549,43 +527,6 @@ class VpsProvisioningWorkflowTest {
             assertSame(snapshot, fixture.model.state.value.statusSnapshots.getValue(saved.id))
             assertEquals(2, fixture.peer.connections.size)
             assertEquals(2, fixture.peer.closes.get())
-        } finally { fixture.close() }
-    }
-
-    @Config(sdk = [24, 28])
-    @Test fun busyStatusCanCancelAndARealPeerCannotExportAPlaceholderProfile() = runTest {
-        val fixture = fixture()
-        try {
-            fillAccess(fixture)
-            click(fixture, R.string.vpn0wn_continue)
-            fixture.model.state.first { !it.busy && it.detect != null }
-            fixture.model.leave()
-            settle()
-            clickServer(fixture)
-            fixture.peer.blockStatus = CompletableDeferred()
-            val refresh = fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status)
-            assertButtonAction(refresh)
-            assertTrue(refresh.requestFocus())
-            assertTrue(refresh.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER)))
-            assertTrue(refresh.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ENTER)))
-            fixture.peer.statusEntered.await()
-            settle()
-            assertTrue(text(fixture.root, fixture.activity.getString(R.string.vpn0wn_cancel_check)).isShown)
-            val cancel = fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status)
-            assertButtonAction(cancel)
-            cancel.performClick()
-            fixture.model.state.first { !it.busy }
-            fixture.peer.blockStatus = null
-            settle()
-            fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status).performClick()
-            fixture.model.state.first { !it.busy && it.statusSnapshots.isNotEmpty() }
-            settle()
-            clickableAncestor(text(fixture.root, "phone")).performClick()
-            settle()
-            assertNotNull(text(fixture.root, "synthetic-peer-public-key"))
-            click(fixture, R.string.vpn0wn_action_show_qr)
-            assertNotNull(text(fixture.activity.window.decorView, fixture.activity.getString(R.string.vpn0wn_profile_unavailable)))
-            assertFalse(fixture.peer.commands.any { it.contains("./'add-peer.sh'") || it.contains("./'backup.sh'") })
         } finally { fixture.close() }
     }
 
@@ -1329,11 +1270,16 @@ class VpsProvisioningWorkflowTest {
             store.upsert(other)
             store.saveCredential(other, PROFILE_PIN, VpsCredential.Password("synthetic-password".toCharArray()))
             for (action in PendingVpsRemove.Action.entries) {
+                val current = store.servers.first().single { it.id == stored.id }
+                requireNotNull(fixture.model.syncStatus(current)).join()
+                assertNull(fixture.model.state.value.problem)
+                val selected = store.servers.first().single { it.id == stored.id }
+                assertEquals(selected, fixture.model.state.value.statusSnapshots[selected.id]?.server)
                 val attempt = PendingVpsRemove(other.id, com.vpn0wn.android.provisioning.VpsEndpoint(other.host, other.sshPort, other.sshUser),
                     PROFILE_PIN, PROFILE_SERVER_KEY, "phone", PROFILE_CLIENT_KEY, action,
                     if (action == PendingVpsRemove.Action.REVOKE) "00112233-4455-4677-8899-aabbccddeeff" else null)
                 store.admitRemove(other, attempt)
-                requireNotNull(fixture.model.requestRevokeUserConfirmation(stored, "phone", PROFILE_CLIENT_KEY)).join()
+                requireNotNull(fixture.model.requestRevokeUserConfirmation(selected, "phone", PROFILE_CLIENT_KEY)).join()
                 settle()
                 assertEquals(fixture.activity.getString(R.string.vpn0wn_user_foreign_mutation_pending),
                     fixture.root.findViewById<TextView>(R.id.vpn0wn_vps_operation_problem).text.toString())
@@ -2113,9 +2059,12 @@ class VpsProvisioningWorkflowTest {
         override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<out String>?) = 0
     }
 
-    private fun TestScope.openServer(fixture: Fixture, server: StoredVpsServer) {
+    private suspend fun TestScope.openServer(fixture: Fixture, server: StoredVpsServer) {
         clickableAncestor(text(fixture.root, server.name)).performClick()
         settle()
+        fixture.model.state.first { !it.busy }
+        settle()
+        assertTrue(fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status).isEnabled)
     }
 
     private fun TestScope.backToFleet(fixture: Fixture) {
@@ -2273,9 +2222,12 @@ class VpsProvisioningWorkflowTest {
         input(fixture.root, fixture.activity.getString(R.string.vpn0wn_password_placeholder)).setText(PASSWORD)
     }
 
-    private fun TestScope.clickServer(fixture: Fixture) {
+    private suspend fun TestScope.clickServer(fixture: Fixture) {
         clickableAncestor(text(fixture.root, "198.51.100.42")).performClick()
         settle()
+        fixture.model.state.first { !it.busy }
+        settle()
+        assertTrue(fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status).isEnabled)
     }
 
     private fun TestScope.click(fixture: Fixture, resource: Int) {

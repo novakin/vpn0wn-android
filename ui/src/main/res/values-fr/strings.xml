@@ -669,4 +669,21 @@
     <string name="vpn0wn_backup_revoked_count">ARCHIVES DE RÉVOCATION</string>
     <string name="vpn0wn_backup_public_identity">CLÉ PUBLIQUE DU SERVEUR</string>
     <string name="vpn0wn_backup_identity_unavailable">Indisponible</string>
+    <string name="vpn0wn_restore_step_summary">ÉTAPE %1$d SUR %2$d · %3$s</string>
+    <string name="vpn0wn_restore_title">Restaurer une sauvegarde serveur</string>
+    <string name="vpn0wn_restore_action">Restaurer</string>
+    <string name="vpn0wn_restore_check_step">Vérifier</string>
+    <string name="vpn0wn_restore_check">Vérifier la destination</string>
+    <string name="vpn0wn_restore_confirm">Restaurer et vérifier</string>
+    <string name="vpn0wn_restore_return">Retour aux serveurs</string>
+    <string name="vpn0wn_restore_authenticate">Authentifiez-vous pour restaurer cette sauvegarde serveur</string>
+    <string name="vpn0wn_restore_active_peers">Pairs actifs</string>
+    <string name="vpn0wn_restore_limits_label">Limites de récupération</string>
+    <string name="vpn0wn_restore_limits">Destination vierge uniquement. Vérifiez son empreinte SSH indépendamment. Une ancienne sauvegarde ne révèle pas les révocations ultérieures. Les clés des clients restent identiques ; une nouvelle adresse VPN exige une mise à jour des clients. Le serveur source reste intact. Aucune connectivité client n’est démontrée.</string>
+    <string name="vpn0wn_restore_running">Restauration ou vérification exacte en cours. Fermer la connexion peut laisser la commande distante active.</string>
+    <string name="vpn0wn_restore_uncertain">Résultat non vérifié. Rouvrez la sauvegarde chiffrée originale pour le vérifier. Une destination absente, arrêtée ou modifiée nécessite une inspection par un administrateur de confiance. Ne relancez pas et ne remplacez rien.</string>
+    <string name="vpn0wn_restore_verified">État restauré exact observé. La connectivité et le trafic des clients ne sont pas testés.</string>
+    <string name="vpn0wn_restore_reconcile">Vérifier la restauration en attente</string>
+    <string name="vpn0wn_restore_foreign">Une restauration en attente appartient à un autre serveur enregistré pour cette cible SSH. Vérifiez-la depuis ce serveur d’origine avant toute modification.</string>
+    <string name="vpn0wn_restore_confirmation">Restaurer uniquement vers cette destination vierge :\n%1$s@%2$s:%3$d\nEmpreinte SSH : %4$s\n\nSauvegarde du : %5$s\nClé serveur WireGuard : %6$s\nAdresse VPN : %7$s:%8$s\nRéseau : %9$s\nDNS : %10$s\nPairs actifs : %11$d · Archives révoquées : %12$d\n\nCette action écrit les clés et utilisateurs sauvegardés, active le transfert IP et démarre/active le service VPN. Les profils clients et le serveur source restent intacts. Une ancienne sauvegarde peut précéder des révocations ultérieures. Une nouvelle adresse exige une mise à jour des clients. Confirmez après vérification indépendante de l’empreinte SSH.</string>
 </resources>

@@ -67,6 +67,7 @@ import com.vpn0wn.android.provisioning.VpsDeployUserStatus
 import com.vpn0wn.android.provisioning.VpsDeployMapper
 import com.vpn0wn.android.provisioning.StoredVpsServer
 import com.vpn0wn.android.provisioning.PendingVpsRemove
+import com.vpn0wn.android.provisioning.PendingVpsRestore
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.AuthMode
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Problem
@@ -91,6 +92,7 @@ import com.vpn0wn.android.provisioning.VpsBackupArchiveException
 import com.vpn0wn.android.provisioning.VpsBackupDocument
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.BackupFailure
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.BackupSummary
+import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.RestoreOutcome
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.WriterException
 import com.google.zxing.qrcode.QRCodeWriter
@@ -125,6 +127,8 @@ class VpsProvisioningFragment : BaseFragment() {
     private var storeJob: Job? = null
     private var renderedProvisionState: State? = null
     private var installDialog: AlertDialog? = null
+    private var restoreDialog: AlertDialog? = null
+    private var restoreAuthentication: VpsProvisioningViewModel.RestoreConfirmation? = null
     private var addUserDialog: AlertDialog? = null
     private var addUserAction: AddUserAction? = null
     private var removeUserDialog: AlertDialog? = null
@@ -245,6 +249,9 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     override fun onDestroyView() {
+        restoreAuthentication = null
+        retireRestoreConfirmation()
+        if (provisionState.restore != null && provisionState.active) provision.leave()
         rotationAuthentication = null
         retireRotateUserAction()
         retireBackupImport()
@@ -263,6 +270,10 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     override fun onStop() {
+        if (restoreAuthentication == null) {
+            retireRestoreConfirmation()
+            if (provisionState.restore != null && provisionState.active) provision.leave()
+        }
         if (rotationAuthentication == null) retireRotateUserAction()
         backupImportAction?.takeUnless { it.waitingForPicker || it.authenticating }?.let { retireBackupImport() }
         if (backupAction?.authenticating == false) retireBackupAction()
@@ -276,6 +287,7 @@ class VpsProvisioningFragment : BaseFragment() {
     override fun onSelectedTunnelChanged(oldTunnel: ObservableTunnel?, newTunnel: ObservableTunnel?) = Unit
 
     private fun render() {
+        if (restoreDialog != null && (screen !is Screen.Provision || !provision.canRestore)) retireRestoreConfirmation()
         rotationAuthentication?.takeUnless { ownsServerFeedback(it.server) && view === it.view }?.let { rotationAuthentication = null }
         if (rotateUserAction?.let { !ownsRotateUserAction(it, requireStarted = false) } == true ||
             rotateUserDialog != null && provisionState.busy) retireRotateUserAction()
@@ -399,8 +411,11 @@ class VpsProvisioningFragment : BaseFragment() {
         }
         val card = card(stroke).apply {
             actionAccessibility(Button::class.java.name)
+            isEnabled = !provisionState.busy
             setOnClickListener {
+                if (provisionState.busy) return@setOnClickListener
                 screen = Screen.Detail(server.id)
+                storedServers.singleOrNull { it.id == server.id }?.let { provision.loadPendingRestore(it) }
                 render()
             }
         }
@@ -504,19 +519,23 @@ class VpsProvisioningFragment : BaseFragment() {
     // Local scroll insets preserve the scalable wizard's existing drawing geometry.
     @Suppress("MagicNumber")
     private fun provisionScreen(): View {
-        val steps = listOf(str(R.string.vpn0wn_step_ssh), str(R.string.vpn0wn_step_detect), str(R.string.vpn0wn_step_plan), str(R.string.vpn0wn_step_apply), str(R.string.vpn0wn_step_import))
+        val restoring = provisionState.restore != null
+        val steps = if (restoring) listOf(str(R.string.vpn0wn_step_ssh), str(R.string.vpn0wn_step_detect),
+            str(R.string.vpn0wn_restore_check_step), str(R.string.vpn0wn_restore_action)) else listOf(str(R.string.vpn0wn_step_ssh),
+            str(R.string.vpn0wn_step_detect), str(R.string.vpn0wn_step_plan), str(R.string.vpn0wn_step_apply), str(R.string.vpn0wn_step_import))
         val container = vertical()
         val scrollView = ScrollView(requireContext())
         val page = vertical()
-        page.addView(topBar(title = str(R.string.vpn0wn_deploy_server_title), sub = str(R.string.vpn0wn_deploy_step_summary, provisionStep + 1, steps[provisionStep]), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { provision.back() }))
+        page.addView(topBar(title = str(if (restoring) R.string.vpn0wn_restore_title else R.string.vpn0wn_deploy_server_title), sub = if (restoring) str(R.string.vpn0wn_restore_step_summary, provisionStep + 1, steps.size, steps[provisionStep])
+            else str(R.string.vpn0wn_deploy_step_summary, provisionStep + 1, steps[provisionStep]), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { provision.back() }))
         page.addView(progressStrip(steps.size, provisionStep))
         page.addView(stepTracker(steps, provisionStep))
         val scroll = vertical().apply { setPadding(dp(14), 0, dp(14), dp(24)) }
         when (provisionStep) {
             SSH_STEP -> sshStep(scroll)
-            DETECT_STEP -> detectStep(scroll)
-            PLAN_STEP -> planStep(scroll)
-            APPLY_STEP -> applyStep(scroll)
+            DETECT_STEP -> if (restoring) restoreDestinationStep(scroll) else detectStep(scroll)
+            PLAN_STEP -> if (restoring) restoreReviewStep(scroll) else planStep(scroll)
+            APPLY_STEP -> if (restoring) restoreReviewStep(scroll) else applyStep(scroll)
         }
         addOperationStatus(scroll)
         page.addView(scroll)
@@ -697,6 +716,105 @@ class VpsProvisioningFragment : BaseFragment() {
             dialog.dismiss()
             provision.confirmInstall(confirmation)
         }
+    }
+
+    private fun restoreDestinationStep(parent: LinearLayout) {
+        parent.addView(sectionHeader(2, str(R.string.vpn0wn_restore_check), str(R.string.vpn0wn_apply_fresh_only)))
+        parent.addView(panel {
+            configLine(str(R.string.vpn0wn_label_host), provisionForm.host)
+            configLine(str(R.string.vpn0wn_ssh_fingerprint), provisionForm.fingerprint, wrap = true)
+            editLine(R.id.vpn0wn_vps_vpn_endpoint, str(R.string.vpn0wn_label_endpoint), str(R.string.vpn0wn_vpn_endpoint_hint), provisionForm.endpoint) {
+                provision.edit(provisionForm.copy(endpoint = it))
+            }
+            editLine(R.id.vpn0wn_vps_listen_port, str(R.string.vpn0wn_label_listen_port), "51820", provisionForm.port, InputType.TYPE_CLASS_NUMBER) {
+                provision.edit(provisionForm.copy(port = it))
+            }
+        })
+    }
+
+    private fun restoreReviewStep(parent: LinearLayout) {
+        val restoration = provisionState.restore ?: return
+        parent.addView(sectionHeader(provisionStep + 1, str(R.string.vpn0wn_restore_title), str(R.string.vpn0wn_apply_fresh_only)))
+        parent.addView(panel {
+            restoration.summary?.let { configLine(str(R.string.vpn0wn_backup_captured), it.capturedAtUtc, wrap = true) }
+            val plan = restoration.plan ?: restoration.attempt?.plan
+            if (plan != null) {
+                configLine(str(R.string.vpn0wn_backup_public_identity), plan.serverPublicKey, wrap = true)
+                configLine(str(R.string.vpn0wn_label_endpoint), plan.endpoint, wrap = true)
+                configLine(str(R.string.vpn0wn_label_listen_port), plan.port)
+                configLine(str(R.string.vpn0wn_metric_cidr), plan.cidr)
+                configLine(str(R.string.vpn0wn_label_dns), plan.dns, wrap = true)
+                configLine(str(R.string.vpn0wn_restore_active_peers), plan.peerCount.toString())
+                configLine(str(R.string.vpn0wn_backup_revoked_count), plan.revokedCount.toString())
+            }
+            configLine(str(R.string.vpn0wn_restore_limits_label), str(R.string.vpn0wn_restore_limits), wrap = true)
+        })
+    }
+
+    private fun confirmRestoration() {
+        val confirmation = provision.requestRestoreConfirmation() ?: return
+        val ownerView = view ?: return
+        val owner = viewLifecycleOwner
+        var terminal = false
+        restoreAuthentication = confirmation
+        try {
+            BiometricAuthenticator.authenticate(R.string.vpn0wn_restore_authenticate, this) { result ->
+                if (restoreAuthentication !== confirmation || view !== ownerView || terminal) return@authenticate
+                if (result is BiometricAuthenticator.Result.Failure && result.code == null) {
+                    if (owner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) toast(str(R.string.biometric_auth_error))
+                    return@authenticate
+                }
+                terminal = true
+                owner.lifecycleScope.launch {
+                    owner.lifecycle.withStarted {
+                        if (restoreAuthentication !== confirmation || view !== ownerView || screen !is Screen.Provision) return@withStarted
+                        restoreAuthentication = null
+                        if ((result is BiometricAuthenticator.Result.Success || result is BiometricAuthenticator.Result.NoAuthenticationConfigured) && provision.canRestore) {
+                            showRestoreConfirmation(confirmation, ownerView)
+                        } else {
+                            provision.dismissRestoreConfirmation()
+                            if (result !is BiometricAuthenticator.Result.Cancelled) toast(str(R.string.biometric_auth_error))
+                        }
+                    }
+                }
+            }
+        } catch (failure: RuntimeException) {
+            if (restoreAuthentication === confirmation) {
+                restoreAuthentication = null
+                provision.dismissRestoreConfirmation()
+            }
+            throw failure
+        }
+    }
+
+    private fun showRestoreConfirmation(confirmation: VpsProvisioningViewModel.RestoreConfirmation, ownerView: View) {
+        val plan = confirmation.plan
+        val host = confirmation.ssh.host.let { if (':' in it) "[$it]" else it }
+        val message = getString(R.string.vpn0wn_restore_confirmation, confirmation.ssh.user, host,
+            confirmation.ssh.port, confirmation.fingerprint, confirmation.summary.capturedAtUtc, plan.serverPublicKey,
+            plan.endpoint, plan.port, plan.cidr, plan.dns, plan.peerCount, plan.revokedCount)
+        val dialog = MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.vpn0wn_restore_title)
+            .setMessage(message).setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.vpn0wn_restore_confirm, null).create()
+        restoreDialog = dialog
+        dialog.setOnDismissListener { if (restoreDialog === dialog) retireRestoreConfirmation() }
+        dialog.show()
+        dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            if (restoreDialog !== dialog || view !== ownerView || !dialog.isShowing ||
+                !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return@setOnClickListener
+            restoreDialog = null
+            dialog.setOnDismissListener(null)
+            dialog.dismiss()
+            provision.confirmRestore(confirmation)
+        }
+    }
+
+    private fun retireRestoreConfirmation() {
+        provision.dismissRestoreConfirmation()
+        val dialog = restoreDialog
+        restoreDialog = null
+        dialog?.dismiss()
     }
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
@@ -935,10 +1053,15 @@ class VpsProvisioningFragment : BaseFragment() {
         dialog?.dismiss()
     }
 
-    private fun requestBackupImport() {
-        if (screen !is Screen.Fleet || provisionState.busy || backupImportAction != null || backupPickerOutstanding ||
+    private fun requestBackupImport(server: StoredVpsServer? = null, attempt: PendingVpsRestore? = null) {
+        val ownerScreen = server?.let { Screen.Detail(it.id) } ?: Screen.Fleet
+        if (screen != ownerScreen || provisionState.busy || backupImportAction != null || backupPickerOutstanding ||
             !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
-        val action = BackupImportAction(requireView())
+        val action = BackupImportAction(requireView()).apply {
+            this.ownerScreen = ownerScreen
+            this.server = server
+            this.attempt = attempt
+        }
         backupImportAction = action
         backupPickerAction = action
         backupPickerOutstanding = true
@@ -1044,7 +1167,19 @@ class VpsProvisioningFragment : BaseFragment() {
                 access?.join()
                 if (!ownsBackupImport(action)) return@launch
                 val summary = provisionState.backupSummary
-                if (summary != null) {
+                if (summary != null && action.attempt != null && action.server != null) {
+                    access = provision.reconcileRestore(requireNotNull(action.server), requireNotNull(action.attempt))
+                    access?.join()
+                    if (!ownsBackupImport(action)) return@launch
+                    if (provisionState.restore?.outcome == RestoreOutcome.RECONCILED) {
+                        retireBackupImport()
+                        render()
+                    } else {
+                        progress.setText(R.string.vpn0wn_restore_uncertain)
+                        editor.isEnabled = true
+                        dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
+                    }
+                } else if (summary != null) {
                     backupImportDialog = null
                     dialog.dismiss()
                     backupImportPassword = null
@@ -1073,6 +1208,7 @@ class VpsProvisioningFragment : BaseFragment() {
     // Summary rows contain only authenticated metadata and an optional public identity, never the snapshot text.
     @Suppress("MagicNumber")
     private fun showBackupSummary(summary: BackupSummary) {
+        val action = backupImportAction ?: return
         val content = vertical().apply {
             setPadding(dp(24), 0, dp(24), dp(8))
             addView(mono(str(R.string.vpn0wn_backup_inspection_note), 11, R.color.vpn0wn_ink_2))
@@ -1083,15 +1219,29 @@ class VpsProvisioningFragment : BaseFragment() {
             configLine(str(R.string.vpn0wn_backup_public_identity), summary.serverPublicKey ?: str(R.string.vpn0wn_backup_identity_unavailable), wrap = true)
         }
         val dialog = MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.vpn0wn_backup_unlocked)
-            .setView(ScrollView(requireContext()).apply { addView(content) }).setPositiveButton(R.string.vpn0wn_close, null).create()
+            .setView(ScrollView(requireContext()).apply { addView(content) }).setNegativeButton(R.string.vpn0wn_close, null)
+            .setPositiveButton(R.string.vpn0wn_restore_action, null).create()
         backupImportDialog = dialog
         dialog.setOnDismissListener { if (backupImportDialog === dialog) retireBackupImport() }
         dialog.show()
         dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).apply {
+            isEnabled = summary.serverPublicKey != null
+            setOnClickListener {
+                if (!ownsBackupImport(action) || backupImportDialog !== dialog || !dialog.isShowing) return@setOnClickListener
+                if (!provision.beginRestoreFromInspection()) return@setOnClickListener
+                backupImportDialog = null
+                backupImportAction = null
+                dialog.setOnDismissListener(null)
+                dialog.dismiss()
+                screen = Screen.Provision
+                render()
+            }
+        }
     }
 
     private fun ownsBackupImport(action: BackupImportAction, requireStarted: Boolean = true): Boolean =
-        backupImportAction === action && view === action.ownerView && screen is Screen.Fleet &&
+        backupImportAction === action && view === action.ownerView && screen == action.ownerScreen &&
             (!requireStarted || viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
 
     private fun retireBackupImport() {
@@ -1389,9 +1539,13 @@ class VpsProvisioningFragment : BaseFragment() {
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
     private fun bottomAction(): View {
+        val restoring = provisionState.restore != null
         val label = str(when {
             provisionState.busy && provisionStep == APPLY_STEP -> R.string.vpn0wn_close_connection
             provisionState.busy -> R.string.vpn0wn_cancel_check
+            restoring && provisionStep == DETECT_STEP -> R.string.vpn0wn_restore_check
+            restoring && provisionStep == APPLY_STEP && provision.canRestore -> R.string.vpn0wn_restore_confirm
+            restoring && provisionStep == APPLY_STEP -> R.string.vpn0wn_restore_return
             provisionStep == DETECT_STEP -> R.string.vpn0wn_generate_plan
             provisionStep == PLAN_STEP -> R.string.vpn0wn_review_apply
             provisionStep == APPLY_STEP && provisionState.pendingInstall -> R.string.vpn0wn_reconcile_install
@@ -1403,8 +1557,9 @@ class VpsProvisioningFragment : BaseFragment() {
         val canAdvance = provisionState.busy || when (provisionStep) {
             SSH_STEP -> true
             DETECT_STEP -> provisionState.detect?.supported == true
-            PLAN_STEP -> provisionState.plan != null
-            APPLY_STEP -> provision.canInstall || provisionState.pendingInstall
+            PLAN_STEP -> provisionState.plan != null || provisionState.restore?.plan != null
+            APPLY_STEP -> if (restoring) provision.canRestore || provisionState.restore?.attempt != null ||
+                provisionState.restore?.outcome == RestoreOutcome.VERIFIED else provision.canInstall || provisionState.pendingInstall
             else -> false
         }
         return TextView(requireContext()).apply {
@@ -1433,8 +1588,10 @@ class VpsProvisioningFragment : BaseFragment() {
                 when {
                     provisionState.busy -> provision.back()
                     provisionStep == SSH_STEP -> provision.detect()
-                    provisionStep == DETECT_STEP -> provision.plan()
+                    provisionStep == DETECT_STEP -> if (restoring) provision.checkRestore() else provision.plan()
                     provisionStep == PLAN_STEP -> provision.reviewApply()
+                    restoring && provisionStep == APPLY_STEP && provision.canRestore -> confirmRestoration()
+                    restoring && provisionStep == APPLY_STEP -> provision.leave()
                     provisionStep == APPLY_STEP && provisionState.pendingInstall -> provision.reconcileInstall()
                     provisionStep == APPLY_STEP -> confirmInstallation()
                 }
@@ -1447,7 +1604,8 @@ class VpsProvisioningFragment : BaseFragment() {
     private fun addOperationStatus(parent: LinearLayout, serverId: String? = null) {
         if (serverId != null && serverId != provisionState.serverId &&
             !(provisionState.cleanupRequired && ownsServerFeedback(provisionState.cleanupOwner)) &&
-            !(provisionState.recovery != null && ownsServerFeedback(provisionState.recoveryOwner))) return
+            !(provisionState.recovery != null && ownsServerFeedback(provisionState.recoveryOwner)) &&
+            !ownsServerFeedback(provisionState.restore?.owner)) return
         parent.addView(vertical().apply {
             id = R.id.vpn0wn_vps_operation_status
             renderOperationStatus(this)
@@ -1505,6 +1663,22 @@ class VpsProvisioningFragment : BaseFragment() {
         addUserCreationStatus(parent)
         addUserRemovalStatus(parent)
         addUserRotationStatus(parent)
+        val restoration = provisionState.restore
+        if (restoration != null && ownsServerFeedback(restoration.owner)) {
+            val owner = restoration.owner
+            val attempt = restoration.attempt
+            val foreign = owner != null && attempt != null && !attempt.owns(owner)
+            val message = when (restoration.outcome) {
+                RestoreOutcome.RUNNING -> R.string.vpn0wn_restore_running
+                RestoreOutcome.UNCERTAIN -> if (foreign) R.string.vpn0wn_restore_foreign else R.string.vpn0wn_restore_uncertain
+                RestoreOutcome.VERIFIED, RestoreOutcome.RECONCILED -> R.string.vpn0wn_restore_verified
+                else -> null
+            }
+            if (message != null) parent.addView(panel { configLine(str(R.string.vpn0wn_restore_title), str(message), wrap = true) })
+            if (owner != null && attempt != null && attempt.owns(owner) && screen is Screen.Detail)
+                parent.addView(rowButton(str(R.string.vpn0wn_restore_reconcile)) { requestBackupImport(owner, attempt) }
+                    .apply { isEnabled = !provisionState.busy })
+        }
         val removalOwned = provisionState.removal != UserRemoval.NONE && ownsServerFeedback(provisionState.removalOwner) &&
             provisionState.serverId == provisionState.removalOwner?.id
         val rotationOwned = provisionState.rotation != UserRotation.NONE && ownsServerFeedback(provisionState.rotationOwner) &&
@@ -1524,6 +1698,7 @@ class VpsProvisioningFragment : BaseFragment() {
         Problem.CANCELLED -> R.string.vpn0wn_ssh_cancelled
         Problem.INSTALL_FAILED -> R.string.vpn0wn_apply_failed
         Problem.INSTALL_PENDING -> R.string.vpn0wn_apply_uncertain
+        Problem.RESTORE_PENDING -> R.string.vpn0wn_restore_uncertain
         Problem.ADD_PENDING -> R.string.vpn0wn_user_add_pending
         Problem.REMOVE_PENDING -> if (!ownsServerFeedback(provisionState.removalOwner)) R.string.vpn0wn_user_foreign_mutation_pending
             else if (provisionState.removalAction == PendingVpsRemove.Action.REVOKE) R.string.vpn0wn_user_revoke_uncertain else R.string.vpn0wn_user_remove_uncertain
@@ -1548,8 +1723,15 @@ class VpsProvisioningFragment : BaseFragment() {
         val stored = storedServers.find { it.id == serverId } ?: return false
         val snapshot = provisionState.statusSnapshots[serverId]
         return !provisionState.busy && snapshot?.matches(stored) == true && snapshot.status.serverPublicKey != null &&
-            !(provisionState.serverId == serverId && (provisionState.pendingAdd || provisionState.pendingInstall || provisionState.pendingRemove || provisionState.pendingRotation))
+            provisionState.restore?.attempt?.matches(stored) != true &&
+            !(provisionState.pendingAdd && sameServerTarget(provisionState.creationOwner, stored)) &&
+            !(provisionState.pendingInstall && sameServerTarget(provisionState.installationOwner, stored)) &&
+            !(provisionState.pendingRemove && sameServerTarget(provisionState.removalOwner, stored)) &&
+            !(provisionState.pendingRotation && sameServerTarget(provisionState.rotationOwner, stored))
     }
+
+    private fun sameServerTarget(owner: StoredVpsServer?, current: StoredVpsServer): Boolean = owner != null &&
+        (owner.id == current.id || owner.host == current.host && owner.sshPort == current.sshPort && owner.sshUser == current.sshUser)
 
     private data class RotateUserAction(val server: StoredVpsServer, val name: String, val publicKey: String)
     private class RotationAuthentication(val server: StoredVpsServer, val view: View, var terminalAccepted: Boolean = false)
@@ -2431,6 +2613,9 @@ class VpsProvisioningFragment : BaseFragment() {
     }
     private class BackupImportAction(val ownerView: View, var waitingForPicker: Boolean = true, var authenticating: Boolean = false) {
         var authenticationResultAccepted = false
+        var ownerScreen: Screen = Screen.Fleet
+        var server: StoredVpsServer? = null
+        var attempt: PendingVpsRestore? = null
     }
 
     private data class AddUserAction(val server: StoredVpsServer, val name: String? = null)

@@ -264,7 +264,11 @@ internal object VpsBackupExportFixture {
     const val PASSWORD = "synthetic backup password"
     val snapshot = VpsBackupResult("wg0", "# TUNNL_MANAGED 1\n[Interface]\nPrivateKey = ${VpsProfileFixture.serverKey.privateKey.toBase64()}\n", 1, 1,
         "2026-10-17T07:00:00Z", listOf(VpsRevokedBackup("revoked.conf", "# BEGIN_PEER revoked\n[Peer]\nPublicKey = ${VpsProfileFixture.client.publicKey.toBase64()}\n")))
-    fun status(): String = JSONObject().put("ok", true).put("interface", "wg0").put("running", true)
+    fun status(hasPeer: Boolean = false): String = JSONObject().put("ok", true).put("interface", "wg0").put("running", true)
         .put("endpoint", VpsProfileFixture.server.endpoint).put("listenPort", VpsProfileFixture.server.listenPort).put("cidr", VpsProfileFixture.server.cidr)
-        .put("dns", VpsProfileFixture.server.dns).put("serverPublicKey", VpsProfileFixture.serverKey.publicKey.toBase64()).put("peers", JSONArray()).toString()
+        .put("dns", VpsProfileFixture.server.dns).put("serverPublicKey", VpsProfileFixture.serverKey.publicKey.toBase64())
+        .put("peers", JSONArray().apply {
+            if (hasPeer) put(JSONObject().put("name", "phone").put("publicKey", VpsProfileFixture.client.publicKey.toBase64())
+                .put("allowedIps", "10.8.0.2/32").put("latestHandshake", JSONObject.NULL).put("rxBytes", JSONObject.NULL).put("txBytes", JSONObject.NULL))
+        }).toString()
 }

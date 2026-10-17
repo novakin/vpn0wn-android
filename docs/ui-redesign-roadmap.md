@@ -4,6 +4,8 @@ Last updated: 2026-10-17 (Europe/Paris).
 
 ## Design Source
 
+**Guarded restore UI candidate — #196, 2026-10-17:** authenticated local inspection can hand its captured owner into the existing native four-step SSH/Detect/Check/Restore workflow, with exact destination/source review, conservative uncertainty and same-original-file reconciliation. Approved engineering-console tokens and existing Mono/Inter component roles remain. Scoped local controls and author/independent synthetic-output review are complete; final integration CI and source delivery remain pending. This source candidate establishes no installed picker/authentication/accessibility or live-server behavior. [Contracts](backend-contracts.md#guarded-android-fresh-restore-workflow--196) and [QA](qa-test-plan.md#guarded-android-fresh-restore-controls--196) own scope and limits.
+
 Reference: `.design/` — React/JSX prototype for **Tunnl**, a WireGuard tunnel manager with an engineering-console visual language. Read-only. Never modify.
 
 Prototype sections below describe visual targets, not implemented Android guarantees. Initial committed-source reconciliation used `11d4a9b1`; the Done ledger also retains superseded implementation history. Read the explicit gaps and [full documentation review](reviews/2026-10-06-full-documentation-review.md) for evidence limits.
@@ -500,6 +502,8 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 ## Progress
 
 ### Done
+
+- [x] **Guarded fresh-restore source — #196, 2026-10-17:** the existing Fragment/wizard consumes authenticated inspection through four actual SSH/Detect/Check/Restore steps, exact confirmation and owned same-file reconciliation. Header totals now match the four-step tracker; author and independent review accept the scoped English/French synthetic originals and reachable actions. [QA](qa-test-plan.md#guarded-android-fresh-restore-controls--196) retains failed gates, bounded passing controls, exact output scopes and limits. Final integration CI, delivery and installed/native/live acceptance remain separate; #196 stays open.
 
 - [x] **Client-key rotation source — #143, 2026-10-17:** User action, authenticated exact review, progress and owned read-only recovery pass the 359-test/18-class source gate and zero-finding Detekt. Author and independent review accept the bounded eight-configuration synthetic output, with a separate full Reconcile-row target/scroll supplement. [QA](qa-test-plan.md#client-key-rotation-controls--143) owns actual image/inspection counts, prior failures and satisfaction limits; integration/delivery, installed/native/live and copied-profile replacement acceptance remain separate.
 

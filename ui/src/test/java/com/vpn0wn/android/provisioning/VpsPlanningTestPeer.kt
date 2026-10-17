@@ -49,6 +49,22 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
     var verifyRotationExitCode = 0
     var rotationRunning = true
     var rotatedPublicKey: String? = null
+    val restoreCheckEntered = CompletableDeferred<Unit>()
+    var blockRestoreCheck: CompletableDeferred<Unit>? = null
+    var restoreCheckFailure: ProvisioningException? = null
+    var restoreCheckOutput: String? = null
+    val restoreEntered = CompletableDeferred<Unit>()
+    var blockRestore: CompletableDeferred<Unit>? = null
+    var restoreFailure: ProvisioningException? = null
+    var restoreOutput: String? = null
+    var restoreCleanupPath: String = ""
+    var restoreExitCode = 0
+    val verifyRestoreEntered = CompletableDeferred<Unit>()
+    var blockVerifyRestore: CompletableDeferred<Unit>? = null
+    var verifyRestoreFailure: ProvisioningException? = null
+    var verifyRestoreOutput: String? = null
+    var verifyRestoreExitCode = 0
+    var restorePlan: VpsRestoreCheckPlan? = null
     var closeFailure: ProvisioningException? = null
     var configExists = false
     val backupEntered = CompletableDeferred<Unit>()
@@ -75,6 +91,7 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
                 return when {
                     command.startsWith("mktemp ") -> ProvisioningCommandOutput(0, "/tmp/vpn0wn-provisioning.test01\n", "")
                     command.startsWith("mkdir -p ") -> ProvisioningCommandOutput(0, "", "")
+                    command.startsWith("umask 077 && mkdir -- ") -> ProvisioningCommandOutput(0, "", "")
                     command.startsWith("rm -rf ") -> ProvisioningCommandOutput(0, "", "")
                     command.contains("./'detect.sh'") -> {
                         detectEntered.complete(Unit)
@@ -145,6 +162,33 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
                         ProvisioningCommandOutput(if (verifying) verifyRotationExitCode else rotateExitCode,
                             (if (verifying) verifyRotationOutput else rotateOutput) ?: receipt.toString(), "")
                     }
+                    command.contains("./'restore.sh'") -> {
+                        val checking = command.contains("'--check'")
+                        val verifying = command.contains("'--verify'")
+                        when {
+                            checking -> {
+                                restoreCheckEntered.complete(Unit)
+                                blockRestoreCheck?.await()
+                                restoreCheckFailure?.let { throw it }
+                            }
+                            verifying -> {
+                                verifyRestoreEntered.complete(Unit)
+                                blockVerifyRestore?.await()
+                                verifyRestoreFailure?.let { throw it }
+                            }
+                            else -> {
+                                restoreEntered.complete(Unit)
+                                blockRestore?.await()
+                                restoreFailure?.let { throw it }
+                            }
+                        }
+                        val output = when {
+                            checking -> restoreCheckOutput
+                            verifying -> verifyRestoreOutput
+                            else -> restoreOutput
+                        } ?: restoreJson(checking, verifying)
+                        ProvisioningCommandOutput(if (verifying) verifyRestoreExitCode else if (checking) 0 else restoreExitCode, output, "")
+                    }
                     else -> error("Unexpected provisioning command")
                 }
             }
@@ -189,4 +233,16 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
         .put("port", planRequest.port.toString()).put("cidr", planRequest.cidr)
         .put("serverPublicKey", java.util.Base64.getEncoder().encodeToString(ByteArray(32) { it.toByte() }))
         .toString()
+
+    private fun restoreJson(checking: Boolean, verifying: Boolean): String {
+        val plan = requireNotNull(restorePlan)
+        val fields = JSONObject().put("interface", plan.interfaceName).put("endpoint", plan.endpoint).put("port", plan.port)
+            .put("cidr", plan.cidr).put("dns", plan.dns).put("serverPublicKey", plan.serverPublicKey)
+            .put("peerCount", plan.peerCount).put("revokedCount", plan.revokedCount)
+        return when {
+            checking -> JSONObject().put("ok", true).put("checkOnly", true).put("plan", fields)
+            verifying -> fields.put("ok", true).put("verifyOnly", true).put("verified", true).put("running", true).put("serviceEnabled", true)
+            else -> fields.put("ok", true).put("cleanupPath", restoreCleanupPath)
+        }.toString()
+    }
 }

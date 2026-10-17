@@ -33,6 +33,9 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.selects.select
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.After
@@ -237,11 +240,240 @@ class VpsUserCreationTest {
         assertEquals(Problem.STORAGE_FAILED, model.state.value.problem)
         assertEquals(UserCreation.RETAINED, model.state.value.creation)
         assertNull(pending().single().clientPublicKey)
+        assertNull(model.state.value.creationOwner)
+        assertFalse(model.state.value.statusSnapshots.containsKey(server().id))
         assertNotNull(profiles().load(server(), SERVER_KEY, CLIENT_KEY))
         val recreated = model()
         requireNotNull(recreated.reconcileAddUser(server())).join()
         assertEquals(UserCreation.CREATED, recreated.state.value.creation)
         assertEquals(1, addCommands().size)
+    }
+
+    @Test
+    fun uncertainReceiptRetiresTargetAliasesWithoutDiscardingOtherServersStatus() = runTest {
+        val original = server()
+        val alias = original.copy(id = "alias", name = "Alias")
+        val unrelated = original.copy(id = "unrelated", name = "Unrelated", host = "203.0.113.11")
+        for (saved in listOf(alias, unrelated)) {
+            store.upsert(saved)
+            store.saveCredential(saved, PIN, VpsCredential.Password("synthetic-password".toCharArray()))
+        }
+        val model = model()
+        for (saved in listOf(alias, unrelated, original)) requireNotNull(model.syncStatus(saved)).join()
+        val current = store.servers.first().single { it.id == original.id }
+        requireNotNull(model.requestAddUserConfirmation(current, "phone")).join()
+        peer.blockAdd = CompletableDeferred()
+        val creating = requireNotNull(model.confirmAddUser(requireNotNull(model.state.value.addConfirmation)))
+        peer.addEntered.await()
+        store.saveCredential(current, OTHER_PIN, VpsCredential.Password("replacement".toCharArray()))
+        peer.blockAdd!!.complete(Unit)
+        creating.join()
+        assertEquals(Problem.CONNECTION_CHANGED, model.state.value.problem)
+        assertTrue(model.state.value.pendingAdd)
+        assertNull(model.state.value.creationOwner)
+        assertEquals(setOf(unrelated.id), model.state.value.statusSnapshots.keys)
+        assertNotNull(profiles().load(current, SERVER_KEY, CLIENT_KEY))
+        assertEquals(CLIENT_KEY, pending().single().clientPublicKey)
+        assertEquals(1, addCommands().size)
+    }
+
+    @Test
+    fun unknownPendingPayloadsRetireSelectedTrustWithoutInventingMutationOwners() = runTest {
+        val failures = listOf(VpsServerStore.InstallPendingException(), VpsServerStore.AddPendingException(),
+            VpsServerStore.RemovePendingException(), VpsServerStore.RotatePendingException(), VpsServerStore.RestorePendingException())
+        for (failure in failures) {
+            val interrupted = object : DataStore<Preferences> {
+                override val data = preferences.data
+                override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences =
+                    preferences.updateData { current ->
+                        val updated = transform(current)
+                        if (PendingVpsAdd.decode(updated[stringPreferencesKey("vps_pending_adds")].orEmpty()).isNotEmpty()) throw failure
+                        updated
+                    }
+            }
+            val model = ready(VpsServerStore(interrupted, credentialFile))
+            requireNotNull(model.confirmAddUser(prepare(model))).join()
+            assertFalse(failure.javaClass.simpleName, model.state.value.statusSnapshots.containsKey(server().id))
+            when (failure) {
+                is VpsServerStore.InstallPendingException -> assertNull(model.state.value.installationOwner)
+                is VpsServerStore.AddPendingException -> assertNull(model.state.value.creationOwner)
+                is VpsServerStore.RemovePendingException -> assertNull(model.state.value.removalOwner)
+                is VpsServerStore.RotatePendingException -> assertNull(model.state.value.rotationOwner)
+                is VpsServerStore.RestorePendingException -> assertNull(model.state.value.restore?.attempt)
+            }
+            assertTrue(pending().isEmpty())
+        }
+        assertTrue(addCommands().isEmpty())
+    }
+
+    @Test
+    fun changingPendingOwnerRetiresOriginalAndSshAliasTrustButKeepsFreshIdenticalStatus() = runTest {
+        val original = server()
+        val alias = original.copy(id = "alias", name = "Alias")
+        val unrelated = original.copy(id = "unrelated", name = "Unrelated", host = "203.0.113.11")
+        for (saved in listOf(alias, unrelated)) {
+            store.upsert(saved)
+            store.saveCredential(saved, PIN, VpsCredential.Password("synthetic-password".toCharArray()))
+        }
+        val model = model()
+        for (saved in listOf(alias, unrelated, original)) requireNotNull(model.syncStatus(saved)).join()
+        val current = store.servers.first().single { it.id == original.id }
+        val attempt = store.admitAdd(current, PIN, SERVER_KEY, VpsProfileFixture.request.copy(dns = current.dns))
+        requireNotNull(model.syncStatus(current)).join()
+        assertTrue(model.state.value.pendingAdd)
+        val before = model.state.value.statusSnapshots.getValue(unrelated.id)
+        val other = store.servers.first().single { it.id == unrelated.id }
+        requireNotNull(model.syncStatus(other)).join()
+        assertFalse(model.state.value.pendingAdd)
+        assertEquals(setOf(unrelated.id), model.state.value.statusSnapshots.keys)
+        val after = model.state.value.statusSnapshots.getValue(unrelated.id)
+        assertEquals(before.server, after.server)
+        assertEquals(before.status, after.status)
+        assertEquals(before.observedAtEpochSeconds, after.observedAtEpochSeconds)
+        assertNotSame(before, after)
+        assertEquals(attempt, store.pendingAdd(current))
+        assertTrue(addCommands().isEmpty())
+    }
+
+    @Test
+    fun sameTargetSettledElsewhereRetainsFreshEqualObservationWithNewIdentity() = runTest {
+        val model = ready()
+        val expected = server()
+        val attempt = store.admitAdd(expected, PIN, SERVER_KEY, VpsProfileFixture.request.copy(dns = expected.dns))
+        requireNotNull(model.syncStatus(expected)).join()
+        val before = model.state.value.statusSnapshots.getValue(expected.id)
+        store.clearRejectedAdd(expected, attempt)
+        requireNotNull(model.syncStatus(expected)).join()
+        val after = model.state.value.statusSnapshots.getValue(expected.id)
+        assertFalse(model.state.value.pendingAdd)
+        assertEquals(before.server, after.server)
+        assertEquals(before.status, after.status)
+        assertEquals(before.observedAtEpochSeconds, after.observedAtEpochSeconds)
+        assertNotSame(before, after)
+        assertNull(store.pendingAdd(expected))
+        assertTrue(addCommands().isEmpty())
+    }
+
+    @Test fun pendingRemovalOwnerLookupFailureRetiresAliasTrustBeforeSuspension() = runTest {
+        assertPendingOwnerLookup(rotation = false, cancel = false)
+    }
+
+    @Test fun pendingRemovalOwnerLookupCancellationRetainsFenceAndHidesForeignReceipt() = runTest {
+        assertPendingOwnerLookup(rotation = false, cancel = true)
+    }
+
+    @Test fun pendingRotationOwnerLookupFailureRetiresAliasTrustBeforeSuspension() = runTest {
+        assertPendingOwnerLookup(rotation = true, cancel = false)
+    }
+
+    @Test fun pendingRotationOwnerLookupCancellationRetainsFenceAndHidesForeignReceipt() = runTest {
+        assertPendingOwnerLookup(rotation = true, cancel = true)
+    }
+
+    @Test fun sameOwnerRotationRemainsFencedAfterSavedAccessDetectionWithMatchingPin() = runTest {
+        val model = ready()
+        val expected = server()
+        val profile = profiles().saveGenerated(expected, SERVER_KEY, VpsProfileFixture.request, VpsProfileFixture.result())
+        val attempt = store.admitRotation(expected, PIN, profile, profiles())
+        requireNotNull(model.reuse(expected)).join()
+        assertTrue(model.state.value.pendingRotation)
+        assertEquals(expected, model.state.value.rotationOwner)
+        assertEquals(attempt, model.state.value.rotationAttempt)
+        assertFalse(model.state.value.statusSnapshots.containsKey(expected.id))
+        assertFalse(model.canInstall)
+        assertEquals(attempt, store.pendingRotation(expected))
+        assertFalse(peer.commands.any { it.contains("./'rotate-peer.sh'") || it.contains("./'verify-rotation.sh'") })
+    }
+
+    @Test fun sameOwnerNewRevocationReplacesOldOperationReceiptDuringPreflight() = runTest {
+        assertRemovalReceiptRefresh(PendingVpsRemove.Action.REVOKE)
+    }
+
+    @Test fun sameOwnerRemovalNeverRetainsOldRevocationReceiptDuringPreflight() = runTest {
+        assertRemovalReceiptRefresh(PendingVpsRemove.Action.REMOVE)
+    }
+
+    private suspend fun assertRemovalReceiptRefresh(action: PendingVpsRemove.Action) {
+        val model = ready()
+        val expected = server()
+        val original = PendingVpsRemove(expected.id, VpsEndpoint(expected.host, expected.sshPort, expected.sshUser),
+            PIN, SERVER_KEY, "phone", CLIENT_KEY, PendingVpsRemove.Action.REVOKE, VpsRestoreFixture.attempt.operationId)
+        store.admitRemove(expected, original)
+        requireNotNull(model.syncStatus(expected)).join()
+        assertEquals(original, model.state.value.removalAttempt)
+        val current = original.copy(action = action, operationId = VpsRestoreFixture.OTHER_OPERATION.takeIf { action == PendingVpsRemove.Action.REVOKE })
+        store.clearRejectedRemove(expected, original)
+        store.admitRemove(expected, current)
+        val commands = peer.commands.size
+        requireNotNull(model.requestAddUserConfirmation(expected, "second")).join()
+        assertEquals(Problem.REMOVE_PENDING, model.state.value.problem)
+        assertEquals(action, model.state.value.removalAction)
+        assertEquals(expected, model.state.value.removalOwner)
+        assertEquals(current, model.state.value.removalAttempt)
+        assertFalse(model.state.value.toString().contains(requireNotNull(original.operationId)))
+        assertEquals(current, store.pendingRemove(expected))
+        assertEquals(commands, peer.commands.size)
+    }
+
+    private suspend fun assertPendingOwnerLookup(rotation: Boolean, cancel: Boolean) {
+        val original = server()
+        val alias = original.copy(id = "alias", name = "Alias")
+        val unrelated = original.copy(id = "unrelated", name = "Unrelated", host = "203.0.113.11")
+        for (saved in listOf(alias, unrelated)) {
+            store.upsert(saved)
+            store.saveCredential(saved, PIN, VpsCredential.Password("synthetic-password".toCharArray()))
+        }
+        lateinit var observedModel: VpsProvisioningViewModel
+        var interruptLookup = false
+        val entered = CompletableDeferred<Unit>()
+        val interrupted = object : DataStore<Preferences> {
+            override val data = preferences.data.onEach {
+                val state = if (interruptLookup) observedModel.state.value else null
+                if (state != null && state.serverId == alias.id && (if (rotation) state.pendingRotation else state.pendingRemove)) {
+                    entered.complete(Unit)
+                    if (cancel) awaitCancellation() else throw IOException("synthetic foreign owner inventory failure")
+                }
+            }
+            override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences = preferences.updateData(transform)
+        }
+        observedModel = model(VpsServerStore(interrupted, credentialFile))
+        for (saved in listOf(original, alias, unrelated)) requireNotNull(observedModel.syncStatus(saved)).join()
+        val current = store.servers.first().single { it.id == original.id }
+        val currentAlias = store.servers.first().single { it.id == alias.id }
+        val removal = if (!rotation) store.admitRemove(current, PendingVpsRemove(current.id,
+            VpsEndpoint(current.host, current.sshPort, current.sshUser), PIN, SERVER_KEY, "phone", CLIENT_KEY,
+            PendingVpsRemove.Action.REVOKE, VpsRestoreFixture.OTHER_OPERATION)) else null
+        val rotate = if (rotation) {
+            val profile = profiles().saveGenerated(current, SERVER_KEY, VpsProfileFixture.request, VpsProfileFixture.result())
+            store.admitRotation(current, PIN, profile, profiles())
+        } else null
+        val commands = peer.commands.size
+        interruptLookup = true
+        val checking = requireNotNull(observedModel.requestAddUserConfirmation(currentAlias, "second"))
+        val reachedLookup = select {
+            entered.onAwait { true }
+            checking.onJoin { false }
+        }
+        assertTrue("Known marker publishes its fence before foreign inventory access", reachedLookup)
+        if (cancel) checking.cancelAndJoin() else checking.join()
+        val state = observedModel.state.value
+        assertFalse(state.busy)
+        assertEquals(if (cancel) Problem.CANCELLED else Problem.STORAGE_FAILED, state.problem)
+        assertEquals(setOf(unrelated.id), state.statusSnapshots.keys)
+        if (rotation) {
+            assertTrue(state.pendingRotation)
+            assertNull(state.rotationOwner)
+            assertNull(state.rotationAttempt)
+            assertEquals(rotate, store.pendingRotation(current))
+        } else {
+            assertTrue(state.pendingRemove)
+            assertEquals(PendingVpsRemove.Action.REVOKE, state.removalAction)
+            assertNull(state.removalOwner)
+            assertNull(state.removalAttempt)
+            assertEquals(removal, store.pendingRemove(current))
+        }
+        assertEquals(commands, peer.commands.size)
+        assertTrue(addCommands().isEmpty())
     }
 
     @Test

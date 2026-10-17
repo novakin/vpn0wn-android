@@ -335,6 +335,14 @@ class VpsUserRotationTest {
         assertEquals(attempt, store.pendingRotation(foreign))
         assertTrue(verifies().isEmpty())
         assertTrue(rotates().isEmpty())
+        val commands = peer.commands.size
+        requireNotNull(recovered.syncStatus(foreign)).join()
+        assertEquals(Problem.CONNECTION_CHANGED, recovered.state.value.problem)
+        assertNull(recovered.state.value.rotationOwner)
+        assertNull(recovered.state.value.rotationAttempt)
+        assertFalse(recovered.state.value.statusSnapshots.containsKey(foreign.id))
+        assertEquals(commands, peer.commands.size)
+        assertEquals(attempt, store.pendingRotation(foreign))
     }
 
     private suspend fun restoreFixture() {

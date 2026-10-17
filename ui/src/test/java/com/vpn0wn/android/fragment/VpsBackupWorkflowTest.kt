@@ -396,9 +396,12 @@ class VpsBackupWorkflowTest {
         override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<out String>?) = 0
     }
 
-    private fun TestScope.openServer(fixture: VpsProvisioningLayoutFixture, server: StoredVpsServer) {
+    private suspend fun TestScope.openServer(fixture: VpsProvisioningLayoutFixture, server: StoredVpsServer) {
         clickableAncestor(text(fixture.root, server.name)).performClick()
         settle()
+        fixture.model.state.first { !it.busy }
+        settle()
+        assertTrue(fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status).isEnabled)
     }
 
     private suspend fun TestScope.fixture(): VpsProvisioningLayoutFixture {

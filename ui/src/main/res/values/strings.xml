@@ -678,4 +678,21 @@
     <string name="vpn0wn_backup_revoked_count">REVOCATION RECORDS</string>
     <string name="vpn0wn_backup_public_identity">SERVER PUBLIC KEY</string>
     <string name="vpn0wn_backup_identity_unavailable">Unavailable</string>
+    <string name="vpn0wn_restore_step_summary">STEP %1$d OF %2$d · %3$s</string>
+    <string name="vpn0wn_restore_title">Restore server backup</string>
+    <string name="vpn0wn_restore_action">Restore</string>
+    <string name="vpn0wn_restore_check_step">Check</string>
+    <string name="vpn0wn_restore_check">Check destination</string>
+    <string name="vpn0wn_restore_confirm">Restore and verify</string>
+    <string name="vpn0wn_restore_return">Back to servers</string>
+    <string name="vpn0wn_restore_authenticate">Authenticate to restore this server backup</string>
+    <string name="vpn0wn_restore_active_peers">Active peers</string>
+    <string name="vpn0wn_restore_limits_label">Recovery limits</string>
+    <string name="vpn0wn_restore_limits">Fresh destination only. The destination needs its own verified SSH fingerprint. Older snapshots cannot reveal later revocations. Existing client keys stay unchanged; a changed VPN endpoint needs an external client update. The source server remains untouched. No client connectivity is proved.</string>
+    <string name="vpn0wn_restore_running">Restoring or checking exact state. Closing the connection may leave the remote command running.</string>
+    <string name="vpn0wn_restore_uncertain">Outcome unverified. Reopen the original encrypted backup to verify it. An absent, stopped or changed destination needs trusted administrator inspection. Do not retry or overwrite.</string>
+    <string name="vpn0wn_restore_verified">Exact restored server state observed. Client connectivity and traffic have not been tested.</string>
+    <string name="vpn0wn_restore_reconcile">Verify pending restore</string>
+    <string name="vpn0wn_restore_foreign">A pending restoration belongs to another saved server at this SSH target. Verify it through that original server record before making changes.</string>
+    <string name="vpn0wn_restore_confirmation">Restore only to this fresh destination:\n%1$s@%2$s:%3$d\nSSH fingerprint: %4$s\n\nBackup captured: %5$s\nWireGuard server key: %6$s\nVPN endpoint: %7$s:%8$s\nNetwork: %9$s\nDNS: %10$s\nActive peers: %11$d · Revoked records: %12$d\n\nThis writes the captured keys and users, enables forwarding and starts/enables the VPN service. Existing client profiles and the source server are not changed. An older backup may predate later revocations. A changed endpoint requires a client update. Confirm only after reviewing the independent destination SSH fingerprint.</string>
 </resources>
