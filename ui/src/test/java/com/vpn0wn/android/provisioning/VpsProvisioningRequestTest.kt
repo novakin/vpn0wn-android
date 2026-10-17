@@ -28,6 +28,17 @@ import org.robolectric.annotation.Config
 class VpsProvisioningRequestTest {
     @get:Rule
     val temporaryFolder = TemporaryFolder()
+
+    @Test
+    fun restoreArgsKeepConfirmedDefaultAndSelectOnlyOneExplicitMode() {
+        val request = VpsRestoreRequest("destination.example", 51821, "captured-public-key")
+        val prefix = listOf("--input", "/tmp/private-input", "--endpoint", "destination.example", "--port", "51821",
+            "--expected-server-public-key", "captured-public-key")
+        assertEquals(prefix + "--confirm", request.args("/tmp/private-input"))
+        assertEquals(prefix + "--confirm", request.args("/tmp/private-input", checkOnly = false))
+        assertEquals(prefix + "--check", request.args("/tmp/private-input", checkOnly = true))
+    }
+
     @Test
     fun installArgsIncludeRequiredFieldsInCommandContractOrder() {
         val request = VpsInstallRequest(

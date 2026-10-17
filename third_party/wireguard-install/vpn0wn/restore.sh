@@ -160,6 +160,7 @@ endpoint=""
 port=""
 expected_server_public_key=""
 confirmed=false
+check_only=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --input) require_arg_value "$@"; input=$2; shift 2 ;;
@@ -167,12 +168,14 @@ while [[ $# -gt 0 ]]; do
     --port) require_arg_value "$@"; port=$2; shift 2 ;;
     --expected-server-public-key) require_arg_value "$@"; expected_server_public_key=$2; shift 2 ;;
     --confirm) confirmed=true; shift ;;
+    --check) check_only=true; shift ;;
     *) fail_json "invalid_arg" "Restore received an unsupported argument." 64 ;;
   esac
 done
 
 require_root
-[[ -n "$input" && -n "$endpoint" && -n "$port" && -n "$expected_server_public_key" && "$confirmed" == true ]] || fail_json "missing_arg" "Restore requires input, destination, expected identity and confirmation." 64
+[[ "$check_only" != true || "$confirmed" != true ]] || fail_json "invalid_arg" "Choose either restore checking or confirmed restoration." 64
+[[ -n "$input" && -n "$endpoint" && -n "$port" && -n "$expected_server_public_key" && ( "$confirmed" == true || "$check_only" == true ) ]] || fail_json "missing_arg" "Restore requires input, destination, expected identity and one explicit mode." 64
 [[ "$WG_IFACE" == wg0 ]] || fail_json "invalid_interface" "Restore currently supports wg0 only." 64
 require_endpoint "$endpoint"
 require_port "$port"
@@ -259,6 +262,12 @@ require_fresh_destination
 lock_host
 lock_interface
 require_fresh_destination
+if [[ "$check_only" == true ]]; then
+  printf '{"ok":true,"checkOnly":true,"plan":{"interface":%s,"endpoint":%s,"port":%s,"cidr":%s,"dns":%s,"serverPublicKey":%s,"peerCount":%s,"revokedCount":%s}}\n' \
+    "$(json_string "$WG_IFACE")" "$(json_string "$endpoint")" "$(json_string "$port")" "$(json_string "$cidr")" \
+    "$(json_string "$dns")" "$(json_string "$server_public_key")" "$peer_count" "${#revoked_names[@]}"
+  exit 0
+fi
 begin_mutation restore
 
 cat > "$CANDIDATE" <<EOF
