@@ -95,19 +95,27 @@ class VpsLocalEndpointLayoutTest {
                         val value = values.single { it.text.toString() == socket }
                         assertEquals("Numeric endpoint remains LTR", View.TEXT_DIRECTION_LTR, value.textDirection)
                     }
-                    for (button in listOf(dialog.getButton(DialogInterface.BUTTON_POSITIVE), dialog.getButton(DialogInterface.BUTTON_NEGATIVE))) {
+                    capture(root, case, "actions")
+                    for ((name, id) in listOf("confirm" to DialogInterface.BUTTON_POSITIVE, "cancel" to DialogInterface.BUTTON_NEGATIVE)) {
+                        val button = dialog.getButton(id)
+                        button.requestRectangleOnScreen(Rect(button.scrollX, button.scrollY,
+                            button.scrollX + button.width, button.scrollY + button.height), true)
+                        layout(root, case)
                         assertTrue(button.isEnabled && button.isClickable && button.isFocusable)
                         val minimum = MINIMUM_TARGET_DP * button.resources.displayMetrics.density
                         assertTrue("Native dialog target width", button.width >= minimum)
                         assertTrue("Native dialog target height", button.height >= minimum)
-                        assertTrue("Native action fully visible", fullyVisible(button))
+                        assertTrue("Native action fully visible: ${visibility(button)}", fullyVisible(button))
                         assertTextFits(button)
+                        capture(root, case, "action-$name")
                     }
                     val panel = scroll.getChildAt(0) as ViewGroup
                     for (index in values.indices) for (other in index + 1 until values.size) {
                         assertFalse("Label/value rows do not overlap", Rect.intersects(bounds(panel, values[index]), bounds(panel, values[other])))
                     }
-                    scroll.fullScroll(View.FOCUS_UP)
+                    scroll.scrollTo(0, 0)
+                    assertEquals("Review body reaches its top", 0, scroll.scrollY)
+                    assertTrue("Complete name row is visible at the top", fullyVisible(values[0]) && fullyVisible(values[1]))
                     capture(root, case, "top")
                     for ((name, text) in listOf("server-key" to SERVER_KEY, "client-key" to CLIENT_KEY, "old-socket" to OLD_ENDPOINT, "new-socket" to NEW_ENDPOINT)) {
                         val value = values.single { it.text.toString() == text }
@@ -190,7 +198,7 @@ class VpsLocalEndpointLayoutTest {
             for (text in descendants(choice).filterIsInstance<TextView>()) assertTextFits(text)
         }
         val cancel = chooser.getButton(DialogInterface.BUTTON_NEGATIVE)
-        assertTrue("Chooser Cancel is fully visible", fullyVisible(cancel))
+        assertTrue("Chooser Cancel is fully visible: ${visibility(cancel)}", fullyVisible(cancel))
         assertTrue("Chooser Cancel target height", cancel.height >= minimum)
         assertTextFits(cancel)
         capture(chooserRoot, case, "chooser")
@@ -256,13 +264,15 @@ class VpsLocalEndpointLayoutTest {
         assertTrue("Complete characters: ${view.text}", text.lineCount > 0 && text.getLineEnd(text.lineCount - 1) == text.text.length)
         assertTrue("Complete text height: ${view.text}", text.height <= height)
         for (line in 0 until text.lineCount) {
-            assertEquals("No ellipsis", 0, text.getEllipsisCount(line))
-            assertTrue("Complete line width: ${view.text}", text.getLineLeft(line) >= -INK_TOLERANCE_PX && text.getLineRight(line) <= width + INK_TOLERANCE_PX)
+            assertEquals("No ellipsis: ${view.text}; ${visibility(view)} line=${text.getLineLeft(line)},${text.getLineRight(line)} layout=${text.width}x${text.height}",
+                0, text.getEllipsisCount(line))
+            assertTrue("Complete line width: ${view.text}", text.getLineLeft(line) - view.scrollX >= -INK_TOLERANCE_PX &&
+                text.getLineRight(line) - view.scrollX <= width + INK_TOLERANCE_PX)
         }
-        val bitmap = Bitmap.createBitmap(text.width + INK_MARGIN_PX * 2, text.height + INK_MARGIN_PX * 2, Bitmap.Config.ARGB_8888)
+        val bitmap = Bitmap.createBitmap(width + INK_MARGIN_PX * 2, height + INK_MARGIN_PX * 2, Bitmap.Config.ARGB_8888)
         try {
             val canvas = Canvas(bitmap)
-            canvas.translate(INK_MARGIN_PX.toFloat(), INK_MARGIN_PX.toFloat())
+            canvas.translate((INK_MARGIN_PX - view.scrollX).toFloat(), (INK_MARGIN_PX - view.scrollY).toFloat())
             text.draw(canvas)
             val pixels = IntArray(bitmap.width * bitmap.height)
             bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
@@ -279,11 +289,22 @@ class VpsLocalEndpointLayoutTest {
 
     private fun fullyVisible(view: View): Boolean {
         val visible = Rect()
-        return view.getLocalVisibleRect(visible) && visible == Rect(0, 0, view.width, view.height)
+        if (!view.getLocalVisibleRect(visible)) return false
+        // Android's local-visible rectangle includes the view's own content scroll.
+        visible.offset(-view.scrollX, -view.scrollY)
+        return visible == Rect(0, 0, view.width, view.height)
     }
 
-    private fun TestScope.capture(root: View, case: Preview, position: String) {
-        layout(root, case)
+    private fun visibility(view: View): String {
+        val local = Rect()
+        val global = Rect()
+        view.getLocalVisibleRect(local)
+        view.getGlobalVisibleRect(global)
+        return "local=$local global=$global ancestors=" + generateSequence(view) { it.parent as? View }
+            .joinToString { "${it.javaClass.simpleName}(${it.left},${it.top},${it.right},${it.bottom}; scroll=${it.scrollX},${it.scrollY})" }
+    }
+
+    private fun capture(root: View, case: Preview, position: String) {
         assertConfiguration(root, case)
         val project = File(requireNotNull(System.getProperty("user.dir"))).let { if (it.name == "ui") it.parentFile else it }
         val output = System.getenv("VPN0WN_LOCAL_ENDPOINT_OUTPUT")?.let(::File) ?: File(project, ".artifacts/local-endpoint-previews")

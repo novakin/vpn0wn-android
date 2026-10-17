@@ -1303,7 +1303,7 @@ class VpsProvisioningFragment : BaseFragment() {
                 }
                 val dialog = MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.vpn0wn_local_endpoint_select)
                     .setItems(tunnels.map { it.second }.toTypedArray()) { selected, index ->
-                        if (!ownsEndpointAction(action) || endpointDialog !== selected) return@setItems
+                        if (!ownsEndpointAction(action) || endpointDialog !== selected || !(selected as AlertDialog).isShowing) return@setItems
                         endpointDialog = null
                         selected.dismiss()
                         action.tunnel = tunnels[index].first
@@ -1313,6 +1313,9 @@ class VpsProvisioningFragment : BaseFragment() {
                 endpointDialog = dialog
                 dialog.setOnDismissListener { if (endpointDialog === dialog) retireEndpointAction() }
                 dialog.show()
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener {
+                    if (endpointAction === action && endpointDialog === dialog) retireEndpointAction()
+                }
             } catch (_: IOException) {
                 if (ownsEndpointAction(action)) toast(str(R.string.vpn0wn_local_endpoint_failed))
                 retireEndpointAction()
@@ -1460,6 +1463,9 @@ class VpsProvisioningFragment : BaseFragment() {
         endpointDialog = dialog
         dialog.setOnDismissListener { if (endpointDialog === dialog) retireEndpointAction() }
         dialog.show()
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener {
+            if (endpointAction === action && endpointDialog === dialog) retireEndpointAction()
+        }
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
             if (!ownsEndpointAction(action) || endpointDialog !== dialog || !dialog.isShowing || action.authenticating) return@setOnClickListener
             endpointDialog = null

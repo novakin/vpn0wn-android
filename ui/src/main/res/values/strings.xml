@@ -720,7 +720,7 @@
     <string name="vpn0wn_local_endpoint_update">Update local endpoint</string>
     <string name="vpn0wn_local_endpoint_select">Choose one local tunnel</string>
     <string name="vpn0wn_local_endpoint_no_tunnels">No local tunnels are available.</string>
-    <string name="vpn0wn_local_endpoint_confirm">Update endpoint</string>
+    <string name="vpn0wn_local_endpoint_confirm">Update</string>
     <string name="vpn0wn_local_endpoint_authenticate">Authorize local endpoint update</string>
     <string name="vpn0wn_local_endpoint_server_key">SERVER PUBLIC KEY</string>
     <string name="vpn0wn_local_endpoint_client_key">CLIENT PUBLIC KEY</string>
