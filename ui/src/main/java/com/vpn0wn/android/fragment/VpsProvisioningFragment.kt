@@ -1332,8 +1332,8 @@ class VpsProvisioningFragment : BaseFragment() {
         }
     }
 
-    // Backend and ConfigStore expose checked Exception; local failures must not hide cancellation or runtime defects.
-    @Suppress("TooGenericExceptionCaught")
+    // Checked Backend/ConfigStore failures stay distinct from joined-job failures, cancellation and runtime defects.
+    @Suppress("TooGenericExceptionCaught", "ThrowsCount")
     private fun checkEndpointUpdate(action: EndpointAction, applying: Boolean = false) {
         if (!ownsEndpointAction(action) || endpointJob?.isActive == true) return
         endpointJob = viewLifecycleOwner.lifecycleScope.launch {

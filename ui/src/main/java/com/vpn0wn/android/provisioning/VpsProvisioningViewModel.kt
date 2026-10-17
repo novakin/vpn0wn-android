@@ -597,10 +597,10 @@ class VpsProvisioningViewModel internal constructor(
 
     private fun hasNumericPeerEndpoint(status: VpsServerStatus): Boolean {
         val port = status.listenPort.toIntOrNull()
-        if (port == null || port !in 1..MAX_PORT || port.toString() != status.listenPort) return false
         val bracketed = status.endpoint.startsWith('[') && status.endpoint.endsWith(']')
         val host = if (bracketed) status.endpoint.substring(1, status.endpoint.lastIndex) else status.endpoint
-        if (host.any { it == '[' || it == ']' } || bracketed && ':' !in host) return false
+        if (port == null || port !in 1..MAX_PORT || port.toString() != status.listenPort ||
+            host.any { it == '[' || it == ']' } || bracketed && ':' !in host) return false
         return try {
             InetAddresses.parse(host)
             true

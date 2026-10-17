@@ -266,39 +266,7 @@ class VpsLocalEndpointWorkflowTest {
         return provisioningLayoutFixture(folder, View.LAYOUT_DIRECTION_LTR)
     }
 
-    private suspend fun TestScope.prepare(fixture: VpsProvisioningLayoutFixture): StoredVpsServer {
-        val store = Vpn0wnApplication.getVpsServerStore()
-        store.upsert(VpsProfileFixture.server)
-        store.saveCredential(VpsProfileFixture.server, fingerprint(0), VpsCredential.Password("synthetic-endpoint".toCharArray()))
-        fixture.peer.statusOutput = JSONObject().put("ok", true).put("interface", "wg0").put("running", true)
-            .put("endpoint", "203.0.113.55").put("listenPort", "51821").put("cidr", "10.8.0.0/24").put("dns", "1.1.1.1")
-            .put("serverPublicKey", SERVER_KEY).put("configuredPeerPublicKeys", JSONArray().put(CLIENT_KEY))
-            .put("runtimePeerPublicKeys", JSONArray().put(CLIENT_KEY)).put("revokedArchives", JSONArray())
-            .put("peers", JSONArray().put(JSONObject().put("name", "phone").put("publicKey", CLIENT_KEY).put("allowedIps", "10.8.0.2/32")
-                .put("latestHandshake", JSONObject.NULL).put("rxBytes", JSONObject.NULL).put("txBytes", JSONObject.NULL))).toString()
-        requireNotNull(fixture.model.syncStatus(VpsProfileFixture.server)).join()
-        val stored = store.servers.first().single()
-        val rendered = CompletableDeferred<Unit>()
-        fun observe() {
-            val current = field(fixture, "storedServers") as List<*>
-            if (current.singleOrNull() == stored && texts(fixture.root).any { it == stored.name }) rendered.complete(Unit)
-        }
-        fixture.root.setOnHierarchyChangeListener(object : ViewGroup.OnHierarchyChangeListener {
-            override fun onChildViewAdded(parent: View?, child: View?) = observe()
-            override fun onChildViewRemoved(parent: View?, child: View?) = Unit
-        })
-        try {
-            observe()
-            settle()
-            withContext(Dispatchers.Default) { withTimeout(10_000) { rendered.await() } }
-        } finally { fixture.root.setOnHierarchyChangeListener(null) }
-        clickable(text(fixture.root, stored.name)).performClick()
-        settle()
-        clickable(text(fixture.root, "phone")).performClick()
-        settle()
-        assertTrue(fixture.root.findViewById<View>(R.id.vpn0wn_vps_local_endpoint_update).isEnabled)
-        return stored
-    }
+    private suspend fun TestScope.prepare(fixture: VpsProvisioningLayoutFixture): StoredVpsServer = openLocalEndpointUser(fixture)
 
     private fun TestScope.openChooser(fixture: VpsProvisioningLayoutFixture) {
         fixture.root.findViewById<View>(R.id.vpn0wn_vps_local_endpoint_update).performClick()
@@ -339,14 +307,6 @@ class VpsLocalEndpointWorkflowTest {
     private fun statusCommands(fixture: VpsProvisioningLayoutFixture) = fixture.peer.commands.count { it.contains("./'sync-status.sh'") }
     private fun feedback(fixture: VpsProvisioningLayoutFixture): String? = fixture.activity
         .findViewById<TextView>(com.google.android.material.R.id.snackbar_text)?.text?.toString()
-    private fun text(root: View, value: String) = descendants(root).filterIsInstance<TextView>().first { it.text.toString() == value }
-    private fun texts(root: View) = descendants(root).filterIsInstance<TextView>().map { it.text.toString() }.toList()
-    private fun clickable(view: View): View = if (view.isClickable) view else clickable(view.parent as View)
-    private fun descendants(view: View): Sequence<View> = sequence {
-        yield(view)
-        if (view is ViewGroup) for (index in 0 until view.childCount) yieldAll(descendants(view.getChildAt(index)))
-    }
-    private fun fingerprint(offset: Int) = "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(ByteArray(32) { (it + offset).toByte() })
     private class CheckedObservationFailure : Exception("Synthetic checked backend failure")
 
     private companion object {
@@ -356,3 +316,51 @@ class VpsLocalEndpointWorkflowTest {
         const val NEW_ENDPOINT = "203.0.113.55:51821"
     }
 }
+
+@OptIn(ExperimentalCoroutinesApi::class)
+internal suspend fun TestScope.openLocalEndpointUser(fixture: VpsProvisioningLayoutFixture): StoredVpsServer {
+    fun settle() { runCurrent(); shadowOf(Looper.getMainLooper()).idle() }
+    val store = Vpn0wnApplication.getVpsServerStore()
+    val serverKey = VpsProfileFixture.serverKey.publicKey.toBase64()
+    val clientKey = VpsProfileFixture.client.publicKey.toBase64()
+    store.upsert(VpsProfileFixture.server)
+    store.saveCredential(VpsProfileFixture.server, fingerprint(0), VpsCredential.Password("synthetic-endpoint".toCharArray()))
+    fixture.peer.statusOutput = JSONObject().put("ok", true).put("interface", "wg0").put("running", true)
+        .put("endpoint", "203.0.113.55").put("listenPort", "51821").put("cidr", "10.8.0.0/24").put("dns", "1.1.1.1")
+        .put("serverPublicKey", serverKey).put("configuredPeerPublicKeys", JSONArray().put(clientKey))
+        .put("runtimePeerPublicKeys", JSONArray().put(clientKey)).put("revokedArchives", JSONArray())
+        .put("peers", JSONArray().put(JSONObject().put("name", "phone").put("publicKey", clientKey).put("allowedIps", "10.8.0.2/32")
+            .put("latestHandshake", JSONObject.NULL).put("rxBytes", JSONObject.NULL).put("txBytes", JSONObject.NULL))).toString()
+    requireNotNull(fixture.model.syncStatus(VpsProfileFixture.server)).join()
+    val stored = store.servers.first().single()
+    val rendered = CompletableDeferred<Unit>()
+    val projection = VpsProvisioningFragment::class.java.getDeclaredField("storedServers").apply { isAccessible = true }
+    fun observe() {
+        val current = projection.get(fixture.fragment) as List<*>
+        if (current.singleOrNull() == stored && texts(fixture.root).any { it == stored.name }) rendered.complete(Unit)
+    }
+    fixture.root.setOnHierarchyChangeListener(object : ViewGroup.OnHierarchyChangeListener {
+        override fun onChildViewAdded(parent: View?, child: View?) = observe()
+        override fun onChildViewRemoved(parent: View?, child: View?) = Unit
+    })
+    try {
+        observe()
+        settle()
+        withContext(Dispatchers.Default) { withTimeout(10_000) { rendered.await() } }
+    } finally { fixture.root.setOnHierarchyChangeListener(null) }
+    clickable(text(fixture.root, stored.name)).performClick()
+    settle()
+    clickable(text(fixture.root, "phone")).performClick()
+    settle()
+    assertTrue(fixture.root.findViewById<View>(R.id.vpn0wn_vps_local_endpoint_update).isEnabled)
+    return stored
+}
+
+private fun text(root: View, value: String) = descendants(root).filterIsInstance<TextView>().first { it.text.toString() == value }
+private fun texts(root: View) = descendants(root).filterIsInstance<TextView>().map { it.text.toString() }.toList()
+private fun clickable(view: View): View = if (view.isClickable) view else clickable(view.parent as View)
+private fun descendants(view: View): Sequence<View> = sequence {
+    yield(view)
+    if (view is ViewGroup) for (index in 0 until view.childCount) yieldAll(descendants(view.getChildAt(index)))
+}
+private fun fingerprint(offset: Int) = "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(ByteArray(32) { (it + offset).toByte() })

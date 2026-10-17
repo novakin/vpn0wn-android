@@ -16,9 +16,12 @@ import androidx.appcompat.app.AlertDialog
 import androidx.core.content.res.ResourcesCompat
 import com.vpn0wn.android.Application as Vpn0wnApplication
 import com.vpn0wn.android.R
+import com.vpn0wn.android.model.TunnelTestEnvironment
 import com.vpn0wn.android.provisioning.StoredVpsServer
+import com.vpn0wn.android.provisioning.VpsCredentialFileTest
 import com.vpn0wn.android.provisioning.VpsLocalEndpointUpdate
 import com.vpn0wn.android.provisioning.VpsProfileFixture
+import com.vpn0wn.android.provisioning.VpsUserProfileFileTest
 import com.vpn0wn.config.InetEndpoint
 import java.io.File
 import java.util.Locale
@@ -43,7 +46,7 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
-@Config(application = Application::class, sdk = [28])
+@Config(application = Application::class, sdk = [28], shadows = [VpsCredentialFileTest.NativeFiles::class])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @OptIn(ExperimentalCoroutinesApi::class)
 class VpsLocalEndpointLayoutTest {
@@ -65,10 +68,15 @@ class VpsLocalEndpointLayoutTest {
                 RuntimeEnvironment.setQualifiers("${case.locale}-w${case.width}dp-h${case.height}dp-$orientation-${if (night) "night" else "notnight"}-mdpi")
                 RuntimeEnvironment.setFontScale(case.scale)
                 RuntimeEnvironment.setQualifiers(if (case.rtl) "+ldrtl" else "+ldltr")
+                VpsUserProfileFileTest.resetNativeFiles()
                 val fixture = provisioningLayoutFixture(folder, if (case.rtl) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR)
                 fixture.activity.supportActionBar?.hide()
                 try {
-                    val dialog = review(fixture)
+                    val stored = openLocalEndpointUser(fixture)
+                    Vpn0wnApplication.getTunnelManager().create("phone-local", VpsProfileFixture.profile().config)
+                    Vpn0wnApplication.getTunnelManager().create("other", TunnelTestEnvironment.profile())
+                    captureActionAndChooser(fixture, case)
+                    val dialog = review(fixture, stored)
                     val root = requireNotNull(dialog.window).decorView
                     layout(root, case)
                     assertConfiguration(root, case)
@@ -123,19 +131,72 @@ class VpsLocalEndpointLayoutTest {
         }
     }
 
-    private suspend fun review(fixture: VpsProvisioningLayoutFixture): AlertDialog {
-        val profile = VpsProfileFixture.profile().config
-        val tunnel = Vpn0wnApplication.getTunnelManager().create("phone-local", profile)
+    private suspend fun review(fixture: VpsProvisioningLayoutFixture, server: StoredVpsServer): AlertDialog {
+        val tunnel = requireNotNull(Vpn0wnApplication.getTunnelManager().getTunnels()["phone-local"])
+        val profile = tunnel.getConfigAsync()
         val review = VpsLocalEndpointUpdate.create(tunnel, profile, SERVER_KEY, CLIENT_KEY, InetEndpoint.parse(NEW_ENDPOINT))
         val actionClass = Class.forName("com.vpn0wn.android.fragment.VpsProvisioningFragment\$EndpointAction")
         val action = actionClass.getDeclaredConstructor(StoredVpsServer::class.java, String::class.java, String::class.java, View::class.java)
-            .apply { isAccessible = true }.newInstance(VpsProfileFixture.server, SERVER_KEY, CLIENT_KEY, fixture.root)
+            .apply { isAccessible = true }.newInstance(server, SERVER_KEY, CLIENT_KEY, fixture.root)
         actionClass.getDeclaredField("review").apply { isAccessible = true }.set(action, review)
         VpsProvisioningFragment::class.java.getDeclaredField("endpointAction").apply { isAccessible = true }.set(fixture.fragment, action)
         VpsProvisioningFragment::class.java.getDeclaredMethod("showEndpointReview", actionClass, VpsLocalEndpointUpdate::class.java)
             .apply { isAccessible = true }.invoke(fixture.fragment, action, review)
         return VpsProvisioningFragment::class.java.getDeclaredField("endpointDialog").apply { isAccessible = true }
             .get(fixture.fragment) as AlertDialog
+    }
+
+    private fun TestScope.captureActionAndChooser(fixture: VpsProvisioningLayoutFixture, case: Preview) {
+        val root = fixture.root.rootView
+        layout(root, case)
+        assertConfiguration(root, case)
+        val action = requireNotNull(fixture.root.findViewById<View>(R.id.vpn0wn_vps_local_endpoint_update))
+        action.requestRectangleOnScreen(Rect(0, 0, action.width, action.height), true)
+        layout(root, case)
+        val label = descendants(action).filterIsInstance<TextView>().single()
+        assertEquals(fixture.activity.getString(R.string.vpn0wn_local_endpoint_update), label.text.toString())
+        assertEquals(ResourcesCompat.getFont(label.context, R.font.jetbrains_mono_regular), label.typeface)
+        assertEquals("ss01, zero, tnum", label.fontFeatureSettings)
+        assertTextFits(label)
+        assertTrue("Actual User row is fully reachable", fullyVisible(action))
+        assertTrue("Actual User row is operable", action.isEnabled && action.isClickable && action.isFocusable)
+        val minimum = MINIMUM_TARGET_DP * action.resources.displayMetrics.density
+        assertTrue("Actual User row has Android target height", action.height >= minimum)
+        val parent = action.parent as View
+        assertEquals("Actual User row spans available width", parent.width - parent.paddingLeft - parent.paddingRight, action.width)
+        val node = action.createAccessibilityNodeInfo()
+        try {
+            assertEquals("android.widget.Button", node.className.toString())
+            assertTrue(node.isClickable && node.isEnabled)
+        } finally { node.recycle() }
+        capture(root, case, "user-action")
+        action.performClick()
+        runCurrent()
+        shadowOf(Looper.getMainLooper()).idle()
+        val chooser = VpsProvisioningFragment::class.java.getDeclaredField("endpointDialog").apply { isAccessible = true }
+            .get(fixture.fragment) as AlertDialog
+        val chooserRoot = requireNotNull(chooser.window).decorView
+        layout(chooserRoot, case)
+        assertConfiguration(chooserRoot, case)
+        val list = chooser.listView
+        assertEquals("Both eligible and ineligible names stay selectable", setOf("other", "phone-local"),
+            (0 until list.adapter.count).map { list.adapter.getItem(it).toString() }.toSet())
+        assertNotNull("Native chooser owns selection", list.onItemClickListener)
+        assertEquals("Both native choices are laid out", 2, list.childCount)
+        for (index in 0 until list.childCount) {
+            val choice = list.getChildAt(index)
+            assertTrue("Complete native choice is visible", fullyVisible(choice))
+            assertTrue("Native choice target height", choice.height >= minimum)
+            for (text in descendants(choice).filterIsInstance<TextView>()) assertTextFits(text)
+        }
+        val cancel = chooser.getButton(DialogInterface.BUTTON_NEGATIVE)
+        assertTrue("Chooser Cancel is fully visible", fullyVisible(cancel))
+        assertTrue("Chooser Cancel target height", cancel.height >= minimum)
+        assertTextFits(cancel)
+        capture(chooserRoot, case, "chooser")
+        cancel.performClick()
+        runCurrent()
+        shadowOf(Looper.getMainLooper()).idle()
     }
 
     private fun TestScope.layout(root: View, case: Preview) {
