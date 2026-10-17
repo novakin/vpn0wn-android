@@ -6,6 +6,8 @@ package com.vpn0wn.android.fragment
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.ActivityNotFoundException
+import android.net.Uri
 import android.graphics.Color
 import android.graphics.Rect
 import android.graphics.Typeface
@@ -36,6 +38,7 @@ import android.widget.Space
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.addCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
@@ -49,6 +52,7 @@ import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.withStarted
 import com.vpn0wn.android.Application
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
@@ -82,6 +86,9 @@ import com.vpn0wn.android.databinding.ConfigNamingDialogFragmentBinding
 import com.vpn0wn.android.provisioning.VpsUserProfile
 import com.vpn0wn.android.provisioning.VpsBackupArchive
 import com.vpn0wn.android.provisioning.VpsBackupArchiveException
+import com.vpn0wn.android.provisioning.VpsBackupDocument
+import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.BackupFailure
+import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.BackupSummary
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.WriterException
 import com.google.zxing.qrcode.QRCodeWriter
@@ -128,6 +135,33 @@ class VpsProvisioningFragment : BaseFragment() {
     private var backupDialog: AlertDialog? = null
     private var backupFields: List<EditText> = emptyList()
     private var backupJob: Job? = null
+    private var backupImportAction: BackupImportAction? = null
+    private var backupImportDialog: AlertDialog? = null
+    private var backupImportPassword: EditText? = null
+    private var backupImportJob: Job? = null
+    private var backupPickerOutstanding = false
+    private var backupPickerAction: BackupImportAction? = null
+    private val backupPicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (!backupPickerOutstanding) return@registerForActivityResult
+        backupPickerOutstanding = false
+        val action = backupPickerAction
+        backupPickerAction = null
+        if (action == null || !ownsBackupImport(action, requireStarted = false)) {
+            if (view != null) render()
+            return@registerForActivityResult
+        }
+        action.waitingForPicker = false
+        if (uri == null) {
+            retireBackupImport()
+            return@registerForActivityResult
+        }
+        action.authenticating = true
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.lifecycle.withStarted {
+                if (ownsBackupImport(action)) authenticateBackupImport(action, uri)
+            }
+        }
+    }
     private val servers = mutableListOf<VpsDeployServer>()
     private val storedServers = mutableListOf<StoredVpsServer>()
     private val serverStore by lazy { Application.getVpsServerStore() }
@@ -141,6 +175,12 @@ class VpsProvisioningFragment : BaseFragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         downloadsFileSaver = DownloadsFileSaver(this)
+        backupPickerOutstanding = savedInstanceState?.getBoolean(BACKUP_PICKER_OUTSTANDING) == true
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        if (backupPickerOutstanding) outState.putBoolean(BACKUP_PICKER_OUTSTANDING, true)
+        super.onSaveInstanceState(outState)
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -199,6 +239,7 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     override fun onDestroyView() {
+        retireBackupImport()
         retireBackupAction()
         retireRemoveUserAction()
         retireProfileAction()
@@ -214,6 +255,7 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     override fun onStop() {
+        backupImportAction?.takeUnless { it.waitingForPicker || it.authenticating }?.let { retireBackupImport() }
         if (backupAction?.authenticating == false) retireBackupAction()
         retireRemoveUserAction()
         if (profileAction?.authenticating == false) retireProfileAction()
@@ -225,6 +267,7 @@ class VpsProvisioningFragment : BaseFragment() {
     override fun onSelectedTunnelChanged(oldTunnel: ObservableTunnel?, newTunnel: ObservableTunnel?) = Unit
 
     private fun render() {
+        backupImportAction?.takeUnless { ownsBackupImport(it, requireStarted = false) }?.let { retireBackupImport() }
         backupAction?.takeUnless { ownsBackupAction(it, requireStarted = false) }?.let { retireBackupAction() }
         if (removeUserAction?.let { !ownsRemoveUserAction(it, requireStarted = false) } == true ||
             removeUserDialog != null && provisionState.busy) retireRemoveUserAction()
@@ -291,6 +334,10 @@ class VpsProvisioningFragment : BaseFragment() {
         scroll.addView(dashedButton(str(R.string.vpn0wn_add_server)) {
             provision.begin()
         })
+        scroll.addView(rowButton(str(R.string.vpn0wn_backup_import), R.drawable.ic_vpn0wn_file) { requestBackupImport() }.apply {
+            id = R.id.vpn0wn_vps_import_backup
+            isEnabled = !provisionState.busy && backupImportAction == null && !backupPickerOutstanding
+        }.withMargins(top = 10))
         container.addView(scrollView, LinearLayout.LayoutParams(-1, 0, 1f))
         return container
     }
@@ -862,6 +909,180 @@ class VpsProvisioningFragment : BaseFragment() {
         val dialog = backupDialog
         backupDialog = null
         dialog?.dismiss()
+    }
+
+    private fun requestBackupImport() {
+        if (screen !is Screen.Fleet || provisionState.busy || backupImportAction != null || backupPickerOutstanding ||
+            !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
+        val action = BackupImportAction(requireView())
+        backupImportAction = action
+        backupPickerAction = action
+        backupPickerOutstanding = true
+        render()
+        try {
+            backupPicker.launch(arrayOf("*/*"))
+        } catch (_: ActivityNotFoundException) {
+            backupPickerOutstanding = false
+            retireBackupImport()
+            toast(str(R.string.vpn0wn_backup_import_failed))
+        } catch (_: SecurityException) {
+            backupPickerOutstanding = false
+            retireBackupImport()
+            toast(str(R.string.vpn0wn_backup_import_failed))
+        }
+    }
+
+    private fun authenticateBackupImport(action: BackupImportAction, uri: Uri) {
+        val owner = viewLifecycleOwner
+        try {
+            BiometricAuthenticator.authenticate(R.string.vpn0wn_backup_import_authenticate, this) { result ->
+                if (!ownsBackupImport(action, requireStarted = false) || !action.authenticating || action.authenticationResultAccepted) return@authenticate
+                if (result is BiometricAuthenticator.Result.Failure && result.code == null) {
+                    if (ownsBackupImport(action)) toast(str(R.string.biometric_auth_error))
+                    return@authenticate
+                }
+                action.authenticationResultAccepted = true
+                if (result is BiometricAuthenticator.Result.Cancelled) {
+                    retireBackupImport()
+                    return@authenticate
+                }
+                owner.lifecycleScope.launch {
+                    owner.lifecycle.withStarted {
+                        if (!ownsBackupImport(action)) return@withStarted
+                        action.authenticating = false
+                        if (result is BiometricAuthenticator.Result.Success || result is BiometricAuthenticator.Result.NoAuthenticationConfigured) {
+                            showBackupUnlock(action, uri)
+                        } else {
+                            toast(str(R.string.biometric_auth_error))
+                            retireBackupImport()
+                        }
+                    }
+                }
+            }
+        } catch (failure: RuntimeException) {
+            if (backupImportAction === action) retireBackupImport()
+            throw failure
+        }
+    }
+
+    // Native dialog spacing matches the existing password form and keeps both footer actions reachable.
+    @Suppress("MagicNumber")
+    private fun showBackupUnlock(action: BackupImportAction, uri: Uri) {
+        val builder = MaterialAlertDialogBuilder(requireContext())
+        val content = vertical()
+        val progress = TextView(builder.context, null, com.google.android.material.R.attr.materialAlertDialogBodyTextStyle).apply {
+            id = R.id.vpn0wn_backup_import_progress
+            setText(R.string.vpn0wn_backup_import_note)
+            setPadding(dp(24), 0, dp(24), dp(8))
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+        }
+        content.addView(progress)
+        val password = backupPasswordField(content, R.id.vpn0wn_backup_import_password, R.string.vpn0wn_backup_password)
+        backupImportPassword = password
+        content.addView(CheckBox(builder.context).apply {
+            setText(R.string.vpn0wn_backup_show_password)
+            isSaveEnabled = false
+            minimumHeight = dp(48)
+            setPadding(dp(24), 0, dp(24), 0)
+            setOnCheckedChangeListener { _, checked ->
+                if (ownsBackupImport(action)) password.transformationMethod = if (checked) null else PasswordTransformationMethod.getInstance()
+            }
+        })
+        val dialog = builder.setTitle(R.string.vpn0wn_backup_unlock_title)
+            .setView(ScrollView(builder.context).apply { addView(content) })
+            .setNegativeButton(R.string.cancel, null).setPositiveButton(R.string.vpn0wn_backup_unlock, null).create()
+        backupImportDialog = dialog
+        dialog.setOnDismissListener { if (backupImportDialog === dialog) retireBackupImport() }
+        dialog.show()
+        dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            if (!ownsBackupImport(action) || provisionState.busy || backupImportJob?.isActive == true) return@setOnClickListener
+            val owned = CharArray(password.length()).also { password.text.getChars(0, password.length(), it, 0) }
+            try {
+                password.text.clear()
+                password.isEnabled = false
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
+                progress.setText(R.string.vpn0wn_backup_unlocking)
+                inspectBackup(action, uri, owned, dialog, progress, password)
+            } finally { owned.fill('\u0000') }
+        }
+    }
+
+    private fun inspectBackup(action: BackupImportAction, uri: Uri, password: CharArray, dialog: AlertDialog, progress: TextView, editor: EditText) {
+        val owned = password.copyOf()
+        val document = VpsBackupDocument(requireContext().contentResolver, uri)
+        backupImportJob = viewLifecycleOwner.lifecycleScope.launch {
+            var access: Job? = null
+            try {
+                if (!ownsBackupImport(action)) return@launch
+                access = provision.inspectBackup(document, owned)
+                owned.fill('\u0000')
+                access?.join()
+                if (!ownsBackupImport(action)) return@launch
+                val summary = provisionState.backupSummary
+                if (summary != null) {
+                    backupImportDialog = null
+                    dialog.dismiss()
+                    backupImportPassword = null
+                    showBackupSummary(summary)
+                } else {
+                    val message = when (provisionState.backupFailure) {
+                        BackupFailure.PASSWORD -> R.string.vpn0wn_backup_read_password_invalid
+                        BackupFailure.AUTHENTICATION -> R.string.vpn0wn_backup_unlock_failed
+                        BackupFailure.FORMAT, BackupFailure.SNAPSHOT -> R.string.vpn0wn_backup_format_invalid
+                        else -> R.string.vpn0wn_backup_import_failed
+                    }
+                    progress.setText(message)
+                    editor.isEnabled = true
+                    editor.error = str(message)
+                    editor.requestFocus()
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
+                }
+            } finally {
+                withContext(NonCancellable) { access?.cancelAndJoin() }
+                owned.fill('\u0000')
+                if (backupImportAction === action) backupImportJob = null
+            }
+        }.also { job -> job.invokeOnCompletion { owned.fill('\u0000') } }
+    }
+
+    // Summary rows contain only authenticated metadata and an optional public identity, never the snapshot text.
+    @Suppress("MagicNumber")
+    private fun showBackupSummary(summary: BackupSummary) {
+        val content = vertical().apply {
+            setPadding(dp(24), 0, dp(24), dp(8))
+            addView(mono(str(R.string.vpn0wn_backup_inspection_note), 11, R.color.vpn0wn_ink_2))
+            configLine(str(R.string.vpn0wn_backup_captured), summary.capturedAtUtc, wrap = true)
+            configLine(str(R.string.vpn0wn_backup_interface), summary.interfaceName)
+            configLine(str(R.string.vpn0wn_backup_version), summary.version.toString())
+            configLine(str(R.string.vpn0wn_backup_revoked_count), summary.revokedCount.toString())
+            configLine(str(R.string.vpn0wn_backup_public_identity), summary.serverPublicKey ?: str(R.string.vpn0wn_backup_identity_unavailable), wrap = true)
+        }
+        val dialog = MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.vpn0wn_backup_unlocked)
+            .setView(ScrollView(requireContext()).apply { addView(content) }).setPositiveButton(R.string.vpn0wn_close, null).create()
+        backupImportDialog = dialog
+        dialog.setOnDismissListener { if (backupImportDialog === dialog) retireBackupImport() }
+        dialog.show()
+        dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    }
+
+    private fun ownsBackupImport(action: BackupImportAction, requireStarted: Boolean = true): Boolean =
+        backupImportAction === action && view === action.ownerView && screen is Screen.Fleet &&
+            (!requireStarted || viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+
+    private fun retireBackupImport() {
+        val action = backupImportAction
+        backupImportAction = null
+        if (backupPickerAction === action) backupPickerAction = null
+        backupImportJob?.cancel()
+        backupImportJob = null
+        backupImportPassword?.text?.clear()
+        backupImportPassword = null
+        val dialog = backupImportDialog
+        backupImportDialog = null
+        dialog?.dismiss()
+        provision.clearBackupInspection()
+        view?.findViewById<View>(R.id.vpn0wn_vps_import_backup)?.isEnabled = !provisionState.busy && !backupPickerOutstanding
     }
 
     private fun requestProfileAction(server: VpsDeployServer, user: VpsDeployUser, use: ProfileUse) {
@@ -2007,6 +2228,7 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     private companion object {
+        const val BACKUP_PICKER_OUTSTANDING = "backup_picker_outstanding"
         val PEER_NAME = Regex("[A-Za-z0-9_-]{1,32}")
         const val SSH_STEP = 0
         const val DETECT_STEP = 1
@@ -2021,6 +2243,9 @@ class VpsProvisioningFragment : BaseFragment() {
     private fun monoTypeface(): Typeface = cachedMonoTypeface
 
     private class BackupAction(val server: StoredVpsServer, val ownerView: View, var authenticating: Boolean = true)
+    private class BackupImportAction(val ownerView: View, var waitingForPicker: Boolean = true, var authenticating: Boolean = false) {
+        var authenticationResultAccepted = false
+    }
 
     private data class AddUserAction(val server: StoredVpsServer, val name: String? = null)
 

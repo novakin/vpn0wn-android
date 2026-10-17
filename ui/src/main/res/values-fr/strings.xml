@@ -618,4 +618,23 @@
     <string name="vpn0wn_user_remove_observed">Le pair demandé est absent de la configuration du serveur et de l’interface active ; aucun profil privé conservé ne subsiste pour ce pair. Le résultat de la commande précédente reste indéterminé.</string>
     <string name="vpn0wn_user_remove_observed_stopped">Le pair demandé est absent de la configuration du serveur et aucun profil privé conservé ne subsiste pour ce pair. L’interface a été observée arrêtée ; aucune révocation en fonctionnement n’a été testée.</string>
     <string name="vpn0wn_user_remove_reconcile">réconcilier la suppression</string>
+    <string name="vpn0wn_backup_import">Ouvrir une sauvegarde serveur</string>
+    <string name="vpn0wn_backup_import_authenticate">Authentifiez-vous pour déverrouiller une sauvegarde serveur</string>
+    <string name="vpn0wn_backup_unlock_title">Déverrouiller la sauvegarde</string>
+    <string name="vpn0wn_backup_import_note">Saisissez le mot de passe exact de cette sauvegarde. Le fichier sera ouvert pour consultation uniquement. Aucun serveur ni profil ne sera modifié.</string>
+    <string name="vpn0wn_backup_show_password">Afficher le mot de passe</string>
+    <string name="vpn0wn_backup_unlock">Déverrouiller</string>
+    <string name="vpn0wn_backup_unlocking">Déverrouillage… Vous pouvez annuler pendant cette opération.</string>
+    <string name="vpn0wn_backup_read_password_invalid">Utilisez 1 à 128 caractères, sans caractère Unicode incomplet.</string>
+    <string name="vpn0wn_backup_unlock_failed">Mot de passe incorrect ou fichier endommagé.</string>
+    <string name="vpn0wn_backup_format_invalid">Ce fichier de sauvegarde est invalide ou non pris en charge.</string>
+    <string name="vpn0wn_backup_import_failed">Impossible de lire ou de déverrouiller la sauvegarde. Fermez cette fenêtre pour choisir à nouveau le fichier.</string>
+    <string name="vpn0wn_backup_unlocked">Sauvegarde déverrouillée</string>
+    <string name="vpn0wn_backup_inspection_note">Sauvegarde déverrouillée pour consultation uniquement. La restauration nécessite encore des vérifications distinctes du serveur de destination.</string>
+    <string name="vpn0wn_backup_captured">CAPTURE UTC</string>
+    <string name="vpn0wn_backup_interface">INTERFACE</string>
+    <string name="vpn0wn_backup_version">VERSION DU FORMAT</string>
+    <string name="vpn0wn_backup_revoked_count">ARCHIVES DE RÉVOCATION</string>
+    <string name="vpn0wn_backup_public_identity">CLÉ PUBLIQUE DU SERVEUR</string>
+    <string name="vpn0wn_backup_identity_unavailable">Indisponible</string>
 </resources>
