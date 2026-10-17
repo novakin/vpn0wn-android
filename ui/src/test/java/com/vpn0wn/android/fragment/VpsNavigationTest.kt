@@ -203,6 +203,7 @@ class VpsNavigationTest {
             try {
                 selectRow(fixture, "bravo")
                 val detail = fixture.fragments.findFragmentById(fixture.container) as TunnelDetailFragment
+                assertEquals("Only a visible tablet Home may retain keyboard targets", tablet, homeFocusTargets(fixture).isNotEmpty())
                 val binding = requireNotNull(DataBindingUtil.getBinding<TunnelDetailFragmentBinding>(detail.requireView()))
                 binding.executePendingBindings()
                 val root = detail.requireView() as ViewGroup
@@ -224,7 +225,11 @@ class VpsNavigationTest {
                 assertSame(fixture.tunnel("bravo"), fixture.activity.selectedTunnel)
                 fixture.activity.onBackPressedDispatcher.onBackPressed()
                 settle(fixture)
+                assertEquals("Editor return preserves foreground focus ownership", tablet, homeFocusTargets(fixture).isNotEmpty())
+                fixture.controller.recreate()
+                settle(fixture)
                 val restored = fixture.fragments.findFragmentById(fixture.container) as TunnelDetailFragment
+                assertEquals("Recreation preserves foreground focus ownership", tablet, homeFocusTargets(fixture).isNotEmpty())
                 if (!tablet) {
                     val back = requireNotNull(DataBindingUtil.getBinding<TunnelDetailFragmentBinding>(restored.requireView())).detailBackButton
                     assertTrue(back.requestFocus())
@@ -233,6 +238,7 @@ class VpsNavigationTest {
                     settle(fixture)
                     assertNull(fixture.activity.selectedTunnel)
                     assertTrue(fixture.fragments.findFragmentById(fixture.container) is TunnelListFragment)
+                    assertFalse("Back restores Home keyboard targets", homeFocusTargets(fixture).isEmpty())
                 }
             } finally { fixture.close() }
         }
@@ -285,6 +291,11 @@ class VpsNavigationTest {
             }
             throw failure
         }
+    }
+
+    private fun homeFocusTargets(fixture: Fixture): List<View> {
+        val homeViews = descendants(fixture.home.requireView()).toSet()
+        return ArrayList<View>().also { fixture.activity.window.decorView.addFocusables(it, View.FOCUS_FORWARD) }.filter { it in homeViews }
     }
 
     private fun injectModel(fixture: Fixture, peer: VpsPlanningTestPeer): VpsProvisioningViewModel {
