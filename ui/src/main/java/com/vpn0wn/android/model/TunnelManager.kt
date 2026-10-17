@@ -107,6 +107,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         var lastRequestPeer: Key? = null
         var lastRequestAt: Long? = null
         var lastOutcome: RecoveryResult.Outcome? = null
+        var lastResultRecordedAt: Long? = null
         var status = ObservableTunnel.RecoveryStatus.IDLE
         var failureCategory: ObservableTunnel.RecoveryFailureCategory? = null
         var transportState = ObservableTunnel.RecoveryTransportState.UNKNOWN
@@ -831,6 +832,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         activation.lastRequestPeer = request.observation.peer()
         activation.lastRequestAt = entry.requestedAt
         activation.lastOutcome = null
+        activation.lastResultRecordedAt = null
         activation.failureCategory = null
         activation.status = ObservableTunnel.RecoveryStatus.REQUESTED
         publishRecovery(activation)
@@ -895,6 +897,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         }
         activation.lastRequestAt = entry.enteredAt ?: entry.requestedAt
         activation.lastOutcome = result?.outcome()
+        activation.lastResultRecordedAt = SystemClock.elapsedRealtime()
         activation.failureCategory = recoveryFailureCategory(entry.failure)
         activation.status = when {
             result != null -> ObservableTunnel.RecoveryStatus.COMPLETED
@@ -931,6 +934,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
             activation.request != null, activation.disabled, activation.lastTriggerPeer, activation.lastRequestPeer,
             activation.lastRequestAt, activation.lastOutcome,
             activation.status, activation.failureCategory, activation.transportState, activation.powerState,
+            activation.lastResultRecordedAt,
         ))
     }
 

@@ -622,6 +622,251 @@
                 app:detailPeerDiagnostics="@{tunnel.handshakeDiagnostics}"
                 app:detailPeerState="@{tunnel.state}"
                 tools:ignore="UselessLeaf" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    style="@style/Vpn0wnLabelText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="§03"
+                    android:textColor="@color/vpn0wn_rule_strong" />
+
+                <TextView
+                    android:id="@+id/recovery_title"
+                    style="@style/Vpn0wnMonoValueText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:text="@string/vpn0wn_recovery_title"
+                    android:textSize="13sp" />
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_marginStart="10dp"
+                    android:layout_weight="1"
+                    android:background="@color/vpn0wn_rule" />
+            </LinearLayout>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/recovery_card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:cardBackgroundColor="@color/vpn0wn_paper_2"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/vpn0wn_rule"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:id="@+id/recovery_card_content"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    app:recoverySnapshot="@{tunnel.recoverySnapshot}"
+                    app:recoveryDiagnostics="@{tunnel.handshakeDiagnostics}"
+                    app:recoveryConfig="@{config}"
+                    app:recoveryState="@{tunnel.state}">
+
+                    <LinearLayout
+                        style="@style/Vpn0wnDetailRow"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Vpn0wnConfigRowLabel"
+                            android:text="@string/vpn0wn_recovery_status_label" />
+
+                        <TextView
+                            android:id="@+id/recovery_status"
+                            style="@style/Vpn0wnMonoValueText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textSize="13sp"
+                            tools:text="@string/vpn0wn_recovery_unknown" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        style="@style/Vpn0wnDetailRow"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Vpn0wnConfigRowLabel"
+                            android:text="@string/vpn0wn_recovery_attempts_label" />
+
+                        <TextView
+                            android:id="@+id/recovery_counts_attempts"
+                            style="@style/Vpn0wnMonoValueText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textSize="13sp"
+                            tools:text="@string/vpn0wn_recovery_unknown" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        style="@style/Vpn0wnDetailRow"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Vpn0wnConfigRowLabel"
+                            android:text="@string/vpn0wn_recovery_admissions_label" />
+
+                        <TextView
+                            android:id="@+id/recovery_counts_admissions"
+                            style="@style/Vpn0wnMonoValueText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textSize="13sp"
+                            tools:text="@string/vpn0wn_recovery_unknown" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        style="@style/Vpn0wnDetailRow"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Vpn0wnConfigRowLabel"
+                            android:text="@string/vpn0wn_recovery_requests_label" />
+
+                        <TextView
+                            android:id="@+id/recovery_counts_requests"
+                            style="@style/Vpn0wnMonoValueText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textSize="13sp"
+                            tools:text="@string/vpn0wn_recovery_unknown" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        style="@style/Vpn0wnDetailRow"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Vpn0wnConfigRowLabel"
+                            android:text="@string/vpn0wn_recovery_uncertain_label" />
+
+                        <TextView
+                            android:id="@+id/recovery_counts_uncertain"
+                            style="@style/Vpn0wnMonoValueText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textSize="13sp"
+                            tools:text="@string/vpn0wn_recovery_unknown" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        style="@style/Vpn0wnDetailRow"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Vpn0wnConfigRowLabel"
+                            android:text="@string/vpn0wn_recovery_transport_label" />
+
+                        <TextView
+                            android:id="@+id/recovery_transport"
+                            style="@style/Vpn0wnMonoValueText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textSize="13sp"
+                            tools:text="@string/vpn0wn_recovery_unknown" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        style="@style/Vpn0wnDetailRow"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Vpn0wnConfigRowLabel"
+                            android:text="@string/vpn0wn_recovery_request_peer_label" />
+
+                        <TextView
+                            android:id="@+id/recovery_request_peer"
+                            style="@style/Vpn0wnMonoValueText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textSize="13sp"
+                            tools:text="@string/vpn0wn_recovery_unknown" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        style="@style/Vpn0wnDetailRow"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Vpn0wnConfigRowLabel"
+                            android:text="@string/vpn0wn_recovery_result_label" />
+
+                        <TextView
+                            android:id="@+id/recovery_result"
+                            style="@style/Vpn0wnMonoValueText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textSize="13sp"
+                            tools:text="@string/vpn0wn_recovery_unknown" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        style="@style/Vpn0wnDetailRow"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Vpn0wnConfigRowLabel"
+                            android:text="@string/vpn0wn_recovery_result_recorded_label" />
+
+                        <TextView
+                            android:id="@+id/recovery_result_recorded"
+                            style="@style/Vpn0wnMonoValueText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textSize="13sp"
+                            tools:text="@string/vpn0wn_recovery_unknown" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        style="@style/Vpn0wnDetailRow"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Vpn0wnConfigRowLabel"
+                            android:text="@string/vpn0wn_recovery_authentication_label" />
+
+                        <TextView
+                            android:id="@+id/recovery_authentication"
+                            style="@style/Vpn0wnMonoValueText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textSize="13sp"
+                            tools:text="@string/vpn0wn_recovery_unknown" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/recovery_scope"
+                        style="@style/Vpn0wnMonoSubText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:paddingStart="14dp"
+                        android:paddingTop="10dp"
+                        android:paddingEnd="14dp"
+                        android:paddingBottom="10dp"
+                        android:text="@string/vpn0wn_recovery_scope" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
         </ScrollView>
     </LinearLayout>

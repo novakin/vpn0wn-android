@@ -171,6 +171,7 @@ class ObservableTunnel internal constructor(
         val failureCategory: RecoveryFailureCategory?,
         val transportState: RecoveryTransportState,
         val powerState: RecoveryPowerState,
+        val lastResultRecordedElapsedRealtimeMillis: Long? = null,
     )
 
     enum class RecoveryStatus {

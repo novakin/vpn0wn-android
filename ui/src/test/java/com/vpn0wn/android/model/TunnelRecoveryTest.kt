@@ -91,10 +91,13 @@ class TunnelRecoveryTest {
             emit(fixture, 1)
             val first = awaitSnapshot(fixture) { it.confirmedAdmissions == 1 && !it.requestPending }
             assertCounts(first, 1, 1, 1, 0)
+            assertNotNull(first.lastResultRecordedElapsedRealtimeMillis)
+            assertTrue(first.lastResultRecordedElapsedRealtimeMillis!! >= first.lastRequestElapsedRealtimeMillis!!)
             assertEquals(ObservableTunnel.RecoveryPowerState.NOT_DEEP_IDLE, first.powerState)
             clock(29_999)
             emit(fixture, 2)
             assertEquals(ObservableTunnel.RecoveryStatus.DROPPED_COOLDOWN, fixture.snapshot().status)
+            assertEquals(first.lastResultRecordedElapsedRealtimeMillis, fixture.snapshot().lastResultRecordedElapsedRealtimeMillis)
             assertEquals(1, NativeShadow.calls.size)
             clock(1)
             pump()
@@ -103,6 +106,7 @@ class TunnelRecoveryTest {
             val second = awaitSnapshot(fixture) { it.confirmedAdmissions == 2 && !it.requestPending }
             assertCounts(second, 2, 2, 2, 0)
             assertTrue(second.lastRequestElapsedRealtimeMillis!! - first.lastRequestElapsedRealtimeMillis!! >= 30_000)
+            assertTrue(second.lastResultRecordedElapsedRealtimeMillis!! > first.lastResultRecordedElapsedRealtimeMillis!!)
             clock(30_000)
             emit(fixture, 4)
             assertEquals(ObservableTunnel.RecoveryStatus.DROPPED_ATTEMPT_LIMIT, fixture.snapshot().status)
@@ -118,11 +122,75 @@ class TunnelRecoveryTest {
         }
     }
 
+    @Test fun resultRecordingTimeWaitsForJoinClearsOnEntryAndRetainsDroppedHistory() = runTest {
+        withFixture { fixture ->
+            assertNull(fixture.snapshot().lastResultRecordedElapsedRealtimeMillis)
+            val entered = CountDownLatch(1)
+            val release = CountDownLatch(1)
+            NativeShadow.response = {
+                entered.countDown()
+                check(release.await(5, TimeUnit.SECONDS)) { "Result timestamp fixture timed out" }
+                native(RecoveryResult.Outcome.INITIATION_STARTED)
+            }
+            val requested = mutableListOf<ObservableTunnel.RecoverySnapshot>()
+            val callback = object : Observable.OnPropertyChangedCallback() {
+                override fun onPropertyChanged(sender: Observable, propertyId: Int) {
+                    if (propertyId == BR.recoverySnapshot) fixture.tunnel.recoverySnapshot?.let {
+                        if (it.status == ObservableTunnel.RecoveryStatus.REQUESTED) requested += it
+                    }
+                }
+            }
+            fixture.tunnel.addOnPropertyChangedCallback(callback)
+            try {
+                emit(fixture, 1)
+                await(entered)
+                assertNull(fixture.snapshot().lastOutcome)
+                assertNull(fixture.snapshot().lastResultRecordedElapsedRealtimeMillis)
+                clock(250)
+                val releasedAt = android.os.SystemClock.elapsedRealtime()
+                release.countDown()
+                val result = awaitSnapshot(fixture) { it.confirmedAdmissions == 1 && !it.requestPending }
+                assertTrue(result.lastResultRecordedElapsedRealtimeMillis!! >= releasedAt)
+                assertTrue(result.lastResultRecordedElapsedRealtimeMillis!! > result.lastRequestElapsedRealtimeMillis!!)
+                emit(fixture, 2, otherPeer)
+                assertEquals(ObservableTunnel.RecoveryStatus.DROPPED_COOLDOWN, fixture.snapshot().status)
+                assertEquals(peer, fixture.snapshot().lastRequestPeer)
+                assertEquals(result.lastOutcome, fixture.snapshot().lastOutcome)
+                assertEquals(result.lastResultRecordedElapsedRealtimeMillis, fixture.snapshot().lastResultRecordedElapsedRealtimeMillis)
+                fixture.tunnel.setStateAsync(Tunnel.State.UP)
+                pump()
+                assertEquals(result.lastResultRecordedElapsedRealtimeMillis, fixture.snapshot().lastResultRecordedElapsedRealtimeMillis)
+                clock(30_000)
+                NativeShadow.response = { throw IOException("Synthetic result timestamp failure") }
+                emit(fixture, 3)
+                val failure = awaitSnapshot(fixture) { it.unknownSettlements == 1 && !it.requestPending }
+                assertEquals(2, requested.size)
+                assertTrue(requested.all { it.lastOutcome == null && it.failureCategory == null && it.lastResultRecordedElapsedRealtimeMillis == null })
+                assertEquals(ObservableTunnel.RecoveryFailureCategory.IO, failure.failureCategory)
+                assertTrue(failure.lastResultRecordedElapsedRealtimeMillis!! > result.lastResultRecordedElapsedRealtimeMillis!!)
+                assertCounts(failure, 1, 2, 2, 1)
+                fixture.tunnel.setStateAsync(Tunnel.State.DOWN)
+                pump()
+                assertNull(fixture.tunnel.recoverySnapshot)
+                fixture.recreateService()
+                fixture.tunnel.setStateAsync(Tunnel.State.UP)
+                pump()
+                assertEquals(ObservableTunnel.RecoveryStatus.IDLE, fixture.snapshot().status)
+                assertNull(fixture.snapshot().lastResultRecordedElapsedRealtimeMillis)
+            } finally {
+                release.countDown()
+                fixture.tunnel.removeOnPropertyChangedCallback(callback)
+            }
+        }
+    }
+
     @Test fun busyGetsOneOneSecondDeferralAndFourBackendEntriesMaximum() = runTest {
         withFixture { fixture ->
             NativeShadow.response = { native(RecoveryResult.Outcome.BUSY) }
             emit(fixture, 1)
-            awaitSnapshot(fixture) { it.backendEntries == 1 && it.status == ObservableTunnel.RecoveryStatus.BUSY_DEFERRED }
+            val refused = awaitSnapshot(fixture) { it.backendEntries == 1 && it.status == ObservableTunnel.RecoveryStatus.BUSY_DEFERRED }
+            assertEquals(RecoveryResult.Outcome.BUSY, refused.lastOutcome)
+            assertNotNull(refused.lastResultRecordedElapsedRealtimeMillis)
             advanceTimeBy(999)
             pump()
             assertEquals(1, NativeShadow.calls.size)
@@ -202,12 +270,14 @@ class TunnelRecoveryTest {
             clock(30_000)
             NativeShadow.response = { native(RecoveryResult.Outcome.BUSY) }
             emit(fixture, 2)
-            awaitSnapshot(fixture) { it.backendEntries == 2 && it.status == ObservableTunnel.RecoveryStatus.BUSY_DEFERRED }
+            val deferred = awaitSnapshot(fixture) { it.backendEntries == 2 && it.status == ObservableTunnel.RecoveryStatus.BUSY_DEFERRED }
+            assertNotNull(deferred.lastResultRecordedElapsedRealtimeMillis)
             fixture.tunnel.setStateAsync(Tunnel.State.UP)
             pump()
             advanceTimeBy(1_000)
             pump()
             assertCounts(fixture.snapshot(), 1, 1, 2, 0)
+            assertEquals(deferred.lastResultRecordedElapsedRealtimeMillis, fixture.snapshot().lastResultRecordedElapsedRealtimeMillis)
             assertFalse(fixture.snapshot().requestPending)
             assertSame(session, fixture.tunnel.activeHandshakeSession)
             assertEquals(ObservableTunnel.RecoveryTransportState.READY, fixture.snapshot().transportState)
@@ -251,6 +321,7 @@ class TunnelRecoveryTest {
             val failed = awaitSnapshot(fixture) { it.unknownSettlements == 1 && !it.requestPending }
             assertCounts(failed, 0, 1, 2, 1)
             assertEquals(ObservableTunnel.RecoveryFailureCategory.IO, failed.failureCategory)
+            assertNotNull(failed.lastResultRecordedElapsedRealtimeMillis)
             assertTrue(failed.automaticRecoveryDisabled)
             fixture.tunnel.setStateAsync(Tunnel.State.UP)
             clock(30_000)
@@ -267,6 +338,7 @@ class TunnelRecoveryTest {
             fixture.tunnel.setStateAsync(Tunnel.State.UP)
             pump()
             assertNotSame(old, fixture.tunnel.activeHandshakeSession)
+            assertNull(fixture.snapshot().lastResultRecordedElapsedRealtimeMillis)
             emit(fixture, 3)
             assertCounts(awaitSnapshot(fixture) { it.confirmedAdmissions == 1 && !it.requestPending }, 1, 1, 1, 0)
         }
@@ -671,6 +743,7 @@ class TunnelRecoveryTest {
                 assertNotSame(oldSession, fixture.tunnel.activeHandshakeSession)
                 emit(fixture, 2)
                 val current = awaitSnapshot(fixture) { it.confirmedAdmissions == 1 && !it.requestPending }
+                assertNotNull(current.lastResultRecordedElapsedRealtimeMillis)
                 blocked.release.countDown()
                 oldJob.join()
                 pump()
