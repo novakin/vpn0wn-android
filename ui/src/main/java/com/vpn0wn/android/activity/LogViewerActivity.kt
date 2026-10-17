@@ -304,10 +304,11 @@ class LogViewerActivity : AppCompatActivity() {
             holder.logMsg.apply {
                 if (holder.isSingleLine) setSingleLine() else isSingleLine = false
                 text = line.msg
-                setOnClickListener {
-                    holder.isSingleLine = !holder.isSingleLine
-                    isSingleLine = holder.isSingleLine
-                }
+            }
+            holder.itemView.contentDescription = "${holder.logTime.text} ${line.level} ${line.tag}: ${line.msg}"
+            holder.itemView.setOnClickListener {
+                holder.isSingleLine = !holder.isSingleLine
+                holder.logMsg.isSingleLine = holder.isSingleLine
             }
         }
     }
