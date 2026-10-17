@@ -604,4 +604,18 @@
     <string name="vpn0wn_backup_working">Création de la sauvegarde chiffrée… Vous pouvez annuler pendant cette opération.</string>
     <string name="vpn0wn_backup_failed">Impossible d’exporter la sauvegarde. Vérifiez les accès SSH enregistrés et actualisez le serveur avant de réessayer.</string>
     <string name="vpn0wn_backup_identity_required">Actualisez le serveur pour vérifier son identité avant d’exporter une sauvegarde.</string>
+    <string name="vpn0wn_action_remove_user">supprimer l’utilisateur</string>
+    <string name="vpn0wn_action_remove_user_sub">supprimer le pair</string>
+    <string name="vpn0wn_user_remove_title">Supprimer l’utilisateur</string>
+    <string name="vpn0wn_user_confirm_remove">Supprimer</string>
+    <string name="vpn0wn_user_remove_confirmation">Supprimer %1$s de %2$s@%3$s:%4$d ?\nEmpreinte SSH : %5$s\nClé du serveur : %6$s\nClé du client : %7$s\n\nCette action supprime le pair du serveur et son profil privé conservé sur cet appareil. Aucune archive de révocation n’est créée. Les tunnels importés et les copies exportées restent présents. L’annulation ne peut pas défaire une opération distante déjà admise.</string>
+    <string name="vpn0wn_user_remove_checking">Vérification de l’identité actuelle du serveur et du pair avant confirmation.</string>
+    <string name="vpn0wn_user_removing">Suppression de ce pair précis. Fermer la connexion peut laisser l’opération distante en cours.</string>
+    <string name="vpn0wn_user_remove_uncertain">Suppression non vérifiée. Réconciliez l’état avant une autre modification ; une opération distante peut encore être en cours.</string>
+    <string name="vpn0wn_user_remove_changed">L’identité du serveur ou du pair a changé. Actualisez l’état avant de revoir la suppression.</string>
+    <string name="vpn0wn_user_removed">La suppression a réussi ; l’absence du pair a été observée dans la configuration du serveur et l’interface active. Aucun profil privé conservé ne subsiste pour ce pair.</string>
+    <string name="vpn0wn_user_removed_stopped">Le pair a été supprimé de la configuration du serveur et aucun profil privé conservé ne subsiste pour ce pair. L’interface était arrêtée ; aucune révocation en fonctionnement n’a été testée.</string>
+    <string name="vpn0wn_user_remove_observed">Le pair demandé est absent de la configuration du serveur et de l’interface active ; aucun profil privé conservé ne subsiste pour ce pair. Le résultat de la commande précédente reste indéterminé.</string>
+    <string name="vpn0wn_user_remove_observed_stopped">Le pair demandé est absent de la configuration du serveur et aucun profil privé conservé ne subsiste pour ce pair. L’interface a été observée arrêtée ; aucune révocation en fonctionnement n’a été testée.</string>
+    <string name="vpn0wn_user_remove_reconcile">réconcilier la suppression</string>
 </resources>

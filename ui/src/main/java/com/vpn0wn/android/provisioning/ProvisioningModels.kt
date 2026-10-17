@@ -130,6 +130,8 @@ data class VpsServerStatus(
     val dns: String,
     val peers: List<VpsPeerStatus>,
     val serverPublicKey: String? = null,
+    val runtimePeerPublicKeys: List<String>? = null,
+    val configuredPeerPublicKeys: List<String>? = null,
 )
 
 data class VpsAddPeerResult(
@@ -257,6 +259,8 @@ object ProvisioningJson {
             cidr = json.string("cidr"),
             dns = json.string("dns"),
             serverPublicKey = serverPublicKey,
+            runtimePeerPublicKeys = json.peerPublicKeys("runtimePeerPublicKeys"),
+            configuredPeerPublicKeys = json.peerPublicKeys("configuredPeerPublicKeys"),
             peers = (0 until peers.length()).map { index ->
                 val peer = peers.getJSONObject(index)
                 val name = peer.string("name")
@@ -283,6 +287,24 @@ object ProvisioningJson {
             config = json.string("config"),
             cleanupPath = json.optionalString("cleanupPath"),
         )
+    }
+
+    // JSON types, canonical keys and uniqueness are independent observation boundaries.
+    @Suppress("ThrowsCount")
+    private fun JSONObject.peerPublicKeys(field: String): List<String>? {
+        if (!has(field) || isNull(field)) return null
+        val array = getJSONArray(field)
+        val keys = (0 until array.length()).map { index ->
+            val key = array.get(index) as? String ?: throw JSONException("Invalid peer inventory identity")
+            try {
+                if (Key.fromBase64(key).toBase64() != key) throw JSONException("Invalid peer inventory identity")
+            } catch (_: KeyFormatException) {
+                throw JSONException("Invalid peer inventory identity")
+            }
+            key
+        }
+        if (keys.distinct().size != keys.size) throw JSONException("Ambiguous peer inventory identity")
+        return keys
     }
 
     fun parsePeerMutation(stdout: String): VpsPeerMutationResult = parse(stdout) { json ->

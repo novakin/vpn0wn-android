@@ -111,7 +111,7 @@ class VpsProvisioningRequestTest {
             client.plan(connection, install)
             client.install(connection, install)
             client.addPeer(connection, VpsAddPeerRequest(hostileValue, "0.0.0.0/0, ::/0", "1.1.1.1"), REMOVE_PUBLIC_KEY)
-            client.removePeer(connection, "phone", REMOVE_PUBLIC_KEY)
+            client.removePeer(connection, "phone", REMOVE_PUBLIC_KEY, REMOVE_PUBLIC_KEY)
             client.revokePeer(connection, "tablet", REVOKE_PUBLIC_KEY)
             client.syncStatus(connection)
             val backup = client.backup(connection)
@@ -124,7 +124,7 @@ class VpsProvisioningRequestTest {
             assertEquals(installArgs, remote.arguments.getValue("install.sh"))
             assertEquals(listOf("--name", hostileValue, "--dns", "1.1.1.1", "--allowed-ips", "0.0.0.0/0, ::/0",
                 "--expected-server-public-key", REMOVE_PUBLIC_KEY), remote.arguments.getValue("add-peer.sh"))
-            assertEquals(listOf("--name", "phone", "--expected-public-key", REMOVE_PUBLIC_KEY), remote.arguments.getValue("remove-peer.sh"))
+            assertEquals(listOf("--name", "phone", "--expected-public-key", REMOVE_PUBLIC_KEY, "--expected-server-public-key", REMOVE_PUBLIC_KEY), remote.arguments.getValue("remove-peer.sh"))
             assertEquals(listOf("--name", "tablet", "--expected-public-key", REVOKE_PUBLIC_KEY), remote.arguments.getValue("revoke-peer.sh"))
             assertEquals(emptyList<String>(), remote.arguments.getValue("sync-status.sh"))
             assertEquals(emptyList<String>(), remote.arguments.getValue("backup.sh"))
@@ -149,7 +149,7 @@ class VpsProvisioningRequestTest {
         val client = Vpn0wnProvisioningClient(ApplicationProvider.getApplicationContext(), factory)
         val connection = VpsConnection(VpsEndpoint("vpn.example"), VpsCredential.Password(charArrayOf()), true)
         try {
-            client.removePeer(connection, "missing", REMOVE_PUBLIC_KEY)
+            client.removePeer(connection, "missing", REMOVE_PUBLIC_KEY, REMOVE_PUBLIC_KEY)
             throw AssertionError("Failed script must not succeed")
         } catch (failure: ProvisioningException) {
             assertEquals("peer_not_found", failure.remoteCode)
@@ -184,7 +184,7 @@ class VpsProvisioningRequestTest {
         for ((name, key) in invalidIdentities) {
             for (revoke in listOf(false, true)) {
                 val failure = runCatching {
-                    if (revoke) client.revokePeer(connection(), name, key) else client.removePeer(connection(), name, key)
+                    if (revoke) client.revokePeer(connection(), name, key) else client.removePeer(connection(), name, key, REMOVE_PUBLIC_KEY)
                 }.exceptionOrNull()
                 assertTrue(failure is ProvisioningException)
                 assertEquals(ProvisioningFailureCategory.INVALID_INPUT, (failure as ProvisioningException).category)
@@ -234,7 +234,7 @@ class VpsProvisioningRequestTest {
                 }
                 val result = runCatching {
                     val client = provisioningClient(remote)
-                    if (revoke) client.revokePeer(connection(), "phone", REMOVE_PUBLIC_KEY) else client.removePeer(connection(), "phone", REMOVE_PUBLIC_KEY)
+                    if (revoke) client.revokePeer(connection(), "phone", REMOVE_PUBLIC_KEY) else client.removePeer(connection(), "phone", REMOVE_PUBLIC_KEY, REMOVE_PUBLIC_KEY)
                 }
                 if (index == 0) {
                     assertEquals(REMOVE_PUBLIC_KEY, result.getOrThrow().publicKey)

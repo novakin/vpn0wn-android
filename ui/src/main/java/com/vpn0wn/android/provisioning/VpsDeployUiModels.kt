@@ -26,8 +26,8 @@ data class VpsDeployServer(
     val name: String,
     val provider: String,
     val region: String,
-    val endpoint: String,
-    val port: Int,
+    val endpoint: String?,
+    val port: Int?,
     var status: VpsDeployServerStatus,
     val distro: String,
     val engine: String,
@@ -38,7 +38,10 @@ data class VpsDeployServer(
     val health: List<VpsDeployHealthCheck>,
     val users: MutableList<VpsDeployUser> = mutableListOf(),
     val usersKnown: Boolean = false,
-)
+) {
+    val endpointAddress: String?
+        get() = if (endpoint != null && port != null) "$endpoint:$port" else null
+}
 
 data class VpsDeployUser(
     val id: String,

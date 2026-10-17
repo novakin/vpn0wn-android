@@ -33,4 +33,6 @@
     <item name="vpn0wn_backup_password" type="id" />
     <item name="vpn0wn_backup_confirm_password" type="id" />
     <item name="vpn0wn_backup_progress" type="id" />
+    <item name="vpn0wn_vps_user_removal_status" type="id" />
+    <item name="vpn0wn_vps_reconcile_removal" type="id" />
 </resources>

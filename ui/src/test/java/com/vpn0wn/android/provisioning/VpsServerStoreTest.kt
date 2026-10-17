@@ -139,6 +139,27 @@ class VpsServerStoreTest {
     }
 
     @Test
+    fun emptyStoppedObservationClearsOldVpnMetadataWithoutChangingSshIdentity() = runBlocking {
+        val expected = storedServer(id = "ams-01", endpoint = "vpn.example", listenPort = "51821")
+        val unrelated = storedServer(id = "unrelated")
+        store.upsert(expected)
+        store.upsert(unrelated)
+        val observed = status("").copy(running = false, listenPort = "")
+
+        store.updateStatus(expected, observed, 1710000001L)
+
+        val saved = store.servers.first().single { it.id == expected.id }
+        assertEquals("", saved.endpoint)
+        assertEquals("", saved.listenPort)
+        assertEquals(expected.host, saved.host)
+        assertEquals(expected.sshPort, saved.sshPort)
+        assertEquals(expected.sshUser, saved.sshUser)
+        assertEquals(false, saved.running)
+        assertEquals(null, VpsDeployMapper.fromStored(saved, 1710000001L).endpointAddress)
+        assertEquals(unrelated, store.servers.first().single { it.id == unrelated.id })
+    }
+
+    @Test
     fun statusCommitRejectsNewerObservationAndPreservesCurrentMetadata() = runBlocking {
         val expected = storedServer(id = "ams-01")
         store.upsert(expected)

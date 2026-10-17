@@ -13,6 +13,25 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class ProvisioningJsonTest {
+    @Test fun peerInventoriesAreNullableCanonicalAndDistinct() {
+        val key = "UFVCTElDLTIgICAgICAgICAgICAgICAgICAgICAgICA="
+        val base = JSONObject().put("ok", true).put("interface", "wg0").put("running", true)
+            .put("endpoint", "vpn.example").put("listenPort", "51820").put("cidr", "10.8.0.0/24")
+            .put("dns", "1.1.1.1").put("peers", JSONArray())
+        for (field in listOf("runtimePeerPublicKeys", "configuredPeerPublicKeys")) {
+            fun inventory(status: VpsServerStatus) = if (field == "runtimePeerPublicKeys") status.runtimePeerPublicKeys else status.configuredPeerPublicKeys
+            assertEquals(null, inventory(ProvisioningJson.parseStatus(base.toString())))
+            assertEquals(null, inventory(ProvisioningJson.parseStatus(JSONObject(base.toString()).put(field, JSONObject.NULL).toString())))
+            assertEquals(emptyList<String>(), inventory(ProvisioningJson.parseStatus(JSONObject(base.toString()).put(field, JSONArray()).toString())))
+            assertEquals(listOf(key), inventory(ProvisioningJson.parseStatus(JSONObject(base.toString()).put(field, JSONArray(listOf(key))).toString())))
+            for (invalid in listOf("not-an-array", JSONArray(listOf(true)), JSONArray(listOf("invalid")), JSONArray(listOf(key, key)))) {
+                assertThrows(ProvisioningException::class.java) {
+                    ProvisioningJson.parseStatus(JSONObject(base.toString()).put(field, invalid).toString())
+                }
+            }
+        }
+    }
+
     @Test
     fun parseDetectReadsServerCapabilities() {
         val result = ProvisioningJson.parseDetect(

@@ -60,9 +60,16 @@ class Vpn0wnProvisioningClient(
         ProvisioningFailureCategory.INVALID_INPUT.safeMessage, category = ProvisioningFailureCategory.INVALID_INPUT,
     )
 
-    suspend fun removePeer(connection: VpsConnection, name: String, expectedPublicKey: String): VpsPeerMutationResult {
-        val args = peerMutationArgs(name, expectedPublicKey)
+    suspend fun removePeer(connection: VpsConnection, name: String, expectedPublicKey: String, expectedServerPublicKey: String,
+        onAdmitted: suspend () -> Unit = {}): VpsPeerMutationResult {
+        val args = peerMutationArgs(name, expectedPublicKey) + listOf("--expected-server-public-key", expectedServerPublicKey)
+        try {
+            if (Key.fromBase64(expectedServerPublicKey).toBase64() != expectedServerPublicKey) throw invalidInput()
+        } catch (_: KeyFormatException) {
+            throw invalidInput()
+        }
         return withClient(connection) { client, remoteDir ->
+            onAdmitted()
             parsePeerMutation(run(client, remoteDir, "remove-peer.sh", args).stdout, name, expectedPublicKey, revoked = false)
         }
     }

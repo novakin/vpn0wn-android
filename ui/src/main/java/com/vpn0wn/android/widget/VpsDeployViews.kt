@@ -90,7 +90,7 @@ class VpsTopologyView(context: Context) : View(context) {
         node(canvas, xs[2], y, context.getString(R.string.vpn0wn_node_wan), context.getString(R.string.vpn0wn_node_internet), server.status == VpsDeployServerStatus.ONLINE, R.color.vpn0wn_signal_deep, false)
         val top = h * 0.66f
         val cellW = w / 3f
-        listOf(context.getString(R.string.vpn0wn_label_server) to server.name, context.getString(R.string.vpn0wn_label_endpoint) to server.endpoint, context.getString(R.string.vpn0wn_metric_cidr) to server.cidr).forEachIndexed { index, pair ->
+        listOf(context.getString(R.string.vpn0wn_label_server) to server.name, context.getString(R.string.vpn0wn_label_endpoint) to (server.endpoint ?: "—"), context.getString(R.string.vpn0wn_metric_cidr) to server.cidr).forEachIndexed { index, pair ->
             paint.style = Paint.Style.FILL
             paint.typeface = monoTypeface
             paint.textSize = dp(9).toFloat()

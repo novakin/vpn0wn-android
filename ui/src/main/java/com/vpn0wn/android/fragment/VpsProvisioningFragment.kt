@@ -71,6 +71,8 @@ import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Step
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Installation
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.AddUserConfirmation
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.UserCreation
+import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.UserRemoval
+import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.RemoveUserConfirmation
 import com.vpn0wn.android.provisioning.ProvisioningRecovery
 import com.vpn0wn.android.util.vpn0wnStyle
 import com.vpn0wn.android.util.AdminKnobs
@@ -116,6 +118,8 @@ class VpsProvisioningFragment : BaseFragment() {
     private var installDialog: AlertDialog? = null
     private var addUserDialog: AlertDialog? = null
     private var addUserAction: AddUserAction? = null
+    private var removeUserDialog: AlertDialog? = null
+    private var removeUserAction: RemoveUserAction? = null
     private lateinit var downloadsFileSaver: DownloadsFileSaver
     @Volatile private var profileAction: ProfileAction? = null
     private var profileDialog: AlertDialog? = null
@@ -177,6 +181,7 @@ class VpsProvisioningFragment : BaseFragment() {
                     } else {
                         render()
                     }
+                    showRemoveUserConfirmation(state)
                     val settledProblem = !state.busy && state.problem != null
                     if (settledProblem && (state.problem != previous?.problem || previous?.busy == true)) {
                         root.findViewById<View>(R.id.vpn0wn_vps_operation_problem)?.let { problem ->
@@ -195,6 +200,7 @@ class VpsProvisioningFragment : BaseFragment() {
 
     override fun onDestroyView() {
         retireBackupAction()
+        retireRemoveUserAction()
         retireProfileAction()
         retireAddUserAction()
         installDialog?.dismiss()
@@ -209,6 +215,7 @@ class VpsProvisioningFragment : BaseFragment() {
 
     override fun onStop() {
         if (backupAction?.authenticating == false) retireBackupAction()
+        retireRemoveUserAction()
         if (profileAction?.authenticating == false) retireProfileAction()
         retireAddUserAction()
         super.onStop()
@@ -219,6 +226,8 @@ class VpsProvisioningFragment : BaseFragment() {
 
     private fun render() {
         backupAction?.takeUnless { ownsBackupAction(it, requireStarted = false) }?.let { retireBackupAction() }
+        if (removeUserAction?.let { !ownsRemoveUserAction(it, requireStarted = false) } == true ||
+            removeUserDialog != null && provisionState.busy) retireRemoveUserAction()
         profileAction?.takeUnless { ownsProfileAction(it, requireStarted = false) }?.let { retireProfileAction() }
         retireAddUserAction()
         updateServerProjection(TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()))
@@ -231,7 +240,14 @@ class VpsProvisioningFragment : BaseFragment() {
                 is Screen.User -> {
                     val selectedServer = server(current.serverId)
                     val selectedUser = selectedServer?.users?.find { it.id == current.userId }
-                    if (selectedServer != null && selectedUser != null) userScreen(selectedServer, selectedUser) else fleetScreen()
+                    when {
+                        selectedServer != null && selectedUser != null -> userScreen(selectedServer, selectedUser)
+                        selectedServer != null -> {
+                            screen = Screen.Detail(current.serverId)
+                            detailScreen(selectedServer)
+                        }
+                        else -> fleetScreen()
+                    }
                 }
             },
             FrameLayout.LayoutParams(-1, -1),
@@ -337,7 +353,7 @@ class VpsProvisioningFragment : BaseFragment() {
             addView(label("${server.provider.uppercase(Locale.ROOT)} · ${server.region.uppercase(Locale.ROOT)}"))
         })
         body.addView(mono(server.name, 16, R.color.vpn0wn_ink).apply { setPadding(0, dp(8), 0, 0) })
-        body.addView(mono(if (server.usersKnown) str(R.string.vpn0wn_server_card_summary, "${server.endpoint}:${server.port}", server.users.size, server.engine) else str(R.string.vpn0wn_server_card_summary_unknown, "${server.endpoint}:${server.port}", server.engine), 10, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(4), 0, dp(10)) })
+        body.addView(mono(if (server.usersKnown) str(R.string.vpn0wn_server_card_summary, server.endpointAddress ?: "—", server.users.size, server.engine) else str(R.string.vpn0wn_server_card_summary_unknown, server.endpointAddress ?: "—", server.engine), 10, R.color.vpn0wn_ink_3).apply { setPadding(0, dp(4), 0, dp(10)) })
         body.addView(metricRow(listOf(str(R.string.vpn0wn_metric_cidr) to server.cidr, str(R.string.vpn0wn_metric_uptime) to server.uptime, str(R.string.vpn0wn_metric_sync) to server.lastSync)))
         body.addView(VpsHealthChecksLayout(requireContext(), server.health).apply { setPadding(0, dp(10), 0, 0) })
         railRow.addView(body, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
@@ -358,7 +374,7 @@ class VpsProvisioningFragment : BaseFragment() {
         }.withMargins(bottom = 14))
         scroll.addView(sectionHeader(1, str(R.string.vpn0wn_section_health), str(server.status.labelRes)))
         scroll.addView(panel {
-            configLine(str(R.string.vpn0wn_label_endpoint), "${server.endpoint}:${server.port}", copy = true)
+            configLine(str(R.string.vpn0wn_label_endpoint), server.endpointAddress ?: "—", copy = server.endpointAddress != null)
             configLine(str(R.string.vpn0wn_label_distro), server.distro)
             configLine(str(R.string.vpn0wn_label_engine), server.engine)
             configLine(str(R.string.vpn0wn_label_uptime), server.uptime)
@@ -377,7 +393,7 @@ class VpsProvisioningFragment : BaseFragment() {
                 addUser(server)
             }.apply {
                 id = R.id.vpn0wn_vps_add_user
-                isEnabled = canAddUser(server.id)
+                isEnabled = canManageUsers(server.id)
             })
             if (provisionState.statusSnapshots[server.id]?.status?.serverPublicKey == null)
                 addView(mono(str(R.string.vpn0wn_user_identity_required), 11, R.color.vpn0wn_ink_3).apply { setPadding(dp(14)) })
@@ -386,7 +402,7 @@ class VpsProvisioningFragment : BaseFragment() {
         scroll.addView(panel {
             configLine(str(R.string.vpn0wn_metric_cidr), server.cidr)
             configLine(str(R.string.vpn0wn_label_dns), server.dns)
-            configLine(str(R.string.vpn0wn_label_listen_port), "UDP ${server.port}")
+            configLine(str(R.string.vpn0wn_label_listen_port), server.port?.let { "UDP $it" } ?: "—")
             configLine(str(R.string.vpn0wn_label_engine), server.engine)
         })
         scroll.addView(sectionHeader(4, str(R.string.vpn0wn_section_actions), str(R.string.vpn0wn_hint_remote)))
@@ -645,7 +661,7 @@ class VpsProvisioningFragment : BaseFragment() {
         scroll.addView(panel {
             configLine(str(R.string.vpn0wn_label_server), server.name)
             configLine(str(R.string.vpn0wn_label_public_key), user.key, copy = true)
-            configLine(str(R.string.vpn0wn_label_endpoint), "${server.endpoint}:${server.port}")
+            configLine(str(R.string.vpn0wn_label_endpoint), server.endpointAddress ?: "—")
             configLine(str(R.string.vpn0wn_label_dns), server.dns)
             configLine(str(R.string.vpn0wn_label_allowed), user.allowedIps)
         })
@@ -657,8 +673,8 @@ class VpsProvisioningFragment : BaseFragment() {
             VpsDeployAction(R.drawable.ic_vpn0wn_refresh, str(R.string.vpn0wn_action_rotate_key), str(R.string.vpn0wn_action_rotate_key_sub), R.color.vpn0wn_ink, user.status == VpsDeployUserStatus.REVOKED) {
                 toast(str(R.string.vpn0wn_peer_mutation_unavailable))
             },
-            VpsDeployAction(R.drawable.ic_vpn0wn_trash, str(R.string.vpn0wn_action_revoke), str(R.string.vpn0wn_action_revoke_sub), R.color.vpn0wn_error, user.status == VpsDeployUserStatus.REVOKED) {
-                toast(str(R.string.vpn0wn_peer_mutation_unavailable))
+            VpsDeployAction(R.drawable.ic_vpn0wn_trash, str(R.string.vpn0wn_action_remove_user), str(R.string.vpn0wn_action_remove_user_sub), R.color.vpn0wn_error, !canManageUsers(server.id)) {
+                requestRemoveUser(server, user)
             },
         )))
         scroll.addView(rowButton(str(R.string.vpn0wn_profile_import)) { requestProfileAction(server, user, ProfileUse.IMPORT) }
@@ -1235,6 +1251,7 @@ class VpsProvisioningFragment : BaseFragment() {
                 isEnabled = !provisionState.busy
             })
         addUserCreationStatus(parent)
+        addUserRemovalStatus(parent)
     }
 
     private fun problemText(problem: Problem): String = str(when (problem) {
@@ -1249,28 +1266,112 @@ class VpsProvisioningFragment : BaseFragment() {
         Problem.INSTALL_FAILED -> R.string.vpn0wn_apply_failed
         Problem.INSTALL_PENDING -> R.string.vpn0wn_apply_uncertain
         Problem.ADD_PENDING -> R.string.vpn0wn_user_add_pending
+        Problem.REMOVE_PENDING -> R.string.vpn0wn_user_remove_uncertain
+        Problem.PEER_CHANGED -> R.string.vpn0wn_user_remove_changed
         Problem.IDENTITY_UNAVAILABLE -> R.string.vpn0wn_user_identity_required
         Problem.PROFILE_UNAVAILABLE -> R.string.vpn0wn_profile_unavailable
     })
 
     private fun ownsServerFeedback(owner: StoredVpsServer?): Boolean {
-        val selectedServerId = (screen as? Screen.Detail)?.serverId ?: provisionState.serverId.takeIf { screen is Screen.Provision }
+        val selectedServerId = (screen as? Screen.Detail)?.serverId ?: (screen as? Screen.User)?.serverId ?:
+            provisionState.serverId.takeIf { screen is Screen.Provision }
         val current = storedServers.singleOrNull { it.id == selectedServerId } ?: return false
         return owner != null && owner.id == current.id && owner.host == current.host &&
             owner.sshPort == current.sshPort && owner.sshUser == current.sshUser
     }
 
-    private fun canAddUser(serverId: String): Boolean {
+    private fun canManageUsers(serverId: String): Boolean {
         val stored = storedServers.find { it.id == serverId } ?: return false
         val snapshot = provisionState.statusSnapshots[serverId]
         return !provisionState.busy && snapshot?.matches(stored) == true && snapshot.status.serverPublicKey != null &&
-            !(provisionState.serverId == serverId && (provisionState.pendingAdd || provisionState.pendingInstall))
+            !(provisionState.serverId == serverId && (provisionState.pendingAdd || provisionState.pendingInstall || provisionState.pendingRemove))
+    }
+
+    private data class RemoveUserAction(val server: StoredVpsServer, val name: String, val publicKey: String)
+
+    private fun requestRemoveUser(server: VpsDeployServer, user: VpsDeployUser) {
+        if (!canManageUsers(server.id)) return
+        val stored = storedServers.singleOrNull { it.id == server.id } ?: return
+        retireProfileAction()
+        retireRemoveUserAction()
+        removeUserAction = RemoveUserAction(stored, user.name, user.key)
+        if (provision.requestRemoveUserConfirmation(stored, user.name, user.key) == null) retireRemoveUserAction()
+    }
+
+    private fun ownsRemoveUserAction(action: RemoveUserAction, requireStarted: Boolean = true): Boolean =
+        (screen as? Screen.User)?.let { it.serverId == action.server.id && it.userId == action.publicKey } == true &&
+            storedServers.singleOrNull { it.id == action.server.id } == action.server && view != null &&
+            (!requireStarted || viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
+
+    private fun showRemoveUserConfirmation(state: State) {
+        val action = removeUserAction ?: return
+        if (state.busy || removeUserDialog != null) return
+        val confirmation = state.removeConfirmation
+        if (!ownsRemoveUserAction(action) || confirmation == null || confirmation.server != action.server ||
+            confirmation.attempt.name != action.name || confirmation.attempt.clientPublicKey != action.publicKey) {
+            retireRemoveUserAction()
+            return
+        }
+        val attempt = confirmation.attempt
+        val sshHost = attempt.ssh.host.let { if (':' in it) "[$it]" else it }
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.vpn0wn_user_remove_title)
+            .setMessage(getString(R.string.vpn0wn_user_remove_confirmation, attempt.name, attempt.ssh.user,
+                sshHost, attempt.ssh.port, attempt.fingerprint, attempt.serverPublicKey, attempt.clientPublicKey))
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.vpn0wn_user_confirm_remove, null)
+            .create()
+        removeUserDialog = dialog
+        dialog.setOnDismissListener { if (removeUserDialog === dialog) retireRemoveUserAction() }
+        dialog.show()
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            if (!ownsRemoveUserAction(action) || removeUserDialog !== dialog || !dialog.isShowing ||
+                provisionState.removeConfirmation !== confirmation) return@setOnClickListener
+            removeUserAction = null
+            removeUserDialog = null
+            dialog.dismiss()
+            provision.confirmRemoveUser(confirmation)
+        }
+    }
+
+    private fun retireRemoveUserAction() {
+        removeUserAction = null
+        val dialog = removeUserDialog
+        removeUserDialog = null
+        dialog?.dismiss()
+        provision.dismissRemoveUserConfirmation()
+    }
+
+    // Local status padding preserves the existing action feedback layout.
+    @Suppress("MagicNumber")
+    private fun addUserRemovalStatus(parent: LinearLayout) {
+        val owner = provisionState.removalOwner ?: return
+        if (!ownsServerFeedback(owner) || provisionState.serverId != owner.id) return
+        val running = provisionState.statusSnapshots[owner.id]?.status?.running
+        val message = when (provisionState.removal) {
+            UserRemoval.NONE -> null
+            UserRemoval.CHECKING -> R.string.vpn0wn_user_remove_checking
+            UserRemoval.RUNNING -> R.string.vpn0wn_user_removing
+            UserRemoval.UNCERTAIN -> R.string.vpn0wn_user_remove_uncertain
+            UserRemoval.REMOVED -> if (running == false) R.string.vpn0wn_user_removed_stopped else R.string.vpn0wn_user_removed
+            UserRemoval.OBSERVED -> if (running == false) R.string.vpn0wn_user_remove_observed_stopped else R.string.vpn0wn_user_remove_observed
+        }
+        if (message != null) parent.addView(mono(str(message), 11, R.color.vpn0wn_ink_2).apply {
+            id = R.id.vpn0wn_vps_user_removal_status
+            accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+            setPadding(dp(14), dp(8), dp(14), dp(8))
+        })
+        if (provisionState.pendingRemove) parent.addView(rowButton(str(R.string.vpn0wn_user_remove_reconcile), R.drawable.ic_vpn0wn_refresh) {
+            storedServers.singleOrNull { it.id == owner.id }?.let { provision.reconcileRemoveUser(it) }
+        }.apply { id = R.id.vpn0wn_vps_reconcile_removal; isEnabled = !provisionState.busy })
+        if (provisionState.busy && provisionState.removal != UserRemoval.NONE)
+            parent.addView(rowButton(str(R.string.vpn0wn_close_connection), R.drawable.ic_vpn0wn_refresh) { provision.cancelOperation() })
     }
 
     // Literal spacing and text sizes reuse the existing native form treatment.
     @Suppress("MagicNumber")
     private fun addUser(server: VpsDeployServer) {
-        if (!canAddUser(server.id) || !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
+        if (!canManageUsers(server.id) || !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
         val stored = storedServers.find { it.id == server.id } ?: return
         retireAddUserAction()
         val action = AddUserAction(stored)
@@ -1320,7 +1421,7 @@ class VpsProvisioningFragment : BaseFragment() {
         val action = addUserAction ?: return false
         if (action.name == null || addUserDialog != null || !ownsAddUserAction(action) || state.serverId != action.server.id) return false
         root.findViewById<LinearLayout>(R.id.vpn0wn_vps_operation_status)?.let { renderOperationStatus(it) }
-        root.findViewById<View>(R.id.vpn0wn_vps_add_user)?.isEnabled = canAddUser(action.server.id)
+        root.findViewById<View>(R.id.vpn0wn_vps_add_user)?.isEnabled = canManageUsers(action.server.id)
         root.findViewById<View>(R.id.vpn0wn_vps_refresh_status)?.isEnabled = !state.busy
         if (state.busy) return true
         val confirmation = state.addConfirmation
@@ -1613,6 +1714,8 @@ class VpsProvisioningFragment : BaseFragment() {
                 id = fieldId
                 setText(value)
                 this.hint = hint
+                // Single-line setup replaces Android's password transformation.
+                setSingleLine(minLines == 1)
                 this.inputType = inputType
                 isSaveEnabled = false
                 isEnabled = !provisionState.busy
@@ -1620,7 +1723,6 @@ class VpsProvisioningFragment : BaseFragment() {
                 this.textSize = textSize.toFloat()
                 setTextColor(color(R.color.vpn0wn_ink))
                 setHintTextColor(color(R.color.vpn0wn_ink_3))
-                setSingleLine(minLines == 1)
                 this.minLines = minLines
                 gravity = if (minLines > 1) Gravity.TOP else Gravity.CENTER_VERTICAL
                 background = rounded(R.color.vpn0wn_paper_3, R.color.vpn0wn_rule_strong, dp(4))
