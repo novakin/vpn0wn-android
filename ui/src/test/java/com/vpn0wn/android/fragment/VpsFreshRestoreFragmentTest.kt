@@ -479,12 +479,15 @@ class VpsFreshRestoreFragmentTest {
             requireNotNull(fixture.model.inspectBackup(document, VpsFreshRestoreWorkflowTest.PASSWORD.toCharArray())).join()
             fixture.peer.verifyRestoreFailure = null
             requireNotNull(fixture.model.reconcileRestore(destination, restore)).join()
-            val restored = store.servers.first().single { it.id == destination.id }
+            val restored = store.servers.first().single { it.id == destination.id }.copy(lastSyncEpochSeconds = 1L)
+            store.upsert(restored)
             fixture.peer.statusOutput = serverStatus(restored)
             requireNotNull(fixture.model.syncStatus(restored)).join()
             settle()
+            val refreshed = store.servers.first().single { it.id == destination.id }
+            assertTrue(refreshed.lastSyncEpochSeconds > restored.lastSyncEpochSeconds)
             assertEquals(destination.id, fixture.model.state.value.serverId)
-            assertNull(store.pendingRestore(restored))
+            assertNull(store.pendingRestore(refreshed))
             assertTrue(fixture.root.findViewById<View>(R.id.vpn0wn_vps_add_user).isEnabled)
             val retained = store.servers.first().single { it.id == legacy.id }
             if (installation) {
