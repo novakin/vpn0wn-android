@@ -118,6 +118,7 @@ class VpsProvisioningViewModel internal constructor(
         val rotationAttempt: PendingVpsRotate? = null,
         val backupSummary: BackupSummary? = null,
         val backupFailure: BackupFailure? = null,
+        val backupComparison: VpsBackupComparison? = null,
         val restore: RestoreState? = null,
     )
 
@@ -316,7 +317,8 @@ class VpsProvisioningViewModel internal constructor(
         if (mutableState.value.busy) return null
         inspectedBackup = null
         val owned = password.copyOf()
-        val job = operate(requireActive = false, initialState = mutableState.value.copy(backupSummary = null, backupFailure = null)) {
+        val job = operate(requireActive = false, initialState = mutableState.value.copy(backupSummary = null, backupFailure = null,
+            backupComparison = null)) {
             var archive: ByteArray? = null
             try {
                 val bytes = document.read()
@@ -355,7 +357,39 @@ class VpsProvisioningViewModel internal constructor(
 
     fun clearBackupInspection() {
         inspectedBackup = null
-        mutableState.value = mutableState.value.copy(backupSummary = null, backupFailure = null)
+        mutableState.value = mutableState.value.copy(backupSummary = null, backupFailure = null, backupComparison = null)
+    }
+
+    fun compareBackup(savedServer: StoredVpsServer, validateOwner: () -> Unit): Job? {
+        val source = inspectedBackup ?: return null
+        return operate(requireActive = false,
+            initialState = mutableState.value.copy(serverId = savedServer.id, backupComparison = null)) {
+            requireInspectedBackup(source, validateOwner)
+            val expectedKey = backupPublicKey(source.snapshot)
+            if (source.snapshot.interfaceName != DEFAULT_INTERFACE || expectedKey == null) throw invalidBackupResponse()
+            val connection = store.loadConnection(savedServer) ?: run {
+                mutableState.value = mutableState.value.copy(problem = Problem.ACCESS_MISSING)
+                return@operate
+            }
+            val fingerprint = requireNotNull(connection.hostKeyFingerprint)
+            val observed = try {
+                store.checkAddOwner(savedServer, fingerprint)
+                requireInspectedBackup(source, validateOwner)
+                client.backup(connection)
+            } finally {
+                (connection.credential as? VpsCredential.Password)?.clear()
+            }
+            currentCoroutineContext().ensureActive()
+            store.checkAddOwner(savedServer, fingerprint)
+            requireInspectedBackup(source, validateOwner)
+            if (observed.interfaceName != DEFAULT_INTERFACE || backupPublicKey(observed) != expectedKey) throw invalidBackupResponse()
+            mutableState.value = mutableState.value.copy(backupComparison = VpsBackupComparison.compare(source.snapshot, observed))
+        }
+    }
+
+    private fun requireInspectedBackup(source: RestoreSource, validateOwner: () -> Unit) {
+        validateOwner()
+        if (inspectedBackup !== source) throw VpsServerStore.ServerChangedException()
     }
 
     fun beginRestoreFromInspection(): Boolean {
@@ -1528,7 +1562,7 @@ class VpsProvisioningViewModel internal constructor(
         reviewedRotation = null
         mutableState.value = mutableState.value.copy(active = false, detect = null, plan = null, usingSavedAccess = false,
             addConfirmation = null, removeConfirmation = null, rotateConfirmation = null,
-            backupSummary = null, backupFailure = null, restore = mutableState.value.restore?.takeIf { it.attempt != null }
+            backupSummary = null, backupFailure = null, backupComparison = null, restore = mutableState.value.restore?.takeIf { it.attempt != null }
                 ?.copy(plan = null, outcome = RestoreOutcome.UNCERTAIN))
     }
 

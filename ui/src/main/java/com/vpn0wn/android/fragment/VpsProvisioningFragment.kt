@@ -93,6 +93,7 @@ import com.vpn0wn.android.provisioning.VpsServerStatus
 import com.vpn0wn.android.provisioning.VpsBackupArchive
 import com.vpn0wn.android.provisioning.VpsBackupArchiveException
 import com.vpn0wn.android.provisioning.VpsBackupDocument
+import com.vpn0wn.android.provisioning.VpsBackupComparison
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.BackupFailure
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.BackupSummary
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.RestoreOutcome
@@ -500,6 +501,10 @@ class VpsProvisioningFragment : BaseFragment() {
         if (provisionState.statusSnapshots[server.id]?.status?.serverPublicKey == null)
             scroll.addView(mono(str(R.string.vpn0wn_backup_identity_required), 11, R.color.vpn0wn_ink_3).apply { setPadding(dp(14)) })
         storedServers.find { it.id == server.id }?.let { stored ->
+            scroll.addView(rowButton(str(R.string.vpn0wn_backup_compare), R.drawable.ic_vpn0wn_file) { requestBackupImport(stored) }.apply {
+                id = R.id.vpn0wn_vps_compare_backup
+                isEnabled = !provisionState.busy && backupImportAction == null && !backupPickerOutstanding
+            })
             val checking = provisionState.busy && provisionState.serverId == stored.id
             scroll.addView(rowButton(str(if (checking) R.string.vpn0wn_cancel_check else R.string.vpn0wn_refresh_server),
                 if (checking) R.drawable.ic_vpn0wn_close else R.drawable.ic_vpn0wn_refresh) {
@@ -1074,7 +1079,8 @@ class VpsProvisioningFragment : BaseFragment() {
 
     private fun requestBackupImport(server: StoredVpsServer? = null, attempt: PendingVpsRestore? = null) {
         val ownerScreen = server?.let { Screen.Detail(it.id) } ?: Screen.Fleet
-        if (screen != ownerScreen || provisionState.busy || backupImportAction != null || backupPickerOutstanding ||
+        if (screen != ownerScreen || server != null && storedServers.singleOrNull { it.id == server.id } != server ||
+            provisionState.busy || backupImportAction != null || backupPickerOutstanding ||
             !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return
         val action = BackupImportAction(requireView()).apply {
             this.ownerScreen = ownerScreen
@@ -1159,10 +1165,15 @@ class VpsProvisioningFragment : BaseFragment() {
             .setNegativeButton(R.string.cancel, null).setPositiveButton(R.string.vpn0wn_backup_unlock, null).create()
         backupImportDialog = dialog
         dialog.setOnDismissListener { if (backupImportDialog === dialog) retireBackupImport() }
+        dialog.setOnCancelListener { if (backupImportDialog === dialog) retireBackupImport() }
         dialog.show()
         dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener {
+            if (backupImportDialog === dialog) retireBackupImport()
+        }
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-            if (!ownsBackupImport(action) || provisionState.busy || backupImportJob?.isActive == true) return@setOnClickListener
+            if (!ownsBackupImport(action) || backupImportDialog !== dialog || !dialog.isShowing || provisionState.busy ||
+                backupImportJob?.isActive == true) return@setOnClickListener
             val owned = CharArray(password.length()).also { password.text.getChars(0, password.length(), it, 0) }
             try {
                 password.text.clear()
@@ -1185,7 +1196,7 @@ class VpsProvisioningFragment : BaseFragment() {
                 owned.fill('\u0000')
                 access?.join()
                 if (!ownsBackupImport(action)) return@launch
-                val summary = provisionState.backupSummary
+                val summary = provision.state.value.backupSummary
                 if (summary != null && action.attempt != null && action.server != null) {
                     access = provision.reconcileRestore(requireNotNull(action.server), requireNotNull(action.attempt))
                     access?.join()
@@ -1228,26 +1239,43 @@ class VpsProvisioningFragment : BaseFragment() {
     @Suppress("MagicNumber")
     private fun showBackupSummary(summary: BackupSummary) {
         val action = backupImportAction ?: return
+        action.summary = summary
+        val comparing = action.server != null && action.attempt == null
         val content = vertical().apply {
             setPadding(dp(24), 0, dp(24), dp(8))
-            addView(mono(str(R.string.vpn0wn_backup_inspection_note), 11, R.color.vpn0wn_ink_2))
+            addView(mono(str(if (comparing) R.string.vpn0wn_backup_comparison_note else R.string.vpn0wn_backup_inspection_note),
+                11, R.color.vpn0wn_ink_2))
+            if (comparing) configLine(str(R.string.vpn0wn_backup_comparison_server), requireNotNull(action.server).name, wrap = true)
             configLine(str(R.string.vpn0wn_backup_captured), summary.capturedAtUtc, wrap = true)
             configLine(str(R.string.vpn0wn_backup_interface), summary.interfaceName)
             configLine(str(R.string.vpn0wn_backup_version), summary.version.toString())
             configLine(str(R.string.vpn0wn_backup_revoked_count), summary.revokedCount.toString())
             configLine(str(R.string.vpn0wn_backup_public_identity), summary.serverPublicKey ?: str(R.string.vpn0wn_backup_identity_unavailable), wrap = true)
+            if (comparing) addView(mono("", 11, R.color.vpn0wn_ink_2).apply {
+                id = R.id.vpn0wn_backup_comparison_progress
+                visibility = View.GONE
+                accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+            })
         }
         val dialog = MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.vpn0wn_backup_unlocked)
             .setView(ScrollView(requireContext()).apply { addView(content) }).setNegativeButton(R.string.vpn0wn_close, null)
-            .setPositiveButton(R.string.vpn0wn_restore_action, null).create()
+            .setPositiveButton(if (comparing) R.string.vpn0wn_backup_compare_action else R.string.vpn0wn_restore_action, null).create()
         backupImportDialog = dialog
         dialog.setOnDismissListener { if (backupImportDialog === dialog) retireBackupImport() }
+        dialog.setOnCancelListener { if (backupImportDialog === dialog) retireBackupImport() }
         dialog.show()
         dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener {
+            if (backupImportDialog === dialog) retireBackupImport()
+        }
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).apply {
             isEnabled = summary.serverPublicKey != null
             setOnClickListener {
                 if (!ownsBackupImport(action) || backupImportDialog !== dialog || !dialog.isShowing) return@setOnClickListener
+                if (comparing) {
+                    compareBackup(action, dialog)
+                    return@setOnClickListener
+                }
                 if (!provision.beginRestoreFromInspection()) return@setOnClickListener
                 backupImportDialog = null
                 backupImportAction = null
@@ -1259,8 +1287,76 @@ class VpsProvisioningFragment : BaseFragment() {
         }
     }
 
+    private fun compareBackup(action: BackupImportAction, dialog: AlertDialog) {
+        if (provisionState.busy || backupImportJob?.isActive == true) return
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
+        dialog.findViewById<TextView>(R.id.vpn0wn_backup_comparison_progress)?.apply {
+            setText(R.string.vpn0wn_backup_comparing)
+            visibility = View.VISIBLE
+        }
+        backupImportJob = viewLifecycleOwner.lifecycleScope.launch {
+            var access: Job? = null
+            try {
+                access = provision.compareBackup(requireNotNull(action.server)) {
+                    if (!ownsBackupImport(action) || backupImportDialog !== dialog || !dialog.isShowing)
+                        throw com.vpn0wn.android.provisioning.VpsServerStore.ServerChangedException()
+                }
+                access?.join()
+                if (!ownsBackupImport(action) || backupImportDialog !== dialog || !dialog.isShowing) return@launch
+                val result = provision.state.value.backupComparison
+                if (result != null) {
+                    backupImportDialog = null
+                    dialog.dismiss()
+                    showBackupComparison(action, result)
+                } else {
+                    dialog.findViewById<TextView>(R.id.vpn0wn_backup_comparison_progress)?.text =
+                        provision.state.value.problem?.let(::problemText) ?: str(R.string.vpn0wn_backup_compare_failed)
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = true
+                }
+            } finally {
+                withContext(NonCancellable) { access?.cancelAndJoin() }
+                if (backupImportAction === action) backupImportJob = null
+            }
+        }
+    }
+
+    // Native dialog insets preserve the existing summary geometry at enlarged text sizes.
+    @Suppress("MagicNumber")
+    private fun showBackupComparison(action: BackupImportAction, comparison: VpsBackupComparison) {
+        action.comparison = comparison
+        val content = vertical().apply {
+            id = R.id.vpn0wn_backup_comparison_result
+            setPadding(dp(24), 0, dp(24), dp(8))
+            configLine(str(R.string.vpn0wn_backup_comparison_server), requireNotNull(action.server).name, wrap = true)
+            configLine(str(R.string.vpn0wn_backup_comparison_backup_time), comparison.backupCapturedAtUtc, wrap = true, direction = View.TEXT_DIRECTION_LTR)
+            configLine(str(R.string.vpn0wn_backup_comparison_server_time), comparison.observedAtUtc, wrap = true, direction = View.TEXT_DIRECTION_LTR)
+            configLine(str(R.string.vpn0wn_backup_comparison_config), str(if (comparison.configTextMatches)
+                R.string.vpn0wn_backup_comparison_match else R.string.vpn0wn_backup_comparison_different), wrap = true)
+            configLine(str(R.string.vpn0wn_backup_comparison_only_backup), comparison.onlyInBackup.joinToString("\n")
+                .ifEmpty { str(R.string.vpn0wn_backup_comparison_none) }, wrap = true, direction = View.TEXT_DIRECTION_LTR)
+            configLine(str(R.string.vpn0wn_backup_comparison_only_server), comparison.onlyOnObservedServer.joinToString("\n")
+                .ifEmpty { str(R.string.vpn0wn_backup_comparison_none) }, wrap = true, direction = View.TEXT_DIRECTION_LTR)
+            configLine(str(R.string.vpn0wn_backup_comparison_body_different), comparison.differentBodies.joinToString("\n")
+                .ifEmpty { str(R.string.vpn0wn_backup_comparison_none) }, wrap = true, direction = View.TEXT_DIRECTION_LTR)
+            addView(mono(str(R.string.vpn0wn_backup_comparison_note), 11, R.color.vpn0wn_ink_2))
+        }
+        val dialog = MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.vpn0wn_backup_comparison_title)
+            .setView(ScrollView(requireContext()).apply { addView(content) }).setNegativeButton(R.string.vpn0wn_close, null).create()
+        backupImportDialog = dialog
+        dialog.setOnDismissListener { if (backupImportDialog === dialog) retireBackupImport() }
+        dialog.setOnCancelListener { if (backupImportDialog === dialog) retireBackupImport() }
+        dialog.show()
+        dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener {
+            if (backupImportDialog === dialog) retireBackupImport()
+        }
+    }
+
     private fun ownsBackupImport(action: BackupImportAction, requireStarted: Boolean = true): Boolean =
         backupImportAction === action && view === action.ownerView && screen == action.ownerScreen &&
+            (action.server == null || storedServers.singleOrNull { it.id == action.server?.id } == action.server) &&
+            (action.summary == null || provision.state.value.backupSummary === action.summary) &&
+            (action.comparison == null || provision.state.value.backupComparison === action.comparison) &&
             (!requireStarted || viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED))
 
     private fun retireBackupImport() {
@@ -1276,6 +1372,7 @@ class VpsProvisioningFragment : BaseFragment() {
         dialog?.dismiss()
         provision.clearBackupInspection()
         view?.findViewById<View>(R.id.vpn0wn_vps_import_backup)?.isEnabled = !provisionState.busy && !backupPickerOutstanding
+        view?.findViewById<View>(R.id.vpn0wn_vps_compare_backup)?.isEnabled = !provisionState.busy && !backupPickerOutstanding
     }
 
     private fun knownEndpointServerKey(serverId: String): String? {
@@ -2912,6 +3009,8 @@ class VpsProvisioningFragment : BaseFragment() {
         var ownerScreen: Screen = Screen.Fleet
         var server: StoredVpsServer? = null
         var attempt: PendingVpsRestore? = null
+        var summary: BackupSummary? = null
+        var comparison: VpsBackupComparison? = null
     }
 
     private data class AddUserAction(val server: StoredVpsServer, val name: String? = null)
