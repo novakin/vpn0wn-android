@@ -522,10 +522,17 @@ class TunnelRecoveryTest {
                 check(release.await(5, TimeUnit.SECONDS)) { "Native result fixture timed out" }
                 native(RecoveryResult.Outcome.TRANSPORT_FAILED)
             }
+            val admissionLock = TunnelManager::class.java.getDeclaredField("operationLock").apply { isAccessible = true }
+                .get(fixture.env.manager) as Mutex
+            val admissionOwner = Any()
+            admissionLock.lock(admissionOwner)
+            var queuedAdmissionRelease: Deferred<Unit>? = null
             try {
                 withContext(Dispatchers.Main.immediate) {
                     emit(fixture, 1)
-                    assertTrue(entered.await(5, TimeUnit.SECONDS))
+                    // Startup reconciliation can need another Main turn before recovery admission.
+                    queuedAdmissionRelease = async(Dispatchers.Main) { admissionLock.unlock(admissionOwner) }
+                    awaitCondition { entered.count == 0L }
                     val child = recoveryRequestField(fixture, "child") as Deferred<*>
                     release.countDown()
                     awaitWithoutPumping { child.isCompleted }
@@ -538,6 +545,8 @@ class TunnelRecoveryTest {
                 assertFalse(result.automaticRecoveryDisabled)
                 assertEquals(1, NativeShadow.startupCalls)
             } finally {
+                queuedAdmissionRelease?.cancel()
+                if (admissionLock.holdsLock(admissionOwner)) admissionLock.unlock(admissionOwner)
                 release.countDown()
             }
         }
