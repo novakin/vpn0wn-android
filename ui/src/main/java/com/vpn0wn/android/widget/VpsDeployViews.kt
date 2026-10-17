@@ -30,11 +30,8 @@ class VpsTopologyView(context: Context) : View(context) {
         fontFeatureSettings = "ss01, zero, tnum"
     }
     private val monoTypeface = ResourcesCompat.getFont(context, R.font.jetbrains_mono_regular) ?: Typeface.MONOSPACE
-    private val metadataLabels = listOf(context.getString(R.string.vpn0wn_label_server),
-        context.getString(R.string.vpn0wn_label_endpoint), context.getString(R.string.vpn0wn_metric_cidr))
     private val deviceSublabel = context.getString(R.string.vpn0wn_hint_device).lowercase()
     private val wanSublabel = context.getString(R.string.vpn0wn_node_internet)
-    private var metadataValues = emptyList<String>()
     private var serverSublabel = ""
     private var server: VpsDeployServer? = null
     private var phase = 0f
@@ -82,9 +79,9 @@ class VpsTopologyView(context: Context) : View(context) {
         paint.color = color(R.color.vpn0wn_rule)
         val gridStep = dp(12)
         for (x in 0..w.toInt() step gridStep) {
-            for (y in 0..(h * 0.64f).toInt() step gridStep) canvas.drawPoint(x.toFloat(), y.toFloat(), paint)
+            for (y in 0..h.toInt() step gridStep) canvas.drawPoint(x.toFloat(), y.toFloat(), paint)
         }
-        val y = h * 0.32f
+        val y = h * 0.5f
         val xs = listOf(w * 0.12f, w * 0.5f, w * 0.88f)
         val lineColor = color(if (server.status == VpsDeployServerStatus.ATTENTION) R.color.vpn0wn_error else if (server.status == VpsDeployServerStatus.ONLINE) R.color.vpn0wn_signal_deep else R.color.vpn0wn_rule_strong)
         paint.color = lineColor
@@ -104,18 +101,6 @@ class VpsTopologyView(context: Context) : View(context) {
         node(canvas, xs[0], y, context.getString(R.string.vpn0wn_node_device), deviceSublabel, server.status == VpsDeployServerStatus.ONLINE, R.color.vpn0wn_signal_deep, false)
         node(canvas, xs[1], y, context.getString(R.string.vpn0wn_node_vps), serverSublabel, server.status != VpsDeployServerStatus.OFFLINE, server.status.colorRes, true)
         node(canvas, xs[2], y, context.getString(R.string.vpn0wn_node_wan), wanSublabel, server.status == VpsDeployServerStatus.ONLINE, R.color.vpn0wn_signal_deep, false)
-        val top = h * 0.66f
-        val cellW = w / 3f
-        metadataLabels.forEachIndexed { index, label ->
-            paint.style = Paint.Style.FILL
-            paint.typeface = monoTypeface
-            paint.textSize = dp(9).toFloat()
-            paint.color = color(R.color.vpn0wn_ink_3)
-            canvas.drawText(label, cellW * index + dp(10), top + dp(18), paint)
-            paint.textSize = dp(12).toFloat()
-            paint.color = color(R.color.vpn0wn_ink)
-            canvas.drawText(metadataValues[index], cellW * index + dp(10), top + dp(38), paint)
-        }
     }
 
     // Keep the existing diagram geometry and avoid text-fitting allocations during animation.
@@ -123,11 +108,6 @@ class VpsTopologyView(context: Context) : View(context) {
     private fun fitText() {
         val server = server ?: return
         paint.typeface = monoTypeface
-        paint.textSize = dp(12).toFloat()
-        val cellWidth = (width / 3f - dp(20)).coerceAtLeast(0f)
-        metadataValues = listOf(server.name, server.endpoint ?: "—", server.cidr).map {
-            TextUtils.ellipsize(it, paint, cellWidth, TextUtils.TruncateAt.END).toString()
-        }
         paint.textSize = dp(7).toFloat()
         val center = width * 0.5f
         val leftEdge = width * 0.12f + paint.measureText(deviceSublabel) / 2f
