@@ -26,6 +26,9 @@ class TunnelThroughputView @JvmOverloads constructor(
     attrs: AttributeSet? = null
 ) : View(context, attrs) {
     private val density = resources.displayMetrics.density
+    private val deviceLabel = context.getString(R.string.vpn0wn_node_device)
+    private val encryptedLabel = context.getString(R.string.vpn0wn_node_encrypted, "CHACHA20-POLY1305")
+    private val peerLabel = context.getString(R.string.vpn0wn_node_peer)
     private var signal = 0
     private var signalDeep = 0
     private var ink3 = 0
@@ -260,9 +263,9 @@ class TunnelThroughputView @JvmOverloads constructor(
         }
 
         // Node labels
-        drawNodeLabel(canvas, pathLeft, midY - dp(24f), "DEVICE", deviceAddress, Paint.Align.LEFT)
-        drawNodeLabel(canvas, (segmentLeft + segmentRight) / 2f, contentTop + dp(22f), "ENCRYPTED · CHACHA20-POLY1305", "MTU $mtu", Paint.Align.CENTER)
-        drawNodeLabel(canvas, pathRight, midY - dp(24f), "PEER", peerEndpoint, Paint.Align.RIGHT)
+        drawNodeLabel(canvas, pathLeft, midY - dp(24f), deviceLabel, deviceAddress, Paint.Align.LEFT)
+        drawNodeLabel(canvas, (segmentLeft + segmentRight) / 2f, contentTop + dp(22f), encryptedLabel, "MTU $mtu", Paint.Align.CENTER)
+        drawNodeLabel(canvas, pathRight, midY - dp(24f), peerLabel, peerEndpoint, Paint.Align.RIGHT)
 
         // Footer: ↓ / ↑
         canvas.drawText("↓ $rxRate", contentLeft, height - paddingBottom - dp(7f), textPaint)
