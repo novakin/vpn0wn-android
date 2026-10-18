@@ -14,6 +14,7 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.ScrollView
 import android.widget.TextView
+import androidx.core.content.res.ResourcesCompat
 import com.vpn0wn.android.R
 import com.vpn0wn.android.provisioning.VpsDeployFixtureData
 import com.vpn0wn.android.provisioning.VpsDeployMapper
@@ -115,6 +116,12 @@ class VpsHeaderLayoutTest {
                         else -> fixture.activity.getString(R.string.vpn0wn_deploy_server_title)
                     }
                     assertTrue("Current context title is preserved", descendants(bar).filterIsInstance<TextView>().any { it.text.toString() == title })
+                    if (name == "fleet" && case.id != "compact-rtl") {
+                        val expected = fixture.activity.getString(R.string.vpn0wn_servers_summary, 0, 0).uppercase(Locale.ROOT)
+                        val subtitle = descendants(bar).filterIsInstance<TextView>().single { it.text.toString() == expected }
+                        assertSame("Normal Fleet metadata retains its artwork column", logo.parent, subtitle.parent)
+                        assertTrue("Normal Fleet metadata stays below artwork", subtitle.top >= logo.bottom)
+                    }
                     for (text in descendants(bar).filterIsInstance<TextView>()) {
                         assertFullyVisible(text)
                         val nativeLayout = requireNotNull(text.layout)
@@ -131,6 +138,103 @@ class VpsHeaderLayoutTest {
             } finally {
                 fixture.close()
             }
+        }
+    }
+
+    @Test fun compactFleetMetadataKeepsWordsWholeAtEnlargedText() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val qualifiers = RuntimeEnvironment.getQualifiers()
+        val fontScale = resources.configuration.fontScale
+        val locale = Locale.getDefault()
+        val case = Preview("fleet-h4-compact-rtl", "ar-rSA-w320dp-h562dp-port-notnight-mdpi", 320, 562, 2f, View.LAYOUT_DIRECTION_RTL)
+        try {
+            RuntimeEnvironment.setQualifiers(case.qualifiers)
+            RuntimeEnvironment.setFontScale(case.fontScale)
+            RuntimeEnvironment.setQualifiers("+ldrtl")
+            val fixture = provisioningLayoutFixture(folder, case.direction)
+            try {
+                fixture.activity.supportActionBar?.hide()
+                val screen = VpsProvisioningFragment::class.java.getDeclaredMethod("fleetScreen")
+                    .apply { isAccessible = true }.invoke(fixture.fragment) as View
+                fixture.root.removeAllViews()
+                fixture.root.addView(screen, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+                runCurrent()
+                layout(fixture.root.rootView, case)
+                assertEquals("Native content width", case.width, fixture.root.width)
+                assertEquals("Native content height", case.height, fixture.root.height)
+                assertEquals("ar", fixture.root.resources.configuration.locales[0].language)
+                assertEquals(case.fontScale, fixture.root.resources.configuration.fontScale, 0f)
+                assertEquals(case.direction, fixture.root.layoutDirection)
+                assertEquals(case.direction, fixture.root.resources.configuration.layoutDirection)
+                assertEquals(Configuration.UI_MODE_NIGHT_NO,
+                    fixture.root.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)
+                val logo = requireNotNull(screen.findViewById<ImageView>(R.id.vpn0wn_vps_wordmark))
+                val row = logo.parent.parent as ViewGroup
+                val bar = row.parent as ViewGroup
+                assertEquals("vpn0wn", logo.contentDescription.toString())
+                assertFalse("The wordmark is not a navigation control", logo.isClickable)
+                assertFalse("The approved artwork never mirrors", requireNotNull(logo.drawable).isAutoMirrored)
+                assertEquals(logo.resources.getDimensionPixelSize(R.dimen.vpnown_home_wordmark_height), logo.height)
+                assertEquals(730f / 206f, logo.width.toFloat() / logo.height, 1f / logo.height)
+                assertFullyVisible(logo)
+                val expected = fixture.activity.getString(R.string.vpn0wn_servers_summary, 0, 0).uppercase(Locale.ROOT)
+                val subtitle = descendants(bar).filterIsInstance<TextView>().single { it.text.toString() == expected }
+                assertEquals(expected, subtitle.text.toString())
+                assertFullyVisible(subtitle)
+                assertEquals(ResourcesCompat.getFont(subtitle.context, R.font.jetbrains_mono_regular), subtitle.typeface)
+                assertEquals("ss01, zero, tnum", subtitle.fontFeatureSettings)
+                assertEquals(10f * subtitle.resources.displayMetrics.scaledDensity, subtitle.textSize, 0.01f)
+                assertEquals(0.08f, subtitle.letterSpacing, 0f)
+                assertFalse("Metadata does not synthesize bold", subtitle.paint.isFakeBoldText)
+                val nativeLayout = requireNotNull(subtitle.layout)
+                assertTrue("Metadata has native lines", nativeLayout.lineCount > 0)
+                assertEquals("Complete metadata is laid out", expected.length, nativeLayout.getLineEnd(nativeLayout.lineCount - 1))
+                assertTrue("Complete metadata height", nativeLayout.height <= subtitle.height - subtitle.compoundPaddingTop - subtitle.compoundPaddingBottom)
+                for (line in 0 until nativeLayout.lineCount) {
+                    assertEquals("Metadata is not ellipsized", 0, nativeLayout.getEllipsisCount(line))
+                }
+                val logoBounds = Rect().also(logo::getDrawingRect)
+                bar.offsetDescendantRectToMyCoords(logo, logoBounds)
+                val subtitleBounds = Rect().also(subtitle::getDrawingRect)
+                bar.offsetDescendantRectToMyCoords(subtitle, subtitleBounds)
+                val buttons = descendants(row).filterIsInstance<ImageButton>().toList()
+                assertEquals(listOf(R.string.vpn0wn_navigate_back, R.string.vpn0wn_logs_title, R.string.settings)
+                    .map(fixture.activity::getString), buttons.map { it.contentDescription.toString() })
+                for ((index, button) in buttons.withIndex()) {
+                    assertEquals(48 * button.resources.displayMetrics.density, button.width.toFloat(), 0f)
+                    assertEquals(48 * button.resources.displayMetrics.density, button.height.toFloat(), 0f)
+                    assertFullyVisible(button)
+                    val bounds = Rect().also(button::getDrawingRect)
+                    bar.offsetDescendantRectToMyCoords(button, bounds)
+                    assertFalse("Header actions do not overlap artwork", Rect.intersects(bounds, logoBounds))
+                    assertFalse("Header actions do not overlap metadata", Rect.intersects(bounds, subtitleBounds))
+                    for (other in buttons.drop(index + 1)) {
+                        val otherBounds = Rect().also(other::getDrawingRect)
+                        bar.offsetDescendantRectToMyCoords(other, otherBounds)
+                        assertFalse("Header action targets do not overlap", Rect.intersects(bounds, otherBounds))
+                    }
+                }
+                val title = descendants(bar).filterIsInstance<TextView>().single {
+                    it.text.toString() == fixture.activity.getString(R.string.vpn0wn_servers_title).lowercase(Locale.ROOT)
+                }
+                assertFullyVisible(title)
+                capture(fixture.root, case.id)
+                for (line in 0 until nativeLayout.lineCount - 1) {
+                    val end = nativeLayout.getLineEnd(line)
+                    assertTrue("Fleet metadata keeps words whole: $expected",
+                        end in 1 until expected.length && (expected[end - 1].isWhitespace() || expected[end].isWhitespace()))
+                }
+                assertEquals("Compact metadata spans bar content width", bar.width - bar.paddingLeft - bar.paddingRight, subtitle.width)
+                assertEquals("Compact metadata starts at bar content edge", bar.paddingLeft, subtitleBounds.left)
+                assertTrue("Compact metadata sits below artwork and actions", subtitleBounds.top >= row.bottom)
+                assertTrue("Current context title stays below metadata", title.top >= subtitleBounds.bottom)
+            } finally {
+                fixture.close()
+            }
+        } finally {
+            RuntimeEnvironment.setQualifiers(qualifiers)
+            RuntimeEnvironment.setFontScale(fontScale)
+            Locale.setDefault(locale)
         }
     }
 
