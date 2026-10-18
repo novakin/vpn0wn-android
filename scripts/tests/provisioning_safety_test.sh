@@ -1896,6 +1896,80 @@ test_restore_same_server_owns_only_exact_interface_resources() {
   assert_success
 }
 
+test_restore_same_server_rejects_custom_owned_routes() {
+  local variant route
+  for variant in table gateway scope type duplicate local-duplicate attribute; do
+    (
+      setup
+      same_server_restore_source
+      case "$variant" in
+        table) route='10.9.0.0/24 dev wg0 table 123 proto kernel scope link src 10.9.0.1' ;;
+        gateway) route='10.9.0.0/24 via 192.0.2.1 dev wg0 proto kernel scope link src 10.9.0.1' ;;
+        scope) route='10.9.0.0/24 dev wg0 proto kernel scope host src 10.9.0.1' ;;
+        type) route='local 10.9.0.0/24 dev wg0 table local proto kernel scope host src 10.9.0.1' ;;
+        duplicate) route='10.9.0.0/24 dev wg0 proto kernel scope link src 10.9.0.1' ;;
+        local-duplicate) route=$'local 10.9.0.1 dev wg0 table local proto kernel scope host src 10.9.0.1\nlocal 10.9.0.1 dev wg0 table local proto kernel scope host src 10.9.0.1' ;;
+        attribute) route='10.9.0.0/24 dev wg0 proto kernel scope link src 10.9.0.1 mtu 1420' ;;
+      esac
+      printf '%s\n' "$route" > "$TEST_STATE/owned-extra-routes"
+      run_same_server_check
+      assert_failure postcondition_failed
+      assert_no_mutations
+      cmp -s "$WG_CONF" "$TEST_ROOT/before.conf"
+      diff -r "$TUNNL_DIR/revoked" "$TEST_ROOT/before.revoked"
+      ! grep -Eq 'PrivateKey|PresharedKey' "$TEST_ROOT/response" "$TEST_ROOT/stderr"
+    )
+  done
+}
+
+test_restore_same_server_accepts_native_managed_route_inventory() {
+  local main_table
+  for main_table in '' ' table main'; do
+    (
+      setup
+      same_server_restore_source
+      sed -i 's/10\.8\.0/10.9.0/g' "$RESTORE_INPUT/server.conf"
+      printf '10.9.0.0/24 dev wg0%s proto kernel scope link src 10.9.0.1\n' "$main_table" > "$TEST_STATE/owned-route-inventory"
+      cat >> "$TEST_STATE/owned-route-inventory" <<'ROUTES'
+broadcast 10.9.0.0 dev wg0 table local proto kernel scope link src 10.9.0.1
+local 10.9.0.1 dev wg0 table local proto kernel scope host src 10.9.0.1
+broadcast 10.9.0.255 dev wg0 table local proto kernel scope link src 10.9.0.1
+ROUTES
+      run_same_server_check --port 51820
+      assert_success
+      assert_no_mutations
+      read_same_server_review
+      run_same_server_restore --port 51820
+      assert_success
+      run_restore_verify --port 51820
+      assert_success
+      [[ $(cat "$WG_DIR/other.conf") == unrelated ]]
+    )
+  done
+}
+
+test_restore_same_server_rejects_custom_route_exemptions() {
+  local variant route
+  for variant in table gateway scope duplicate; do
+    (
+      setup
+      same_server_restore_source
+      sed -i 's/10\.8\.0/10.9.0/g' "$RESTORE_INPUT/server.conf"
+      case "$variant" in
+        table) route='10.9.0.0/24 dev wg0 table 123 proto kernel scope link src 10.9.0.1' ;;
+        gateway) route='10.9.0.0/24 via 192.0.2.1 dev wg0 proto kernel scope link src 10.9.0.1' ;;
+        scope) route='10.9.0.0/24 dev wg0 proto kernel scope host src 10.9.0.1' ;;
+        duplicate) route='10.9.0.0/24 dev wg0 proto kernel scope link src 10.9.0.1' ;;
+      esac
+      printf '%s\n' "$route" > "$TEST_STATE/ipv4-routes-root"
+      run_same_server_check
+      assert_failure subnet_in_use
+      assert_no_mutations
+      ! grep -Eq 'PrivateKey|PresharedKey' "$TEST_ROOT/response" "$TEST_ROOT/stderr"
+    )
+  done
+}
+
 test_restore_same_server_rechecks_resources_after_old_teardown() {
   same_server_restore_source
   printf 'UNCONN 0 0 0.0.0.0:51820 0.0.0.0:*\n' > "$TEST_STATE/udp-holders"
@@ -3349,6 +3423,9 @@ tests=(
   test_restore_same_server_rejects_stale_private_state_review
   test_restore_same_server_rejects_unowned_or_inconsistent_targets
   test_restore_same_server_owns_only_exact_interface_resources
+  test_restore_same_server_rejects_custom_owned_routes
+  test_restore_same_server_accepts_native_managed_route_inventory
+  test_restore_same_server_rejects_custom_route_exemptions
   test_restore_same_server_rechecks_resources_after_old_teardown
   test_restore_same_server_failure_boundaries_restore_complete_target
   test_restore_same_server_incomplete_rollback_retains_original_history

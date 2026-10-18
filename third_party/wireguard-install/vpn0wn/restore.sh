@@ -168,10 +168,30 @@ observed_ipv4_range() {
   IPV4_RANGE_LAST=$((IPV4_RANGE_FIRST | (0xffffffff ^ mask)))
 }
 
+classify_owned_restore_route() {
+  local owned_cidr=$2 owned_address=${3%/*}
+  local -a fields
+  read -r -a fields <<< "$1"
+  # Only these native address routes return when the managed interface is recreated.
+  case "${fields[*]}" in
+    "$owned_cidr dev $WG_IFACE proto kernel scope link src $owned_address"|\
+      "$owned_cidr dev $WG_IFACE table main proto kernel scope link src $owned_address")
+      RESTORE_ROUTE_KIND=connected ;;
+    "local $owned_address dev $WG_IFACE table local proto kernel scope host src $owned_address")
+      RESTORE_ROUTE_KIND=local ;;
+    "broadcast ${owned_cidr%/*} dev $WG_IFACE table local proto kernel scope link src $owned_address")
+      RESTORE_ROUTE_KIND=broadcast_first ;;
+    "broadcast ${owned_cidr%.0/*}.255 dev $WG_IFACE table local proto kernel scope link src $owned_address")
+      RESTORE_ROUTE_KIND=broadcast_last ;;
+    *) return 1 ;;
+  esac
+}
+
 require_unused_subnet() {
   local target_cidr=${1:-$cidr} owned_cidr=${2-} owned_address=${3-}
-  local target_first target_last addresses routes line selector prefix device protocol route_source field
+  local target_first target_last addresses routes line selector prefix RESTORE_ROUTE_KIND
   local -a fields
+  local -A owned_routes=()
   observed_ipv4_range "$target_cidr"
   target_first=$IPV4_RANGE_FIRST
   target_last=$IPV4_RANGE_LAST
@@ -187,6 +207,7 @@ require_unused_subnet() {
     [[ "$IPV4_RANGE_FIRST" -gt "$target_last" || "$IPV4_RANGE_LAST" -lt "$target_first" ]] || restore_resource_failure "subnet_in_use" "Restore IPv4 subnet is already in use." 73
   done <<< "$addresses"
   for selector in root match; do
+    owned_routes=()
     routes=$(ip -4 -o route show table all "$selector" "$target_cidr" 2>/dev/null) || restore_resource_failure "runtime_unknown" "Unable to determine IPv4 subnet use." 74
     while IFS= read -r line; do
       [[ -n "$line" ]] || continue
@@ -199,17 +220,9 @@ require_unused_subnet() {
       esac
       [[ "$prefix" != default ]] || prefix=0.0.0.0/0
       [[ "$prefix" == */* ]] || prefix+=/32
-      device=""
-      protocol=""
-      route_source=""
-      for ((field=0; field<${#fields[@]}-1; field++)); do
-        [[ ${fields[field]} != dev ]] || device=${fields[field+1]}
-        [[ ${fields[field]} != proto ]] || protocol=${fields[field+1]}
-        [[ ${fields[field]} != src ]] || route_source=${fields[field+1]}
-      done
-      if [[ -n "$owned_cidr" && "$device" == "$WG_IFACE" && "$protocol" == kernel && "$route_source" == "${owned_address%/*}" &&
-        ( "$prefix" == "$owned_cidr" || "$prefix" == "${owned_address%/*}/32" ||
-          "$prefix" == "${owned_cidr%/*}/32" || "$prefix" == "${owned_cidr%.0/*}.255/32" ) ]]; then
+      if [[ -n "$owned_cidr" ]] && classify_owned_restore_route "$line" "$owned_cidr" "$owned_address"; then
+        [[ -z ${owned_routes[$RESTORE_ROUTE_KIND]+x} ]] || restore_resource_failure "subnet_in_use" "Restore found ambiguous interface routes." 73
+        owned_routes[$RESTORE_ROUTE_KIND]=1
         continue
       fi
       observed_ipv4_range "$prefix"
@@ -266,8 +279,9 @@ require_absent_restore_interface() {
 }
 
 require_supported_running_network() {
-  local addresses routes line prefix device protocol route_source field count=0 connected=false
+  local addresses routes line RESTORE_ROUTE_KIND count=0 connected=false
   local -a fields
+  local -A owned_routes=()
   addresses=$(ip -o address show dev "$WG_IFACE" 2>/dev/null) || fail_json "runtime_unknown" "Unable to inspect current interface addresses." 74
   while IFS= read -r line; do
     [[ -n "$line" ]] || continue
@@ -280,23 +294,10 @@ require_supported_running_network() {
   routes=$(ip -4 -o route show table all dev "$WG_IFACE" 2>/dev/null) || fail_json "runtime_unknown" "Unable to inspect current interface routes." 74
   while IFS= read -r line; do
     [[ -n "$line" ]] || continue
-    read -r -a fields <<< "$line"
-    prefix=${fields[0]}
-    case "$prefix" in local|broadcast|unicast) prefix=${fields[1]-} ;; esac
-    [[ "$prefix" == */* ]] || prefix+=/32
-    device=""
-    protocol=""
-    route_source=""
-    for ((field=0; field<${#fields[@]}-1; field++)); do
-      [[ ${fields[field]} != dev ]] || device=${fields[field+1]}
-      [[ ${fields[field]} != proto ]] || protocol=${fields[field+1]}
-      [[ ${fields[field]} != src ]] || route_source=${fields[field+1]}
-    done
-    [[ "$device" == "$WG_IFACE" && "$protocol" == kernel && "$route_source" == "${server_address%/*}" &&
-      ( "$prefix" == "$cidr" || "$prefix" == "${server_address%/*}/32" ||
-        "$prefix" == "${cidr%/*}/32" || "$prefix" == "${cidr%.0/*}.255/32" ) ]] ||
+    classify_owned_restore_route "$line" "$cidr" "$server_address" && [[ -z ${owned_routes[$RESTORE_ROUTE_KIND]+x} ]] ||
       fail_json "postcondition_failed" "Current interface contains unsupported routes." 73
-    [[ "$prefix" != "$cidr" ]] || connected=true
+    owned_routes[$RESTORE_ROUTE_KIND]=1
+    [[ "$RESTORE_ROUTE_KIND" != connected ]] || connected=true
   done <<< "$routes"
   [[ "$connected" == true ]] || fail_json "postcondition_failed" "Current interface subnet route is absent." 73
   routes=$(ip -6 -o route show table all dev "$WG_IFACE" 2>/dev/null) || fail_json "runtime_unknown" "Unable to inspect current interface routes." 74

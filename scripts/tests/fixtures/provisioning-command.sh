@@ -66,6 +66,17 @@ start_runtime() {
   fi
 }
 
+owned_ipv4_routes() {
+  local own_cidr own_address
+  if [[ -f "$TEST_STATE/owned-route-inventory" ]]; then
+    cat "$TEST_STATE/owned-route-inventory"
+  else
+    own_cidr=$(awk '/^# TUNNL_CIDR / {print $3}' "$runtime_file")
+    own_address=$(cat "$address_file")
+    printf '%s dev wg0 proto kernel scope link src %s\n' "$own_cidr" "${own_address%/*}"
+  fi
+}
+
 case "$command_name" in
   wg)
     [[ ! -f "$TEST_STATE/wg-unavailable" ]] || exit 127
@@ -249,9 +260,7 @@ case "$command_name" in
       fi
     elif [[ "$*" == '-4 -o route show table all dev wg0' ]]; then
       if [[ -f "$TEST_STATE/owned-resource-observations" && -f "$runtime_file" ]]; then
-        own_cidr=$(awk '/^# TUNNL_CIDR / {print $3}' "$runtime_file")
-        own_address=$(cat "$address_file")
-        printf '%s dev wg0 proto kernel scope link src %s\n' "$own_cidr" "${own_address%/*}"
+        owned_ipv4_routes
       fi
       [[ ! -f "$TEST_STATE/owned-extra-routes" ]] || cat "$TEST_STATE/owned-extra-routes"
     elif [[ "$*" == '-6 -o route show table all dev wg0' ]]; then
@@ -260,9 +269,7 @@ case "$command_name" in
       route_file="$TEST_STATE/ipv4-routes-${7}"
       [[ ! -f "$route_file" ]] || cat "$route_file"
       if [[ -f "$TEST_STATE/owned-resource-observations" && -f "$runtime_file" ]]; then
-        own_cidr=$(awk '/^# TUNNL_CIDR / {print $3}' "$runtime_file")
-        own_address=$(cat "$address_file")
-        printf '%s dev wg0 proto kernel scope link src %s\n' "$own_cidr" "${own_address%/*}"
+        owned_ipv4_routes
       fi
     elif [[ " $* " == *' link show '* ]]; then
       printf '1: lo: <LOOPBACK> mtu 65536\n'
