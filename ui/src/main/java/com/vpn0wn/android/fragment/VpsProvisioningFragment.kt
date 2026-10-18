@@ -882,7 +882,10 @@ class VpsProvisioningFragment : BaseFragment() {
         dialog.setOnDismissListener { if (restoreDialog === dialog) retireRestoreConfirmation() }
         dialog.show()
         dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+        val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+        positiveButton.isSingleLine = false
+        positiveButton.ellipsize = null
+        positiveButton.setOnClickListener {
             if (restoreDialog !== dialog || view !== ownerView || !dialog.isShowing ||
                 !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) return@setOnClickListener
             restoreDialog = null
