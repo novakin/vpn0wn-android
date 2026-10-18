@@ -733,6 +733,7 @@
     <string name="vpn0wn_upload">↑ UPLOAD</string>
     <string name="vpn0wn_peer_title">PEER #%1$s</string>
     <string name="vpn0wn_no_peer">NO PEER</string>
+    <string name="vpn0wn_cipher_unbound">unbound</string>
     <string name="vpn0wn_no_psk">NO PSK</string>
     <string name="vpn0wn_address_pending">address pending</string>
     <string name="vpn0wn_endpoint_pending">endpoint pending</string>

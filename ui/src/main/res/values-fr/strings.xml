@@ -725,6 +725,7 @@
     <string name="vpn0wn_upload">↑ ENVOI</string>
     <string name="vpn0wn_peer_title">PAIR #%1$s</string>
     <string name="vpn0wn_no_peer">AUCUN PAIR</string>
+    <string name="vpn0wn_cipher_unbound">sans pair</string>
     <string name="vpn0wn_no_psk">AUCUNE PSK</string>
     <string name="vpn0wn_address_pending">adresse en attente</string>
     <string name="vpn0wn_endpoint_pending">point de terminaison en attente</string>

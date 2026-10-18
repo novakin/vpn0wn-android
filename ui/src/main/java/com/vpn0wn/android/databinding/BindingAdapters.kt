@@ -832,8 +832,8 @@ object BindingAdapters {
     }
 
     @JvmStatic
-    fun tunnelCipher(config: Config?): String {
-        val peer = config?.peers?.firstOrNull() ?: return "unbound"
+    fun tunnelCipher(context: Context, config: Config?): String {
+        val peer = config?.peers?.firstOrNull() ?: return context.getString(R.string.vpn0wn_cipher_unbound)
         return if (peer.preSharedKey.isPresent) "ChaCha20 + PSK" else "ChaCha20"
     }
 
@@ -921,7 +921,7 @@ object BindingAdapters {
             TunnelSignalView.TunnelMode.ERROR      -> R.color.vpn0wn_error
             TunnelSignalView.TunnelMode.DOWN       -> R.color.vpn0wn_ink_3
         })
-        view.text = SpannableString("$status · ${tunnelCipher(config)}").apply {
+        view.text = SpannableString("$status · ${tunnelCipher(view.context, config)}").apply {
             setSpan(ForegroundColorSpan(statusColor), 0, status.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
     }
