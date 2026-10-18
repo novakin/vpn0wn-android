@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-18 (Europe/Paris).
 
-**Latest delivered-source engineering assessment: 85/100 at `29bc2a8d`.** The [2026-10-18 follow-up](#post-repair-assessment--2026-10-18) records the repaired owners, current review and evidence limits. The original assessment, tables and findings below retain their 2026-10-17 revision and historical 80/100 judgment.
+**Pinned delivered-source engineering assessment: 85/100 at `29bc2a8d`.** The [2026-10-18 follow-up](#post-repair-assessment--2026-10-18) records the repaired owners, that revision's review and evidence limits. The original assessment, tables and findings below retain their 2026-10-17 revision and historical 80/100 judgment. The [subsequent preferences findings](#subsequent-preferences-findings--2026-10-18) have separate repair and acceptance scopes; neither score is rerated here.
 
 ## Result and revision
 
@@ -121,14 +121,14 @@ The coordinator is satisfied with the bounded source assessment and honest evide
 
 **Overall engineering assessment: 85/100.** Delivered source is `29bc2a8ddd77c88fa7f4bbc6fee0851ddf826716`, tree `7de00d016b4d7f7bfda1f0c93648465baf4743bc`, identical to independently reviewed and CI-tested `07259b598847fbf954ab56106e6aa6755c68a4a9`. This follow-up preserves the original 80/100 assessment at `5882460d` above. Scores are bounded engineering judgments, not completion percentages, defect probabilities or security certificates.
 
-The four Android state findings and native preparation finding above have delivered owner repairs. Current source separates boot/inventory/interactive restoration, publishes delayed selection to attached views, persists renamed running identities, carries an absolute original tile target and invalidates native preparation when its actual inputs change. The corresponding regressions exercise those composed outcomes. Earlier #209–#215 repairs remain present. No new confirmed actionable product defect was found within the follow-up source/caller scope; no additional product correction is proposed from this pass. Known incomplete feature and assurance work retains its existing issue ownership.
+The four Android state findings and native preparation finding above have delivered owner repairs. Source at `29bc2a8d` separates boot/inventory/interactive restoration, publishes delayed selection to attached views, persists renamed running identities, carries an absolute original tile target and invalidates native preparation when its actual inputs change. The corresponding regressions exercise those composed outcomes. Earlier #209–#215 repairs remain present. The original follow-up found no new confirmed actionable product defect within its source/caller scope and proposed no additional product correction. The subsequent preferences findings below require separate corrections; the original conclusion does not describe those later investigations or repairs. Known incomplete feature and assurance work retains its existing issue ownership.
 
-### Current ratings
+### Ratings at `29bc2a8d`
 
 | Area | Rating | Basis and practical limit |
 | --- | ---: | --- |
 | Architecture | **87/100** | Existing presentation, manager/backend, transport and persistence owners fit. Repaired startup/continuation policy composes more consistently; multi-stage orchestration remains complex. |
-| Code quality and reliability | **85/100** | Confirmed state/build defects are repaired with meaningful failure/ownership controls. Broad platform, interruption and remote-outcome behavior remains incompletely evidenced. |
+| Code quality and reliability | **85/100** | The state/build findings above are repaired with meaningful failure/ownership controls. Broad platform, interruption and remote-outcome behavior remains incompletely evidenced. |
 | Maintainability | **79/100** | Narrow owner changes and existing helpers avoid unnecessary layers. The large VPS Fragment/ViewModel, manager and reflection-heavy fixtures still carry substantial review cost. |
 | Security engineering | **82/100** | Permission, consent, host-pin, authenticated storage/disclosure and privileged transaction boundaries are credible source controls. Actor-matched, signed-artifact, provider, root/user and live assurance remains partial. |
 | Tests and verification | **86/100** | Composed regression controls and bounded native evidence improved. Test inventory is not assertion coverage; process-death restoration and broader physical/release/live matrices remain open. |
@@ -139,9 +139,9 @@ The overall judgment weights sensitive composed behavior and evidence quality; i
 
 ### Review coverage and reuse
 
-The current inventory has 650 tracked entries. The original 578-entry ledger was validated against its pinned modes/object IDs. Relative to that original source, 460 entries are unchanged, 118 changed and 72 added; relative to rated `5882460d`, 553 are unchanged, 67 changed and 30 added. File counts identify scope; they do not certify every binary, generated file, test assertion or dependency.
+The inventory at `29bc2a8d` has 650 tracked entries. The original 578-entry ledger was validated against its pinned modes/object IDs. Relative to that original source, 460 entries are unchanged, 118 changed and 72 added; relative to rated `5882460d`, 553 are unchanged, 67 changed and 30 added. File counts identify scope; they do not certify every binary, generated file, test assertion or dependency.
 
-| Area | Current review boundary |
+| Area | Review boundary at `29bc2a8d` |
 | --- | --- |
 | Android/state/IPC | A 248-path fingerprint ledger binds fourteen fresh owner/composed-delta reads, fifty unchanged owners reused from the prior complete Android pass, three provisioning boundaries, the manifest, nine changed/147 unchanged resources, fourteen test sources and ten guides. Depth is recorded per entry; unchanged resource fingerprints do not become a new linguistic or visual review. |
 | Provisioning/security | Forty-four maintained source inputs and forty-four test-source fingerprints cover all 25 provisioning Kotlin owners, twelve maintained scripts and related presentation/manager/authentication/output consumers. Nine added production owners and current removal, rotation, endpoint, secret-output and progress composition received fresh attention. Nine of twelve prior bounded backup fingerprints match; the three changed consumers were reassessed. |
@@ -161,3 +161,11 @@ The [current security follow-up](2026-10-12-app-root-security-audit.md#delivered
 Continue the existing issue-owned gates: physical/provider/configured-authentication and spoken accessibility acceptance; root-tool coexistence and signed/release migration; native wizard/SSH/private-key and disposable-server restore/fault/client-traffic proof; external transport, system VPN policy and recovery boundaries. Protocol/automation/bootstrap choices remain unselected where recorded. Speed/battery stays last and needs the controlled real unplugged baseline. No 100/100, whole-app security sign-off, DPI/performance gain or production-ready claim follows.
 
 The coordinator is satisfied with this bounded post-repair source assessment and its evidence distinctions. Keep the existing foundation; change or extract an owner only for a demonstrated requirement or invariant. Final independent review of the maintained reports, documentation checks and publication/merge readback belong to the documentation PR.
+
+### Subsequent preferences findings — 2026-10-18
+
+Later documentation CI exposed another empty immediate running-owner read. [#270](https://github.com/novakin/vpn0wn-android/issues/270) and [PR #272](https://github.com/novakin/vpn0wn-android/pull/272) own the separate default-provider disk read/write consistency repair. The pinned provider's replacement/read interleaving is a credible mechanism; the exact internal interleaving of the historical CI failures was not retained, so those failures' cause remains inferred.
+
+The separate [#271](https://github.com/novakin/vpn0wn-android/issues/271) investigation reproduced actual credential loss with default storage, synthetic temporary files and the production `VpsServerStore.remove` path. An injected metadata-commit failure left original metadata on disk while prematurely published cache caused credential rollback to be skipped. This is an executed synthetic consequence, not a naturally occurring production incident. The shared-owner source repair has its own independent-review, required-check and delivery boundary; this addendum neither promotes the earlier static verdict nor rerates the source. The [backend contracts](../backend-contracts.md) and [QA plan](../qa-test-plan.md) own the repair boundaries and retained failing/repaired evidence.
+
+These findings extend the original review inputs and require their own independent source review, required checks and publication/merge acceptance. The ratings, inventory, CI results and native artifact evidence above remain pinned to their original scopes. No new whole-code rating, device run, release or live-operation assurance follows.

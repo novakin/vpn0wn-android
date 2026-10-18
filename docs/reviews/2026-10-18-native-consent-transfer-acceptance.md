@@ -10,6 +10,8 @@ The integrated product baseline is `16e002bd0a89f366b76ead5bcf59553f80fc561f`. T
 
 The later delivered progress source `29bc2a8d` has identical committed blobs for the five R8 consent owners: `BaseFragment`, `BaseActivity`, `MainActivity`, `TunnelManager` and `ObservableTunnel`. Independent source review confirmed that parity; it does not make the isolated probe a whole-current-master APK.
 
+The subsequent shared-preferences work under [#270](https://github.com/novakin/vpn0wn-android/issues/270)/[PR #272](https://github.com/novakin/vpn0wn-android/pull/272) and [#271](https://github.com/novakin/vpn0wn-android/issues/271) is outside these APKs' source and execution scopes. The [backend contracts](../backend-contracts.md) and [QA plan](../qa-test-plan.md) own its separate source/failure evidence and repair acceptance. The native results below establish no device behavior or delivery acceptance for this later shared factory.
+
 ## Coverage
 
 | Coverage | Status and evidence |

@@ -6,6 +6,18 @@ Last updated: 2026-10-18 (Europe/Paris).
 
 This guide distinguishes source-observed behavior from required repair boundaries. Update producer, consumer, tests and this guide together when a contract changes. [Architecture](architecture.md) owns module design; [the improvement plan](improvement-plan.md#codebase-actions) owns remaining repair status.
 
+## Failed preferences update settlement — #271
+
+The shared `createPreferencesDataStore` owner retains the existing default AndroidX provider, preferences serializer, path and keys. Its #270 disk-scope guard and the #271 failed-update settlement have different responsibilities. The latter is implemented at the shared owner; final-head CI and delivery belong to its PR.
+
+Pinned DataStore publishes its cache before final provider commit. An injected failure after that publication can therefore expose an uncommitted value to recovery code. The [default-provider regression](qa-test-plan.md#failed-preferences-commit-controls--271) demonstrates the resulting skipped encrypted-credential restoration during server removal, with unchanged original metadata bytes and correct unrelated-server preservation.
+
+The owner serializes each public update and its failure settlement through one owner mutex. Waiting cancellation before admission does not submit an update. A unique owner context marker lets nested calls reach AndroidX's existing nested-update rejection instead of reacquiring the wrapper mutex; different stores keep separate ownership. A failed storage write scope advances its existing coordinator version so the prematurely published cache must be revalidated.
+
+After an admitted update reports failure, the owner holds admission while a raw no-op update settles previously queued actor work, then reads through the raw DataStore to revalidate against disk. Settlement survives caller cancellation but remains a child of the actual DataStore owner: owner cancellation interrupts cleanup, including a pending actor acknowledgement, so shutdown can finish. This also handles caller cancellation returning before its actor finishes. The original failure is rethrown; a distinct cleanup failure is suppressed on it and leaves reconciliation incomplete. This is not an automatic retry of the requested mutation. A canceled/closed DataStore owner cannot be revived by cleanup.
+
+Coroutine debug stack recovery can copy exceptions. Failure type, message and original cause remain observable, with cleanup failures reachable through that exception chain; top-level object identity is not a portable coroutine-boundary guarantee. Earlier optimistic emissions cannot be retracted, and existing collector delivery remains asynchronous. This does not establish instantaneous observer correction, filesystem atomicity, power-loss protection or successful recovery when cleanup itself fails. Existing store ownership/identity checks still govern credential restoration and remote-outcome journals. No schema, application identity or migration is introduced.
+
 ## Application and source identity — #71
 
 First-party JVM and native log producers use the `vpn0wn/` tag prefix, preserving existing owner/tunnel suffixes, severity and message metadata. `Application.onCreate` logs a `vpn0wn/<version>` startup header with the existing Android/device/build fields. The [log viewer](../ui/src/main/java/com/vpn0wn/android/activity/LogViewerActivity.kt) captures `*:V`; its parser accepts arbitrary legacy, upstream and platform tags. Historical buffers/exports are neither rewritten nor filtered by this naming change. Source and native-library inclusion checks do not establish actual Android logcat output or complete renamed-artifact acceptance.

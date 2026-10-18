@@ -4,7 +4,7 @@ Last updated: 2026-10-18 (Europe/Paris).
 
 ## Verdict and scope
 
-Independent ultra review found no actionable product defect in the inspected backup/restore paths at integrated master `16e002bd0a89f366b76ead5bcf59553f80fc561f`. This is a scoped source review, not a whole-app audit, execution approval or production-readiness rating. [#196](https://github.com/novakin/vpn0wn-android/issues/196) and [#143](https://github.com/novakin/vpn0wn-android/issues/143) remain open.
+The original independent ultra review found no actionable product defect in the inspected backup/restore paths at integrated master `16e002bd0a89f366b76ead5bcf59553f80fc561f`. This is a scoped source review, not a whole-app audit, execution approval or production-readiness rating. The subsequent shared-preferences findings below have separate repair and acceptance scopes. [#196](https://github.com/novakin/vpn0wn-android/issues/196) and [#143](https://github.com/novakin/vpn0wn-android/issues/143) remain open.
 
 Source was read from clean `0a9a5ef19081c3a5eef9e51dde09143f55605655`; a Git comparison confirmed unchanged Android production/test and app-facing provisioning-script trees through the integrated master. Current owning contracts, operations and changelog were also read. The reviewer ran no tests, builds, device/emulator/server operations or GitHub writes. Parallel acceptance work has separate records; earlier checks retain their original revisions and environments.
 
@@ -23,7 +23,11 @@ Source was read from clean `0a9a5ef19081c3a5eef9e51dde09143f55605655`; a Git com
 - `VpsServerStore` fences conflicting writers/imports and settles only the matching pending restore identity. `Vpn0wnProvisioningClient` delegates supported restore-envelope parsing to `ProvisioningJson`; `VpsBackupResult` and `VpsRevokedBackup` own redacted diagnostic strings. `VpsBackupComparison` compares exact configuration content while publishing safe equality/name metadata.
 - `restore.sh` validates ordered input before privileged mutation, rejects unsupported/shared destination state, rechecks under locks, regenerates supported hooks rather than executing imported directives and verifies final disk/history/runtime/service/forwarding postconditions. Shared rollback code distinguishes admitted failure, incomplete recovery and committed cleanup.
 
-Relevant test assertions and failure/cancellation controls, Downloads output ownership and selected SSH pin/channel/cancellation boundaries were inspected. No evidence-backed authentication bypass, secret disclosure, destructive overwrite or incorrect settlement was found in those paths. This finding does not establish exhaustive race/fault coverage or broaden the documented restore contract.
+Relevant test assertions and failure/cancellation controls, Downloads output ownership and selected SSH pin/channel/cancellation boundaries were inspected. The original pass found no evidence-backed authentication bypass, secret disclosure, destructive overwrite or incorrect settlement in those paths. This finding does not establish exhaustive race/fault coverage or broaden the documented restore contract.
+
+## Subsequent shared-preferences findings — 2026-10-18
+
+[#270](https://github.com/novakin/vpn0wn-android/issues/270) and [PR #272](https://github.com/novakin/vpn0wn-android/pull/272) own the later default-provider disk read/write consistency repair; the precise cause of the historical empty-set CI failures remains inferred. The separate [#271](https://github.com/novakin/vpn0wn-android/issues/271) investigation demonstrated synthetic credential loss during actual server removal: an injected failed metadata commit retained old disk metadata while uncommitted cache caused credential rollback to be skipped. That failure boundary and the new shared factory were outside this original review. The #271 shared-owner source repair and executed regressions have their own acceptance; they do not retroactively broaden this backup review or its native-artifact scope. The [backend contracts](../backend-contracts.md) and [QA plan](../qa-test-plan.md) own the repair behavior and evidence; independent review of the changed persistence owner remains separate from this historical backup/restore verdict.
 
 ## Remaining acceptance
 
