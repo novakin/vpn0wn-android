@@ -11,6 +11,7 @@ Preserve the existing Android DataBinding/Fragment foundation and upstream WireG
 | Source/owner | Responsibility |
 | --- | --- |
 | `ui/.../Application.kt` | App initialization, selected backend, preferences and tunnel manager access. |
+| [Preferences factory](../ui/src/main/java/com/vpn0wn/android/util/PreferencesDataStore.kt) | Default-provider disk-scope admission and candidate failed-update settlement shared by preference consumers. |
 | `ui/.../activity`, `fragment`, `widget` | Navigation, lifecycle-bound views, user actions and Canvas rendering. |
 | [BindingAdapters](../ui/src/main/java/com/vpn0wn/android/databinding/BindingAdapters.kt) | Simple XML presentation bindings and shared UI formatters. |
 | [ObservableTunnel](../ui/src/main/java/com/vpn0wn/android/model/ObservableTunnel.kt), [TunnelManager](../ui/src/main/java/com/vpn0wn/android/model/TunnelManager.kt) | Observable tunnel data, config loading/persistence, selected operations and state notifications. TunnelManager also owns shared statistics requests and validates publication against the tunnel's session generation. |
@@ -290,6 +291,16 @@ Alternatives were UI busy flags alone, detached transition jobs or cancellation 
 2026-10-06 (Europe/Paris), implemented for #15. RootShell serializes commands individually, so concurrent UP requests could both snapshot an empty backend and activate separate tunnels with multiple mode disabled. WgQuickBackend uses its existing instance monitor to own the entire transition, running-name reads and mode changes. Application collects live mode changes on IO, so monitor contention does not block Main. Recovery failures remain attached to the primary error. Supported enabled multiple mode remains available.
 
 Alternatives were relying on the root command lock or adding a separate transition service. The command lock cannot own multi-command state/map updates; another service would duplicate the backend owner. Synchronized methods extend current Java ownership without another lock/helper/dependency. This delays competing observers/settings while commands run and does not interrupt hung root/native commands, coordinate external tools/another backend instance or prove actual kernel rollback/traffic. See [contracts](backend-contracts.md#wireguard-configuration-and-tunnel-state) and [offline evidence](development.md#kernel-transition-serialization--2026-10-06).
+
+### Reconcile failed preferences updates at the shared owner — #271, 2026-10-18
+
+**Problem:** pinned DataStore can publish cache before provider commit. The deterministic default-storage test demonstrates that a failed metadata removal can skip restoring the encrypted credential even while original disk metadata survives. Separate cached journal/rotation/settings consumers share that boundary; a VpsServerStore-only branch would leave them untreated.
+
+**Decision/status:** the source keeps the default provider and adds shared update admission, failed-write coordinator invalidation and owned actor-barrier/read settlement at the preferences factory. The [contract](backend-contracts.md#failed-preferences-update-settlement--271) owns exact error/cancellation/nesting behavior and limits. Preserve underlying errors and resource lifetimes; do not add a replacement cache or persistence format.
+
+**Alternatives/consequences:** version invalidation plus `first()` alone leaves a queued-writer/cache-publication race and does not settle an early canceled caller's actor. A public update gate must preserve AndroidX nested-update rejection instead of deadlocking. Unconditionally noncancellable cleanup can prevent the shared caller/store owner from finishing shutdown; settlement therefore survives caller cancellation while remaining a scoped child of the actual DataStore owner. The earlier Okio switch was rejected because it would undo an unresolved upstream corruption mitigation. This design reuses public coordinator/DataStore APIs and existing coroutine ownership. It cannot retract earlier optimistic emissions or revive a canceled store.
+
+**Verification/migration impact:** require actual default-provider credential regression, queued-writer, cancellation, nested-owner, cleanup-failure and existing read-scope controls. No schema/path/key change or data migration follows. The focused source gate passes under normal coroutine settings; final-head review/CI and merge remain separate gates; filesystem/power-loss and wider installed acceptance are not established.
 
 ### Local profiles commit through native atomic rename
 
