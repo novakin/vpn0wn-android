@@ -518,7 +518,11 @@
     <string name="vpn0wn_user_status_active">◆ ACTIF</string>
     <string name="vpn0wn_user_status_idle">◑ INACTIF</string>
     <string name="vpn0wn_user_status_revoked">✕ RÉVOQUÉ</string>
-    <string name="vpn0wn_home_header_summary">%1$s · %2$d configurés</string>
+    <plurals name="vpn0wn_home_header_summary">
+        <item quantity="one">%1$s · %2$d configuré</item>
+        <item quantity="many">%1$s · %2$d configurés</item>
+        <item quantity="other">%1$s · %2$d configurés</item>
+    </plurals>
 
     <string name="vpn0wn_settings_title">paramètres</string>
     <string name="vpn0wn_settings_subtitle">GLOBAL · CONTRÔLE APP</string>

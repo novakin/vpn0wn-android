@@ -167,6 +167,42 @@ class BindingAdaptersTest {
     }
 
     @Test
+    fun homeHeaderUsesLocaleQuantitiesWithoutLosingBrandOrUnknownState() = runTest {
+        val env = TunnelTestEnvironment(folder.root, backgroundScope)
+        val profile = Config.Builder().setInterface(Interface.Builder().setKeyPair(KeyPair()).build()).build()
+        val tunnels = List(2) { index ->
+            ObservableTunnel(env.manager, "header-$index", profile, Tunnel.State.DOWN)
+        }
+        val cases = listOf(
+            Locale.ENGLISH to listOf("0 configured", "1 configured", "2 configured"),
+            Locale.FRENCH to listOf("0 configuré", "1 configuré", "2 configurés")
+        )
+        for ((locale, labels) in cases) {
+            val localized = context.createConfigurationContext(Configuration(context.resources.configuration).apply {
+                setLocale(locale)
+            })
+            for (count in 0..2) {
+                val inventory = tunnels.take(count)
+                val expected = "vpnøwn · ${labels[count]}"
+                assertEquals("$locale/$count owner", expected, BindingAdapters.homeHeaderSummary(localized, inventory))
+                val header = TextView(localized)
+                BindingAdapters.setHomeHeaderTunnels(header, inventory)
+                assertEquals("$locale/$count visible", expected, header.text.toString().replace('\u00a0', ' '))
+                assertEquals("$locale/$count accessible", expected.replace('ø', '0'), header.contentDescription.toString())
+                val text = header.text as Spanned
+                val artwork = text.getSpans(0, text.length, ImageSpan::class.java).single()
+                assertEquals(0, text.getSpanStart(artwork))
+                assertEquals(6, text.getSpanEnd(artwork))
+            }
+            assertEquals("vpnøwn", BindingAdapters.homeHeaderSummary(localized, null))
+            val unknownHeader = TextView(localized)
+            BindingAdapters.setHomeHeaderTunnels(unknownHeader, null)
+            assertEquals("vpnøwn", unknownHeader.text.toString())
+            assertEquals("vpn0wn", unknownHeader.contentDescription.toString())
+        }
+    }
+
+    @Test
     fun unavailableHomeInventoryKeepsBrandWithoutClaimingZeroConfigured() {
         assertEquals("vpnøwn", BindingAdapters.homeHeaderSummary(context, null))
         val header = TextView(context)
@@ -295,10 +331,10 @@ class BindingAdaptersTest {
         val frenchView = TextView(french)
         BindingAdapters.setHomeHandshakeStatistics(frenchView, snapshot)
         assertEquals("il y a 14s", frenchView.text.toString())
-        assertEquals("vpnøwn · 0 configurés", BindingAdapters.homeHeaderSummary(french, emptyList()))
+        assertEquals("vpnøwn · 0 configuré", BindingAdapters.homeHeaderSummary(french, emptyList()))
         val frenchHeader = TextView(french)
         BindingAdapters.setHomeHeaderTunnels(frenchHeader, emptyList())
-        assertEquals("vpn0wn · 0 configurés", frenchHeader.contentDescription.toString())
+        assertEquals("vpn0wn · 0 configuré", frenchHeader.contentDescription.toString())
     }
 
     @Test
