@@ -243,6 +243,7 @@ private class JschRemoteShellClient(
         created.setConfig("server_host_key", HOST_KEYS)
         // Optional BC classes must not widen the transport's signature probes.
         created.setConfig("CheckSignatures", HOST_KEYS)
+        Api24Ecdsa.configure(created)
         created.setConfig("kex", KEY_EXCHANGES)
         created.setConfig("cipher.c2s", CIPHERS)
         created.setConfig("cipher.s2c", CIPHERS)
@@ -298,11 +299,13 @@ private class JschRemoteShellClient(
                 val passphrase = credential.passphrase?.toByteArray(Charsets.UTF_8)
                 try {
                     val parsed = KeyPair.load(jsch, key, null)
+                    var identityOwned = false
                     try {
                         if (!parsed.decrypt(passphrase) || parsed.keyType !in SUPPORTED_KEY_TYPES || parsed.keySize > MAX_KEY_BITS)
                             throw ProvisioningException("SSH private key is unsupported", category = ProvisioningFailureCategory.INVALID_INPUT)
-                    } finally { parsed.dispose() }
-                    jsch.addIdentity("vpn0wn", key, null, passphrase)
+                        identityOwned = Api24Ecdsa.addIdentity(jsch, parsed)
+                    } finally { if (!identityOwned) parsed.dispose() }
+                    if (!identityOwned) jsch.addIdentity("vpn0wn", key, null, passphrase)
                 } finally {
                     key.fill(0)
                     passphrase?.fill(0)

@@ -55,6 +55,7 @@ internal class SshTestServer(
     legacyRsaOnly: Boolean = false,
     private val host: String = "127.0.0.1",
     sha1MacOnly: Boolean = false,
+    ecdsaHostKeyBits: Int = 256,
 ) : AutoCloseable {
     val passwordAttempts = AtomicInteger()
     val keyAttempts = AtomicInteger()
@@ -73,7 +74,7 @@ internal class SshTestServer(
     @Volatile var allowedPublicKey: String? = null
     private val commands = Executors.newCachedThreadPool()
     private val hostKey = KeyPairGenerator.getInstance(if (ecdsaHostKey) "EC" else "RSA")
-        .apply { initialize(if (ecdsaHostKey) 256 else 2048) }.generateKeyPair()
+        .apply { initialize(if (ecdsaHostKey) ecdsaHostKeyBits else 2048) }.generateKeyPair()
     private val server = SshServer.setUpDefaultServer()
     val fingerprint: String
         get() {
