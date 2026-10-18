@@ -71,24 +71,13 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowContentResolver
 
-// Backup crypto and SDK sandboxes stay in a separate worker from the existing profile workflow matrix.
+// Separate SDK and export/cancellation workers bound in-process Robolectric resource pressure.
 @RunWith(RobolectricTestRunner::class)
-@Config(application = Application::class, sdk = [28])
+@Config(application = Application::class, sdk = [28],
+    shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
 @OptIn(ExperimentalCoroutinesApi::class)
-class VpsBackupWorkflowTest {
-    @get:Rule val folder = TemporaryFolder()
-
-    @After fun tearDown() { Dispatchers.resetMain() }
-
-    @Before fun resetAuthentication() {
-        AppDataTransferSettingsTest.Authentication.calls = 0
-        AppDataTransferSettingsTest.Authentication.autoCancel = false
-        AppDataTransferSettingsTest.Authentication.expectedTitleRes = R.string.vpn0wn_backup_authenticate
-        AppDataTransferSettingsTest.Authentication.callbacks.clear()
-    }
-
+internal class VpsBackupWorkflowTest : VpsBackupWorkflowFixture() {
     @Test
-    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
     fun backupAuthenticationWaitsForItsCapturedViewToRestartAndConsumesTerminalOnce() = runTest {
         VpsUserProfileFileTest.resetNativeFiles()
         val fixture = fixture()
@@ -115,7 +104,6 @@ class VpsBackupWorkflowTest {
     }
 
     @Test
-    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
     fun backupPasswordsStayMaskedUntilExplicitlyShownAndRemaskTogether() = runTest {
         VpsUserProfileFileTest.resetNativeFiles()
         val fixture = fixture()
@@ -144,7 +132,64 @@ class VpsBackupWorkflowTest {
     }
 
     @Test
-    @Config(sdk = [29], shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
+    fun backupPasswordNeverEntersSavedHierarchyAndRecreationRetiresOldAuthentication() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        val fixture = fixture()
+        try {
+            prepareBackup(fixture)
+            click(fixture, R.string.vpn0wn_action_backup)
+            val callback = AppDataTransferSettingsTest.Authentication.callbacks.last()
+            callback(BiometricAuthenticator.Result.Success(null))
+            settle()
+            val dialog = requireNotNull(backupDialog(fixture))
+            val input = dialog.findViewById<EditText>(R.id.vpn0wn_backup_password)!!
+            input.setText(VpsBackupExportFixture.PASSWORD)
+            val saved = Bundle()
+            fixture.controller.saveInstanceState(saved)
+            val parcel = Parcel.obtain()
+            val bytes = try { parcel.writeBundle(saved); parcel.marshall() } finally { parcel.recycle() }
+            for (charset in listOf(Charsets.UTF_8, Charsets.UTF_16LE)) assertFalse(bytes.toString(charset).contains(VpsBackupExportFixture.PASSWORD))
+            fixture.controller.recreate()
+            settle()
+            assertEquals("", input.text.toString())
+            assertFalse(dialog.isShowing)
+            callback(BiometricAuthenticator.Result.Success(null))
+            settle()
+            assertNull(backupDialog(fixture))
+            assertFalse(fixture.peer.commands.any { it.contains("./'backup.sh'") })
+        } finally { fixture.close() }
+    }
+
+    @Test
+    fun backupRestrictionAtConfirmationRetiresAuthorizationAndClearsPassword() = runTest {
+        VpsUserProfileFileTest.resetNativeFiles()
+        val fixture = fixture()
+        try {
+            prepareBackup(fixture)
+            click(fixture, R.string.vpn0wn_action_backup)
+            AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.Success(null))
+            settle()
+            val dialog = requireNotNull(backupDialog(fixture))
+            val password = dialog.findViewById<EditText>(R.id.vpn0wn_backup_password)!!
+            password.setText(VpsBackupExportFixture.PASSWORD)
+            dialog.findViewById<EditText>(R.id.vpn0wn_backup_confirm_password)!!.setText(VpsBackupExportFixture.PASSWORD)
+            setProfileExportRestriction(fixture, true)
+            dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            settle()
+            assertFalse(dialog.isShowing)
+            assertEquals("", password.text.toString())
+            assertNull(backupDialog(fixture))
+            assertFalse(fixture.peer.commands.any { it.contains("./'backup.sh'") })
+        } finally { fixture.close() }
+    }
+}
+
+@RunWith(RobolectricTestRunner::class)
+@Config(application = Application::class, sdk = [29],
+    shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
+@OptIn(ExperimentalCoroutinesApi::class)
+internal class VpsBackupOutputWorkflowTest : VpsBackupWorkflowFixture() {
+    @Test
     fun backupExportRequiresAuthenticationAndConfirmedPasswordThenWritesRecoverableCiphertext() = runTest {
         VpsUserProfileFileTest.resetNativeFiles()
         val fixture = fixture()
@@ -187,37 +232,38 @@ class VpsBackupWorkflowTest {
     }
 
     @Test
-    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
-    fun backupPasswordNeverEntersSavedHierarchyAndRecreationRetiresOldAuthentication() = runTest {
+    fun backupRestrictionAtProviderBoundaryDeletesEmptyOwnedOutput() = runTest {
         VpsUserProfileFileTest.resetNativeFiles()
         val fixture = fixture()
         try {
             prepareBackup(fixture)
+            val output = BackupOutputProvider(folder.newFile()).apply {
+                onOpened = { setProfileExportRestriction(fixture, true) }
+                attachInfo(fixture.activity, ProviderInfo().apply { authority = "media" })
+            }
+            ShadowContentResolver.registerProviderInternal("media", output)
             click(fixture, R.string.vpn0wn_action_backup)
-            val callback = AppDataTransferSettingsTest.Authentication.callbacks.last()
-            callback(BiometricAuthenticator.Result.Success(null))
+            AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.Success(null))
             settle()
             val dialog = requireNotNull(backupDialog(fixture))
-            val input = dialog.findViewById<EditText>(R.id.vpn0wn_backup_password)!!
-            input.setText(VpsBackupExportFixture.PASSWORD)
-            val saved = Bundle()
-            fixture.controller.saveInstanceState(saved)
-            val parcel = Parcel.obtain()
-            val bytes = try { parcel.writeBundle(saved); parcel.marshall() } finally { parcel.recycle() }
-            for (charset in listOf(Charsets.UTF_8, Charsets.UTF_16LE)) assertFalse(bytes.toString(charset).contains(VpsBackupExportFixture.PASSWORD))
-            fixture.controller.recreate()
-            settle()
-            assertEquals("", input.text.toString())
-            assertFalse(dialog.isShowing)
-            callback(BiometricAuthenticator.Result.Success(null))
-            settle()
-            assertNull(backupDialog(fixture))
-            assertFalse(fixture.peer.commands.any { it.contains("./'backup.sh'") })
+            dialog.findViewById<EditText>(R.id.vpn0wn_backup_password)!!.setText(VpsBackupExportFixture.PASSWORD)
+            dialog.findViewById<EditText>(R.id.vpn0wn_backup_confirm_password)!!.setText(VpsBackupExportFixture.PASSWORD)
+            dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            finishBackup(fixture)
+            assertEquals(1, output.opens)
+            assertEquals(1, output.deletes)
+            assertEquals(0L, output.bytesAtDeletion)
+            assertFalse(output.file.exists())
         } finally { fixture.close() }
     }
+}
 
+@RunWith(RobolectricTestRunner::class)
+@Config(application = Application::class, sdk = [29],
+    shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
+@OptIn(ExperimentalCoroutinesApi::class)
+internal class VpsBackupCancellationWorkflowTest : VpsBackupWorkflowFixture() {
     @Test
-    @Config(sdk = [29], shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
     fun backupCancellationDrainsRemoteOperationAndClearsEditors() = runTest {
         VpsUserProfileFileTest.resetNativeFiles()
         val fixture = fixture()
@@ -255,59 +301,22 @@ class VpsBackupWorkflowTest {
             assertNull(backupDialog(fixture))
         } finally { fixture.close() }
     }
+}
 
-    @Test
-    @Config(shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
-    fun backupRestrictionAtConfirmationRetiresAuthorizationAndClearsPassword() = runTest {
-        VpsUserProfileFileTest.resetNativeFiles()
-        val fixture = fixture()
-        try {
-            prepareBackup(fixture)
-            click(fixture, R.string.vpn0wn_action_backup)
-            AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.Success(null))
-            settle()
-            val dialog = requireNotNull(backupDialog(fixture))
-            val password = dialog.findViewById<EditText>(R.id.vpn0wn_backup_password)!!
-            password.setText(VpsBackupExportFixture.PASSWORD)
-            dialog.findViewById<EditText>(R.id.vpn0wn_backup_confirm_password)!!.setText(VpsBackupExportFixture.PASSWORD)
-            setProfileExportRestriction(fixture, true)
-            dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
-            settle()
-            assertFalse(dialog.isShowing)
-            assertEquals("", password.text.toString())
-            assertNull(backupDialog(fixture))
-            assertFalse(fixture.peer.commands.any { it.contains("./'backup.sh'") })
-        } finally { fixture.close() }
+@OptIn(ExperimentalCoroutinesApi::class)
+internal abstract class VpsBackupWorkflowFixture {
+    @get:Rule val folder = TemporaryFolder()
+
+    @After fun tearDown() { Dispatchers.resetMain() }
+
+    @Before fun resetAuthentication() {
+        AppDataTransferSettingsTest.Authentication.calls = 0
+        AppDataTransferSettingsTest.Authentication.autoCancel = false
+        AppDataTransferSettingsTest.Authentication.expectedTitleRes = R.string.vpn0wn_backup_authenticate
+        AppDataTransferSettingsTest.Authentication.callbacks.clear()
     }
 
-    @Test
-    @Config(sdk = [29], shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
-    fun backupRestrictionAtProviderBoundaryDeletesEmptyOwnedOutput() = runTest {
-        VpsUserProfileFileTest.resetNativeFiles()
-        val fixture = fixture()
-        try {
-            prepareBackup(fixture)
-            val output = BackupOutputProvider(folder.newFile()).apply {
-                onOpened = { setProfileExportRestriction(fixture, true) }
-                attachInfo(fixture.activity, ProviderInfo().apply { authority = "media" })
-            }
-            ShadowContentResolver.registerProviderInternal("media", output)
-            click(fixture, R.string.vpn0wn_action_backup)
-            AppDataTransferSettingsTest.Authentication.callbacks.last()(BiometricAuthenticator.Result.Success(null))
-            settle()
-            val dialog = requireNotNull(backupDialog(fixture))
-            dialog.findViewById<EditText>(R.id.vpn0wn_backup_password)!!.setText(VpsBackupExportFixture.PASSWORD)
-            dialog.findViewById<EditText>(R.id.vpn0wn_backup_confirm_password)!!.setText(VpsBackupExportFixture.PASSWORD)
-            dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
-            finishBackup(fixture)
-            assertEquals(1, output.opens)
-            assertEquals(1, output.deletes)
-            assertEquals(0L, output.bytesAtDeletion)
-            assertFalse(output.file.exists())
-        } finally { fixture.close() }
-    }
-
-    private suspend fun TestScope.prepareBackup(fixture: VpsProvisioningLayoutFixture) {
+    protected suspend fun TestScope.prepareBackup(fixture: VpsProvisioningLayoutFixture) {
         AppDataTransferSettingsTest.Authentication.expectedTitleRes = R.string.vpn0wn_backup_authenticate
         val store = Vpn0wnApplication.getVpsServerStore()
         store.upsert(VpsProfileFixture.server)
@@ -320,7 +329,7 @@ class VpsBackupWorkflowTest {
         openServer(fixture, current)
     }
 
-    private fun assertPasswordMasked(input: EditText) {
+    protected fun assertPasswordMasked(input: EditText) {
         assertTrue("Secret text uses native password transformation", input.transformationMethod is PasswordTransformationMethod)
         assertFalse("Rendered secret is masked", input.transformationMethod.getTransformation(input.text, input).toString() == input.text.toString())
         assertEquals(1, input.maxLines)
@@ -331,10 +340,10 @@ class VpsBackupWorkflowTest {
         } finally { node.recycle() }
     }
 
-    private fun backupDialog(fixture: VpsProvisioningLayoutFixture): AlertDialog? = VpsProvisioningFragment::class.java.getDeclaredField("backupDialog")
+    protected fun backupDialog(fixture: VpsProvisioningLayoutFixture): AlertDialog? = VpsProvisioningFragment::class.java.getDeclaredField("backupDialog")
         .apply { isAccessible = true }.get(fixture.activity.supportFragmentManager.fragments.filterIsInstance<VpsProvisioningFragment>().single()) as? AlertDialog
 
-    private suspend fun TestScope.finishBackup(fixture: VpsProvisioningLayoutFixture) {
+    protected suspend fun TestScope.finishBackup(fixture: VpsProvisioningLayoutFixture) {
         settle()
         val job = VpsProvisioningFragment::class.java.getDeclaredField("backupJob").apply { isAccessible = true }.get(fixture.fragment) as? Job
         job?.join()
@@ -363,7 +372,7 @@ class VpsBackupWorkflowTest {
     }
 
 
-    private class BackupOutputProvider(val file: File) : ContentProvider() {
+    protected class BackupOutputProvider(val file: File) : ContentProvider() {
         var inserts = 0
         var opens = 0
         var deletes = 0
@@ -404,29 +413,29 @@ class VpsBackupWorkflowTest {
         assertTrue(fixture.root.findViewById<View>(R.id.vpn0wn_vps_refresh_status).isEnabled)
     }
 
-    private suspend fun TestScope.fixture(): VpsProvisioningLayoutFixture {
+    protected suspend fun TestScope.fixture(): VpsProvisioningLayoutFixture {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         return provisioningLayoutFixture(folder, View.LAYOUT_DIRECTION_LTR)
     }
 
-    private fun setProfileExportRestriction(fixture: VpsProvisioningLayoutFixture, disabled: Boolean) {
+    protected fun setProfileExportRestriction(fixture: VpsProvisioningLayoutFixture, disabled: Boolean) {
         val restrictions = fixture.activity.getSystemService(Context.RESTRICTIONS_SERVICE) as RestrictionsManager
         shadowOf(restrictions).setApplicationRestrictions(Bundle().apply { putBoolean("disable_config_export", disabled) })
     }
 
-    private fun profileStatusCommands(fixture: VpsProvisioningLayoutFixture) = fixture.peer.commands.count { it.contains("./'sync-status.sh'") }
+    protected fun profileStatusCommands(fixture: VpsProvisioningLayoutFixture) = fixture.peer.commands.count { it.contains("./'sync-status.sh'") }
 
-    private fun TestScope.click(fixture: VpsProvisioningLayoutFixture, resource: Int) {
+    protected fun TestScope.click(fixture: VpsProvisioningLayoutFixture, resource: Int) {
         clickableAncestor(text(fixture.root, fixture.activity.getString(resource))).performClick()
         settle()
     }
 
-    private fun TestScope.settle() {
+    protected fun TestScope.settle() {
         runCurrent()
         shadowOf(Looper.getMainLooper()).idle()
     }
 
-    private fun text(root: View, value: String): TextView = descendants(root).filterIsInstance<TextView>().first { it.text.toString() == value }
+    protected fun text(root: View, value: String): TextView = descendants(root).filterIsInstance<TextView>().first { it.text.toString() == value }
 
     private fun clickableAncestor(view: View): View = if (view.isClickable) view else clickableAncestor(view.parent as View)
 
