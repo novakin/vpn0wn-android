@@ -278,14 +278,14 @@ internal class SshTestServer(
             if (reason != KEY_EXCHANGE_FAILED || description == null) return SshDisconnectCategory.OTHER_REDACTED
             if (description == JSCH_EXCEPTION_PREFIX + "verify: false") return SshDisconnectCategory.HOST_SIGNATURE_VERIFY_FALSE
             val failure = description.removePrefix(JSCH_EXCEPTION_PREFIX).removePrefix("Session.connect: ")
-            if (failure.startsWith(NEGOTIATION_PREFIX)) {
+            return if (failure.startsWith(NEGOTIATION_PREFIX)) {
                 val end = failure.indexOf('"', NEGOTIATION_PREFIX.length)
-                if (end < 0) return SshDisconnectCategory.OTHER_REDACTED
-                val component = failure.substring(NEGOTIATION_PREFIX.length, end)
-                return negotiationCategories[component] ?: SshDisconnectCategory.OTHER_REDACTED
+                val component = if (end < 0) null else failure.substring(NEGOTIATION_PREFIX.length, end)
+                negotiationCategories[component] ?: SshDisconnectCategory.OTHER_REDACTED
+            } else {
+                exceptionCategories.entries.firstOrNull { (name, _) -> failure == name || failure.startsWith("$name:") }
+                    ?.value ?: SshDisconnectCategory.OTHER_REDACTED
             }
-            return exceptionCategories.entries.firstOrNull { (name, _) -> failure == name || failure.startsWith("$name:") }
-                ?.value ?: SshDisconnectCategory.OTHER_REDACTED
         }
     }
 }
