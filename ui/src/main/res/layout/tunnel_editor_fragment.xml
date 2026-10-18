@@ -83,9 +83,10 @@
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/editor_save_button"
                         android:layout_width="wrap_content"
-                        android:layout_height="48dp"
+                        android:layout_height="wrap_content"
                         android:fontFamily="@font/jetbrains_mono_regular"
                         android:minWidth="64dp"
+                        android:minHeight="48dp"
                         android:onClick="@{fragment::onSavePressed}"
                         android:paddingStart="12dp"
                         android:paddingEnd="12dp"
@@ -130,42 +131,59 @@
                     android:paddingBottom="96dp">
 
                     <!-- §01 Interface section header -->
-                    <LinearLayout
+                    <androidx.constraintlayout.widget.ConstraintLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="8dp"
-                        android:gravity="center_vertical"
-                        android:orientation="horizontal">
+                        android:layout_marginBottom="8dp">
 
                         <TextView
+                            android:id="@+id/editor_interface_index"
                             style="@style/Vpn0wnLabelText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="§01"
-                            android:textColor="@color/vpn0wn_rule_strong" />
+                            android:textColor="@color/vpn0wn_rule_strong"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintTop_toTopOf="parent" />
 
                         <TextView
+                            android:id="@+id/editor_interface_title"
                             style="@style/Vpn0wnMonoValueText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="10dp"
                             android:text="@string/interface_title"
-                            android:textSize="13sp" />
+                            android:textSize="13sp"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintStart_toEndOf="@id/editor_interface_index"
+                            app:layout_constraintTop_toTopOf="parent" />
 
                         <View
                             android:layout_width="0dp"
                             android:layout_height="1dp"
                             android:layout_marginStart="10dp"
-                            android:layout_weight="1"
-                            android:background="@color/vpn0wn_rule" />
+                            android:layout_marginEnd="10dp"
+                            android:background="@color/vpn0wn_rule"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintEnd_toStartOf="@id/editor_interface_hint"
+                            app:layout_constraintStart_toEndOf="@id/editor_interface_title"
+                            app:layout_constraintTop_toTopOf="parent" />
 
                         <TextView
+                            android:id="@+id/editor_interface_hint"
                             style="@style/Vpn0wnLabelText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginStart="10dp"
-                            android:text="@string/vpn0wn_local_side" />
-                    </LinearLayout>
+                            android:layout_marginStart="20dp"
+                            android:text="@string/vpn0wn_local_side"
+                            app:layout_constrainedWidth="true"
+                            app:layout_constraintBottom_toBottomOf="parent"
+                            app:layout_constraintEnd_toEndOf="parent"
+                            app:layout_constraintHorizontal_bias="1"
+                            app:layout_constraintStart_toEndOf="@id/editor_interface_title"
+                            app:layout_constraintTop_toTopOf="parent" />
+                    </androidx.constraintlayout.widget.ConstraintLayout>
 
                     <!-- Interface FieldGroup card -->
                     <com.google.android.material.card.MaterialCardView

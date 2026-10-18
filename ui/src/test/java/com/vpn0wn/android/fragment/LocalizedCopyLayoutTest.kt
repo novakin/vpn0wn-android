@@ -7,8 +7,11 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Rect
 import android.os.Looper
+import android.text.InputType
+import android.text.Layout
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
 import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
@@ -44,6 +47,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import org.robolectric.util.ReflectionHelpers
 
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, sdk = [28])
@@ -51,7 +55,7 @@ import org.robolectric.annotation.GraphicsMode
 class LocalizedCopyLayoutTest {
     @get:Rule val folder = TemporaryFolder()
 
-    @Test fun editorLabelsAndNativeFieldsRemainReachable() = previews { activity, case ->
+    @Test fun editorLabelsAndNativeFieldsRemainReachable() = previews(largeText = true) { activity, case ->
         val binding = TunnelEditorFragmentBinding.inflate(activity.layoutInflater)
         val config = ConfigProxy().apply { addPeer() }
         binding.config = config
@@ -62,6 +66,14 @@ class LocalizedCopyLayoutTest {
             layout(binding.root, case)
             assertConfiguration(binding.root, case)
             capture(binding.root, case, "editor-top")
+            reveal(binding.editorInterfaceTitle, binding.root, case)
+            assertTextFits(binding.editorInterfaceTitle)
+            assertMono(binding.editorInterfaceTitle, R.font.jetbrains_mono_medium)
+            assertTrue("Interface title and local-side hint do not overlap", if (case.rtl) {
+                binding.editorInterfaceHint.right <= binding.editorInterfaceTitle.left
+            } else {
+                binding.editorInterfaceTitle.right <= binding.editorInterfaceHint.left
+            })
             for (label in listOf(R.string.vpn0wn_local_side, R.string.name, R.string.private_key, R.string.public_key,
                 R.string.addresses, R.string.dns_servers, R.string.listen_port, R.string.applications,
                 R.string.pre_shared_key, R.string.endpoint, R.string.allowed_ips, R.string.persistent_keepalive)) {
@@ -72,6 +84,9 @@ class LocalizedCopyLayoutTest {
                 reveal(button, binding.root, case)
                 assertTarget(button)
                 assertTextFits(button)
+            }
+            if (case.scale == 1f) {
+                assertEquals("Normal Save target keeps its approved height", MINIMUM_TARGET_DP, binding.editorSaveButton.height)
             }
             val peer = requireNotNull(DataBindingUtil.getBinding<TunnelEditorPeerBinding>(binding.peersLayout.getChildAt(0)))
             assertEquals(activity.getString(R.string.vpn0wn_paste_base64_key), peer.publicKeyText.hint.toString())
@@ -91,12 +106,26 @@ class LocalizedCopyLayoutTest {
             }
             binding.interfaceNameText.setText("synthetic")
             peer.endpointText.setText("198.51.100.42:51820")
+            peer.persistentKeepaliveText.setText(SYNTHETIC_KEEPALIVE_SECONDS.toString())
             binding.executePendingBindings()
             assertEquals("synthetic", binding.name)
             assertEquals("198.51.100.42:51820", config.peers.single().endpoint)
+            assertEquals(InputType.TYPE_CLASS_NUMBER, peer.persistentKeepaliveText.inputType)
+            assertEquals(EditorInfo.IME_ACTION_NEXT, peer.persistentKeepaliveText.imeOptions and EditorInfo.IME_MASK_ACTION)
+            assertEquals(SYNTHETIC_KEEPALIVE_SECONDS.toString(), config.peers.single().persistentKeepalive)
+            peer.persistentKeepaliveText.setText("")
+            binding.executePendingBindings()
+            assertEquals("", config.peers.single().persistentKeepalive)
             reveal(binding.setExcludedApplications, binding.root, case)
             capture(binding.root, case, "editor-applications")
             reveal(peer.persistentKeepaliveText, binding.root, case)
+            assertEquals(activity.getString(R.string.hint_optional_discouraged), peer.persistentKeepaliveText.hint.toString())
+            val hintLayout = ReflectionHelpers.getField<Layout>(peer.persistentKeepaliveText, "mHintLayout")
+            assertEquals(peer.persistentKeepaliveText.hint.toString(), hintLayout.text.toString())
+            if (case.scale == 2f && case.width == 320) {
+                assertTrue("Largest-text native hint wraps completely", hintLayout.lineCount > 1)
+            }
+            assertTextFits(peer.persistentKeepaliveText, hintLayout)
             capture(binding.root, case, "editor-peer")
         } finally { binding.unbind() }
     }
@@ -169,18 +198,20 @@ class LocalizedCopyLayoutTest {
         capture(binding.root, case, "logs")
     }
 
-    private fun previews(check: (AppCompatActivity, Preview) -> Unit) {
+    private fun previews(largeText: Boolean = false, check: (AppCompatActivity, Preview) -> Unit) {
         val originalQualifiers = RuntimeEnvironment.getQualifiers()
         val originalFontScale = RuntimeEnvironment.getApplication().resources.configuration.fontScale
         val originalDirection = RuntimeEnvironment.getApplication().resources.configuration.layoutDirection
         val originalLocale = Locale.getDefault()
-        val cases = listOf(
+        val standardCases = listOf(
             Preview("en-compact", locale = "en", width = 320, height = 640, scale = 1f),
             Preview("fr-compact", locale = "fr", width = 320, height = 640, scale = 1.3f),
             Preview("fr-short", locale = "fr", width = 640, height = 320, scale = 1.3f),
             Preview("fr-rtl-compact", locale = "fr", width = 320, height = 640, scale = 1.3f, rtl = true),
             Preview("fr-rtl-short", locale = "fr", width = 640, height = 320, scale = 1.3f, rtl = true),
         )
+        val cases = if (largeText) standardCases + standardCases.map { it.copy(name = "${it.name}-large", scale = 2f) }
+            else standardCases
         try {
             for (preview in cases) for (night in listOf(false, true)) {
                 val case = preview.copy(night = night)
@@ -261,15 +292,14 @@ class LocalizedCopyLayoutTest {
         assertEquals("ss01, zero, tnum", view.fontFeatureSettings)
     }
 
-    private fun assertTextFits(view: TextView) {
-        val text = requireNotNull(view.layout)
+    private fun assertTextFits(view: TextView, text: Layout = requireNotNull(view.layout)) {
         val width = view.width - view.compoundPaddingLeft - view.compoundPaddingRight
         val height = view.height - view.compoundPaddingTop - view.compoundPaddingBottom
-        assertTrue("Complete label: ${view.text}", text.lineCount > 0 && text.getLineEnd(text.lineCount - 1) == text.text.length)
-        assertTrue("Complete label height: ${view.text}", text.height <= height)
+        assertTrue("Complete label: ${text.text}", text.lineCount > 0 && text.getLineEnd(text.lineCount - 1) == text.text.length)
+        assertTrue("Complete label height: ${text.text}", text.height <= height)
         for (line in 0 until text.lineCount) {
-            assertEquals("No label truncation: ${view.text}", 0, text.getEllipsisCount(line))
-            assertTrue("Label stays within content width: ${view.text}",
+            assertEquals("No label truncation: ${text.text}", 0, text.getEllipsisCount(line))
+            assertTrue("Label stays within content width: ${text.text}",
                 text.getLineLeft(line) - view.scrollX >= -INK_TOLERANCE_PX && text.getLineRight(line) - view.scrollX <= width + INK_TOLERANCE_PX)
         }
         val bitmap = Bitmap.createBitmap(text.width + INK_MARGIN_PX * 2, text.height + INK_MARGIN_PX * 2, Bitmap.Config.ARGB_8888)
@@ -279,8 +309,8 @@ class LocalizedCopyLayoutTest {
             text.draw(canvas)
             val pixels = IntArray(bitmap.width * bitmap.height)
             bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
-            assertTrue("Native label paints glyphs: ${view.text}", pixels.any { it ushr ALPHA_SHIFT != 0 })
-            assertTrue("Painted glyphs stay within the field: ${view.text}", pixels.indices.all {
+            assertTrue("Native label paints glyphs: ${text.text}", pixels.any { it ushr ALPHA_SHIFT != 0 })
+            assertTrue("Painted glyphs stay within the field: ${text.text}", pixels.indices.all {
                 if (pixels[it] ushr ALPHA_SHIFT == 0) true else {
                     val x = it % bitmap.width - INK_MARGIN_PX
                     val y = it / bitmap.width - INK_MARGIN_PX
@@ -304,7 +334,6 @@ class LocalizedCopyLayoutTest {
     }
 
     private fun capture(root: View, case: Preview, name: String) {
-        layout(root, case)
         assertConfiguration(root, case)
         val project = File(requireNotNull(System.getProperty("user.dir"))).let { if (it.name == "ui") it.parentFile else it }
         val output = System.getenv("VPN0WN_LOCALIZED_COPY_OUTPUT")?.let(::File)
