@@ -86,6 +86,14 @@ See [backend contracts](backend-contracts.md) for known divergences and [the pla
 
 ## Consequential decisions
 
+### Retain current local-port policy after assessment — #77, 2026-10-18
+
+**Problem/decision; no candidate selected:** existing incident, exhaustion, loopback and port-lifecycle evidence does not diagnose a failure that a new local port would remedy. The [dated source/contract assessment](reviews/2026-10-18-local-port-recovery-assessment.md) therefore retains current behavior. This is a no-change assessment outcome, not a finding that rotation is ineffective.
+
+**Alternatives/consequences:** adopting runtime rotation now would introduce interface-wide flow changes and possible UDP/NAT/firewall disruption without a justified target, including effects on healthy peers and fixed-port requirements. Keep explicit ListenPort, fresh native automatic selection and retained selected-port rebind semantics, profiles, remote Endpoint, warm-up and recovery/bootstrap boundaries. No source/configuration migration is needed. A later diagnosed candidate remains subject to #77's existing separate selection and authorization criteria; optional AWG remains unselected.
+
+**Verification/status:** existing trials keep their original dates and limits; no new runtime test or rotation occurs. Final documentation-head review, parent #72 rationale and publication/issue readback remain pending. Broader #61/#73/#75/#76 and #72 stay open.
+
 ### Require caller intent for restoration and tile retry — #244/#247, 2026-10-17
 
 Inventory initialization previously forced restoration for every application start, before a boot receiver could enforce the disabled preference. A tile could also replay a relative toggle after its first mutation succeeded but later observation failed. Decision: keep inventory read-only, let existing activity/boot/always-on owners request restoration explicitly, and retain one interactive request per manager. Boot/shutdown receivers acquire `goAsync` before backend selection and finish the pending result on coroutine completion, including cancellation before execution. Running-name saving also awaits inventory before replacing persisted intent. Tile consent carries the original managed object and an absolute target through a local Binder and retained ViewModel; it is admitted only for the actual UP authorization failure.
