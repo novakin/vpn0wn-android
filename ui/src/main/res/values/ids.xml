@@ -54,4 +54,5 @@
     <item name="vpn0wn_vps_reconcile_removal" type="id" />
     <item name="vpn0wn_vps_user_rotation_status" type="id" />
     <item name="vpn0wn_vps_reconcile_rotation" type="id" />
+    <item name="vpn0wn_vps_install_progress" type="id" />
 </resources>

@@ -18,6 +18,8 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
     var installFailure: ProvisioningException? = null
     var installOutput: String? = null
     var installExitCode = 0
+    var installProgress = emptyList<VpsInstallProgress>()
+    var installProgressObserver: ((VpsInstallProgress) -> Unit)? = null
     val addEntered = CompletableDeferred<Unit>()
     var blockAdd: CompletableDeferred<Unit>? = null
     var addFailure: ProvisioningException? = null
@@ -86,6 +88,12 @@ internal class VpsPlanningTestPeer : RemoteShellClientFactory {
         connections.add(connection)
         return object : RemoteShellClient {
             private var rotationInput = emptyMap<String, String>()
+            override suspend fun execute(command: String, onProgress: (VpsInstallProgress) -> Unit): ProvisioningCommandOutput {
+                check(command.contains("./'install.sh'"))
+                installProgressObserver = onProgress
+                installProgress.forEach(onProgress)
+                return execute(command)
+            }
             override suspend fun execute(command: String): ProvisioningCommandOutput {
                 commands.add(command)
                 return when {

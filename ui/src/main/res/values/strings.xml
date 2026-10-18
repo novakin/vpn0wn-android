@@ -812,4 +812,10 @@
     <string name="vpn0wn_recovery_failure_defect">Failure: internal error</string>
     <string name="vpn0wn_recovery_authenticated_later">Later authentication recorded at device uptime %1$d ms</string>
     <string name="vpn0wn_recovery_scope">Counts and results reset with a new native activation. Result uptime records app reconciliation, not native completion. Later authentication proves neither recovery causation nor Internet or DNS reachability.</string>
+    <string name="vpn0wn_install_progress_label">Server-reported installation phases</string>
+    <string name="vpn0wn_install_progress_prepare">Preparing installation…</string>
+    <string name="vpn0wn_install_progress_packages">Installing WireGuard packages…</string>
+    <string name="vpn0wn_install_progress_configure">Preparing WireGuard configuration…</string>
+    <string name="vpn0wn_install_progress_start">Starting the WireGuard service…</string>
+    <string name="vpn0wn_install_progress_verify">Checking the interface and configuration…</string>
 </resources>

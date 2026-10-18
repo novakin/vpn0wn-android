@@ -803,4 +803,10 @@
     <string name="vpn0wn_recovery_failure_defect">Échec : erreur interne</string>
     <string name="vpn0wn_recovery_authenticated_later">Authentification ultérieure enregistrée à %1$d ms depuis le démarrage</string>
     <string name="vpn0wn_recovery_scope">Les comptes et résultats sont remis à zéro lors d’une nouvelle activation native. La durée du résultat correspond à son enregistrement dans l’application, pas à la fin du travail natif. Une authentification ultérieure ne prouve ni l’effet de la récupération, ni l’accès à Internet ou au DNS.</string>
+    <string name="vpn0wn_install_progress_label">Étapes d’installation signalées par le serveur</string>
+    <string name="vpn0wn_install_progress_prepare">Préparation de l’installation…</string>
+    <string name="vpn0wn_install_progress_packages">Installation des paquets WireGuard…</string>
+    <string name="vpn0wn_install_progress_configure">Préparation de la configuration WireGuard…</string>
+    <string name="vpn0wn_install_progress_start">Démarrage du service WireGuard…</string>
+    <string name="vpn0wn_install_progress_verify">Vérification de l’interface et de la configuration…</string>
 </resources>

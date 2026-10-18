@@ -6,8 +6,11 @@ import android.app.Activity
 import android.Manifest
 import android.content.DialogInterface
 import android.content.Intent
+import android.content.res.Configuration
 import android.content.pm.PackageManager
 import android.graphics.Rect
+import android.graphics.Bitmap
+import android.graphics.Canvas
 import android.graphics.drawable.BitmapDrawable
 import android.os.Bundle
 import android.os.Environment
@@ -22,6 +25,7 @@ import android.widget.Button
 import android.widget.TextView
 import android.widget.ScrollView
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.res.ResourcesCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.ViewModelProvider
 import com.vpn0wn.android.Application as Vpn0wnApplication
@@ -38,6 +42,7 @@ import com.vpn0wn.android.provisioning.PendingVpsRemove
 import com.vpn0wn.android.provisioning.VpsCredentialFileTest
 import com.vpn0wn.android.provisioning.VpsProfileFixture
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel
+import com.vpn0wn.android.provisioning.VpsInstallProgress
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Step
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.UserCreation
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.UserRemoval
@@ -57,6 +62,7 @@ import com.google.zxing.WriterException
 import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.QRCodeReader
 import java.io.IOException
+import java.io.File
 import java.util.Base64
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -84,6 +90,113 @@ import org.robolectric.shadows.ShadowEnvironment
 @Config(application = Application::class, sdk = [28])
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class VpsProvisioningWorkflowTest : VpsProvisioningWorkflowFixture() {
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun localizedInstallProgressFitsExistingNativeTerminalAcrossSupportedOutput() = runTest {
+        for (locale in listOf("en", "fr")) for (night in listOf("night", "notnight")) {
+            for ((width, height, fontScale) in listOf(Triple(320, 640, 1f), Triple(320, 640, 2f), Triple(640, 320, 2f))) {
+                val direction = if (fontScale > 1f) "ldrtl" else "ldltr"
+                val orientation = if (width > height) "land" else "port"
+                RuntimeEnvironment.setQualifiers("$locale-$direction-w${width}dp-h${height}dp-$orientation-$night-mdpi")
+                RuntimeEnvironment.setFontScale(fontScale)
+                val fixture = fixture()
+                try {
+                    fixture.model.begin()
+                    fixture.model.edit(fixture.model.draft.copy(host = "198.51.100.42", fingerprint = PROFILE_PIN,
+                        authMode = VpsProvisioningViewModel.AuthMode.PASSWORD, password = PASSWORD.toCharArray()))
+                    requireNotNull(fixture.model.detect()).join()
+                    requireNotNull(fixture.model.plan()).join()
+                    fixture.model.reviewApply()
+                    fixture.peer.blockInstall = CompletableDeferred()
+                    fixture.peer.installProgress = VpsInstallProgress.entries
+                    requireNotNull(fixture.model.confirmInstall(requireNotNull(fixture.model.requestInstallConfirmation())))
+                    fixture.model.state.first { it.installationProgress == VpsInstallProgress.entries }
+                    settle()
+                    val expectedDirection = if (fontScale > 1f) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
+                    fixture.root.layoutDirection = expectedDirection
+                    var readyToDraw = false
+                    repeat(3) {
+                        measure(fixture.root.rootView, width, height)
+                        settle()
+                        readyToDraw = !fixture.root.viewTreeObserver.dispatchOnPreDraw()
+                    }
+                    assertTrue("Final install-progress traversal permits drawing", readyToDraw)
+                    val terminal = fixture.root.findViewById<TextView>(R.id.vpn0wn_vps_install_progress)
+                    assertEquals(expectedDirection, fixture.root.layoutDirection)
+                    assertEquals(locale, terminal.resources.configuration.locales[0].language)
+                    assertEquals(fontScale, terminal.resources.configuration.fontScale, 0f)
+                    assertEquals(expectedDirection, terminal.layoutDirection)
+                    assertEquals(if (night == "night") Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO,
+                        terminal.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)
+                    assertEquals(ResourcesCompat.getFont(terminal.context, R.font.jetbrains_mono_regular), terminal.typeface)
+                    assertEquals("ss01, zero, tnum", terminal.fontFeatureSettings)
+                    assertTrue(terminal.text.contains(terminal.context.getString(R.string.vpn0wn_install_progress_verify)))
+                    assertEquals(terminal.text.length, terminal.layout.getLineEnd(terminal.layout.lineCount - 1))
+                    assertTrue(terminal.layout.height <= terminal.height - terminal.paddingTop - terminal.paddingBottom)
+                    val name = "$locale-$night-${width}x$height-${fontScale}x-$direction"
+                    val contentWidth = terminal.width - terminal.compoundPaddingLeft - terminal.compoundPaddingRight
+                    for (line in 0 until terminal.layout.lineCount) {
+                        assertEquals(0, terminal.layout.getEllipsisCount(line))
+                        val copy = terminal.text.substring(terminal.layout.getLineStart(line), terminal.layout.getLineEnd(line)).trimEnd('\n')
+                        val glyphs = Rect()
+                        terminal.paint.getTextBounds(copy, 0, copy.length, glyphs)
+                        val left = terminal.layout.getLineLeft(line) + glyphs.left
+                        val right = terminal.layout.getLineLeft(line) + glyphs.right
+                        assertTrue("Complete terminal glyph width: $name line $line", left >= 0 && right <= contentWidth)
+                    }
+                    assertFalse(terminal.text.contains(PASSWORD))
+                    saveInstallProgressPreview(fixture.root, "$name-window")
+                    saveInstallProgressPreview(terminal, "$name-terminal")
+                    assertProfileTextReachable(terminal)
+                    saveInstallProgressPreview(fixture.root, "$name-progress-visible")
+                } finally { fixture.close() }
+            }
+        }
+    }
+
+    @Test fun remoteInstallationProgressUpdatesTheExistingTerminalAndSurvivesRecreation() = runTest {
+        val fixture = fixture()
+        try {
+            fillAccess(fixture)
+            click(fixture, R.string.vpn0wn_continue)
+            fixture.model.state.first { !it.busy && it.detect != null }
+            click(fixture, R.string.vpn0wn_generate_plan)
+            fixture.model.state.first { !it.busy && it.plan != null }
+            settle()
+            click(fixture, R.string.vpn0wn_review_apply)
+            fixture.peer.blockInstall = CompletableDeferred()
+            click(fixture, R.string.vpn0wn_apply_plan_button)
+            (ShadowDialog.getLatestDialog() as AlertDialog).getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            fixture.peer.installEntered.await()
+            settle()
+            val terminal = fixture.root.findViewById<TextView>(R.id.vpn0wn_vps_install_progress)
+            val action = fixture.root.findViewById<View>(R.id.vpn0wn_vps_bottom_action)
+            assertEquals(View.GONE, terminal.visibility)
+            val observer = requireNotNull(fixture.peer.installProgressObserver)
+            observer(VpsInstallProgress.PREPARING)
+            fixture.model.state.first { it.installationProgress.isNotEmpty() }
+            settle()
+            assertSame(terminal, fixture.root.findViewById(R.id.vpn0wn_vps_install_progress))
+            assertSame(action, fixture.root.findViewById(R.id.vpn0wn_vps_bottom_action))
+            assertEquals(View.VISIBLE, terminal.visibility)
+            assertTrue(terminal.text.contains(fixture.activity.getString(R.string.vpn0wn_install_progress_prepare)))
+            assertEquals(View.ACCESSIBILITY_LIVE_REGION_POLITE, terminal.accessibilityLiveRegion)
+            assertEquals(ResourcesCompat.getFont(terminal.context, R.font.jetbrains_mono_regular), terminal.typeface)
+            assertEquals("ss01, zero, tnum", terminal.fontFeatureSettings)
+            fixture.controller.recreate()
+            settle()
+            val fresh = fixture.root.findViewById<TextView>(R.id.vpn0wn_vps_install_progress)
+            assertNotSame(terminal, fresh)
+            assertEquals(terminal.text.toString(), fresh.text.toString())
+            observer(VpsInstallProgress.PACKAGES)
+            fixture.model.state.first { it.installationProgress.last() == VpsInstallProgress.PACKAGES }
+            settle()
+            assertSame(fresh, fixture.root.findViewById(R.id.vpn0wn_vps_install_progress))
+            assertTrue(fresh.text.contains(fixture.activity.getString(R.string.vpn0wn_install_progress_packages)))
+            assertTrue(fixture.model.state.value.pendingInstall)
+        } finally { fixture.close() }
+    }
+
     @Test fun actualActionsRequireExplicitConfirmationBeforeInstallation() = runTest {
         val fixture = fixture()
         try {
@@ -1967,6 +2080,16 @@ internal class VpsProvisioningWorkflowTest : VpsProvisioningWorkflowFixture() {
             assertEquals(1, labels.count { it.labelFor == input.id && it.text.isNotBlank() })
         }
     }
+    private fun saveInstallProgressPreview(view: View, name: String) {
+        assertFalse("$name: cancelled draw cannot be captured", view.viewTreeObserver.dispatchOnPreDraw())
+        val bitmap = Bitmap.createBitmap(view.width, view.height, Bitmap.Config.ARGB_8888)
+        try {
+            view.draw(Canvas(bitmap))
+            val directory = File("../.artifacts/provisioning-progress-previews").apply { mkdirs() }
+            File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
+        } finally { bitmap.recycle() }
+    }
+
     private fun measure(view: View, width: Int, height: Int) {
         val density = view.resources.displayMetrics.density
         view.measure(View.MeasureSpec.makeMeasureSpec((width * density).toInt(), View.MeasureSpec.EXACTLY),
