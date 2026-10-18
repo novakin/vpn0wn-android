@@ -14,6 +14,7 @@ import androidx.databinding.CallbackRegistry.NotifierCallback
 import androidx.lifecycle.lifecycleScope
 import com.vpn0wn.android.Application
 import com.vpn0wn.android.R
+import com.vpn0wn.android.NetworkMonitorService
 import com.vpn0wn.android.model.ObservableTunnel
 import com.vpn0wn.android.util.ErrorMessages
 import com.vpn0wn.android.util.RootShell.RootShellException
@@ -26,6 +27,17 @@ import kotlinx.coroutines.launch
  * Base class for activities that need to remember the currently-selected tunnel.
  */
 abstract class BaseActivity : AppCompatActivity() {
+    override fun onResume() {
+        super.onResume()
+        lifecycleScope.launch {
+            try {
+                NetworkMonitorService.startIfEnabled(this@BaseActivity)
+            } catch (_: IOException) {
+                Application.getTunnelManager().networkAutomation.startFailed()
+            }
+        }
+    }
+
     private val selectionChangeRegistry = SelectionChangeRegistry()
     private val selectionListenersReady = CompletableDeferred<Unit>()
     private var selectionRestoreJob: Job? = null

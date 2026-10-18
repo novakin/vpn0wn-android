@@ -6,6 +6,37 @@
   ~ Modified for vpn0wn.
   -->
 <resources>
+    <string name="automation_unsupported">Network automation requires single-tunnel userspace mode. Disable kernel mode and multiple simultaneous tunnels first.</string>
+    <string name="automation_title">Network automation</string>
+    <string name="automation_default">Default tunnel</string>
+    <string name="automation_choose_default">Choose a numeric or endpoint-free userspace tunnel</string>
+    <string name="automation_enable">Enable network automation</string>
+    <string name="automation_enable_summary">Connect the default tunnel and follow eligible public networks. Working Internet takes priority over transport type.</string>
+    <string name="automation_resume">Resume monitoring</string>
+    <string name="automation_resume_summary">Resume after Stop or an inactive monitor. Manual choices and failed attempts stay protected.</string>
+    <string name="automation_disable">Disable automation</string>
+    <string name="automation_disable_confirm_action">Disable</string>
+    <string name="automation_disable_summary">Keep the VPN connected and return network handling to Android, with a brief traffic gap.</string>
+    <string name="automation_disable_confirmation">Automation will stop. The VPN stays connected while fresh protected sockets return network handling to Android. Traffic pauses briefly. If hand-back fails, automation stays off; disconnect and reconnect manually.</string>
+    <string name="automation_action_failed">Automation could not start. Choose a numeric userspace default tunnel and check VPN permission.</string>
+    <string name="automation_status_disabled">Disabled. Ordinary tunnel controls keep their existing behavior.</string>
+    <string name="automation_status_inactive">Enabled; monitor inactive. Resume from this screen.</string>
+    <string name="automation_status_monitoring">Monitoring public networks. This does not establish VPN or Internet health.</string>
+    <string name="automation_status_waiting">Waiting for an eligible public network. No unbound fallback.</string>
+    <string name="automation_status_owned">Sockets bound to the selected public network. Physical routing and VPN health remain unverified.</string>
+    <string name="automation_status_manual">Manual choice retained. Network changes do not release it.</string>
+    <string name="automation_status_paused">Paused after user Stop. Resume explicitly; manual choices and failed attempts remain.</string>
+    <string name="automation_status_unresolved">Default or intent binding needs repair. Select the actual tunnel again and make an explicit tunnel choice.</string>
+    <string name="automation_status_failed">Transition failed or uncertain. Equivalent automatic work will not retry. Disconnect and reconnect manually if needed.</string>
+    <string name="automation_status_exit_pending">Automation disabled; Android hand-back is finishing or its result is unsaved. No automatic retry.</string>
+    <string name="automation_status_exit_failed">Automation disabled. Android handling is unconfirmed; a pin or unavailable transport may remain. Disconnect and reconnect manually.</string>
+    <string name="automation_status_exit_pin">Automation disabled. The VPN still has an app-owned public network pin; Android hand-back failed. Disconnect and reconnect manually.</string>
+    <string name="automation_status_exit_unavailable">Automation disabled. The VPN has no usable transport after failed hand-back. Disconnect and reconnect manually.</string>
+    <string name="automation_status_exit_unknown">Automation disabled. Current socket binding and Android handling are unknown. Disconnect and reconnect manually.</string>
+    <string name="automation_status_android">Automation disabled. Android network handling restored for the same live VPN activation.</string>
+    <string name="automation_notification_channel">Network automation</string>
+    <string name="automation_notification_title">vpn0wn network monitoring</string>
+    <string name="automation_notification_summary">Monitoring is separate from VPN connection and health. Open Settings for status.</string>
     <string name="app_data_transfer_export_title">Export app data</string>
     <string name="app_data_transfer_export_summary">Profiles, settings and saved servers. The ZIP contains private keys; keep it private.</string>
     <string name="app_data_transfer_export_success">Saved private transfer ZIP: %1$s</string>
@@ -204,6 +235,8 @@
     <string name="multiple_tunnels_summary_off">Turning on one tunnel will turn off others</string>
     <string name="multiple_tunnels_summary_on">Multiple tunnels may be turned on simultaneously</string>
     <string name="multiple_tunnels_title">Allow multiple simultaneous tunnels</string>
+    <string name="multiple_tunnels_saved_title">Saved multiple-tunnel mode</string>
+    <string name="multiple_tunnels_saved_summary">Requires the kernel backend. Turn off this saved setting to enable network automation.</string>
     <string name="name">Name</string>
     <string name="no_config_error">Trying to bring up a tunnel with no config</string>
     <string name="no_configs_error">No configurations found</string>

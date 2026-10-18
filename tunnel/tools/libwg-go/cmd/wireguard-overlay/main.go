@@ -240,6 +240,20 @@ const retainedRebindSource = `func (device *Device) Rebind() error {
 	return device.rebindLocked()
 }
 
+func (device *Device) RebindTransport(prepare func() error) error {
+	if !device.ipcMutex.TryLock() {
+		return syscall.EBUSY
+	}
+	defer device.ipcMutex.Unlock()
+	if !device.isUp() {
+		return net.ErrClosed
+	}
+	if err := prepare(); err != nil {
+		return err
+	}
+	return device.rebindLocked()
+}
+
 func (device *Device) rebindLocked() error {
 	if !device.isUp() {
 		return net.ErrClosed

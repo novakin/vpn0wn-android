@@ -96,7 +96,7 @@ class TunnelRecoveryTest {
             assertEquals(ObservableTunnel.RecoveryPowerState.NOT_DEEP_IDLE, first.powerState)
             clock(29_999)
             emit(fixture, 2)
-            assertEquals(ObservableTunnel.RecoveryStatus.DROPPED_COOLDOWN, fixture.snapshot().status)
+            assertEquals(ObservableTunnel.RecoveryStatus.DROPPED_COOLDOWN, awaitSnapshot(fixture) { !it.requestPending }.status)
             assertEquals(first.lastResultRecordedElapsedRealtimeMillis, fixture.snapshot().lastResultRecordedElapsedRealtimeMillis)
             assertEquals(1, NativeShadow.calls.size)
             clock(1)
@@ -109,7 +109,7 @@ class TunnelRecoveryTest {
             assertTrue(second.lastResultRecordedElapsedRealtimeMillis!! > first.lastResultRecordedElapsedRealtimeMillis!!)
             clock(30_000)
             emit(fixture, 4)
-            assertEquals(ObservableTunnel.RecoveryStatus.DROPPED_ATTEMPT_LIMIT, fixture.snapshot().status)
+            assertEquals(ObservableTunnel.RecoveryStatus.DROPPED_ATTEMPT_LIMIT, awaitSnapshot(fixture) { !it.requestPending }.status)
             advanceTimeBy(600_000)
             pump()
             assertEquals(2, NativeShadow.calls.size)
@@ -153,7 +153,7 @@ class TunnelRecoveryTest {
                 assertTrue(result.lastResultRecordedElapsedRealtimeMillis!! >= releasedAt)
                 assertTrue(result.lastResultRecordedElapsedRealtimeMillis!! > result.lastRequestElapsedRealtimeMillis!!)
                 emit(fixture, 2, otherPeer)
-                assertEquals(ObservableTunnel.RecoveryStatus.DROPPED_COOLDOWN, fixture.snapshot().status)
+                assertEquals(ObservableTunnel.RecoveryStatus.DROPPED_COOLDOWN, awaitSnapshot(fixture) { !it.requestPending }.status)
                 assertEquals(peer, fixture.snapshot().lastRequestPeer)
                 assertEquals(result.lastOutcome, fixture.snapshot().lastOutcome)
                 assertEquals(result.lastResultRecordedElapsedRealtimeMillis, fixture.snapshot().lastResultRecordedElapsedRealtimeMillis)
@@ -203,7 +203,7 @@ class TunnelRecoveryTest {
             pump()
             assertCounts(awaitSnapshot(fixture) { it.backendEntries == 4 && !it.requestPending }, 0, 0, 4, 0)
             emit(fixture, 3)
-            assertEquals(ObservableTunnel.RecoveryStatus.DROPPED_ENTRY_LIMIT, fixture.snapshot().status)
+            assertEquals(ObservableTunnel.RecoveryStatus.DROPPED_ENTRY_LIMIT, awaitSnapshot(fixture) { !it.requestPending }.status)
             advanceTimeBy(60_000)
             pump()
             assertEquals(4, NativeShadow.calls.size)
@@ -215,7 +215,7 @@ class TunnelRecoveryTest {
             idle(fixture, true)
             emit(fixture, 1)
             assertCounts(fixture.snapshot(), 0, 0, 0, 0)
-            assertEquals(ObservableTunnel.RecoveryStatus.DROPPED_DOZE, fixture.snapshot().status)
+            assertEquals(ObservableTunnel.RecoveryStatus.DROPPED_DOZE, awaitSnapshot(fixture) { !it.requestPending }.status)
             assertEquals(ObservableTunnel.RecoveryPowerState.DEEP_IDLE, fixture.snapshot().powerState)
             idle(fixture, false)
             advanceTimeBy(60_000)
@@ -228,7 +228,7 @@ class TunnelRecoveryTest {
             advanceTimeBy(1_000)
             pump()
             assertCounts(awaitSnapshot(fixture) { !it.requestPending }, 0, 0, 1, 0)
-            assertEquals(ObservableTunnel.RecoveryStatus.DROPPED_DOZE, fixture.snapshot().status)
+            assertEquals(ObservableTunnel.RecoveryStatus.DROPPED_DOZE, awaitSnapshot(fixture) { !it.requestPending }.status)
             idle(fixture, false)
             NativeShadow.response = { native(RecoveryResult.Outcome.INITIATION_STARTED) }
             emit(fixture, 3)
@@ -328,7 +328,7 @@ class TunnelRecoveryTest {
             emit(fixture, 2)
             assertEquals(2, NativeShadow.calls.size)
             assertCounts(fixture.snapshot(), 0, 1, 2, 1)
-            assertEquals(ObservableTunnel.RecoveryStatus.DISABLED, fixture.snapshot().status)
+            assertEquals(ObservableTunnel.RecoveryStatus.DISABLED, awaitSnapshot(fixture) { !it.requestPending }.status)
             val old = fixture.tunnel.activeHandshakeSession
             fixture.tunnel.setStateAsync(Tunnel.State.DOWN)
             pump()
@@ -381,7 +381,7 @@ class TunnelRecoveryTest {
             clock(30_000)
             emit(fixture, 2)
             assertEquals(1, NativeShadow.calls.size)
-            assertEquals(ObservableTunnel.RecoveryStatus.DISABLED, fixture.snapshot().status)
+            assertEquals(ObservableTunnel.RecoveryStatus.DISABLED, awaitSnapshot(fixture) { !it.requestPending }.status)
         }
     }
 
@@ -431,7 +431,7 @@ class TunnelRecoveryTest {
                 clock(30_000)
                 emit(fixture, 2)
                 assertEquals(1, NativeShadow.calls.size)
-                assertEquals(ObservableTunnel.RecoveryStatus.DISABLED, fixture.snapshot().status)
+                assertEquals(ObservableTunnel.RecoveryStatus.DISABLED, awaitSnapshot(fixture) { !it.requestPending }.status)
                 assertEquals(1, NativeShadow.startupCalls)
             } finally {
                 blocked.release.countDown()
@@ -577,7 +577,7 @@ class TunnelRecoveryTest {
             }
             clock(29_999)
             emit(fixture, 2)
-            assertEquals(ObservableTunnel.RecoveryStatus.DROPPED_COOLDOWN, fixture.snapshot().status)
+            assertEquals(ObservableTunnel.RecoveryStatus.DROPPED_COOLDOWN, awaitSnapshot(fixture) { !it.requestPending }.status)
             assertEquals(1, NativeShadow.calls.size)
             clock(1)
             emit(fixture, 3)
@@ -896,7 +896,7 @@ class TunnelRecoveryTest {
                 clock(30_000)
                 emit(fixture, 2)
                 assertEquals(1, NativeShadow.calls.size)
-                assertEquals(ObservableTunnel.RecoveryStatus.DISABLED, fixture.snapshot().status)
+                assertEquals(ObservableTunnel.RecoveryStatus.DISABLED, awaitSnapshot(fixture) { !it.requestPending }.status)
             } finally {
                 blocked.release.countDown()
             }
@@ -1104,12 +1104,13 @@ class TunnelRecoveryTest {
             }
 
             @Implementation @JvmStatic fun wgTurnOn(name: String, fd: Int, settings: String,
-                service: GoBackend.VpnService, thread: Thread, id: Long): Int {
+                service: GoBackend.VpnService, thread: Thread, id: Long, @org.robolectric.annotation.ClassName("com.vpn0wn.android.backend.GoBackend\$SocketCapture") capture: Any): Int {
                 assertEquals(expectedName, name)
                 assertEquals(73, fd)
                 assertTrue(settings.contains("listen_port=51820"))
                 assertSame(expectedService, service)
                 assertSame(Thread.currentThread(), thread)
+                assertNotNull(capture)
                 activationId = id
                 startupCalls++
                 return nextHandle++
@@ -1124,6 +1125,10 @@ class TunnelRecoveryTest {
                 return response(call)
             }
 
+            @Implementation @JvmStatic fun wgTransportSnapshot(handle: Int): Long {
+                assertTrue(handle >= 7)
+                return 2L
+            }
             @Implementation @JvmStatic fun wgTurnOff(handle: Int) {
                 assertTrue(handle >= 7)
                 turnOffCalls++

@@ -11,6 +11,10 @@ import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeoutException
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.Manifest
+import android.app.Activity
+import android.net.VpnService
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -28,14 +32,19 @@ import androidx.fragment.app.commit
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.lifecycle.withResumed
 import androidx.preference.Preference
 import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import androidx.preference.PreferenceGroup
+import androidx.preference.SwitchPreferenceCompat
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.vpn0wn.android.Application
 import com.vpn0wn.android.R
+import com.vpn0wn.android.NetworkMonitorService
+import com.vpn0wn.android.backend.GoBackend
+import com.vpn0wn.android.model.NetworkAutomationController
 import com.vpn0wn.android.backend.Backend
 import com.vpn0wn.android.backend.WgQuickBackend
 import com.vpn0wn.android.preference.PreferencesPreferenceDataStore
@@ -50,6 +59,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -94,6 +104,16 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     class SettingsFragment : PreferenceFragmentCompat() {
+        private var automationPending = false
+        private val automationNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+            startAutomation(NetworkMonitorService.ENABLE)
+        }
+        private val automationConsent = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == Activity.RESULT_OK) enableAutomationAfterConsent() else {
+                automationPending = false
+                showAutomationFailure()
+            }
+        }
         private var vpnPolicyJob: Job? = null
         private var transferInProgress = false
         private var importDialog: AlertDialog? = null
@@ -111,10 +131,13 @@ class SettingsActivity : AppCompatActivity() {
         override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
             super.onViewCreated(view, savedInstanceState)
             setTransferEnabled(true)
+            bindAutomation()
+            bindMultipleTunnels()
             val quickTile = findPreference<Preference>("quick_tile") ?: return
+            val owner = viewLifecycleOwner
             quickTile.isVisible = false
-            viewLifecycleOwner.lifecycleScope.launch {
-                viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            owner.lifecycleScope.launch {
+                owner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                     quickTile.isVisible = false
                     try {
                         UserKnobs.quickTileAdded.collect { added -> quickTile.isVisible = added != true }
@@ -138,6 +161,31 @@ class SettingsActivity : AppCompatActivity() {
         override fun onCreatePreferences(savedInstanceState: Bundle?, key: String?) {
             preferenceManager.preferenceDataStore = PreferencesPreferenceDataStore(lifecycleScope, Application.getPreferencesDataStore())
             addPreferencesFromResource(R.xml.preferences)
+            findPreference<Preference>("automation_default")?.setOnPreferenceClickListener {
+                chooseAutomationDefault()
+                true
+            }
+            findPreference<Preference>("automation_enable")?.setOnPreferenceClickListener {
+                if (!automationPending) {
+                    automationPending = true
+                    val consent = VpnService.prepare(requireContext())
+                    if (consent == null) enableAutomationAfterConsent() else automationConsent.launch(consent)
+                }
+                true
+            }
+            findPreference<Preference>("automation_resume")?.setOnPreferenceClickListener {
+                startAutomation(NetworkMonitorService.RESUME)
+                true
+            }
+            findPreference<Preference>("automation_disable")?.setOnPreferenceClickListener {
+                MaterialAlertDialogBuilder(requireContext())
+                    .setTitle(R.string.automation_disable)
+                    .setMessage(R.string.automation_disable_confirmation)
+                    .setNegativeButton(R.string.cancel, null)
+                    .setPositiveButton(R.string.automation_disable_confirm_action) { _, _ -> startAutomation(NetworkMonitorService.DISABLE) }
+                    .show()
+                true
+            }
             // AndroidX defaults row IDs to 0, which Android resolves as a resource during structure capture.
             clearPreferenceViewIds(preferenceScreen)
 
@@ -170,8 +218,7 @@ class SettingsActivity : AppCompatActivity() {
             }
             val wgQuickOnlyPrefs = arrayOf(
                 preferenceManager.findPreference("tools_installer"),
-                preferenceManager.findPreference("restore_on_boot"),
-                preferenceManager.findPreference<Preference>("multiple_tunnels")
+                preferenceManager.findPreference<Preference>("restore_on_boot")
             ).filterNotNull()
             wgQuickOnlyPrefs.forEach { it.isVisible = false }
             preferenceManager.findPreference<Preference>("log_viewer")?.setOnPreferenceClickListener {
@@ -217,6 +264,182 @@ class SettingsActivity : AppCompatActivity() {
         override fun onResume() {
             super.onResume()
             refreshVpnPolicy()
+            val owner = viewLifecycleOwner
+            val context = requireContext().applicationContext
+            owner.lifecycleScope.launch {
+                // The view's resume event follows this callback, including with Main.immediate.
+                owner.lifecycle.withResumed { }
+                if (!owner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) return@launch
+                try {
+                    NetworkMonitorService.startIfEnabled(context)
+                } catch (_: IOException) {
+                    Application.getTunnelManager().networkAutomation.startFailed()
+                }
+            }
+        }
+
+        private fun bindMultipleTunnels() {
+            val preference = findPreference<SwitchPreferenceCompat>("multiple_tunnels") ?: return
+            val owner = viewLifecycleOwner
+            var available = false
+            preference.isPersistent = false
+            preference.isEnabled = false
+            preference.isVisible = false
+            owner.lifecycleScope.launch {
+                owner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    available = false
+                    preference.isEnabled = false
+                    try {
+                        val backend = Application.getBackend()
+                        val kernel = backend is WgQuickBackend
+                        if (!kernel && backend !is GoBackend) {
+                            preference.parent?.removePreference(preference)
+                            return@repeatOnLifecycle
+                        }
+                        preference.setTitle(if (kernel) R.string.multiple_tunnels_title else R.string.multiple_tunnels_saved_title)
+                        preference.setSummaryOn(if (kernel) R.string.multiple_tunnels_summary_on else R.string.multiple_tunnels_saved_summary)
+                        preference.setSummaryOff(if (kernel) R.string.multiple_tunnels_summary_off else R.string.multiple_tunnels_saved_summary)
+                        preference.setOnPreferenceChangeListener { _, value ->
+                            if (value == true && !kernel) return@setOnPreferenceChangeListener false
+                            owner.lifecycleScope.launch {
+                                preference.isEnabled = false
+                                try {
+                                    Application.getTunnelManager().setMultipleTunnels(value as Boolean)
+                                } catch (_: IOException) {
+                                    showAutomationFailure()
+                                } finally {
+                                    preference.isEnabled = available
+                                }
+                            }
+                            false
+                        }
+                        UserKnobs.multipleTunnels.collect {
+                            available = true
+                            preference.isChecked = it
+                            preference.isVisible = kernel || it
+                            preference.isEnabled = true
+                        }
+                    } catch (_: IOException) {
+                        available = false
+                        preference.isEnabled = false
+                    }
+                }
+            }
+        }
+
+        private fun bindAutomation() {
+            val controller = Application.getTunnelManager().networkAutomation
+            val owner = viewLifecycleOwner
+            owner.lifecycleScope.launch {
+                try {
+                    controller.refresh()
+                } catch (_: IOException) {
+                    controller.startFailed()
+                }
+                owner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    try {
+                        val backend = Application.getBackend()
+                        controller.status.combine(UserKnobs.multipleTunnels) { status, multiple ->
+                            status to (backend is GoBackend && !multiple)
+                        }.collect { (status, supported) ->
+                            automationPending = false
+                            val settling = status.settling
+                            findPreference<Preference>("automation_default")?.apply {
+                                summary = status.defaultName ?: getString(R.string.automation_choose_default)
+                                isEnabled = !settling
+                            }
+                            findPreference<Preference>("automation_status")?.summary = getString(
+                                if (!status.enabled && status.exit == com.vpn0wn.android.model.NetworkAutomationState.Exit.NONE && !supported)
+                                    R.string.automation_unsupported else automationSummary(status))
+                            findPreference<Preference>("automation_enable")?.apply {
+                                isVisible = !status.enabled
+                                isEnabled = supported && status.defaultName != null && !settling
+                            }
+                            findPreference<Preference>("automation_resume")?.apply {
+                                isVisible = status.enabled
+                                isEnabled = !settling
+                            }
+                            findPreference<Preference>("automation_disable")?.apply {
+                                isVisible = status.enabled || status.exit == com.vpn0wn.android.model.NetworkAutomationState.Exit.PENDING
+                                isEnabled = !settling
+                            }
+                        }
+                    } catch (_: IOException) {
+                        controller.startFailed()
+                        findPreference<Preference>("automation_status")?.summary = getString(R.string.automation_action_failed)
+                        for (key in listOf("automation_default", "automation_enable", "automation_resume", "automation_disable")) {
+                            findPreference<Preference>(key)?.isEnabled = false
+                        }
+                    }
+                }
+            }
+        }
+
+        private fun automationSummary(status: NetworkAutomationController.Status): Int = when (status.condition) {
+            NetworkAutomationController.Condition.DISABLED -> R.string.automation_status_disabled
+            NetworkAutomationController.Condition.INACTIVE -> R.string.automation_status_inactive
+            NetworkAutomationController.Condition.MONITORING -> R.string.automation_status_monitoring
+            NetworkAutomationController.Condition.WAITING_NETWORK -> R.string.automation_status_waiting
+            NetworkAutomationController.Condition.OWNED -> R.string.automation_status_owned
+            NetworkAutomationController.Condition.MANUAL_HOLD -> R.string.automation_status_manual
+            NetworkAutomationController.Condition.PAUSED -> R.string.automation_status_paused
+            NetworkAutomationController.Condition.UNRESOLVED -> R.string.automation_status_unresolved
+            NetworkAutomationController.Condition.EXIT_PENDING -> R.string.automation_status_exit_pending
+            NetworkAutomationController.Condition.EXIT_RETAINED_PIN -> R.string.automation_status_exit_pin
+            NetworkAutomationController.Condition.EXIT_NO_TRANSPORT -> R.string.automation_status_exit_unavailable
+            NetworkAutomationController.Condition.EXIT_UNKNOWN -> R.string.automation_status_exit_unknown
+            NetworkAutomationController.Condition.ANDROID_HANDLING -> R.string.automation_status_android
+            NetworkAutomationController.Condition.FAILED -> when {
+                status.enabled -> R.string.automation_status_failed
+                status.exit != com.vpn0wn.android.model.NetworkAutomationState.Exit.NONE -> R.string.automation_status_exit_failed
+                else -> R.string.automation_action_failed
+            }
+        }
+
+        private fun chooseAutomationDefault() {
+            if (automationPending) return
+            viewLifecycleOwner.lifecycleScope.launch {
+                try {
+                    val tunnels = Application.getTunnelManager().getTunnels().filter { GoBackend.hasNumericEndpoints(it.getConfigAsync()) }
+                    if (tunnels.isEmpty()) {
+                        showAutomationFailure()
+                        return@launch
+                    }
+                    val names = tunnels.map { it.name }.toTypedArray()
+                    MaterialAlertDialogBuilder(requireContext())
+                        .setTitle(R.string.automation_default)
+                        .setItems(names) { _, index ->
+                            viewLifecycleOwner.lifecycleScope.launch {
+                                try {
+                                    Application.getTunnelManager().networkAutomation.selectDefault(names[index])
+                                } catch (_: IOException) {
+                                    showAutomationFailure()
+                                }
+                            }
+                        }.setNegativeButton(R.string.cancel, null).show()
+                } catch (_: IOException) {
+                    showAutomationFailure()
+                }
+            }
+        }
+
+        private fun enableAutomationAfterConsent() {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                ContextCompat.checkSelfPermission(requireContext(), Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                automationNotifications.launch(Manifest.permission.POST_NOTIFICATIONS)
+            } else startAutomation(NetworkMonitorService.ENABLE)
+        }
+
+        private fun startAutomation(action: String) {
+            automationPending = true
+            if (!NetworkMonitorService.start(requireContext(), action)) {
+                automationPending = false
+                showAutomationFailure()
+            }
+        }
+
+        private fun showAutomationFailure() {
+            view?.let { Snackbar.make(it, R.string.automation_action_failed, Snackbar.LENGTH_LONG).vpn0wnStyle().show() }
         }
 
         override fun onPause() {

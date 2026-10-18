@@ -79,6 +79,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     private var loadingJob: Job? = null
     private val operationLock = Mutex()
     private val context: Context = get()
+    internal val networkAutomation = NetworkAutomationController(this, context, applicationScope)
     private val tunnelMap: ObservableSortedKeyedArrayList<String, ObservableTunnel> = ObservableSortedKeyedArrayList(TunnelComparator)
     private var haveLoaded = false
     private var activityRestoreRequested = false
@@ -163,6 +164,31 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         }
     }
 
+    internal suspend fun <T> automationAdmission(block: suspend () -> T): T = withContext(Dispatchers.Main.immediate) {
+        operationLock.withLock {
+            if (backendSwitchPending) throw BackendSwitchPendingException()
+            block()
+        }
+    }
+
+    internal suspend fun automationTarget(name: String): ObservableTunnel? = getTunnels()[name]
+
+    internal fun isAutomationTarget(tunnel: ObservableTunnel): Boolean = tunnelMap[tunnel.name] === tunnel
+
+    internal fun invalidateAutomationRecovery(): Job? {
+        val pending = recoveryActivation?.request?.job
+        invalidateRecovery()
+        return pending
+    }
+
+    internal suspend fun reconcileAutomation(selected: ObservableTunnel? = null, persistRunningIntent: Boolean = true) {
+        if (selected != null && isAutomationTarget(selected)) lastUsedTunnel = selected
+        refreshObservedStates()
+        if (persistRunningIntent) saveState()
+    }
+
+    internal suspend fun ordinaryAutomationTransition(tunnel: ObservableTunnel, state: Tunnel.State): Tunnel.State = changeTunnelState(tunnel, state)
+
     private fun requireManaged(tunnel: ObservableTunnel) {
         if (tunnelMap[tunnel.name] !== tunnel) throw NotManagedException()
     }
@@ -181,6 +207,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
             throw IllegalArgumentException(context.getString(R.string.tunnel_error_invalid_name))
         if (tunnelMap.containsKey(name))
             throw IllegalArgumentException(context.getString(R.string.tunnel_error_already_exists, name))
+        networkAutomation.fence(setOf(name))
         addToList(name, withContext(Dispatchers.IO) { configStore.create(name, config) }, Tunnel.State.DOWN)
     }
 
@@ -198,6 +225,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     @Suppress("TooGenericExceptionCaught")
     internal suspend fun importAppData(archive: AppDataTransfer.Archive): Int = mutate {
         withContext(Dispatchers.IO) { AppDataTransfer.validate(archive) }
+        if (archive.settings[UserKnobs.MULTIPLE_TUNNELS.name] == true) networkAutomation.requireDisabled()
         getTunnels()
         lastUsedPersistence?.join()
         val existingNames = tunnelMap.map { it.name }.toSet()
@@ -215,6 +243,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
             throw AppDataTransfer.InvalidArchiveException()
         }
         Application.getVpsServerStore().withImportAdmission(archive.servers) {
+            networkAutomation.fence(newProfiles.keys)
             val preferencesStore = getPreferencesDataStore()
             val restoreNames = preferencesStore.data.first()[UserKnobs.RUNNING_TUNNELS].orEmpty()
             if (restoreNames.any { it in newProfiles }) {
@@ -262,6 +291,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     @Suppress("TooGenericExceptionCaught")
     suspend fun delete(tunnel: ObservableTunnel) = mutate {
         requireManaged(tunnel)
+        networkAutomation.fence(setOf(tunnel.name))
         invalidateRecovery(tunnel)
         tunnel.invalidateStatistics()
         val backend = getBackend()
@@ -394,6 +424,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
     @Suppress("TooGenericExceptionCaught")
     suspend fun restoreState(force: Boolean) {
+        if (networkAutomation.restorationHandled()) return
         val eligible = getTunnels().toList()
         if (!force && !UserKnobs.restoreOnBoot.first()) return
         val previouslyRunning = UserKnobs.runningTunnels.first()
@@ -404,6 +435,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
                     try {
                         mutate {
                             requireManaged(tunnel)
+                            if (tunnel.name !in UserKnobs.runningTunnels.first() || networkAutomation.suppressesRestore(tunnel.name)) return@mutate
                             changeTunnelState(tunnel, Tunnel.State.UP)
                         }
                     } catch (e: CancellationException) {
@@ -429,14 +461,18 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
 
     suspend fun setTunnelConfig(tunnel: ObservableTunnel, config: Config): Config = mutate {
         requireManaged(tunnel)
+        networkAutomation.checkConfig(tunnel, config)
+        networkAutomation.fence(setOf(tunnel.name))
         invalidateRecovery(tunnel)
         tunnel.invalidateStatistics()
         val previousConfig = tunnel.getConfigAsync()
         val backend = getBackend()
-        tunnel.onConfigChanged(withContext(Dispatchers.IO) {
+        val saved = tunnel.onConfigChanged(withContext(Dispatchers.IO) {
             val state = backend.getState(tunnel)
             saveTunnelConfig(tunnel, config, previousConfig, backend, state)
         })!!
+        networkAutomation.resolveBinding(tunnel, tunnel.name)
+        saved
     }
 
     suspend fun setTunnelConfigIfDown(
@@ -454,11 +490,15 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         if (state != Tunnel.State.DOWN || tunnel.state != Tunnel.State.DOWN) throw ConfigUpdateRejectedException()
         validateAdmission()
         if (previousConfig == config) return@mutate previousConfig
+        networkAutomation.checkConfig(tunnel, config)
+        networkAutomation.fence(setOf(tunnel.name))
         invalidateRecovery(tunnel)
         tunnel.invalidateStatistics()
-        tunnel.onConfigChanged(withContext(Dispatchers.IO) {
+        val saved = tunnel.onConfigChanged(withContext(Dispatchers.IO) {
             saveTunnelConfig(tunnel, config, previousConfig, backend, state)
         })!!
+        networkAutomation.resolveBinding(tunnel, tunnel.name)
+        saved
     }
 
     // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
@@ -492,6 +532,8 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         if (tunnelMap.containsKey(name)) {
             throw IllegalArgumentException(context.getString(R.string.tunnel_error_already_exists, name))
         }
+        networkAutomation.fence(setOf(tunnel.name, name))
+        val previousName = tunnel.name
         invalidateRecovery(tunnel)
         tunnel.invalidateStatistics()
         val backend = getBackend()
@@ -531,16 +573,34 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
             addRecoveryFailure(failure, e)
         }
         if (failure != null) throw failure
+        networkAutomation.resolveBinding(tunnel, previousName)
         tunnel.name
     }
 
-    suspend fun setTunnelState(tunnel: ObservableTunnel, state: Tunnel.State): Tunnel.State = mutate {
-        requireManaged(tunnel)
-        invalidateRecovery(if (state == Tunnel.State.DOWN) tunnel else null)
-        changeTunnelState(tunnel, state)
+    suspend fun setTunnelState(tunnel: ObservableTunnel, state: Tunnel.State): Tunnel.State = withContext(Dispatchers.Main.immediate) {
+        var ordinary: Tunnel.State? = null
+        val admission = operationLock.withLock {
+            if (backendSwitchPending) throw BackendSwitchPendingException()
+            withContext(NonCancellable) {
+                requireManaged(tunnel)
+                val admitted = networkAutomation.admitManual(tunnel, state)
+                invalidateRecovery(if (state == Tunnel.State.DOWN) tunnel else null)
+                if (admitted == null) ordinary = changeTunnelState(tunnel, state)
+                admitted
+            }
+        }
+        val result = if (admission == null) requireNotNull(ordinary) else withContext(NonCancellable) { networkAutomation.runManual(admission) }
+        currentCoroutineContext().ensureActive()
+        result
+    }
+
+    suspend fun setMultipleTunnels(enabled: Boolean) = mutate {
+        if (enabled) networkAutomation.requireDisabled()
+        UserKnobs.setMultipleTunnels(enabled)
     }
 
     suspend fun prepareBackendSwitch(enableKernel: Boolean) = mutate {
+        networkAutomation.requireDisabled()
         invalidateRecovery()
         for (tunnel in tunnelMap)
             tunnel.invalidateStatistics()
@@ -795,7 +855,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
             tunnel.activeHandshakeSession !== activation.session || getBackend() !== activation.backend ||
             backendSwitchPending || tunnel.state != Tunnel.State.UP || tunnel.transitionTarget != null ||
             tunnel.peekConfig()?.peers?.any { it.publicKey == request.observation.peer() } != true ||
-            currentObservation?.sequence() != request.observation.sequence()
+            currentObservation?.sequence() != request.observation.sequence() || networkAutomation.suppressesRecovery(tunnel)
         val now = SystemClock.elapsedRealtime()
         val status = when {
             obsolete -> ObservableTunnel.RecoveryStatus.OBSOLETE

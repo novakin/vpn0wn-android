@@ -40,7 +40,7 @@
             android:layout_height="wrap_content"
             android:fontFamily="@font/inter_tight"
             android:includeFontPadding="false"
-            android:textColor="@color/vpn0wn_ink"
+            android:textColor="@color/vpn0wn_preference_title"
             android:textSize="14sp"
             android:textStyle="normal" />
 

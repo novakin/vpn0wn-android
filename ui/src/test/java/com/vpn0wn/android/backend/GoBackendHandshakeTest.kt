@@ -235,13 +235,18 @@ class GoBackendHandshakeTest {
             lateinit var startup: (GoBackend.VpnService, Long) -> Int
             var insideNative = false
             @Implementation @JvmStatic fun wgTurnOn(name: String, fd: Int, settings: String,
-                service: GoBackend.VpnService, thread: Thread, id: Long): Int {
+                service: GoBackend.VpnService, thread: Thread, id: Long, @org.robolectric.annotation.ClassName("com.vpn0wn.android.backend.GoBackend\$SocketCapture") capture: Any): Int {
                 assertEquals("fixture", name)
                 assertTrue(settings.contains("listen_port=51820"))
                 assertSame(Thread.currentThread(), thread)
                 assertEquals(73, fd)
+                assertNotNull(capture)
                 insideNative = true
                 return try { startup(service, id) } finally { insideNative = false }
+            }
+            @Implementation @JvmStatic fun wgTransportSnapshot(handle: Int): Long {
+                assertEquals(7, handle)
+                return 2L
             }
             @Implementation @JvmStatic fun wgTurnOff(handle: Int) = assertEquals(7, handle)
             // Robolectric must retain the zero-argument JNI method shape.

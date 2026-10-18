@@ -1,6 +1,8 @@
 package com.vpn0wn.android.backend
 
 import android.app.Application
+import android.content.ComponentName
+import android.content.Intent
 import android.net.VpnService
 import android.os.Looper
 import android.os.ParcelFileDescriptor
@@ -32,9 +34,9 @@ import org.robolectric.annotation.LooperMode
 import org.robolectric.shadows.ShadowVpnService
 
 @RunWith(RobolectricTestRunner::class)
-@RobolectricConfig(application = Application::class, sdk = [36], shadows = [GoBackendRebindTest.NativeShadow::class,
+@RobolectricConfig(application = GoBackendRebindTest.ServiceStartApplication::class, sdk = [36], shadows = [GoBackendRebindTest.NativeShadow::class,
     GoBackendRebindTest.BuilderShadow::class, GoBackendHandshakeTest.DescriptorShadow::class,
-    GoBackendLifecycleTest.LibraryShadow::class])
+    GoBackendLifecycleTest.LibraryShadow::class, GoBackendRebindTest.TransportServiceShadow::class])
 @LooperMode(LooperMode.Mode.PAUSED)
 class GoBackendRebindTest {
     @get:Rule val folder = TemporaryFolder()
@@ -43,11 +45,13 @@ class GoBackendRebindTest {
     private val states = Collections.synchronizedList(mutableListOf<Tunnel.State>())
     private val sessions = mutableListOf<HandshakeSession>()
     private val down = CountDownLatch(1)
+    private var stateCallback: ((Tunnel.State) -> Unit)? = null
     private val tunnel = object : Tunnel {
         override fun getName() = "fixture"
         override fun onStateChange(newState: Tunnel.State) {
             states += newState
             if (newState == Tunnel.State.DOWN) down.countDown()
+            stateCallback?.invoke(newState)
         }
         override fun onHandshakeSessionChange(session: HandshakeSession) { sessions += session }
     }
@@ -60,12 +64,20 @@ class GoBackendRebindTest {
         service = Robolectric.buildService(GoBackend.VpnService::class.java).create().get()
         ShadowVpnService.setPrepareResult(null)
         BuilderShadow.establishCalls = 0
+        BuilderShadow.beforeEstablish = null
+        ServiceStartApplication.requested = null
+        stateCallback = null
         NativeShadow.nextHandle = 7
         NativeShadow.rebindCalls.clear()
         NativeShadow.rebind = null
         NativeShadow.recover = null
         NativeShadow.recoveryCalls.clear()
         NativeShadow.turnOff = null
+        NativeShadow.turnOn = null
+        NativeShadow.transport = null
+        NativeShadow.transportSnapshot = null
+        TransportServiceShadow.reporting = null
+        TransportServiceShadow.reported.clear()
         NativeShadow.stateLock = checkNotNull(field("stateLock").get(backend))
     }
 
@@ -74,6 +86,13 @@ class GoBackendRebindTest {
         NativeShadow.rebind = null
         NativeShadow.recover = null
         NativeShadow.turnOff = null
+        NativeShadow.turnOn = null
+        NativeShadow.transport = null
+        NativeShadow.transportSnapshot = null
+        BuilderShadow.beforeEstablish = null
+        ServiceStartApplication.requested = null
+        stateCallback = null
+        TransportServiceShadow.reporting = null
         backend.setState(tunnel, Tunnel.State.DOWN, null)
         shadowOf(Looper.getMainLooper()).idle()
     }
@@ -112,6 +131,456 @@ class GoBackendRebindTest {
 
     @Test fun serviceDestructionCancelsBlockedRebindWithoutHoldingStateLock() {
         assertBlockedRebindTeardown(true)
+    }
+
+    @Test fun downDuringStartupJoinsSoleCleanupBeforePropagatingInterruption() {
+        val nativeEntered = CountDownLatch(1)
+        val releaseNative = CountDownLatch(1)
+        val cleanupEntered = CountDownLatch(1)
+        val releaseCleanup = CountDownLatch(1)
+        val downThread = AtomicReference<Thread>()
+        NativeShadow.turnOn = { _, handle ->
+            nativeEntered.countDown()
+            assertTrue(releaseNative.await(5, TimeUnit.SECONDS))
+            handle
+        }
+        NativeShadow.turnOff = {
+            cleanupEntered.countDown()
+            assertTrue(releaseCleanup.await(5, TimeUnit.SECONDS))
+        }
+        val executor = Executors.newFixedThreadPool(2)
+        try {
+            val starting = executor.submit<Throwable?> { runCatching { connect() }.exceptionOrNull() }
+            assertTrue(nativeEntered.await(5, TimeUnit.SECONDS))
+            val stopping = executor.submit<Throwable?> {
+                downThread.set(Thread.currentThread())
+                runCatching { backend.setState(tunnel, Tunnel.State.DOWN, null) }.exceptionOrNull()
+            }
+            awaitRetiredStartup()
+            downThread.get().interrupt()
+            releaseNative.countDown()
+            assertTrue(cleanupEntered.await(5, TimeUnit.SECONDS))
+            assertFalse(stopping.isDone)
+            assertFalse(starting.isDone)
+            releaseCleanup.countDown()
+            assertTrue(stopping.get(5, TimeUnit.SECONDS) is InterruptedException)
+            assertTrue(starting.get(5, TimeUnit.SECONDS) is BackendException)
+            assertEquals(Tunnel.State.DOWN, backend.getState(tunnel))
+            assertFalse(states.contains(Tunnel.State.UP))
+        } finally {
+            releaseNative.countDown()
+            releaseCleanup.countDown()
+            executor.shutdownNow()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+        }
+    }
+
+    @Test fun downBeforeEstablishRetiresPreparedRequestAndPreventsStartupPublication() {
+        val preparing = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        BuilderShadow.beforeEstablish = {
+            preparing.countDown()
+            assertTrue(release.await(5, TimeUnit.SECONDS))
+        }
+        val executor = Executors.newFixedThreadPool(2)
+        try {
+            val starting = executor.submit<Throwable?> { runCatching { connect() }.exceptionOrNull() }
+            assertTrue(preparing.await(5, TimeUnit.SECONDS))
+            val stopping = executor.submit { backend.setState(tunnel, Tunnel.State.DOWN, null) }
+            awaitRetiredStartup()
+            assertFalse(stopping.isDone)
+            release.countDown()
+            assertTrue(starting.get(5, TimeUnit.SECONDS) is BackendException)
+            stopping.get(5, TimeUnit.SECONDS)
+            assertEquals(Tunnel.State.DOWN, backend.getState(tunnel))
+            assertFalse(states.contains(Tunnel.State.UP))
+        } finally {
+            release.countDown()
+            executor.shutdownNow()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+        }
+    }
+
+    @Test fun retirementBeforeReportRejectsCapturedPublication() {
+        connect()
+        val authority = GoBackend.TransportAuthority()
+        val capture = capture(authority)
+        authority.retire()
+        assertFalse(callback(capture, "report", 91L, true))
+        assertFalse(callback(capture, "confirm", 91L))
+        assertTrue(TransportServiceShadow.reported.isEmpty())
+    }
+
+    @Test fun retirementAfterReportClaimPreventsNativeReadyConfirmation() {
+        connect()
+        val authority = GoBackend.TransportAuthority()
+        val capture = capture(authority)
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        TransportServiceShadow.reporting = {
+            entered.countDown()
+            assertTrue(release.await(5, TimeUnit.SECONDS))
+            true
+        }
+        val executor = Executors.newSingleThreadExecutor()
+        try {
+            val reporting = executor.submit<Boolean> { callback(capture, "report", 91L, true) }
+            assertTrue(entered.await(5, TimeUnit.SECONDS))
+            authority.retire()
+            release.countDown()
+            assertTrue(reporting.get(5, TimeUnit.SECONDS))
+            assertFalse(callback(capture, "confirm", 91L))
+            assertFalse(requireNotNull(backend.getTransportSnapshot(tunnel)).ready())
+            assertTrue(callback(capture, "report", 91L, false))
+            val unavailable = requireNotNull(backend.getTransportSnapshot(tunnel))
+            assertEquals(GoBackend.TransportMode.UNAVAILABLE, unavailable.mode())
+            assertFalse(unavailable.ready())
+        } finally {
+            release.countDown()
+            executor.shutdownNow()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+        }
+    }
+
+    @Test fun confirmedCaptureReportsOnlyItsImmutableNetworkMode() {
+        connect()
+        val capture = capture(GoBackend.TransportAuthority())
+        assertTrue(callback(capture, "report", 91L, true))
+        assertFalse(requireNotNull(backend.getTransportSnapshot(tunnel)).ready())
+        assertTrue(callback(capture, "confirm", 91L))
+        val ready = requireNotNull(backend.getTransportSnapshot(tunnel))
+        assertEquals(91L, ready.generation())
+        assertEquals(GoBackend.TransportMode.LEGACY, ready.mode())
+        assertTrue(ready.ready())
+        assertNull(TransportServiceShadow.reported.single())
+    }
+
+    @Test fun requestRetiredWhileWaitingTransitionOwnerCannotTearDownPredecessor() {
+        val original = connect()
+        val replacement = Config.parse(original.toWgQuickString().byteInputStream())
+        val authority = GoBackend.TransportAuthority()
+        val worker = AtomicReference<Thread>()
+        val entered = CountDownLatch(1)
+        val executor = Executors.newSingleThreadExecutor()
+        try {
+            val request = synchronized(field("transitionLock").get(backend)) {
+                val pending = executor.submit<Throwable?> {
+                    worker.set(Thread.currentThread())
+                    entered.countDown()
+                    runCatching { backend.setStateWithAuthority(tunnel, Tunnel.State.UP, replacement, authority) }.exceptionOrNull()
+                }
+                assertTrue(entered.await(5, TimeUnit.SECONDS))
+                val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+                while (worker.get().state != Thread.State.BLOCKED) {
+                    check(System.nanoTime() < deadline) { "Request did not wait for transition owner" }
+                    Thread.sleep(1)
+                }
+                authority.retire()
+                pending
+            }
+            assertTrue(request.get(5, TimeUnit.SECONDS) is IOException)
+            assertSame(original, field("currentConfig").get(backend))
+            assertEquals(Tunnel.State.UP, backend.getState(tunnel))
+            assertEquals(1, BuilderShadow.establishCalls)
+            assertEquals(listOf(Tunnel.State.UP), states)
+        } finally {
+            executor.shutdownNow()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+        }
+    }
+
+    @Test fun rollbackRetirementPreservesOriginalStartupFailureWithoutResurrection() {
+        val original = connect()
+        val replacement = Config.parse(original.toWgQuickString().byteInputStream())
+        val authority = GoBackend.TransportAuthority()
+        val failure = IOException("Synthetic startup failure")
+        NativeShadow.turnOn = { _, handle ->
+            if (handle == 8) throw failure
+            handle
+        }
+        BuilderShadow.beforeEstablish = {
+            if (BuilderShadow.establishCalls == 2) authority.retire()
+        }
+        BuilderShadow.descriptor = ParcelFileDescriptor.open(folder.newFile(), ParcelFileDescriptor.MODE_READ_WRITE)
+        val requested = expectFreshServiceStart()
+        val executor = Executors.newSingleThreadExecutor()
+        try {
+            val starting = executor.submit<Throwable?> {
+                runCatching { backend.setStateWithAuthority(tunnel, Tunnel.State.UP, replacement, authority) }.exceptionOrNull()
+            }
+            fulfillFreshServiceStart(requested)
+            val actual = requireNotNull(starting.get(5, TimeUnit.SECONDS))
+            assertSame(failure, actual)
+            assertEquals(1, actual.suppressed.size)
+            assertTrue(actual.suppressed.single() is BackendException)
+            assertEquals(Tunnel.State.DOWN, backend.getState(tunnel))
+            assertNull(field("currentConfig").get(backend))
+        } finally {
+            executor.shutdownNow()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+        }
+    }
+
+    @Test fun destroyedServiceCannotExposeReadyTransportBeforeSessionRetirement() {
+        connect()
+        val capture = capture(GoBackend.TransportAuthority())
+        assertTrue(callback(capture, "report", 91L, true))
+        assertTrue(callback(capture, "confirm", 91L))
+        assertTrue(requireNotNull(backend.getTransportSnapshot(tunnel)).ready())
+        GoBackend.VpnService::class.java.getDeclaredField("destroyed").apply { isAccessible = true }.setBoolean(service, true)
+        assertTrue(session().isActive)
+        assertNull(backend.getTransportSnapshot(tunnel))
+    }
+
+    @Test fun nativeEmptyOrUnhealthySettlementClearsLegacyProofAcrossEveryEntry() {
+        var needsFreshService = false
+        for (entry in listOf("rebind", "recover", "replace")) {
+            for (healthy in listOf(true, false)) {
+                if (needsFreshService) createService()
+                connect()
+                val capture = capture(GoBackend.TransportAuthority())
+                assertTrue(callback(capture, "report", 91L, true))
+                assertTrue(callback(capture, "confirm", 91L))
+                val expected = requireNotNull(backend.getTransportSnapshot(tunnel))
+                NativeShadow.transportSnapshot = { (92L shl 2) or if (healthy) 2L else 0L }
+                when (entry) {
+                    "rebind" -> backend.rebind(tunnel)
+                    "recover" -> backend.recover(tunnel, exhaustion())
+                    else -> backend.replaceTransport(tunnel, expected, GoBackend.TransportMode.LEGACY, null,
+                        GoBackend.TransportAuthority())
+                }
+                val actual = requireNotNull(backend.getTransportSnapshot(tunnel))
+                assertFalse("$entry healthy=$healthy", actual.ready())
+                assertEquals(if (healthy) GoBackend.TransportMode.UNAVAILABLE else GoBackend.TransportMode.UNKNOWN, actual.mode())
+                backend.setState(tunnel, Tunnel.State.DOWN, null)
+                needsFreshService = true
+            }
+        }
+    }
+
+    @Test fun failedNativeQueryPreservesOriginalThrowableAndReleasesSettlementCount() {
+        connect()
+        val capture = capture(GoBackend.TransportAuthority())
+        assertTrue(callback(capture, "report", 91L, true))
+        assertTrue(callback(capture, "confirm", 91L))
+        val failure = IOException("Synthetic native failure")
+        val settlement = AssertionError("Synthetic snapshot failure")
+        NativeShadow.rebind = { throw failure }
+        NativeShadow.transportSnapshot = { throw settlement }
+        assertSame(failure, assertThrows(IOException::class.java) { backend.rebind(tunnel) })
+        assertSame(settlement, failure.suppressed.single())
+        val activation = requireNotNull(field("activation").get(backend))
+        val operations = activation.javaClass.getDeclaredField("transportOperations").apply { isAccessible = true }
+            .get(activation) as java.util.concurrent.atomic.AtomicInteger
+        assertEquals(0, operations.get())
+        val actual = requireNotNull(backend.getTransportSnapshot(tunnel))
+        assertFalse(actual.ready())
+        assertEquals(GoBackend.TransportMode.UNKNOWN, actual.mode())
+        NativeShadow.rebind = null
+        assertSame(settlement, assertThrows(AssertionError::class.java) { backend.rebind(tunnel) })
+        assertEquals(0, operations.get())
+    }
+
+    @Test fun delayedOldSnapshotCannotOverwriteNewerConfirmedGeneration() {
+        connect()
+        val capture = capture(GoBackend.TransportAuthority())
+        assertTrue(callback(capture, "report", 91L, true))
+        assertTrue(callback(capture, "confirm", 91L))
+        val queried = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val count = java.util.concurrent.atomic.AtomicInteger()
+        NativeShadow.transportSnapshot = {
+            if (count.incrementAndGet() == 1) {
+                queried.countDown()
+                assertTrue(release.await(5, TimeUnit.SECONDS))
+                (91L shl 2) or 2L
+            } else (92L shl 2) or 3L
+        }
+        val executor = Executors.newSingleThreadExecutor()
+        try {
+            val older = executor.submit<Boolean> { backend.rebind(tunnel) }
+            assertTrue(queried.await(5, TimeUnit.SECONDS))
+            assertFalse(requireNotNull(backend.getTransportSnapshot(tunnel)).ready())
+            NativeShadow.rebind = {
+                assertTrue(callback(capture, "report", 92L, true))
+                assertTrue(callback(capture, "confirm", 92L))
+                0
+            }
+            assertTrue(backend.rebind(tunnel))
+            assertFalse(requireNotNull(backend.getTransportSnapshot(tunnel)).ready())
+            release.countDown()
+            assertTrue(older.get(5, TimeUnit.SECONDS))
+            val actual = requireNotNull(backend.getTransportSnapshot(tunnel))
+            assertEquals(92L, actual.generation())
+            assertEquals(GoBackend.TransportMode.LEGACY, actual.mode())
+            assertTrue(actual.ready())
+        } finally {
+            release.countDown()
+            executor.shutdownNow()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+        }
+    }
+
+    @Test fun delayedUnhealthyQueryCannotChangeReplacementActivation() {
+        connect()
+        val queried = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        NativeShadow.transportSnapshot = {
+            queried.countDown()
+            assertTrue(release.await(5, TimeUnit.SECONDS))
+            0L
+        }
+        val executor = Executors.newSingleThreadExecutor()
+        try {
+            val older = executor.submit<Boolean> { backend.rebind(tunnel) }
+            assertTrue(queried.await(5, TimeUnit.SECONDS))
+            backend.setState(tunnel, Tunnel.State.DOWN, null)
+            createService()
+            connect(51821)
+            val replacement = session()
+            val capture = capture(GoBackend.TransportAuthority())
+            assertTrue(callback(capture, "report", 1L, true))
+            assertTrue(callback(capture, "confirm", 1L))
+            release.countDown()
+            assertFalse(older.get(5, TimeUnit.SECONDS))
+            val actual = requireNotNull(backend.getTransportSnapshot(tunnel))
+            assertSame(replacement, actual.session())
+            assertEquals(1L, actual.generation())
+            assertEquals(GoBackend.TransportMode.LEGACY, actual.mode())
+            assertTrue(actual.ready())
+        } finally {
+            release.countDown()
+            executor.shutdownNow()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+        }
+    }
+
+    private fun capture(authority: GoBackend.TransportAuthority): Any {
+        val type = GoBackend::class.java.declaredClasses.single { it.simpleName == "SocketCapture" }
+        return type.declaredConstructors.single().apply { isAccessible = true }
+            .newInstance(backend, field("activation").get(backend), GoBackend.TransportMode.LEGACY, null, authority)
+    }
+
+    private fun callback(capture: Any, name: String, generation: Long, ready: Boolean? = null): Boolean {
+        val method = if (ready == null) capture.javaClass.getDeclaredMethod(name, Long::class.javaPrimitiveType)
+        else capture.javaClass.getDeclaredMethod(name, Long::class.javaPrimitiveType, Boolean::class.javaPrimitiveType)
+        method.isAccessible = true
+        return (if (ready == null) method.invoke(capture, generation) else method.invoke(capture, generation, ready)) as Boolean
+    }
+
+    @Test fun newerDownDuringConfigStartupCannotRestorePreviousConfig() {
+        connect()
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        NativeShadow.turnOn = { _, handle ->
+            entered.countDown()
+            assertTrue(release.await(5, TimeUnit.SECONDS))
+            handle
+        }
+        val requested = expectFreshServiceStart()
+        val executor = Executors.newFixedThreadPool(2)
+        try {
+            val starting = executor.submit<Throwable?> { runCatching { connect(51821) }.exceptionOrNull() }
+            fulfillFreshServiceStart(requested)
+            assertTrue(entered.await(5, TimeUnit.SECONDS))
+            val stopping = executor.submit { backend.setState(tunnel, Tunnel.State.DOWN, null) }
+            awaitRetiredStartup()
+            release.countDown()
+            assertTrue(starting.get(5, TimeUnit.SECONDS) is BackendException)
+            stopping.get(5, TimeUnit.SECONDS)
+            assertEquals(Tunnel.State.DOWN, backend.getState(tunnel))
+            assertEquals(2, BuilderShadow.establishCalls)
+            assertEquals(listOf(Tunnel.State.UP, Tunnel.State.DOWN), states)
+        } finally {
+            release.countDown()
+            executor.shutdownNow()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+        }
+    }
+
+    private fun awaitRetiredStartup() {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+        while (true) {
+            val transition = field("startingTransition").get(backend)
+            if (transition != null && transition.javaClass.getDeclaredField("cancelledByDown").apply { isAccessible = true }.getBoolean(transition)) return
+            check(System.nanoTime() < deadline) { "DOWN did not retire startup" }
+            Thread.sleep(1)
+        }
+    }
+
+    @Test fun downAfterJavaHandlePublicationDrainsActiveHandleBeforeSettling() {
+        val published = CountDownLatch(1)
+        val releasePublication = CountDownLatch(1)
+        val cleanupEntered = CountDownLatch(1)
+        val releaseCleanup = CountDownLatch(1)
+        val closes = java.util.concurrent.atomic.AtomicInteger()
+        stateCallback = { state ->
+            if (state == Tunnel.State.UP) {
+                published.countDown()
+                assertTrue(releasePublication.await(5, TimeUnit.SECONDS))
+            }
+        }
+        NativeShadow.turnOff = {
+            closes.incrementAndGet()
+            cleanupEntered.countDown()
+            assertTrue(releaseCleanup.await(5, TimeUnit.SECONDS))
+        }
+        val executor = Executors.newFixedThreadPool(2)
+        try {
+            val starting = executor.submit { connect() }
+            assertTrue(published.await(5, TimeUnit.SECONDS))
+            assertNull(field("startingTransition").get(backend))
+            val stopping = executor.submit { backend.setState(tunnel, Tunnel.State.DOWN, null) }
+            releasePublication.countDown()
+            assertTrue(cleanupEntered.await(5, TimeUnit.SECONDS))
+            assertFalse(stopping.isDone)
+            releaseCleanup.countDown()
+            starting.get(5, TimeUnit.SECONDS)
+            stopping.get(5, TimeUnit.SECONDS)
+            assertEquals(1, closes.get())
+            assertEquals(Tunnel.State.DOWN, backend.getState(tunnel))
+            assertNull(field("currentTunnel").get(backend))
+            assertEquals(-1, field("currentTunnelHandle").getInt(backend))
+        } finally {
+            releasePublication.countDown()
+            releaseCleanup.countDown()
+            executor.shutdownNow()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+        }
+    }
+
+    @Test fun retiringRequestDuringFailedStartupCannotMintAuthorityForRollback() {
+        val original = connect()
+        val replacement = Config.parse(original.toWgQuickString().replace("ListenPort = 51820", "ListenPort = 51821").byteInputStream())
+        BuilderShadow.descriptor = ParcelFileDescriptor.open(folder.newFile(), ParcelFileDescriptor.MODE_READ_WRITE)
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val failure = IOException("Synthetic startup failure")
+        val authority = GoBackend.TransportAuthority()
+        NativeShadow.turnOn = { _, _ ->
+            entered.countDown()
+            assertTrue(release.await(5, TimeUnit.SECONDS))
+            throw failure
+        }
+        val requested = expectFreshServiceStart()
+        val executor = Executors.newSingleThreadExecutor()
+        try {
+            val starting = executor.submit<Throwable?> {
+                runCatching { backend.setStateWithAuthority(tunnel, Tunnel.State.UP, replacement, authority) }.exceptionOrNull()
+            }
+            fulfillFreshServiceStart(requested)
+            assertTrue(entered.await(5, TimeUnit.SECONDS))
+            authority.retire()
+            release.countDown()
+            assertSame(failure, starting.get(5, TimeUnit.SECONDS))
+            assertEquals(Tunnel.State.DOWN, backend.getState(tunnel))
+            assertEquals(2, BuilderShadow.establishCalls)
+            assertEquals(listOf(Tunnel.State.UP, Tunnel.State.DOWN), states)
+        } finally {
+            release.countDown()
+            executor.shutdownNow()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+        }
     }
 
     @Test fun replacementOfSameTunnelRejectsDelayedNativeSuccess() {
@@ -455,8 +924,25 @@ class GoBackendRebindTest {
             Endpoint = 127.0.0.1:51820
         """.trimIndent().byteInputStream())
         backend.setState(tunnel, Tunnel.State.UP, config)
-        shadowOf(Looper.getMainLooper()).idle()
+        if (Thread.currentThread() === Looper.getMainLooper().thread) shadowOf(Looper.getMainLooper()).idle()
         return config
+    }
+
+    private fun expectFreshServiceStart() = CountDownLatch(1).also { ServiceStartApplication.requested = it }
+
+    private fun fulfillFreshServiceStart(requested: CountDownLatch) {
+        assertSame(Looper.getMainLooper().thread, Thread.currentThread())
+        assertTrue(requested.await(5, TimeUnit.SECONDS))
+        ServiceStartApplication.requested = null
+        createService()
+    }
+
+    private fun createService() {
+        assertSame(Looper.getMainLooper().thread, Thread.currentThread())
+        val controller = Robolectric.buildService(GoBackend.VpnService::class.java)
+        service = controller.get()
+        NativeShadow.expectedService = service
+        controller.create()
     }
 
     private fun session(): HandshakeSession {
@@ -466,15 +952,40 @@ class GoBackendRebindTest {
 
     private fun field(name: String) = GoBackend::class.java.getDeclaredField(name).apply { isAccessible = true }
 
+    class ServiceStartApplication : Application() {
+        override fun startService(service: Intent): ComponentName? = super.startService(service).also {
+            if (service.component?.className == GoBackend.VpnService::class.java.name) requested?.countDown()
+        }
+
+        companion object {
+            @Volatile var requested: CountDownLatch? = null
+        }
+    }
+
     @Implements(value = VpnService.Builder::class)
     class BuilderShadow {
         companion object {
             lateinit var descriptor: ParcelFileDescriptor
             var establishCalls = 0
+            var beforeEstablish: (() -> Unit)? = null
         }
         @Implementation fun establish(): ParcelFileDescriptor {
+            beforeEstablish?.invoke()
             establishCalls++
             return descriptor
+        }
+    }
+
+    @Implements(value = VpnService::class)
+    class TransportServiceShadow : ShadowVpnService() {
+        @Implementation fun setUnderlyingNetworks(networks: Array<android.net.Network>?): Boolean {
+            reported += networks
+            return reporting?.invoke() ?: true
+        }
+
+        companion object {
+            val reported = mutableListOf<Array<android.net.Network>?>()
+            var reporting: (() -> Boolean)? = null
         }
     }
 
@@ -489,17 +1000,21 @@ class GoBackendRebindTest {
             var recover: ((Int) -> Int)? = null
             val recoveryCalls = mutableListOf<Int>()
             var turnOff: ((Int) -> Unit)? = null
+            var turnOn: ((Any, Int) -> Int)? = null
+            var transport: ((Int, Long, Any, Boolean) -> Long)? = null
+            var transportSnapshot: ((Int) -> Long)? = null
             lateinit var stateLock: Any
             lateinit var expectedService: GoBackend.VpnService
             @Implementation @JvmStatic fun wgTurnOn(name: String, fd: Int, settings: String,
-                service: GoBackend.VpnService, thread: Thread, id: Long): Int {
+                service: GoBackend.VpnService, thread: Thread, id: Long, @org.robolectric.annotation.ClassName("com.vpn0wn.android.backend.GoBackend\$SocketCapture") capture: Any): Int {
                 assertEquals("fixture", name)
                 assertEquals(73, fd)
                 assertFalse(settings.isEmpty())
                 assertSame(expectedService, service)
                 assertSame(Thread.currentThread(), thread)
                 assertTrue(id > 0)
-                return nextHandle++
+                val handle = nextHandle++
+                return turnOn?.invoke(capture, handle) ?: handle
             }
             @Implementation @JvmStatic fun wgRebind(handle: Int): Int {
                 assertFalse(Thread.holdsLock(stateLock))
@@ -515,6 +1030,10 @@ class GoBackendRebindTest {
                 recoveryCalls += handle
                 return recover?.invoke(handle) ?: 6
             }
+            @Implementation @JvmStatic fun wgTransport(handle: Int, generation: Long,
+                @org.robolectric.annotation.ClassName("com.vpn0wn.android.backend.GoBackend\$SocketCapture") capture: Any,
+                available: Boolean): Long = transport?.invoke(handle, generation, capture, available) ?: 5L
+            @Implementation @JvmStatic fun wgTransportSnapshot(handle: Int): Long = transportSnapshot?.invoke(handle) ?: 2L
             @Implementation @JvmStatic fun wgTurnOff(handle: Int) { turnOff?.invoke(handle) }
             // Robolectric must retain the zero-argument JNI method shape.
             @Suppress("FunctionOnlyReturningConstant")

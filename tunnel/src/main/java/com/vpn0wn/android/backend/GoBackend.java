@@ -8,6 +8,7 @@ package com.vpn0wn.android.backend;
 
 import android.content.Context;
 import android.content.Intent;
+import android.net.Network;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
@@ -41,10 +42,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import androidx.annotation.Keep;
 import androidx.annotation.Nullable;
@@ -65,12 +69,26 @@ public final class GoBackend implements Backend {
             new AtomicReference<>(new CompletableFuture<>());
     private final Context context;
     private final Object stateLock = new Object();
+    private final Object transitionLock = new Object();
     @Nullable private Config currentConfig;
     @Nullable private Tunnel currentTunnel;
     @Nullable private VpnService currentService;
     private int currentTunnelHandle = -1;
     private final Handler observationHandler = new Handler(Looper.getMainLooper());
     @Nullable private volatile Activation activation;
+    @Nullable private StateTransition startingTransition;
+
+    private static final class StateTransition {
+        private final Tunnel tunnel;
+        private final TransportAuthority authority;
+        private final CompletableFuture<Void> settlement = new CompletableFuture<>();
+        private volatile boolean cancelledByDown;
+
+        private StateTransition(final Tunnel tunnel, final TransportAuthority authority) {
+            this.tunnel = tunnel;
+            this.authority = authority;
+        }
+    }
 
     private final class Activation {
         private final HandshakeSession session = new HandshakeSession();
@@ -78,10 +96,13 @@ public final class GoBackend implements Backend {
         private final VpnService service;
         private final Map<Key, EnumMap<HandshakeObservation.Event, HandshakeObservation>> pending = new HashMap<>();
         private final Runnable drain = this::deliver;
-        private boolean retired;
+        private volatile boolean retired;
         private boolean committed;
         private boolean queued;
         private long sequence;
+        private volatile TransportSnapshot transport;
+        private final AtomicLong publication = new AtomicLong();
+        private final AtomicInteger transportOperations = new AtomicInteger();
 
         private Activation(final Tunnel tunnel, final VpnService service, final Config config) {
             this.tunnel = tunnel;
@@ -118,6 +139,7 @@ public final class GoBackend implements Backend {
                 if (retired)
                     return;
                 retired = true;
+                publication.getAndSet(Long.MIN_VALUE);
                 session.retire();
                 notify = published;
                 for (final Map<HandshakeObservation.Event, HandshakeObservation> events : pending.values())
@@ -157,6 +179,110 @@ public final class GoBackend implements Backend {
         }
     }
 
+    public enum TransportMode { OWNED, LEGACY, UNAVAILABLE, UNKNOWN }
+
+    public record TransportSnapshot(HandshakeSession session, long generation, TransportMode mode,
+                                    @Nullable Network network, boolean ready) { }
+
+    public enum TransportOutcome { UNCHANGED, BUSY, OBSOLETE, UNAVAILABLE, READY, NO_TRANSPORT }
+
+    public record TransportResult(TransportOutcome outcome, @Nullable TransportSnapshot snapshot,
+                                  boolean currentActivation, boolean contextReusable) { }
+
+    public static final class TransportAuthority {
+        private final AtomicLong publication = new AtomicLong();
+
+        public void retire() {
+            publication.getAndSet(Long.MIN_VALUE);
+        }
+
+        private boolean claim(final long generation) {
+            long previous;
+            do {
+                previous = publication.get();
+                if (previous == Long.MIN_VALUE || previous > generation)
+                    return false;
+            } while (!publication.compareAndSet(previous, generation));
+            return true;
+        }
+
+        private boolean isRetired() {
+            return publication.get() == Long.MIN_VALUE;
+        }
+    }
+
+    @Keep
+    private final class SocketCapture {
+        private final Activation captured;
+        private final TransportMode mode;
+        @Nullable private final Network network;
+        private final TransportAuthority authority;
+
+        private SocketCapture(final Activation captured, final TransportMode mode, @Nullable final Network network,
+                              final TransportAuthority authority) {
+            if (mode == TransportMode.OWNED && network == null)
+                throw new IllegalArgumentException("Owned transport requires a Network");
+            if (mode == TransportMode.UNKNOWN)
+                throw new IllegalArgumentException("Unknown transport cannot be requested");
+            this.captured = captured;
+            this.mode = mode;
+            this.network = network;
+            this.authority = authority;
+        }
+
+        @Keep
+        private boolean prepare(final int socket) throws IOException {
+            if (!isCurrent() || authority.isRetired() || mode == TransportMode.UNAVAILABLE)
+                return false;
+            try (final ParcelFileDescriptor duplicate = ParcelFileDescriptor.fromFd(socket)) {
+                if (mode == TransportMode.OWNED)
+                    network.bindSocket(duplicate.getFileDescriptor());
+                return isCurrent() && !authority.isRetired() && captured.service.protect(socket);
+            }
+        }
+
+        @Keep
+        private boolean report(final long generation, final boolean ready) {
+            synchronized (captured.service) {
+                if (!isCurrent() || !claimPublication(generation) || ready && !authority.claim(generation))
+                    return false;
+                final Network[] networks = !ready ? new Network[0] :
+                        mode == TransportMode.LEGACY ? null : new Network[]{network};
+                captured.transport = new TransportSnapshot(captured.session, generation, TransportMode.UNKNOWN, network, false);
+                final boolean reported = captured.service.setUnderlyingNetworks(networks);
+                if (reported)
+                    captured.transport = new TransportSnapshot(captured.session, generation,
+                            ready ? mode : TransportMode.UNAVAILABLE, ready ? network : null, false);
+                return reported;
+            }
+        }
+
+        @Keep
+        private boolean confirm(final long generation) {
+            if (!isCurrent() || authority.isRetired() || captured.publication.get() != generation)
+                return false;
+            final TransportSnapshot reported = captured.transport;
+            if (reported == null || reported.generation() != generation || reported.mode() != mode)
+                return false;
+            captured.transport = new TransportSnapshot(captured.session, generation, mode, network, true);
+            return true;
+        }
+
+        private boolean claimPublication(final long generation) {
+            long previous;
+            do {
+                previous = captured.publication.get();
+                if (previous == Long.MIN_VALUE || previous > generation)
+                    return false;
+            } while (!captured.publication.compareAndSet(previous, generation));
+            return true;
+        }
+
+        private boolean isCurrent() {
+            return activation == captured && !captured.retired && !captured.service.destroyed && captured.service.owner == GoBackend.this;
+        }
+    }
+
     /**
      * Public constructor for GoBackend.
      *
@@ -183,9 +309,13 @@ public final class GoBackend implements Backend {
 
     private static native int wgRecover(int handle, byte[] peer, long episode, String endpoint, Thread caller);
 
+    private static native long wgTransport(int handle, long expectedGeneration, SocketCapture capture, boolean available);
+
+    private static native long wgTransportSnapshot(int handle);
+
     private static native void wgTurnOff(int handle);
 
-    private static native int wgTurnOn(String ifName, int tunFd, String settings, VpnService service, Thread activationThread, long activationId);
+    private static native int wgTurnOn(String ifName, int tunFd, String settings, VpnService service, Thread activationThread, long activationId, SocketCapture capture);
 
     private void captureHandshakeObservation(final VpnService service, final long activationId, final byte[] publicKey,
                                              final int eventCode, final boolean retry, final String endpoint, final long exhaustedEpisode) {
@@ -295,14 +425,14 @@ public final class GoBackend implements Backend {
         final VpnService service;
         final Activation capturedActivation;
         synchronized (stateLock) {
-            if (currentTunnel != tunnel || currentTunnelHandle == -1 || currentService == null)
+            if (currentTunnel != tunnel || currentTunnelHandle == -1 || currentService == null || activation == null)
                 return false;
             handle = currentTunnelHandle;
             service = currentService;
             capturedActivation = activation;
             requireActiveService(service);
         }
-        final int result = wgRebind(handle);
+        final int result = (int) runNativeTransport(capturedActivation, handle, () -> (long) wgRebind(handle));
         if (Thread.currentThread().isInterrupted())
             throw new InterruptedException("VPN rebind interrupted");
         synchronized (stateLock) {
@@ -316,6 +446,97 @@ public final class GoBackend implements Backend {
         if (result != 0)
             throw new IOException("Native tunnel rebind failed: " + result);
         return true;
+    }
+
+    @Nullable
+    public TransportSnapshot getTransportSnapshot(final Tunnel tunnel) {
+        synchronized (stateLock) {
+            final Activation captured = activation;
+            if (currentTunnel != tunnel || captured == null || !captured.session.isActive() ||
+                    captured.retired || captured.service.destroyed || captured.service.owner != this)
+                return null;
+            final TransportSnapshot actual = captured.transport;
+            if (actual != null && captured.transportOperations.get() != 0)
+                return new TransportSnapshot(actual.session(), actual.generation(), TransportMode.UNKNOWN, actual.network(), false);
+            return actual;
+        }
+    }
+
+    public TransportResult replaceTransport(final Tunnel tunnel, final TransportSnapshot expected,
+                                             final TransportMode mode, @Nullable final Network network,
+                                             final TransportAuthority authority) throws Exception {
+        if (Thread.currentThread().isInterrupted())
+            throw new InterruptedException("VPN transport interrupted");
+        final int handle;
+        final Activation captured;
+        synchronized (stateLock) {
+            captured = activation;
+            if (captured == null || currentTunnel != tunnel || currentTunnelHandle == -1)
+                return new TransportResult(TransportOutcome.UNAVAILABLE, null, false, false);
+            if (captured.session != expected.session())
+                return new TransportResult(TransportOutcome.OBSOLETE, captured.transport, false, true);
+            handle = currentTunnelHandle;
+            requireActiveService(captured.service);
+        }
+        final long result = runNativeTransport(captured, handle, () -> wgTransport(handle, expected.generation(),
+                new SocketCapture(captured, mode, network, authority), mode != TransportMode.UNAVAILABLE));
+        final int code = (int)(result & 0x7f);
+        if (code >= TransportOutcome.values().length)
+            throw new IllegalStateException("Invalid native transport outcome");
+        final boolean current;
+        synchronized (stateLock) {
+            current = activation == captured && currentTunnel == tunnel && currentTunnelHandle == handle &&
+                    captured.session.isActive() && !captured.service.destroyed;
+        }
+        final TransportResult settled = new TransportResult(TransportOutcome.values()[code], captured.transport,
+                current, (result & 0x80) == 0);
+        if (Thread.currentThread().isInterrupted())
+            throw new InterruptedException("VPN transport interrupted");
+        return settled;
+    }
+
+    private long runNativeTransport(final Activation captured, final int handle, final Callable<Long> operation) throws Exception {
+        captured.transportOperations.incrementAndGet();
+        Throwable originalFailure = null;
+        try {
+            return operation.call();
+        } catch (final Exception | Error failure) {
+            originalFailure = failure;
+            throw failure;
+        } finally {
+            try {
+                final long nativeSnapshot = wgTransportSnapshot(handle);
+                final long generation = nativeSnapshot >>> 2;
+                final boolean ready = (nativeSnapshot & 1) != 0;
+                final boolean healthy = (nativeSnapshot & 2) != 0;
+                synchronized (captured.service) {
+                    final TransportSnapshot observed = captured.transport;
+                    if (activation == captured && !captured.retired) {
+                        if (!healthy)
+                            captured.transport = new TransportSnapshot(captured.session,
+                                    observed == null ? generation : observed.generation(), TransportMode.UNKNOWN,
+                                    observed == null ? null : observed.network(), false);
+                        else if ((observed == null || observed.generation() <= generation) &&
+                                (!ready || observed == null || observed.generation() != generation || !observed.ready()))
+                            captured.transport = new TransportSnapshot(captured.session, generation,
+                                    ready ? TransportMode.UNKNOWN : TransportMode.UNAVAILABLE,
+                                    ready && observed != null ? observed.network() : null, false);
+                    }
+                }
+            } catch (final Exception | Error settlementFailure) {
+                synchronized (captured.service) {
+                    final TransportSnapshot observed = captured.transport;
+                    if (activation == captured && !captured.retired && observed != null)
+                        captured.transport = new TransportSnapshot(captured.session, observed.generation(),
+                                TransportMode.UNKNOWN, observed.network(), false);
+                }
+                if (originalFailure == null)
+                    throw settlementFailure;
+                originalFailure.addSuppressed(settlementFailure);
+            } finally {
+                captured.transportOperations.decrementAndGet();
+            }
+        }
     }
 
     /**
@@ -344,8 +565,8 @@ public final class GoBackend implements Backend {
             service = currentService;
             requireActiveService(service);
         }
-        final int result = wgRecover(handle, observation.peer().getBytes(), observation.exhaustedEpisode(),
-                observation.endpoint().toString(), Thread.currentThread());
+        final int result = (int) runNativeTransport(capturedActivation, handle, () -> (long) wgRecover(handle,
+                observation.peer().getBytes(), observation.exhaustedEpisode(), observation.endpoint().toString(), Thread.currentThread()));
         if (Thread.currentThread().isInterrupted())
             throw new InterruptedException("VPN recovery interrupted");
         final int outcomeCode = result & ~NATIVE_RECOVERY_CONTEXT_UNAVAILABLE;
@@ -477,7 +698,67 @@ public final class GoBackend implements Backend {
      */
     @Override
     public State setState(final Tunnel tunnel, State state, @Nullable final Config config) throws Exception {
-        synchronized (stateLock) {
+        return setStateWithTransport(tunnel, state, config, null);
+    }
+
+    public State setStateWithAuthority(final Tunnel tunnel, final State state, @Nullable final Config config,
+                                       final TransportAuthority authority) throws Exception {
+        return setStateWithTransport(tunnel, state, config, null, authority);
+    }
+
+    public State setStateOwned(final Tunnel tunnel, final State state, @Nullable final Config config,
+                               final Network network, final TransportAuthority authority) throws Exception {
+        if (state == State.UP && (config == null || !hasNumericEndpoints(config)))
+            throw new IllegalArgumentException("Owned transport requires numeric endpoints");
+        return setStateWithTransport(tunnel, state, config, network, authority);
+    }
+
+    public static boolean hasNumericEndpoints(final Config config) {
+        for (final Peer peer : config.getPeers()) {
+            final InetEndpoint endpoint = peer.getEndpoint().orElse(null);
+            if (endpoint == null)
+                continue;
+            try {
+                InetAddresses.parse(endpoint.getHost());
+            } catch (final ParseException ignored) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private State setStateWithTransport(final Tunnel tunnel, State state, @Nullable final Config config,
+                                        @Nullable final Network network) throws Exception {
+        return setStateWithTransport(tunnel, state, config, network, new TransportAuthority());
+    }
+
+    private State setStateWithTransport(final Tunnel tunnel, State state, @Nullable final Config config,
+                                        @Nullable final Network network, final TransportAuthority authority) throws Exception {
+        if (authority.isRetired())
+            throw new IOException("VPN transition superseded");
+        StateTransition cancelledStartup = null;
+        if (state == State.DOWN) {
+            synchronized (stateLock) {
+                final StateTransition starting = startingTransition;
+                if (starting != null && starting.tunnel == tunnel) {
+                    cancelledStartup = starting;
+                    starting.cancelledByDown = true;
+                    starting.authority.retire();
+                    if (activation != null && activation.tunnel == tunnel)
+                        retireActivation();
+                }
+            }
+        }
+        if (cancelledStartup != null) {
+            // A winning startup publication must drain before DOWN settles; no state owner is held here.
+            cancelledStartup.settlement.join();
+            if (Thread.currentThread().isInterrupted())
+                throw new InterruptedException("VPN startup retirement interrupted");
+            return State.DOWN;
+        }
+        synchronized (transitionLock) {
+            if (authority.isRetired())
+                throw new IOException("VPN transition superseded");
             final State originalState = currentTunnel == tunnel ? State.UP : State.DOWN;
 
             if (state == State.TOGGLE)
@@ -487,14 +768,38 @@ public final class GoBackend implements Backend {
             if (state == State.UP) {
                 final Config originalConfig = currentConfig;
                 final Tunnel originalTunnel = currentTunnel;
-                if (currentTunnel != null)
-                    setStateInternal(currentTunnel, null, State.DOWN);
+                final TransportSnapshot previousTransport = activation == null ? null : activation.transport;
+                final Network selectedNetwork = network != null ? network : originalTunnel == tunnel && previousTransport != null &&
+                        previousTransport.mode() == TransportMode.OWNED ? previousTransport.network() : null;
+                if (originalTunnel == tunnel && previousTransport != null && previousTransport.mode() != TransportMode.LEGACY &&
+                        (selectedNetwork == null || config == null || !hasNumericEndpoints(config)))
+                    throw new IOException("Disconnect before replacing an unavailable owned configuration");
+                final StateTransition transition = new StateTransition(tunnel, authority);
+                synchronized (stateLock) {
+                    startingTransition = transition;
+                }
                 try {
-                    setStateInternal(tunnel, config, state);
-                } catch (final Exception e) {
-                    if (originalTunnel != null)
-                        setStateInternal(originalTunnel, originalConfig, State.UP);
-                    throw e;
+                    if (currentTunnel != null)
+                        setStateInternal(currentTunnel, null, State.DOWN);
+                    try {
+                        setStateInternal(tunnel, config, state, selectedNetwork, authority);
+                    } catch (final Exception e) {
+                        if (originalTunnel != null && !transition.cancelledByDown && !authority.isRetired() &&
+                                (previousTransport == null || previousTransport.mode() != TransportMode.UNAVAILABLE)) {
+                            try {
+                                setStateInternal(originalTunnel, originalConfig, State.UP,
+                                        previousTransport == null ? null : previousTransport.network(), authority);
+                            } catch (final Exception | Error rollbackFailure) {
+                                e.addSuppressed(rollbackFailure);
+                            }
+                        }
+                        throw e;
+                    }
+                } finally {
+                    synchronized (stateLock) {
+                        if (startingTransition == transition) startingTransition = null;
+                    }
+                    transition.settlement.complete(null);
                 }
             } else if (state == State.DOWN && tunnel == currentTunnel) {
                 setStateInternal(tunnel, null, State.DOWN);
@@ -512,9 +817,21 @@ public final class GoBackend implements Backend {
 
     private void setStateInternal(final Tunnel tunnel, @Nullable final Config config, final State state)
             throws Exception {
+        setStateInternal(tunnel, config, state, null);
+    }
+
+    private void setStateInternal(final Tunnel tunnel, @Nullable final Config config, final State state,
+                                  @Nullable final Network network) throws Exception {
+        setStateInternal(tunnel, config, state, network, new TransportAuthority());
+    }
+
+    private void setStateInternal(final Tunnel tunnel, @Nullable final Config config, final State state,
+                                  @Nullable final Network network, final TransportAuthority authority) throws Exception {
         Log.i(TAG, "Bringing tunnel " + tunnel.getName() + ' ' + state);
 
         if (state == State.UP) {
+            if (authority.isRetired())
+                throw new IOException("VPN transition superseded");
             if (config == null)
                 throw new BackendException(Reason.TUNNEL_MISSING_CONFIG);
 
@@ -539,6 +856,9 @@ public final class GoBackend implements Backend {
             }
             service.setOwner(this);
             requireActiveService(service);
+
+            if (authority.isRetired())
+                throw new IOException("VPN transition superseded");
 
             if (currentTunnelHandle != -1) {
                 Log.w(TAG, "Tunnel already up");
@@ -608,7 +928,7 @@ public final class GoBackend implements Backend {
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
                 builder.setMetered(false);
-            service.setUnderlyingNetworks(null);
+            builder.setUnderlyingNetworks(network == null ? null : new Network[0]);
 
             builder.setBlocking(true);
             try (final ParcelFileDescriptor tun = builder.establish()) {
@@ -620,47 +940,61 @@ public final class GoBackend implements Backend {
                 }
                 Log.d(TAG, "Go backend " + wgVersion());
                 final Activation starting = new Activation(tunnel, service, config);
-                activation = starting;
-                final int tunnelHandle;
-                try {
-                    tunnelHandle = wgTurnOn(tunnel.getName(), tun.detachFd(), goConfig, service, Thread.currentThread(), starting.session.getId());
-                    if (tunnelHandle < 0)
-                        throw new BackendException(Reason.GO_ACTIVATION_ERROR_CODE, tunnelHandle);
-                } catch (final Exception | Error e) {
-                    retireActivation();
-                    throw e;
+                synchronized (stateLock) {
+                    activation = starting;
                 }
-                try {
-                    requireActiveService(service);
-                } catch (final Exception | Error e) {
-                    retireActivation();
+                {
+                    final int tunnelHandle;
                     try {
-                        wgTurnOff(tunnelHandle);
-                    } catch (final Exception | Error cleanupFailure) {
-                        e.addSuppressed(cleanupFailure);
+                        tunnelHandle = wgTurnOn(tunnel.getName(), tun.detachFd(), goConfig, service, Thread.currentThread(), starting.session.getId(),
+                                new SocketCapture(starting, network == null ? TransportMode.LEGACY : TransportMode.OWNED, network, authority));
+                        if (tunnelHandle < 0)
+                            throw new BackendException(Reason.GO_ACTIVATION_ERROR_CODE, tunnelHandle);
+                    } catch (final Exception | Error e) {
+                        retireActivation();
+                        throw e;
                     }
-                    throw e;
+                    try {
+                        requireActiveService(service);
+                        synchronized (stateLock) {
+                            if (activation != starting || starting.retired || authority.isRetired())
+                                throw new BackendException(Reason.UNABLE_TO_START_VPN);
+                            currentTunnelHandle = tunnelHandle;
+                            currentService = service;
+                            currentTunnel = tunnel;
+                            currentConfig = config;
+                            if (startingTransition != null && startingTransition.authority == authority)
+                                startingTransition = null;
+                        }
+                    } catch (final Exception | Error e) {
+                        retireActivation();
+                        try {
+                            wgTurnOff(tunnelHandle);
+                        } catch (final Exception | Error cleanupFailure) {
+                            e.addSuppressed(cleanupFailure);
+                        }
+                        throw e;
+                    }
+                    starting.commit();
                 }
-                currentTunnelHandle = tunnelHandle;
-                currentService = service;
-                starting.commit();
             }
-
-            currentTunnel = tunnel;
-            currentConfig = config;
 
         } else {
             if (currentTunnelHandle == -1) {
                 Log.w(TAG, "Tunnel already down");
                 return;
             }
-            int handleToClose = currentTunnelHandle;
-            retireActivation();
-            final VpnService service = currentService;
-            currentTunnel = null;
-            currentTunnelHandle = -1;
-            currentConfig = null;
-            currentService = null;
+            final int handleToClose;
+            final VpnService service;
+            synchronized (stateLock) {
+                handleToClose = currentTunnelHandle;
+                retireActivation();
+                service = currentService;
+                currentTunnel = null;
+                currentTunnelHandle = -1;
+                currentConfig = null;
+                currentService = null;
+            }
             try {
                 wgTurnOff(handleToClose);
             } finally {
@@ -679,17 +1013,20 @@ public final class GoBackend implements Backend {
     private void handleServiceDestroyed(final VpnService service) {
         final Tunnel tunnel;
         try {
-            synchronized (stateLock) {
+            synchronized (transitionLock) {
                 if (currentService != service)
                     return;
                 Log.i(TAG, "VpnService.onDestroy(); tunnel active=" + (currentTunnelHandle != -1));
                 tunnel = currentTunnel;
-                final int handle = currentTunnelHandle;
-                retireActivation();
-                currentTunnel = null;
-                currentTunnelHandle = -1;
-                currentConfig = null;
-                currentService = null;
+                final int handle;
+                synchronized (stateLock) {
+                    handle = currentTunnelHandle;
+                    retireActivation();
+                    currentTunnel = null;
+                    currentTunnelHandle = -1;
+                    currentConfig = null;
+                    currentService = null;
+                }
                 try {
                     if (handle != -1)
                         wgTurnOff(handle);

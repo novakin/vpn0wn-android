@@ -14,6 +14,15 @@ struct wg_context {
 	jthrowable exception;
 	int failed;
 	pthread_mutex_t mutex;
+	struct wg_capture *pending_releases;
+};
+
+struct wg_capture {
+	jobject value;
+	jmethodID prepare;
+	jmethodID report;
+	jmethodID confirm;
+	struct wg_capture *next;
 };
 
 static JNIEnv *callbackEnv(struct wg_context *context, int *attached)
@@ -51,6 +60,103 @@ static int captureException(JNIEnv *env, struct wg_context *context)
 		(*env)->ExceptionClear(env);
 	context->failed = 1;
 	return 1;
+}
+
+struct wg_capture *wgCreateCapture(JNIEnv *env, jobject value)
+{
+	struct wg_capture *capture = calloc(1, sizeof(*capture));
+	if (!capture)
+		return NULL;
+	capture->value = (*env)->NewGlobalRef(env, value);
+	if (!capture->value) {
+		free(capture);
+		return NULL;
+	}
+	jclass value_class = (*env)->GetObjectClass(env, value);
+	if (capture->value && value_class) {
+		capture->prepare = (*env)->GetMethodID(env, value_class, "prepare", "(I)Z");
+		if (capture->prepare)
+			capture->report = (*env)->GetMethodID(env, value_class, "report", "(JZ)Z");
+		if (capture->report)
+			capture->confirm = (*env)->GetMethodID(env, value_class, "confirm", "(J)Z");
+	}
+	if (value_class)
+		(*env)->DeleteLocalRef(env, value_class);
+	if (!capture->value || !capture->prepare || !capture->report || !capture->confirm) {
+		if (capture->value)
+			(*env)->DeleteGlobalRef(env, capture->value);
+		free(capture);
+		return NULL;
+	}
+	return capture;
+}
+
+static int capturedCallback(struct wg_context *context, struct wg_capture *capture, int fd, jlong generation, int report, int ready)
+{
+	pthread_mutex_lock(&context->mutex);
+	int attached;
+	JNIEnv *env = callbackEnv(context, &attached);
+	int result = 0;
+	if (!env) {
+		context->failed = 1;
+	} else if (!context->failed) {
+		result = (*env)->CallBooleanMethod(env, context->service, context->active, context->activation_thread);
+		if (captureException(env, context))
+			result = 0;
+		if (result) {
+			if (report == 2)
+				result = (*env)->CallBooleanMethod(env, capture->value, capture->confirm, generation);
+			else if (report)
+				result = (*env)->CallBooleanMethod(env, capture->value, capture->report, generation, (jboolean)ready);
+			else
+				result = (*env)->CallBooleanMethod(env, capture->value, capture->prepare, (jint)fd);
+			if (captureException(env, context))
+				result = 0;
+		}
+	}
+	if (attached)
+		(*context->vm)->DetachCurrentThread(context->vm);
+	pthread_mutex_unlock(&context->mutex);
+	return result;
+}
+
+int wgPrepareCapturedSocket(struct wg_context *context, struct wg_capture *capture, int fd)
+{
+	return capturedCallback(context, capture, fd, 0, 0, 0);
+}
+
+int wgReportCapturedTransport(struct wg_context *context, struct wg_capture *capture, jlong generation, int ready)
+{
+	return capturedCallback(context, capture, -1, generation, 1, ready);
+}
+
+int wgConfirmCapturedTransport(struct wg_context *context, struct wg_capture *capture, jlong generation)
+{
+	return capturedCallback(context, capture, -1, generation, 2, 1);
+}
+
+void wgReleaseCapture(struct wg_context *context, struct wg_capture *capture)
+{
+	pthread_mutex_lock(&context->mutex);
+	int attached;
+	JNIEnv *env = callbackEnv(context, &attached);
+	if (env) {
+		(*env)->DeleteGlobalRef(env, capture->value);
+		free(capture);
+	} else {
+		context->failed = 1;
+		capture->next = context->pending_releases;
+		context->pending_releases = capture;
+	}
+	if (attached)
+		(*context->vm)->DetachCurrentThread(context->vm);
+	pthread_mutex_unlock(&context->mutex);
+}
+
+void wgFreeCapture(JNIEnv *env, struct wg_capture *capture)
+{
+	(*env)->DeleteGlobalRef(env, capture->value);
+	free(capture);
 }
 
 struct wg_context *wgCreateContext(JNIEnv *env, jobject service, jobject activation_thread, jlong activation_id)
@@ -120,6 +226,14 @@ int wgProtectSocket(struct wg_context *context, int fd)
 int wgServiceActive(struct wg_context *context)
 {
 	return callback(context, -1, 0);
+}
+
+int wgContextHealthy(struct wg_context *context)
+{
+	pthread_mutex_lock(&context->mutex);
+	int healthy = !context->failed;
+	pthread_mutex_unlock(&context->mutex);
+	return healthy;
 }
 
 void wgHandshakeObservation(struct wg_context *context, const char *peer, int event, int retry, const char *endpoint, jlong episode)
@@ -197,6 +311,11 @@ int wgRethrowException(JNIEnv *env, struct wg_context *context)
 
 void wgFreeContext(JNIEnv *env, struct wg_context *context)
 {
+	while (context->pending_releases) {
+		struct wg_capture *capture = context->pending_releases;
+		context->pending_releases = capture->next;
+		wgFreeCapture(env, capture);
+	}
 	if (context->service)
 		(*env)->DeleteGlobalRef(env, context->service);
 	if (context->activation_thread)

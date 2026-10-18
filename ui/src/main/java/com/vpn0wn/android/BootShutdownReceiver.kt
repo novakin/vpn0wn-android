@@ -22,6 +22,7 @@ class BootShutdownReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         applicationScope.launch {
             try {
+                if (action == Intent.ACTION_BOOT_COMPLETED) NetworkMonitorService.startIfEnabled(context)
                 if (Application.getBackend() !is WgQuickBackend) return@launch
                 val tunnelManager = Application.getTunnelManager()
                 if (Intent.ACTION_BOOT_COMPLETED == action) {

@@ -11,14 +11,16 @@
 #include "jni_context.h"
 
 struct go_string { const char *str; long n; };
-extern int wgTurnOn(struct go_string ifname, int tun_fd, struct go_string settings, struct wg_context *context, JNIEnv *env);
+extern int wgTurnOn(struct go_string ifname, int tun_fd, struct go_string settings, struct wg_context *context, JNIEnv *env, struct wg_capture *capture);
 extern void wgTurnOff(int handle, JNIEnv *env);
 extern char *wgGetConfig(int handle, JNIEnv *env);
 extern int wgRebind(int handle, JNIEnv *env);
+extern jlong wgTransport(int handle, jlong expected, struct wg_capture *capture, int available, JNIEnv *env);
+extern jlong wgTransportSnapshot(int handle);
 extern int wgRecover(int handle, const char *peer, jlong episode, struct go_string endpoint, JNIEnv *env, jobject caller);
 extern char *wgVersion();
 
-JNIEXPORT jint JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgTurnOn(JNIEnv *env, jclass c, jstring ifname, jint tun_fd, jstring settings, jobject service, jobject activation_thread, jlong activation_id)
+JNIEXPORT jint JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgTurnOn(JNIEnv *env, jclass c, jstring ifname, jint tun_fd, jstring settings, jobject service, jobject activation_thread, jlong activation_id, jobject capture_value)
 {
 	struct wg_context *context = NULL;
 	const char *ifname_str = (*env)->GetStringUTFChars(env, ifname, 0);
@@ -37,13 +39,20 @@ JNIEXPORT jint JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgTurnOn(JNIEnv
 		(*env)->ReleaseStringUTFChars(env, settings, settings_str);
 		goto failed;
 	}
+	struct wg_capture *capture = capture_value ? wgCreateCapture(env, capture_value) : NULL;
+	if (capture_value && !capture) {
+		wgFreeContext(env, context);
+		(*env)->ReleaseStringUTFChars(env, ifname, ifname_str);
+		(*env)->ReleaseStringUTFChars(env, settings, settings_str);
+		goto failed;
+	}
 	int ret = wgTurnOn((struct go_string){
 		.str = ifname_str,
 		.n = ifname_len
 	}, tun_fd, (struct go_string){
 		.str = settings_str,
 		.n = settings_len
-	}, context, env);
+	}, context, env, capture);
 	(*env)->ReleaseStringUTFChars(env, ifname, ifname_str);
 	(*env)->ReleaseStringUTFChars(env, settings, settings_str);
 	return ret;
@@ -60,6 +69,19 @@ JNIEXPORT void JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgTurnOff(JNIEn
 JNIEXPORT jint JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgRebind(JNIEnv *env, jclass c, jint handle)
 {
 	return wgRebind(handle, env);
+}
+
+JNIEXPORT jlong JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgTransport(JNIEnv *env, jclass c, jint handle, jlong expected, jobject capture_value, jboolean available)
+{
+	struct wg_capture *capture = wgCreateCapture(env, capture_value);
+	if (!capture)
+		return 131;
+	return wgTransport(handle, expected, capture, available, env);
+}
+
+JNIEXPORT jlong JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgTransportSnapshot(JNIEnv *env, jclass c, jint handle)
+{
+	return wgTransportSnapshot(handle);
 }
 
 JNIEXPORT jint JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgRecover(JNIEnv *env, jclass c, jint handle, jbyteArray peer, jlong episode, jstring endpoint, jobject caller)
