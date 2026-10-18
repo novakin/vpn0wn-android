@@ -70,6 +70,7 @@ import com.vpn0wn.android.provisioning.VpsDeployMapper
 import com.vpn0wn.android.provisioning.StoredVpsServer
 import com.vpn0wn.android.provisioning.PendingVpsRemove
 import com.vpn0wn.android.provisioning.PendingVpsRestore
+import com.vpn0wn.android.provisioning.VpsRestoreReplacement
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel
 import com.vpn0wn.android.provisioning.VpsInstallProgress
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.AuthMode
@@ -807,7 +808,8 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     private fun restoreDestinationStep(parent: LinearLayout) {
-        parent.addView(sectionHeader(2, str(R.string.vpn0wn_restore_check), str(R.string.vpn0wn_apply_fresh_only)))
+        parent.addView(sectionHeader(2, str(R.string.vpn0wn_restore_check), str(if (provisionState.detect?.configExists == true)
+            R.string.vpn0wn_restore_replace_scope else R.string.vpn0wn_apply_fresh_only)))
         parent.addView(panel {
             configLine(str(R.string.vpn0wn_label_host), provisionForm.host)
             configLine(str(R.string.vpn0wn_ssh_fingerprint), provisionForm.fingerprint, wrap = true)
@@ -822,11 +824,17 @@ class VpsProvisioningFragment : BaseFragment() {
 
     private fun restoreReviewStep(parent: LinearLayout) {
         val restoration = provisionState.restore ?: return
-        parent.addView(sectionHeader(provisionStep + 1, str(R.string.vpn0wn_restore_title), str(R.string.vpn0wn_apply_fresh_only)))
+        parent.addView(sectionHeader(provisionStep + 1, str(R.string.vpn0wn_restore_title), str(when {
+            restoration.replacement != null -> R.string.vpn0wn_restore_replace_scope
+            restoration.outcome == RestoreOutcome.READY -> R.string.vpn0wn_apply_fresh_only
+            else -> R.string.vpn0wn_restore_exact_state
+        })))
         parent.addView(panel {
             restoration.summary?.let { configLine(str(R.string.vpn0wn_backup_captured), it.capturedAtUtc, wrap = true) }
             val plan = restoration.plan ?: restoration.attempt?.plan
             if (plan != null) {
+                if (restoration.replacement != null) configLine(str(R.string.vpn0wn_restore_backup_state),
+                    str(R.string.vpn0wn_restore_backup_captured_state), wrap = true)
                 configLine(str(R.string.vpn0wn_backup_public_identity), plan.serverPublicKey, wrap = true)
                 configLine(str(R.string.vpn0wn_label_endpoint), plan.endpoint, wrap = true)
                 configLine(str(R.string.vpn0wn_label_listen_port), plan.port)
@@ -835,8 +843,38 @@ class VpsProvisioningFragment : BaseFragment() {
                 configLine(str(R.string.vpn0wn_restore_active_peers), plan.peerCount.toString())
                 configLine(str(R.string.vpn0wn_backup_revoked_count), plan.revokedCount.toString())
             }
-            configLine(str(R.string.vpn0wn_restore_limits_label), str(R.string.vpn0wn_restore_limits), wrap = true)
+            if (restoration.replacement != null) {
+                configLine(str(R.string.vpn0wn_restore_replace_scope), str(R.string.vpn0wn_restore_replace_warning), wrap = true)
+            }
+            configLine(str(R.string.vpn0wn_restore_limits_label), str(when {
+                restoration.replacement != null -> R.string.vpn0wn_restore_replace_limits
+                restoration.outcome == RestoreOutcome.READY -> R.string.vpn0wn_restore_limits
+                else -> R.string.vpn0wn_restore_observation_limits
+            }), wrap = true)
+            restoration.replacement?.let { replacement ->
+                configLine(str(R.string.vpn0wn_restore_current_changes), restoreReplacementText(replacement), wrap = true,
+                    direction = View.TEXT_DIRECTION_LTR)
+            }
         })
+    }
+
+    private fun restoreReplacementText(replacement: VpsRestoreReplacement): String {
+        val users = replacement.users.joinToString("\n\n") { row ->
+            val label = when (row.change) {
+                "restored" -> R.string.vpn0wn_restore_user_restored
+                "removed" -> R.string.vpn0wn_restore_user_removed
+                else -> R.string.vpn0wn_restore_user_changed
+            }
+            getString(R.string.vpn0wn_restore_user_change, str(label), row.name, row.publicKey)
+        }.ifEmpty { str(R.string.vpn0wn_backup_comparison_none) }
+        val history = replacement.discardedRevoked.joinToString("\n") { row ->
+            getString(R.string.vpn0wn_restore_history_change, str(if (row.change == "removed")
+                R.string.vpn0wn_restore_history_removed else R.string.vpn0wn_restore_history_replaced), row.archiveName)
+        }.ifEmpty { str(R.string.vpn0wn_backup_comparison_none) }
+        return getString(R.string.vpn0wn_restore_replacement_details, replacement.endpoint, replacement.port,
+            replacement.cidr, replacement.dns, replacement.peerCount, replacement.revokedCount,
+            str(if (replacement.serviceEnabled) R.string.vpn0wn_restore_service_enabled else R.string.vpn0wn_restore_service_disabled),
+            users, history)
     }
 
     private fun confirmRestoration() {
@@ -878,16 +916,24 @@ class VpsProvisioningFragment : BaseFragment() {
     private fun showRestoreConfirmation(confirmation: VpsProvisioningViewModel.RestoreConfirmation, ownerView: View) {
         val plan = confirmation.plan
         val host = confirmation.ssh.host.let { if (':' in it) "[$it]" else it }
-        val message = getString(R.string.vpn0wn_restore_confirmation, confirmation.ssh.user, host,
+        val replacing = confirmation.replacement != null
+        var message = getString(if (replacing) R.string.vpn0wn_restore_running_confirmation else R.string.vpn0wn_restore_confirmation,
+            confirmation.ssh.user, host,
             confirmation.ssh.port, confirmation.fingerprint, confirmation.summary.capturedAtUtc, plan.serverPublicKey,
             plan.endpoint, plan.port, plan.cidr, plan.dns, plan.peerCount, plan.revokedCount)
+        confirmation.replacement?.let { message += "\n\n" + str(R.string.vpn0wn_restore_replace_warning) + "\n\n" +
+            str(R.string.vpn0wn_restore_replace_limits) + "\n\n" + restoreReplacementText(it) }
         val dialog = MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.vpn0wn_restore_title)
             .setMessage(message).setNegativeButton(android.R.string.cancel, null)
-            .setPositiveButton(R.string.vpn0wn_restore_confirm, null).create()
+            .setPositiveButton(if (replacing) R.string.vpn0wn_restore_replace_confirm else R.string.vpn0wn_restore_confirm, null).create()
         restoreDialog = dialog
         dialog.setOnDismissListener { if (restoreDialog === dialog) retireRestoreConfirmation() }
         dialog.show()
         dialog.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        dialog.findViewById<TextView>(android.R.id.message)?.apply {
+            isSingleLine = false
+            ellipsize = null
+        }
         val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
         positiveButton.isSingleLine = false
         positiveButton.ellipsize = null
@@ -2007,8 +2053,10 @@ class VpsProvisioningFragment : BaseFragment() {
         val label = str(when {
             provisionState.busy && provisionStep == APPLY_STEP -> R.string.vpn0wn_close_connection
             provisionState.busy -> R.string.vpn0wn_cancel_check
-            restoring && provisionStep == DETECT_STEP -> R.string.vpn0wn_restore_check
-            restoring && provisionStep == APPLY_STEP && provision.canRestore -> R.string.vpn0wn_restore_confirm
+            restoring && provisionStep == DETECT_STEP -> if (provisionState.detect?.configExists == true)
+                R.string.vpn0wn_restore_replace_check else R.string.vpn0wn_restore_check
+            restoring && provisionStep == APPLY_STEP && provision.canRestore -> if (provisionState.restore?.replacement != null)
+                R.string.vpn0wn_restore_replace_confirm else R.string.vpn0wn_restore_confirm
             restoring && provisionStep == APPLY_STEP -> R.string.vpn0wn_restore_return
             provisionStep == DETECT_STEP -> R.string.vpn0wn_generate_plan
             provisionStep == PLAN_STEP -> R.string.vpn0wn_review_apply
@@ -2171,6 +2219,7 @@ class VpsProvisioningFragment : BaseFragment() {
         Problem.INSTALL_FAILED -> R.string.vpn0wn_apply_failed
         Problem.INSTALL_PENDING -> R.string.vpn0wn_apply_uncertain
         Problem.RESTORE_PENDING -> R.string.vpn0wn_restore_uncertain
+        Problem.RESTORE_CHANGED -> R.string.vpn0wn_restore_changed
         Problem.ADD_PENDING -> R.string.vpn0wn_user_add_pending
         Problem.REMOVE_PENDING -> if (!ownsServerFeedback(provisionState.removalOwner)) R.string.vpn0wn_user_foreign_mutation_pending
             else if (provisionState.removalAction == PendingVpsRemove.Action.REVOKE) R.string.vpn0wn_user_revoke_uncertain else R.string.vpn0wn_user_remove_uncertain

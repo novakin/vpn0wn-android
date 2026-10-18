@@ -99,6 +99,91 @@ class VpsFreshRestoreWorkflowTest {
         assertPublic(model)
     }
 
+    @Test fun runningRollbackUsesCapturedReviewOnceAndSettlesOnlyAfterIndependentVerify() = runTest {
+        val model = readyRunning()
+        assertEquals(VpsRunningRestoreFixture.review, model.state.value.restore?.replacement)
+        assertNull(store.pendingRestore(store.servers.first().single()))
+        val confirmation = requireNotNull(model.requestRestoreConfirmation())
+        assertNull(model.confirmRestore(confirmation.copy(replacement = confirmation.replacement?.copy())))
+        requireNotNull(model.confirmRestore(confirmation)).join()
+        assertNull(model.confirmRestore(confirmation))
+        assertEquals(RestoreOutcome.VERIFIED, model.state.value.restore?.outcome)
+        assertNull(store.pendingRestore(store.servers.first().single()))
+        assertEquals(2, peer.commands.count(::isCheck))
+        assertEquals(1, peer.commands.count(::isConfirm))
+        assertTrue(peer.commands.single(::isConfirm).contains("'--expected-current-state' '${VpsRunningRestoreFixture.DIGEST}'"))
+        assertFalse(peer.commands.single(::isVerify).contains("'--replace-running'"))
+        assertPublic(model)
+    }
+
+    @Test fun changedRunningTargetBeforeAdmissionRetiresReviewWithoutPendingIntent() = runTest {
+        val model = readyRunning()
+        val original = store.servers.first().single()
+        peer.restoreCheckOutput = VpsRunningRestoreFixture.response().apply {
+            getJSONObject("plan").getJSONObject("replacement").put("reviewSha256", "a".repeat(64))
+        }.toString()
+        apply(model).join()
+        assertNull(store.pendingRestore(original))
+        assertEquals(original, store.servers.first().single())
+        assertEquals(RestoreOutcome.NONE, model.state.value.restore?.outcome)
+        assertEquals(Problem.RESTORE_CHANGED, model.state.value.problem)
+        assertNull(model.state.value.restore?.plan)
+        assertNull(model.state.value.restore?.replacement)
+        assertNull(model.requestRestoreConfirmation())
+        assertFalse(peer.commands.any(::isConfirm))
+        assertFalse(peer.commands.any(::isVerify))
+    }
+
+    @Test fun changedRunningTargetAfterAdmissionRetainsIntentDespiteUnchangedReceipt() = runTest {
+        val model = readyRunning()
+        val original = store.servers.first().single()
+        peer.restoreExitCode = 73
+        peer.restoreOutput = JSONObject().put("ok", false).put("error", "restore_target_changed")
+            .put("message", "changed").put("recovery", "unchanged").toString()
+        apply(model).join()
+        assertEquals(RestoreOutcome.UNCERTAIN, model.state.value.restore?.outcome)
+        assertNotNull(store.pendingRestore(original))
+        assertEquals(original, store.servers.first().single())
+        assertEquals(1, peer.commands.count(::isConfirm))
+        assertFalse(peer.commands.any(::isVerify))
+        assertNull(model.requestRestoreConfirmation())
+    }
+
+    @Test fun lostRunningReceiptReconcilesSameCiphertextWithoutReviewOrMutationReplay() = runTest {
+        val first = readyRunning()
+        peer.restoreFailure = ProvisioningException("lost")
+        apply(first).join()
+        val original = store.servers.first().single()
+        val attempt = requireNotNull(store.pendingRestore(original))
+        assertEquals(RestoreOutcome.UNCERTAIN, first.state.value.restore?.outcome)
+        val resumed = model()
+        requireNotNull(resumed.loadPendingRestore(original)).join()
+        unlock(resumed)
+        requireNotNull(resumed.reconcileRestore(original, attempt)).join()
+        assertEquals(RestoreOutcome.RECONCILED, resumed.state.value.restore?.outcome)
+        assertNull(store.pendingRestore(store.servers.first().single()))
+        assertEquals(1, peer.commands.count(::isConfirm))
+        assertEquals(2, peer.commands.count(::isCheck))
+        assertFalse(peer.commands.single(::isVerify).contains(VpsRunningRestoreFixture.DIGEST))
+        assertPublic(resumed)
+    }
+
+    @Test fun editingRunningDestinationRetiresCapturedReviewAndConfirmation() = runTest {
+        val model = readyRunning()
+        val confirmation = requireNotNull(model.requestRestoreConfirmation())
+        model.edit(model.draft.copy(port = "51822"))
+        assertNull(model.state.value.restore?.replacement)
+        assertNull(model.confirmRestore(confirmation))
+        assertNull(store.pendingRestore(store.servers.first().single()))
+        assertFalse(peer.commands.any(::isConfirm))
+    }
+
+    private suspend fun readyRunning(): VpsProvisioningViewModel {
+        peer.configExists = true
+        peer.restoreCheckOutput = VpsRunningRestoreFixture.response().toString()
+        return ready()
+    }
+
     @Test fun exactConfirmationRunsOnceThenAuthoritativeVerifySettlesDestinationMetadata() = runTest {
         val model = ready()
         val confirmation = requireNotNull(model.requestRestoreConfirmation())
