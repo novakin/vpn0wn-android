@@ -1,7 +1,6 @@
 package com.vpn0wn.android.model
 
 import android.content.Context
-import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.test.core.app.ApplicationProvider
@@ -13,6 +12,7 @@ import com.vpn0wn.android.configStore.ConfigStore
 import com.vpn0wn.android.provisioning.VpsServerStore
 import com.vpn0wn.android.provisioning.VpsUserProfileStore
 import com.vpn0wn.android.provisioning.credentialFileForTest
+import com.vpn0wn.android.util.createPreferencesDataStore
 import com.vpn0wn.config.Config
 import java.io.File
 import java.io.IOException
@@ -40,9 +40,10 @@ internal class TunnelTestEnvironment(directory: File, scope: CoroutineScope) {
         Application::class.java.getDeclaredMethod("attachBaseContext", Context::class.java)
             .apply { isAccessible = true }.invoke(application, ApplicationProvider.getApplicationContext<Context>())
         setField("coroutineScope", applicationScope)
-        setField("preferencesDataStore", PreferenceDataStoreFactory.create(
-            scope = CoroutineScope(applicationScope.coroutineContext + Dispatchers.IO)
-        ) { File(directory, "settings.preferences_pb") })
+        setField("preferencesDataStore", createPreferencesDataStore(
+            File(directory, "settings.preferences_pb"),
+            scope = CoroutineScope(applicationScope.coroutineContext + Dispatchers.IO),
+        ))
         setField("vpsServerStore", VpsServerStore(
             Application.getPreferencesDataStore(), credentialFileForTest(File(directory, "credentials")),
         ))
