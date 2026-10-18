@@ -7,6 +7,7 @@ package com.vpn0wn.android.fragment
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ActivityNotFoundException
+import android.content.res.Configuration
 import android.net.Uri
 import android.graphics.Color
 import android.graphics.Rect
@@ -547,8 +548,8 @@ class VpsProvisioningFragment : BaseFragment() {
     // Typography and spacing retain the approved three-level HeroStat treatment.
     @Suppress("MagicNumber")
     private fun topologyMetadata(server: VpsDeployServer): View {
-        val stacked = resources.configuration.screenWidthDp < COMPACT_HERO_WIDTH_DP &&
-            resources.configuration.fontScale >= ENLARGED_HERO_FONT_SCALE
+        val stacked = resources.configuration.screenWidthDp < COMPACT_WINDOW_WIDTH_DP &&
+            resources.configuration.fontScale >= ENLARGED_FONT_SCALE
         val peers = if (server.usersKnown) resources.getQuantityString(R.plurals.vpn0wn_topology_peers, server.users.size, server.users.size)
             else str(R.string.vpn0wn_topology_peers_unknown)
         val values = listOf(
@@ -1969,6 +1970,10 @@ class VpsProvisioningFragment : BaseFragment() {
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
     private fun topBar(title: String, sub: String, leftIcon: Int, onLeft: () -> Unit, right: List<View> = emptyList(), big: Boolean = false): View {
+        val configuration = resources.configuration
+        val stackedMetadata = configuration.orientation == Configuration.ORIENTATION_PORTRAIT &&
+            configuration.screenWidthDp < COMPACT_WINDOW_WIDTH_DP && configuration.fontScale >= ENLARGED_FONT_SCALE
+        val metadata = label(sub).apply { setPadding(0, dp(4), 0, 0) }
         val bar = vertical().apply {
             setBackgroundColor(color(R.color.vpn0wn_paper_2))
             setPadding(dp(14), dp(12), dp(14), dp(12))
@@ -1985,10 +1990,11 @@ class VpsProvisioningFragment : BaseFragment() {
                 setImageDrawable(artwork)
                 contentDescription = str(R.string.vpn0wn_home_wordmark).replace('ø', '0')
             }, LinearLayout.LayoutParams(width, height).apply { gravity = Gravity.START })
-            addView(label(sub).apply { setPadding(0, dp(4), 0, 0) })
+            if (!stackedMetadata) addView(metadata)
         }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
         right.forEach { row.addView(it) }
         bar.addView(row)
+        if (stackedMetadata) bar.addView(metadata)
         bar.addView(mono(title, if (big) 26 else 18, R.color.vpn0wn_ink, medium = true).apply { setPadding(0, dp(8), 0, 0) })
         bar.addView(View(requireContext()).apply { setBackgroundColor(color(R.color.vpn0wn_rule)) }, LinearLayout.LayoutParams(-1, dp(1)).apply { topMargin = dp(12) })
         return bar
@@ -3060,8 +3066,8 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     private companion object {
-        const val COMPACT_HERO_WIDTH_DP = 600
-        const val ENLARGED_HERO_FONT_SCALE = 1.5f
+        const val COMPACT_WINDOW_WIDTH_DP = 600
+        const val ENLARGED_FONT_SCALE = 1.5f
         const val BACKUP_PICKER_OUTSTANDING = "backup_picker_outstanding"
         val PEER_NAME = Regex("[A-Za-z0-9_-]{1,32}")
         const val SSH_STEP = 0
