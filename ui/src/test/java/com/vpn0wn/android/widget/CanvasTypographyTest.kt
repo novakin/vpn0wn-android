@@ -4,7 +4,6 @@ package com.vpn0wn.android.widget
 import android.app.Application
 import android.content.Context
 import android.graphics.Paint
-import android.graphics.Rect
 import android.view.ContextThemeWrapper
 import android.view.View
 import androidx.core.content.res.ResourcesCompat
@@ -45,7 +44,7 @@ class CanvasTypographyTest {
         assertFont(context, paint(view, "paint"), R.font.jetbrains_mono_regular)
     }
 
-    @Test fun topologyFitsLongValuesAndRefitsOnResizeAndRebindWithoutMutatingServer() {
+    @Test fun topologyFitsCentralNameOnResizeAndRebindWithoutMutatingServer() {
         val context = context()
         val view = VpsTopologyView(context)
         val server = VpsDeployMapper.fromStored(resources, VpsDeployFixtureData.storedServers().first(), VpsDeployFixtureData.NOW)
@@ -53,23 +52,11 @@ class CanvasTypographyTest {
         view.bind(server)
         val density = context.resources.displayMetrics.density
         val originals = listOf(server.name, server.endpoint, server.cidr)
-        val metadataPaint = Paint(paint(view, "paint")).apply { textSize = (12 * density).toInt().toFloat() }
         for (width in listOf(320, 640, 320)) {
-            view.layout(0, 0, (width * density).toInt(), (164 * density).toInt())
-            val values = field(view, "metadataValues") as List<*>
-            assertEquals(3, values.size)
-            val available = view.width / 3f - (20 * density).toInt()
-            values.forEachIndexed { index, value ->
-                val text = value as String
-                assertTrue("Fits current metadata column", metadataPaint.measureText(text) <= available)
-                val bounds = Rect()
-                metadataPaint.getTextBounds(text, 0, text.length, bounds)
-                assertTrue("Painted glyphs fit current column", bounds.right <= available)
-                if (text != originals[index]) assertTrue("Truncation is disclosed", text.endsWith("…"))
-            }
-            if (width == 320) assertTrue("Long name is bounded", (values.first() as String).endsWith("…"))
-            else assertEquals("Wider endpoint remains complete", server.endpoint, values[1])
-            val nodePaint = Paint(metadataPaint).apply { textSize = (7 * density).toInt().toFloat() }
+            view.layout(0, 0, (width * density).toInt(), (104 * density).toInt())
+            val fittedName = field(view, "serverSublabel") as String
+            if (fittedName != server.name) assertTrue("Truncation is disclosed", fittedName.endsWith("…"))
+            val nodePaint = Paint(paint(view, "paint")).apply { textSize = (7 * density).toInt().toFloat() }
             val nameWidth = nodePaint.measureText(field(view, "serverSublabel") as String)
             val leftEdge = view.width * 0.12f + nodePaint.measureText(field(view, "deviceSublabel") as String) / 2f
             val rightEdge = view.width * 0.88f - nodePaint.measureText(field(view, "wanSublabel") as String) / 2f
@@ -80,7 +67,6 @@ class CanvasTypographyTest {
         assertEquals("Original values remain complete", originals, listOf(server.name, server.endpoint, server.cidr))
         val short = server.copy(name = "ams", endpoint = null, cidr = "—")
         view.bind(short)
-        assertEquals(listOf("ams", "—", "—"), field(view, "metadataValues"))
         assertEquals("ams", field(view, "serverSublabel"))
     }
 
