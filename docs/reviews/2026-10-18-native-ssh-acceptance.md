@@ -4,7 +4,7 @@ Last updated: 2026-10-18 (Europe/Paris).
 
 ## Scope and provenance
 
-Related to [#143](https://github.com/novakin/vpn0wn-android/issues/143), which remains open. This record accepts bounded physical Android SSH trials through the production `JschRemoteShellClientFactory` and guarded client: the original password/exec/SFTP trial and the distinct private-key follow-up below. The [transport contract](../backend-contracts.md#concrete-ssh-transport--c11) and [QA controls](../qa-test-plan.md#concrete-ssh-transport-controls--c11) retain the wider feature boundaries. No product source changed for these trials.
+Related to [#143](https://github.com/novakin/vpn0wn-android/issues/143), which remains open. This record distinguishes the original physical API34 password/exec/SFTP and private-key trials, the failed API24 D2 diagnostic, and the later API24 E1/API28 F1 compatibility trials below. Each section retains its own source, artifact, observations and limits. The [transport contract](../backend-contracts.md#concrete-ssh-transport--c11) and [QA controls](../qa-test-plan.md#concrete-ssh-transport-controls--c11) retain the wider feature boundaries. The original physical trials changed no product source; E1/F1 exercise the separately implemented API24/25 ECDSA compatibility source.
 
 Original password/exec/SFTP trial source: clean `13fcc23fd5428fa289b42e9b76f08453c467ac88`, tree `1bc2525394941d37b197c92dfed778f21969c7c8`. Both accepted Build and Peer producers retained matching before/after receipts for all 637 source files, eight reviewed harness inputs and the exact two-file harness source inventory, plus successful final HEAD/tree/status/submodule admission. This runtime source is distinct from the later documentation integration base.
 
@@ -57,6 +57,8 @@ Both the failed attempt and accepted trial report ten cleanup/preservation check
 
 ## Acceptance limits
 
+These limits describe the original API34 password cohort. The later E1/F1 section records the additional API24/28 compatibility scope; it does not change these earlier observations.
+
 This trial adds physical API34 pinned-password SSH exec/SFTP, negative-authentication and entered-command cancellation proof. The existing JVM controls and separate [API24/28 credential-storage record](2026-10-15-native-ssh-credential-storage-acceptance.md) retain their own scope; storage results do not establish transport compatibility on those APIs.
 
 At this original checkpoint, native private-key/passphrase authentication remained unverified. The separate follow-up below accepts its named controls without promoting this older password/SFTP/cancellation trial to newer source. The wider algorithm/provider/API/OEM matrix, API24/28 transport/desugaring, IPv6/external paths, blocked connect/banner-write/upload boundaries, production Application/wizard, VPN/lockdown/protection, live mutation/client traffic and release remain outside this original trial. Its host-generated RSA/ECDSA host keys used password authentication, not client private-key authentication. #143 remains open.
@@ -91,7 +93,7 @@ The raw native report contains exactly the seven Boolean-true checks, API34 and 
 
 Retained private evidence: `.artifacts/continuation-20261018/native-ssh-key-prep/`, Build `runs/20261018-083023-b060fa/` and its `device-attempt-01/`, Peer `runs/20261018-084445-e56f89/`. Reviewed fourteen-input pins SHA256: `a82a8d6b656948f92af409483cc080f296738fe13da18bf68f882c171c9ab74f`; executed runner: `745f2507bd307f2ed050cd9b3ccb60ba8addcecef83c57aad294e40fc5c4c904`. Independent ultra source, actual-artifact and actual-runtime reviews are CLEAR. The runtime review hashes to `db4f7852eab946b712afb211d1727873ba187abc0bb87e1f1af2a76c68b6b7bd`; it independently checks source/artifact/native/host bindings, key-pair equivalence, settlement and cleanup. Final documentation-head review/publication remain the delivering PR's gates.
 
-Overall #143 remains **PARTIALLY_ASSESSED**. API24/28 transport/desugaring, provider/OEM and other-key coverage, IPv6/external paths, blocked connect/write/upload failure boundaries, production Application/wizard, progress callbacks, VPN/lockdown/protection, live server mutations/client traffic and release remain separate. No performance, battery, DPI, whole-issue closure, new grade or production-readiness claim follows.
+At this API34 private-key checkpoint, #143 remained **PARTIALLY_ASSESSED**. API24/28 transport/desugaring, provider/OEM and other-key coverage, IPv6/external paths, blocked connect/write/upload failure boundaries, production Application/wizard, progress callbacks, VPN/lockdown/protection, live server mutations/client traffic and release remained separate. The later E1/F1 section adds only its named scope. No performance, battery, DPI, whole-issue closure, new grade or production-readiness claim follows.
 
 ## API24 disconnect diagnostic D2 — 2026-10-18
 
@@ -116,3 +118,34 @@ Private evidence root: `.artifacts/continuation-20261018/native-ssh-api24-discon
 | Independent actual-failure review | `89a2384a5a52768f228635bb0ad7675a50f35acde320afed77ff54e36585a6c0` |
 
 Earlier API24 A1/D1 failures retain their original unknown-cause scopes; D2 does not retroactively classify them. API28, wider key/provider/OEM coverage, production UI, VPN/live-server/traffic and release remain unaccepted by this trial. The separate CI callback-test contract correction and its JVM/CI gates do not repair this native failure. No new runtime, product fix, grade or full-issue acceptance follows from this documentation record.
+
+## API24 E1 and API28 F1 ECDSA compatibility — 2026-10-18
+
+**PASS within the named isolated transport matrix.** Both one-shot x86_64 Google APIs emulator trials use signed source `54399d3286e807a78a94b558bae748c9f08b7fe0`, tree `c5965629a6bd528c308e9aae4a2555e79fe0bf9d`. The API24/25 compatibility owner supplies session-local host verifiers and a client-owned EC signer; API26+ retains its ordinary JSch paths. E1 executes API24; F1 executes API28. API25 is not a native-tested platform here. Success of these changed-source trials does not identify D2's missing algorithm, call site or provider mechanism.
+
+One fresh E1 Build produced the 19,028,214-byte APK SHA256 `50e22ffa39d6fd17e4fc083d72179139b49941968711c1addf43442fb359708b`. The ordinary APK audit and different actual-artifact ultra review passed. The artifact remains in E1 Build `runs/20261018-121900-57480a`; F1 reused those exact original bytes and receipts after different preparation/admission review, without another Build, copied APK or audit rerun. Both installations matched the admitted bytes under separate ordinary app UIDs. The isolated package has INTERNET only, plain `android.app.Application` and one self-target instrumentation; these are neither production-Application nor release/shrinking acceptance.
+
+| Cohort | Retained evidence | Result |
+| --- | --- | --- |
+| API24 E1 | `native-ssh-api24-ecdsa-prep/guests/api24-e1`; Peer `runs/20261018-123621-988949` | Fifteen native checks and six host postconditions true; controller and Peer direct host/inner exits 0. |
+| API28 F1 | `native-ssh-api28-ecdsa-prep/guests/api28-f1`; Peer `runs/20261018-125736-888d81` | Same fifteen/six checks true with the original E1 APK; controller and Peer direct host/inner exits 0. |
+
+Paths above are relative to ignored `.artifacts/continuation-20261018/`. Both raw native reports have exactly fifteen true keys, `passed:true`, their admitted API/PID and `INSTRUMENTATION_CODE: -1`; accepted copies are identical. The matrix retains RSA-host/password exec with separate status/stdout/stderr, exact SFTP success, P-256 host/password exec, wrong pin/password refusal, authenticated-command cancellation and terminal socket/reader settlement. It adds P-384/P-521 host/password execution and all six combinations of P-256/P-384/P-521 traditional EC PEM with plain/encrypted private-key authentication. These trials do not add API24/28 RSA-private-key acceptance or another key format.
+
+The complementary host result verifies exact UTF-8 upload/mode `0700`, entered cancellation, no wrong-pin authentication/command, expected authentication attempts, drained sessions and stopped workers. Each EC peer retains one password attempt from its explicit password case, excluding password fallback for its two successful key cases. Public-key callback counts include query/signature processing; they are not separate successful-authentication counts. The fixture uses only numeric IPv4 loopback and six owned reverse mappings, without a host shell, system SSH daemon, VPS or VPN traffic.
+
+The controllers rehashed 45 API24 or 33 API28 saved image inputs before launch, then verified actual API/fingerprint/ABI, fresh AVD/serial/port ownership, package absence, ordinary UID and installed APK bytes before instrumentation. Fresh Peer execution followed real device readiness. Native stop/PID absence preceded exact `COMPLETE\n`, then host result, completed Peer receipt and completed controller receipt. Six fixed synthetic-private-key markers appear in ordinary command receipts while original execution arguments remain unchanged. No failed native attempt or retry occurred in either cohort; earlier setup/static/test-fixture and metadata-comparison failures remain retained in their own evidence.
+
+All six cleanup checks passed: package/process absence and sampled boot/packages/settings/reverses preservation. All five shutdown checks passed: owned backend/launcher/ports absent, shared owners preserved and userdata retained. E1 additionally retains its scoped post-run Windows process/port snapshot; an initial timestamp-type comparison defect and corrected read-only snapshot remain separate from the already passing controller result. F1 absence/shared-owner conclusions use controller-recorded shutdown evidence only; no supplemental post-trial live query was made. Neither sampled equality nor a retained snapshot proves every possible state.
+
+The 657 tracked input hashes and both producer source/harness before/after vectors match runtime source `54399d3`. E1's 270 preparation inputs, 54 artifact inputs, 431 runtime files and D2's 47 inputs/17 preservation references remain frozen. F1's closed 894-entry preparation manifest was independently reviewed before its exact status/admission-only delta; its 494-file runtime freeze retains that history. Later signed integration changes documentation only: the two production and two test blobs remain byte-identical to the tested source. Historical tracked inputs are verified against the `54399d3` Git tree when current documentation advances; no current-head 657-file equality or rebuilt final-head APK is claimed.
+
+| Independent evidence | SHA256 |
+| --- | --- |
+| E1 actual-artifact ultra | `1b86685a90e3b5d9114f12c90480b9bddbdcb75751a41ef100aa5c56056c63ff` |
+| E1 runtime freeze, 431 files | `1281f3101a1fb5a965edfae2385801e3788a233ea476af3ca83831d4135f1e1f` |
+| E1 actual-runtime ultra, 52 checks | `4cf9654a5b4a141906814aba4e4d09d7a516eadd27a2aa36c82b66a4e6d6e023` |
+| F1 runtime freeze, 494 files | `c8c044750907be88fad524ea661cc7dc566aaf36828620136a237fe699437b58` |
+| F1 actual-runtime ultra, 50 checks | `c8039dd33ea670e5f46d0589fc71aadb2701c092ef226e8461736998576be409` |
+
+Different source/preparation, artifact and actual-runtime reviews are CLEAR within their recorded scopes. Final integrated-head source/documentation/body review, CI and publication remain the delivering PR's gates. #143 remains open for API25/physical/OEM and wider key/provider/network coverage, IPv6/external paths, blocked connect/write/upload boundaries, production Application/wizard/progress/profile integration, VPN/lockdown/protection, actual disposable-server mutation/client traffic and release. No performance, battery, DPI, production-readiness or whole-issue acceptance follows.
