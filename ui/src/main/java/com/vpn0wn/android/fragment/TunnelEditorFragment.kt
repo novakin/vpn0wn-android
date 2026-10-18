@@ -10,10 +10,12 @@ import com.vpn0wn.config.BadConfigException
 import android.content.Context
 import android.app.Activity
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Bundle
 import android.text.InputType
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.Gravity
 import android.view.Menu
 import android.view.MenuInflater
 import android.view.MenuItem
@@ -22,6 +24,7 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.core.os.BundleCompat
 import androidx.core.view.MenuProvider
@@ -86,6 +89,19 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
             isNew = selectedTunnel == null
             executePendingBindings()
             privateKeyRegenButton.setOnClickListener { config?.`interface`?.generateKeyPair() }
+            val configuration = resources.configuration
+            if (configuration.orientation == Configuration.ORIENTATION_PORTRAIT &&
+                configuration.screenWidthDp < COMPACT_WINDOW_WIDTH_DP && configuration.fontScale >= ENLARGED_FONT_SCALE) {
+                editorApplicationsRow.orientation = LinearLayout.VERTICAL
+                editorApplicationsContent.layoutParams = (editorApplicationsContent.layoutParams as LinearLayout.LayoutParams).apply {
+                    width = ViewGroup.LayoutParams.MATCH_PARENT
+                    weight = 0f
+                }
+                setExcludedApplications.layoutParams = (setExcludedApplications.layoutParams as LinearLayout.LayoutParams).apply {
+                    gravity = Gravity.END
+                    topMargin = resources.getDimensionPixelSize(R.dimen.normal_margin)
+                }
+            }
         }
         return binding?.root
     }
@@ -436,6 +452,8 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
     }
 
     companion object {
+        private const val COMPACT_WINDOW_WIDTH_DP = 600
+        private const val ENLARGED_FONT_SCALE = 1.5f
         private const val KEY_MASKED_INPUT_TYPE = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or
             InputType.TYPE_TEXT_VARIATION_PASSWORD
         private const val KEY_VISIBLE_INPUT_TYPE = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or
