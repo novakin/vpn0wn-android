@@ -69,6 +69,7 @@ class VpsFreshRestoreLayoutTest {
             Preview("en-day", "en-rUS-w360dp-h800dp-notnight-mdpi", 360, 800, 1f, View.LAYOUT_DIRECTION_LTR),
             Preview("en-night", "en-rUS-w360dp-h800dp-night-mdpi", 360, 800, 1f, View.LAYOUT_DIRECTION_LTR),
             Preview("fr-stress", "fr-ldrtl-w640dp-h320dp-land-notnight-mdpi", 640, 320, 2f, View.LAYOUT_DIRECTION_RTL),
+            Preview("ar-compact", "ar-rSA-ldrtl-w320dp-h640dp-port-notnight-mdpi", 320, 640, 2f, View.LAYOUT_DIRECTION_RTL),
         )
         for (case in cases) {
             RuntimeEnvironment.setQualifiers(case.qualifiers)
@@ -123,11 +124,23 @@ class VpsFreshRestoreLayoutTest {
                     confirmation.plan.serverPublicKey, confirmation.plan.endpoint, confirmation.plan.port, confirmation.plan.cidr, confirmation.plan.dns))
                     assertTrue("Confirmation includes $part", text.contains(part))
                 assertFalse(text.contains(VpsFreshRestoreWorkflowTest.SNAPSHOT.config))
+                captureFrame(decor, case, "confirmation", "top")
                 assertTextReachable(decor)
                 for (buttonId in listOf(DialogInterface.BUTTON_NEGATIVE, DialogInterface.BUTTON_POSITIVE)) {
                     val button = dialog.getButton(buttonId)
                     assertTrue("Native dialog target retains Android minimum", button.height >= 48 * button.resources.displayMetrics.density)
                     assertReachable(button)
+                    val action = if (buttonId == DialogInterface.BUTTON_POSITIVE) "positive" else "cancel"
+                    val bounds = Rect().also(button::getDrawingRect)
+                    (decor as ViewGroup).offsetDescendantRectToMyCoords(button, bounds)
+                    val viewport = Rect(0, 0, decor.width, decor.height)
+                    val origin = IntArray(2).also(decor::getLocationOnScreen)
+                    val windowFrame = Rect().also(decor::getWindowVisibleDisplayFrame)
+                    val attributes = requireNotNull(dialog.window).attributes
+                    println("Restore action ${case.id}/$action: bitmap=$viewport action=$bounds " +
+                        "rootOrigin=${origin.toList()} visibleWindow=$windowFrame windowLayout=${attributes.width}x${attributes.height}")
+                    assertTrue("Complete ${case.id}/$action rectangle fits captured bitmap: $bounds within $viewport", viewport.contains(bounds))
+                    captureFrame(decor, case, "confirmation", action)
                 }
                 val scroll = descendants(decor).firstOrNull { it is ScrollView || it is androidx.core.widget.NestedScrollView }
                     ?: error("Native confirmation must retain scrolling")
@@ -208,7 +221,8 @@ class VpsFreshRestoreLayoutTest {
                 continue
             }
             for (line in 0 until painted.lineCount) {
-                assertEquals("No native text ellipsis", 0, painted.getEllipsisCount(line))
+                assertEquals("No native text ellipsis: id=${text.id}, class=${text.javaClass.name}, text=${text.text}",
+                    0, painted.getEllipsisCount(line))
                 val glyph = Rect(kotlin.math.floor(painted.getLineLeft(line)).toInt() + text.totalPaddingLeft, painted.getLineTop(line) + text.totalPaddingTop,
                     kotlin.math.ceil(painted.getLineRight(line)).toInt() + text.totalPaddingLeft, painted.getLineBottom(line) + text.totalPaddingTop)
                 assertGlyphReachable(text, glyph)
@@ -268,7 +282,7 @@ class VpsFreshRestoreLayoutTest {
     }
 
     private fun assertResourceConfiguration(configuration: Configuration, case: Preview) {
-        assertEquals(if (case.id.startsWith("fr")) "fr" else "en", configuration.locales[0].language)
+        assertEquals(case.qualifiers.substringBefore('-'), configuration.locales[0].language)
         assertEquals(case.fontScale, configuration.fontScale, 0f)
         assertEquals("Restore resources retain requested direction", case.direction, configuration.layoutDirection)
         assertEquals(if (case.id == "en-night") Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO,
