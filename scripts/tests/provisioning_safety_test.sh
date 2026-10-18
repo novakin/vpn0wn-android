@@ -247,6 +247,7 @@ test_c2_valid_plan() {
 test_c2_valid_install() {
   run_script install --endpoint vpn.example --dns '1.1.1.1, 1.0.0.1'
   assert_success
+  [[ $(cat "$TEST_ROOT/stderr") == $'vpn0wn-progress:install:prepare\nvpn0wn-progress:install:packages\nvpn0wn-progress:install:configure\nvpn0wn-progress:install:start\nvpn0wn-progress:install:verify' ]]
   grep -qxF '# TUNNL_MANAGED 1' "$WG_CONF"
   [[ -f "$FORWARD_CONF" && -f "$TEST_STATE/runtime.conf" ]]
 }

@@ -19,6 +19,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancelAndJoin
@@ -42,6 +43,46 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, sdk = [28])
 class JschRemoteShellClientTest {
+    @Test fun actualStderrProgressArrivesBeforeExitWithoutPublishingRawOutputOrStdoutMarkers() = runBlocking {
+        for (command in listOf("progress", "progress-nonzero")) {
+            SshTestServer(temporaryFolder.newFolder().toPath()).use { peer ->
+                val client = JschRemoteShellClientFactory().create(peer.connection())
+                val first = CompletableDeferred<VpsInstallProgress>()
+                val phases = java.util.Collections.synchronizedList(mutableListOf<VpsInstallProgress>())
+                try {
+                    val operation = async(Dispatchers.IO) {
+                        client.execute(command) { phase -> phases.add(phase); first.complete(phase) }
+                    }
+                    assertEquals(VpsInstallProgress.PREPARING, withTimeout(TEST_TIMEOUT) { first.await() })
+                    assertFalse(operation.isCompleted)
+                    assertEquals(listOf(VpsInstallProgress.PREPARING), phases.toList())
+                    peer.releaseHungOutput.countDown()
+                    val result = withTimeout(TEST_TIMEOUT) { operation.await() }
+                    assertEquals(if (command == "progress") 0 else 17, result.exitCode)
+                    assertTrue(result.stdout.contains(SshTestServer.SECRET_MARKER))
+                    assertEquals(listOf(VpsInstallProgress.PREPARING, VpsInstallProgress.PACKAGES, VpsInstallProgress.VERIFYING), phases.toList())
+                } finally { client.close() }
+            }
+        }
+    }
+
+    @Test fun cancellingActualProgressCommandSettlesOwnedWorkersAndStopsDelivery() = runBlocking {
+        SshTestServer(temporaryFolder.newFolder().toPath()).use { peer ->
+            val client = JschRemoteShellClientFactory().create(peer.connection())
+            val first = CompletableDeferred<Unit>()
+            val phases = java.util.Collections.synchronizedList(mutableListOf<VpsInstallProgress>())
+            try {
+                val operation = async(Dispatchers.IO) { client.execute("progress-hang") { phases.add(it); first.complete(Unit) } }
+                withTimeout(TEST_TIMEOUT) { first.await() }
+                val threads = liveSessionThreads()
+                withTimeout(TEST_TIMEOUT) { operation.cancelAndJoin() }
+                client.close()
+                assertThreadsStopped(threads)
+                assertEquals(listOf(VpsInstallProgress.PREPARING), phases.toList())
+            } finally { client.close() }
+        }
+    }
+
     @get:Rule
     val temporaryFolder = TemporaryFolder()
 

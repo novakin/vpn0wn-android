@@ -27,9 +27,10 @@ class Vpn0wnProvisioningClient(
         ProvisioningJson.parsePlan(run(client, remoteDir, "plan.sh", request.installArgs(), requiresRoot = false).stdout)
     }
 
-    suspend fun install(connection: VpsConnection, request: VpsInstallRequest, onAdmitted: suspend () -> Unit = {}): VpsInstallResult = withClient(connection) { client, remoteDir ->
+    suspend fun install(connection: VpsConnection, request: VpsInstallRequest,
+        onProgress: (VpsInstallProgress) -> Unit = {}, onAdmitted: suspend () -> Unit = {}): VpsInstallResult = withClient(connection) { client, remoteDir ->
         onAdmitted()
-        ProvisioningJson.parseInstall(run(client, remoteDir, "install.sh", request.installArgs()).stdout)
+        ProvisioningJson.parseInstall(run(client, remoteDir, "install.sh", request.installArgs(), onProgress = onProgress).stdout)
     }
 
     suspend fun syncStatus(connection: VpsConnection): VpsServerStatus = withClient(connection) { client, remoteDir ->
@@ -329,6 +330,7 @@ class Vpn0wnProvisioningClient(
         scriptName: String,
         args: List<String> = emptyList(),
         requiresRoot: Boolean = true,
+        onProgress: ((VpsInstallProgress) -> Unit)? = null,
     ): ProvisioningCommandOutput {
         val command = buildString {
             append("cd ")
@@ -355,7 +357,8 @@ class Vpn0wnProvisioningClient(
                 append("; fi")
             }
         }
-        return ProvisioningJson.requireScriptSuccess(client.execute(command))
+        val result = if (onProgress == null) client.execute(command) else client.execute(command, onProgress)
+        return ProvisioningJson.requireScriptSuccess(result)
     }
 
     companion object {

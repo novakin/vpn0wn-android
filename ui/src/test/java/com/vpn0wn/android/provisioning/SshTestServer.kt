@@ -153,6 +153,19 @@ internal class SshTestServer(
             worker = commands.submit {
                 commandEntered.countDown()
                 when {
+                    command.startsWith("progress") -> {
+                        stdout.write("$SECRET_MARKER\n${VpsInstallProgress.VERIFYING.marker}\n".toByteArray())
+                        stdout.flush()
+                        stderr.write("$SECRET_MARKER\nvpn0wn-progress:install:".toByteArray())
+                        stderr.flush()
+                        stderr.write("prepare\n".toByteArray())
+                        stderr.flush()
+                        releaseHungOutput.await()
+                        stderr.write("${VpsInstallProgress.PACKAGES.marker}\n${VpsInstallProgress.PREPARING.marker}\n${VpsInstallProgress.VERIFYING.marker}\n".toByteArray())
+                        stderr.flush()
+                        if (command == "progress-hang") CountDownLatch(1).await()
+                        else exit.onExit(if (command == "progress-nonzero") 17 else 0)
+                    }
                     command == "hang" -> {
                         releaseHungOutput.await()
                         stdout.write("synthetic pulse\n".toByteArray())
