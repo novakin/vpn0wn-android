@@ -165,6 +165,10 @@ Last request peer requires exactly one configured peer matching its full public-
 
 Readouts require observed UP and an available guarded snapshot. DOWN, transition/null state, kernel and missing activation show unavailable observations, which differ from active zero-count IDLE. Native retirement/reconnect/replacement clears the active record; selection, view recreation, statistics invalidation and no-op UP do not refill its counters. The footer keeps activation reset and unknown Internet/DNS reachability explicit. Focused local source checks and Detekt pass. The linked QA record retains the initial long-French-result capture gap and corrected synthetic output with scoped author satisfaction; independent output review is satisfied within that synthetic matrix, while installed acceptance remains separate. Source readouts do not close #73's DNS/bootstrap, handover, packet, physical or accessibility acceptance, and existing installed evidence does not establish this new card's output.
 
+## Local-port recovery assessment — #77
+
+The [dated assessment](reviews/2026-10-18-local-port-recovery-assessment.md) records NO CHANGE: no justified port-rotation candidate is selected from the existing diagnosis. It adds no operator action, runtime retry, port override, packet or test. Existing explicit/automatic ListenPort, retained-port rebind, profiles/Endpoint and recovery bootstrap behavior remain; startup resolution is unchanged. Local socket ownership or delayed recovery does not diagnose a port-remediable path failure. Final review, parent #72 rationale and publication/readback remain pending; broader #61/#73/#75/#76/#72 acceptance stays open.
+
 ## VPS feature status
 
 Open **Servers** from the Home header, then **add server**. The fleet opens in the existing phone content area or tablet detail pane; Back returns through the wizard and fleet to the previous screen.
