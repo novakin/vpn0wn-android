@@ -4,11 +4,13 @@ Last updated: 2026-10-18 (Europe/Paris).
 
 ## Verdict and scope
 
+The [current inventory and acceptance reconciliation](#current-inventory-and-acceptance-reconciliation--2026-10-18) supersedes old current-state projections while preserving historical semantic/test/output scopes. It separates explicit fallback and unqualified language status from the actual review/repair criteria; final different-reviewer delta acceptance and delivery gates remain pending.
+
 The 2026-10-16 sections below retain their original resource, check and output scopes. The [2026-10-17 workflow-copy follow-up](#final-workflow-copy-follow-up--2026-10-17) records the later resource inventory, evidence reuse and pending verification without replacing those historical receipts. The [2026-10-18 optional-hint correction](#french-optional-keepalive-hint-correction--2026-10-18) targets a later observed geometry limit without changing translation meaning. The [throughput-caption follow-up](#throughput-caption-follow-up--2026-10-18) removes the three natural-language Canvas literals within its own source/output boundary.
 
 The mechanical inventory and model semantic reading pass cover default English and all **35 locale qualifiers**, totaling **7,982 explicit resource declarations and 8,595 text nodes**. One text node is one string value or one declared plural item; inherited/default fallback is not counted as translated local text. This is a bounded source translation review for [#195](https://github.com/novakin/vpn0wn-android/issues/195), not the separately requested post-merge whole-codebase/security audit.
 
-**Scoped author satisfaction: satisfied with the confirmed source repairs and inspected localized text/font output; full #195 delivery is not accepted.** The executed checks and output boundaries are recorded below. No qualified native speaker certified these languages. Model confidence in literal technical/caller-backed defects does not certify grammar, idiom, preferred terminology or completeness. Installed Android, accessibility and final published-head acceptance remain separate.
+**Scoped author satisfaction: satisfied with the confirmed source repairs and inspected localized text/font output; final #195 delivery gates remain pending.** The executed checks and output boundaries are recorded below. No qualified native speaker certified these languages. Model confidence in literal technical/caller-backed defects does not certify grammar, idiom, preferred terminology or completeness. Installed Android, accessibility and final published-head acceptance remain separate.
 
 The reviews began at `ee1cf84155ee752c462fed5452d3e4bc94c9e81a` with master `7ae1e3e8155d10be4af5974cdf1eb83eae0600b3` being integrated. The signed merge `60281d87e08271cbd5090af03d5d0e6e8efd2b19` is the later translation integration base. Review hashes below pin the actual pre-repair inputs; they are not a claim that subsequent edited files or a newer default branch were reviewed. Later integration retains the delivered archive/restore source through master `fb458e7b97d7f89fcacbcb7475713ee099090790`. The current PR acceptance record owns the final published revision, independent review and CI; the source and output receipts below retain their own input identities.
 
@@ -92,6 +94,8 @@ Each SHA-256 below belongs to `ui/src/main/res/<qualifier>/strings.xml` **before
 
 ## Evidence, verification and remaining acceptance
 
+The remaining-state statements in this section describe the original 2026-10-16 input. Later dated follow-ups and the [current reconciliation](#current-inventory-and-acceptance-reconciliation--2026-10-18) own present disposition; historical open statements are not a competing current backlog.
+
 The final corrected-resource mechanical rerun preserves 540 default declarations, 536 translatable keys and 35 qualifiers, with zero XML, duplicate, extra-key, missing-`other`, leading-notice, local-reference or non-count formatter defects. Main resources retain 7,982 declarations and now contain 8,629 text nodes after adding 34 plural items. Thirteen plural-count-presence variations remain explicit, including the added Arabic implicit one/two forms. The original failed Catalan diagnostic signature is repaired; this rerun does not replace the pre-repair hashes or confer linguistic certification.
 
 Independent ultra review identified 30 further positive-only keepalive explanations after the first semantic corrections. These now use the language-neutral inclusive range `0–65535`; the error context already identifies `PersistentKeepalive`. Arabic/Persian wrap that range with explicit LTR isolates through Android Unicode escapes. Existing correct localized explanations retain their disabled-zero guidance. An all-35-locale resource regression checks both bounds and the two RTL isolates; actual increasing layout order also passed the scoped output check below. This avoids uncertain bulk prose while keeping the supported numeric contract.
@@ -150,9 +154,11 @@ Selected localization lint passes with zero errors and 694 warnings: 585 `Missin
 
 All 36 original pre-repair resource SHA-256 values in the retained coverage manifest match commit `60281d87e08271cbd5090af03d5d0e6e8efd2b19` exactly. The later corrected resources were accepted through PR #207 at `b5db3cce80dda73d46e942d58076ce0045606638`, merged by `56509a3ad8ed1c8a5e912b87b637990bf4d15135`. The initial `ee1cf841` checkpoint matches only the 34 non-default/non-French original files; the recovered complete snapshot removes ambiguity about the integrated reading inputs without rewriting old hashes.
 
-Compared with accepted b5db3cce resources, 33 locale files remain byte-identical. Indonesian changes only the confirmed interval leaf. Default and French each add 94 declarations and change three retained keys, with none removed; 537 English/533 French retained declarations remain unchanged. The 97 added/changed EN/FR workflow keys were independently model-read against backup/import, remove/revoke, rotation and restore callers; their positional/typed signatures match, and this follow-up rechecks its affected terminology delta. Existing dormant `vpn0wn_peer_mutation_unavailable` remains stale after rotation integration but has no production caller; it is retained-resource drift, not a reproduced visible failure. No language receives native-speaker certification from model reading.
+Compared with accepted b5db3cce resources, 33 locale files remain byte-identical. Indonesian changes only the confirmed interval leaf. Default and French each add 94 declarations and change three retained keys, with none removed; 537 English/533 French retained declarations remain unchanged. The 97 added/changed EN/FR workflow keys were independently model-read against backup/import, remove/revoke, rotation and restore callers; their positional/typed signatures match, and this follow-up rechecks its affected terminology delta. At that workflow snapshot, dormant `vpn0wn_peer_mutation_unavailable` remained stale after rotation integration but had no production caller; it was retained-resource drift, not a reproduced visible failure. The current reconciliation below records its removal. No language receives native-speaker certification from model reading.
 
 ### Current locale and fallback inventory
+
+Historical 2026-10-17 workflow-follow-up snapshot. The [2026-10-18 reconciliation](#current-inventory-and-acceptance-reconciliation--2026-10-18) supplies the later exact key/fallback projection without replacing these source/test dates.
 
 Static inspection parses all 52 UI/tunnel source-set values XML files, with no parse/duplicate errors and all 37 leading text-file modification notices preserved. UI main now contains 634 declarations/630 translatable defaults; all main default/locale files total 8,170 declarations and 8,817 text nodes. Tunnel defines no text resources. French explicitly supplies all 630 translatable defaults; all 34 other qualifiers omit the 94 added workflow keys. No locale-only extra key is present. Format comparison retains twelve legitimate plural count-presence differences; this mechanical scan is not Android compilation, native quantity selection or a comprehensive format parser.
 
@@ -221,7 +227,7 @@ Source extraction based on `0f2e58bad506740eb27c9beba7d44dac5edf4b8f`, with live
 
 `TunnelDetailFragment.updateStats` formats the real peer number through `vpn0wn_peer_title`; changing only the XML placeholder would leave the runtime title hardcoded. `BindingAdapters.tunnelPeerBadge/tunnelRoute` take their presenting Context and localize missing peer/PSK/address/endpoint text while retaining present PSK and actual addresses/endpoints. Both Home and Detail route callers use that owner. `VpsDeployMapper.fromStored/fromStatus` take presenting Resources for absent detect/engine/device text and health labels. User/server names, keys, peer IDs, timestamps, unknown markers, sync/running predicates and persisted records remain unchanged. `VpsProvisioningFragment.userScreen` formats the existing device/creation metadata through one typed resource; an unknown creation time remains `—`.
 
-Twenty-two new resource declarations have English and French values, with matching typed positional signatures. Resource XML scanning passes all 52 values files and the six affected layouts, preserves the exact leading notices and finds no unresolved affected string reference. Default main now contains 656 declarations, including 652 translatable defaults. French supplies all 652 translatable defaults; the 34 other locale qualifiers intentionally receive the 22 new keys through fallback. Across all main default/locale text files, this adds 44 declarations and 44 text nodes to the prior inventory, for 8,214 declarations and 8,861 text nodes. The prior all-language model reading and language-quality limits retain their original scope.
+Twenty-two new resource declarations have English and French values, with matching typed positional signatures. Resource XML scanning passes all 52 values files and the six affected layouts, preserves the exact leading notices and finds no unresolved affected string reference. At that dated extraction, default main contained 656 declarations, including 652 translatable defaults. French supplied all 652 translatable defaults; the 34 other locale qualifiers intentionally receive the 22 new keys through fallback. Across all main default/locale text files, this adds 44 declarations and 44 text nodes to the prior inventory, for 8,214 declarations and 8,861 text nodes. The prior all-language model reading and language-quality limits retain their original scope.
 
 | Qualifier | Direct absent translatable defaults | Explicit same-language parent keys | Absent after parent |
 | --- | ---: | ---: | ---: |
@@ -342,3 +348,57 @@ The [focused QA record](../qa-test-plan.md#home-no-peer-cipher-label-controls--1
 UI/UX Pro Max informs readable complete state/absence text; Interface Design and Design System preserve the existing status/cipher hierarchy, approved Inter Tight role, tokens and native wrapping. Frontend Design follows the read-only Home TunnelCard reference without introducing new visual direction. All three distinct changed French normal/compact/wide originals and the unchanged short-landscape frame were inspected at original dimensions; natural space wrapping keeps sans pair complete. The short frame does not display its card. Six paired day/night French captures share bytes under the fixed palette. Of 73 originals, 66 are byte-identical to the grammar predecessor. A seventh differing PNG is an English empty-landscape wordmark raster delta: both originals were inspected, and one overlapping existing-method check passes and reproduces the corrected run's raster. Its cause remains unestablished; no brand/header/font/layout source changes or visible geometry/copy blocker was found. The detailed QA retains pixel bounds and honest limits; no forced byte-identity or product correction is added.
 
 Author scoped verdict: satisfied with the localized no-peer label and preserved technical identities, status ownership and inspected presentation. This corrects the concrete INACTIF · unbound case recorded in the preceding grammar-only handoff; it does not retroactively change that handoff's source result. Default fallback and qualified semantic-review disclosures remain explicit rather than becoming completeness/certification gates. Different final scoped ultra review, predecessor integration and final-head publication/CI own later delivery and closure assessment. No new concrete unresolved translation defect is identified within this bounded delta; no whole-app, physical/OEM, spoken-accessibility, live-server or security acceptance is claimed or introduced as an extra issue gate.
+
+## Current inventory and acceptance reconciliation — 2026-10-18
+
+This is a mechanical/source-status reconciliation on reviewed `67c50c3d` plus removal of one unsupported default/French resource; the PR acceptance record owns the final signed head. The extraction snapshot `97531d630a400ac536ae26601cc5cd8218825a78` had 656 default declarations/652 translatable and 652 French declarations. Before the removal, `67c50c3dca3cdedaf59fe71938223cf7dd76d05a` had 756/752 default and 752 French. Those numbers remain historical facts. The 100 added named keys remain 100 additions: 99 strings and one plural per EN/FR file. The only substantive retained declaration change is `vpn0wn_home_header_summary` string→plurals; `vpn0wn_user_metadata` content/placeholders are unchanged when serialization tail whitespace is excluded.
+
+The added families are recovery 52 ([Detail readout controls](../qa-test-plan.md#detail-activation-recovery-readout-controls--73)), local endpoint 20 ([selected update controls](../qa-test-plan.md#selected-local-endpoint-update-controls--196)), backup comparison 16 ([comparison controls](../qa-test-plan.md#read-only-encrypted-backup-comparison-controls--196)), install progress 6 ([progress controls](../qa-test-plan.md#fresh-install-progress-controls--143)), topology 3 ([hero metadata controls](../qa-test-plan.md#native-vps-hero-metadata-controls--238143)), throughput nodes 2 ([caption follow-up](#throughput-caption-follow-up--2026-10-18)) and no-peer cipher 1 ([label follow-up](#home-no-peer-cipher-label-follow-up--2026-10-18)). These owners retain their accepted caller/source/output evidence and original limitations; this reconciliation performs no new semantic reading or native campaign.
+
+`vpn0wn_peer_mutation_unavailable` has no product/test caller or dynamic resource-name consumer, and no supported compatibility use was found. Rotation already dispatches the actual `requestRotateUser` workflow and its specific confirmation/result resources. Removing the two stale declarations resolves the retained-resource defect without changing a rendered screen, workflow, public protocol, persisted record or technical identity. It removes one old key per EN/FR file, rather than reducing the 100 additions to 99.
+
+After removal, UI main has **755 default declarations, 751 translatable defaults and 751 French declarations**. All main default/locale text files contain **8,412 declarations and 9,064 text nodes**. Across UI/tunnel source sets, all 52 values XML files parse; all 37 text-bearing files retain their exact leading notices, with no duplicate declaration or locale-only extra. The 34 non-French locale files are byte-unchanged since `97531d63`. Each has its historical direct/after-parent absence plus 99: 100 added EN/FR keys remain absent and the removed old key no longer requires fallback. Hindi-India alone receives nine explicit Hindi-parent keys; no sibling-region Android resolution is simulated.
+
+The table is the current exact key projection. Same-default values are mechanical candidates, including legitimate technical literals, and are not counted automatically untranslated or semantically defective. Direct/effective counts include the explicit language parent only. Model status `carried` reuses the previous reading across unchanged locale bytes; French `feature/deltas` links the accepted EN/FR caller-backed follow-ups above. **Qualified native-speaker verification remains unperformed for every row.** No fresh language-quality review is claimed, and intentional fallback is not a completed translation.
+
+| Qualifier | Explicit | Direct missing | Parent keys | After parent missing | Extra | Same default direct/effective | Model status |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
+| `values-ar-rSA` | 221 | 530 | 0 | 530 | 0 | 2 / 2 | carried |
+| `values-ca-rES` | 221 | 530 | 0 | 530 | 0 | 10 / 10 | carried |
+| `values-cs-rCZ` | 221 | 530 | 0 | 530 | 0 | 13 / 13 | carried |
+| `values-da-rDK` | 221 | 530 | 0 | 530 | 0 | 15 / 15 | carried |
+| `values-de` | 221 | 530 | 0 | 530 | 0 | 13 / 13 | carried |
+| `values-el-rGR` | 113 | 638 | 0 | 638 | 0 | 9 / 9 | carried |
+| `values-es-rES` | 221 | 530 | 0 | 530 | 0 | 11 / 11 | carried |
+| `values-et-rEE` | 218 | 533 | 0 | 533 | 0 | 9 / 9 | carried |
+| `values-fa-rIR` | 221 | 530 | 0 | 530 | 0 | 9 / 9 | carried |
+| `values-fi-rFI` | 96 | 655 | 0 | 655 | 0 | 8 / 8 | carried |
+| `values-fr` | 751 | 0 | 0 | 0 | 0 | 46 / 46 | feature/deltas |
+| `values-hi` | 172 | 579 | 0 | 579 | 0 | 11 / 11 | carried |
+| `values-hi-rIN` | 195 | 556 | 9 | 547 | 0 | 2 / 11 | carried |
+| `values-hu-rHU` | 117 | 634 | 0 | 634 | 0 | 3 / 3 | carried |
+| `values-in` | 221 | 530 | 0 | 530 | 0 | 11 / 11 | carried |
+| `values-it` | 221 | 530 | 0 | 530 | 0 | 14 / 14 | carried |
+| `values-ja` | 221 | 530 | 0 | 530 | 0 | 9 / 9 | carried |
+| `values-ko-rKR` | 221 | 530 | 0 | 530 | 0 | 9 / 9 | carried |
+| `values-nl-rNL` | 213 | 538 | 0 | 538 | 0 | 18 / 18 | carried |
+| `values-no-rNO` | 221 | 530 | 0 | 530 | 0 | 11 / 11 | carried |
+| `values-pa-rIN` | 221 | 530 | 0 | 530 | 0 | 9 / 9 | carried |
+| `values-pl-rPL` | 221 | 530 | 0 | 530 | 0 | 11 / 11 | carried |
+| `values-pt-rBR` | 221 | 530 | 0 | 530 | 0 | 12 / 12 | carried |
+| `values-pt-rPT` | 210 | 541 | 0 | 541 | 0 | 13 / 13 | carried |
+| `values-ro-rRO` | 218 | 533 | 0 | 533 | 0 | 9 / 9 | carried |
+| `values-ru` | 221 | 530 | 0 | 530 | 0 | 2 / 2 | carried |
+| `values-si-rLK` | 195 | 556 | 0 | 556 | 0 | 6 / 6 | carried |
+| `values-sk-rSK` | 173 | 578 | 0 | 578 | 0 | 7 / 7 | carried |
+| `values-sl` | 221 | 530 | 0 | 530 | 0 | 2 / 2 | carried |
+| `values-sv-rSE` | 221 | 530 | 0 | 530 | 0 | 10 / 10 | carried |
+| `values-tr-rTR` | 221 | 530 | 0 | 530 | 0 | 8 / 8 | carried |
+| `values-uk-rUA` | 221 | 530 | 0 | 530 | 0 | 12 / 12 | carried |
+| `values-vi-rVN` | 124 | 627 | 0 | 627 | 0 | 3 / 3 | carried |
+| `values-zh-rCN` | 221 | 530 | 0 | 530 | 0 | 11 / 11 | carried |
+| `values-zh-rTW` | 221 | 530 | 0 | 530 | 0 | 5 / 5 | carried |
+
+The exact missing/extra/same-default key lists and source hashes remain in ignored mechanical evidence. Resource packaging `:ui:processDebugResources` passes; generated symbols omit the removed key while retaining `vpn0wn_cipher_unbound` and the Home plurals. No Kotlin/test code changed, so the accepted 63-test/zero-Detekt source and native output retain their `67c50c3d` scope; no broad tests, lint, semantic inventory or native output campaign is repeated. The current resource-only delta has its own XML/notice/duplicate/fallback assertions and packaging proof.
+
+Current author disposition: the two concrete assessor gaps are reconciled locally. The full default/all-35-qualifier review, confirmed repair chain and named 20-configuration Arabic/Persian/long-text/theme/RTL cohort compose with later corrected native deltas under their recorded scopes. Explicit fallback, unqualified language status and separately owned installed/physical/accessibility/live/security work do not automatically become new #195 completeness/certification gates. Different final delta ultra, published-head CI, integration and actual issue/Development readbacks remain pending; this local record neither closes #195 nor claims release readiness. Historical #195-open statements retain their source dates and must be read with this current disposition.

@@ -603,7 +603,6 @@
     <string name="vpn0wn_user_add_pending">Une création précédente doit être vérifiée avant de créer un autre utilisateur. Une réponse privée perdue ne peut pas être reconstruite depuis l’état du serveur.</string>
     <string name="vpn0wn_user_created">Utilisateur créé et profil privé conservé chiffré sur cet appareil. L’état du serveur confirme le pair. Le trafic VPN reste non vérifié. Ouvrez l’utilisateur pour accéder au profil après authentification et nouvelle vérification du serveur.</string>
     <string name="vpn0wn_user_reconcile">vérifier la création précédente</string>
-    <string name="vpn0wn_peer_mutation_unavailable">La rotation des clés n’est pas encore connectée.</string>
     <string name="vpn0wn_user_revoke_title">Révoquer l’utilisateur</string>
     <string name="vpn0wn_user_confirm_revoke">Révoquer</string>
     <string name="vpn0wn_user_revoke_confirmation">Révoquer %1$s de %2$s@%3$s:%4$d ?\nEmpreinte SSH : %5$s\nClé du serveur : %6$s\nClé du client : %7$s\nOpération : %8$s\n\nCette action archive le bloc privé original du pair sur le serveur avant de supprimer son accès. Le profil privé conservé sur cet appareil est supprimé uniquement après vérification de l’absence du pair et de l’archive de cette opération. Les tunnels importés et les copies exportées restent présents. L’annulation ne peut pas défaire une opération distante déjà admise.</string>
