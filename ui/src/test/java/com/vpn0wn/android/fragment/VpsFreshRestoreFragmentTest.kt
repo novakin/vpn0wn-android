@@ -92,6 +92,19 @@ class VpsFreshRestoreFragmentTest {
                 dialog.getButton(DialogInterface.BUTTON_POSITIVE).text.toString())
             assertTrue(message.text.contains(fixture.activity.getString(R.string.vpn0wn_restore_replace_warning)))
             val review = VpsRunningRestoreFixture.review
+            val warning = fixture.activity.getString(R.string.vpn0wn_restore_replace_warning)
+            val effects = fixture.activity.getString(R.string.vpn0wn_restore_replace_limits)
+            val reviewText = descendants(fixture.root).filterIsInstance<TextView>().joinToString("\n") { it.text }
+            for (consequence in listOf(warning, effects)) {
+                assertTrue("Review retains the consequence", reviewText.contains(consequence))
+                assertTrue("Confirmation retains the consequence", message.text.contains(consequence))
+            }
+            for (part in review.users.map { it.publicKey } + review.discardedRevoked.map { it.archiveName }) {
+                assertTrue("Review warning precedes variable differences", reviewText.indexOf(warning) < reviewText.indexOf(part))
+                assertTrue("Review effects precede variable differences", reviewText.indexOf(effects) < reviewText.indexOf(part))
+                assertTrue("Confirmation warning precedes variable differences", message.text.indexOf(warning) < message.text.indexOf(part))
+                assertTrue("Confirmation effects precede variable differences", message.text.indexOf(effects) < message.text.indexOf(part))
+            }
             for (part in listOf(review.endpoint, review.port, review.cidr, review.dns) +
                 review.users.flatMap { listOf(it.name, it.publicKey) } + review.discardedRevoked.map { it.archiveName })
                 assertTrue("Running confirmation includes $part", message.text.contains(part))

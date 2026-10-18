@@ -843,9 +843,7 @@ class VpsProvisioningFragment : BaseFragment() {
                 configLine(str(R.string.vpn0wn_restore_active_peers), plan.peerCount.toString())
                 configLine(str(R.string.vpn0wn_backup_revoked_count), plan.revokedCount.toString())
             }
-            restoration.replacement?.let { replacement ->
-                configLine(str(R.string.vpn0wn_restore_current_changes), restoreReplacementText(replacement), wrap = true,
-                    direction = View.TEXT_DIRECTION_LTR)
+            if (restoration.replacement != null) {
                 configLine(str(R.string.vpn0wn_restore_replace_scope), str(R.string.vpn0wn_restore_replace_warning), wrap = true)
             }
             configLine(str(R.string.vpn0wn_restore_limits_label), str(when {
@@ -853,6 +851,10 @@ class VpsProvisioningFragment : BaseFragment() {
                 restoration.outcome == RestoreOutcome.READY -> R.string.vpn0wn_restore_limits
                 else -> R.string.vpn0wn_restore_observation_limits
             }), wrap = true)
+            restoration.replacement?.let { replacement ->
+                configLine(str(R.string.vpn0wn_restore_current_changes), restoreReplacementText(replacement), wrap = true,
+                    direction = View.TEXT_DIRECTION_LTR)
+            }
         })
     }
 
@@ -919,8 +921,8 @@ class VpsProvisioningFragment : BaseFragment() {
             confirmation.ssh.user, host,
             confirmation.ssh.port, confirmation.fingerprint, confirmation.summary.capturedAtUtc, plan.serverPublicKey,
             plan.endpoint, plan.port, plan.cidr, plan.dns, plan.peerCount, plan.revokedCount)
-        confirmation.replacement?.let { message += "\n\n" + restoreReplacementText(it) + "\n\n" +
-            str(R.string.vpn0wn_restore_replace_warning) + "\n\n" + str(R.string.vpn0wn_restore_replace_limits) }
+        confirmation.replacement?.let { message += "\n\n" + str(R.string.vpn0wn_restore_replace_warning) + "\n\n" +
+            str(R.string.vpn0wn_restore_replace_limits) + "\n\n" + restoreReplacementText(it) }
         val dialog = MaterialAlertDialogBuilder(requireContext()).setTitle(R.string.vpn0wn_restore_title)
             .setMessage(message).setNegativeButton(android.R.string.cancel, null)
             .setPositiveButton(if (replacing) R.string.vpn0wn_restore_replace_confirm else R.string.vpn0wn_restore_confirm, null).create()
