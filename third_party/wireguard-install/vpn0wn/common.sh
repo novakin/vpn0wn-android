@@ -496,7 +496,13 @@ restore_mutation() {
     if [[ "$REVOKED_CHANGED" == true ]]; then
       if rm -rf -- "$TUNNL_DIR/revoked" 2>/dev/null; then
         if [[ "$HAD_REVOKED" == true ]]; then
-          [[ -d "$RECOVERY_DIR/previous.revoked" ]] && mv -T -- "$RECOVERY_DIR/previous.revoked" "$TUNNL_DIR/revoked" 2>/dev/null || restored=false
+          if [[ -d "$RECOVERY_DIR/previous.revoked" ]] &&
+            cp -a -- "$RECOVERY_DIR/previous.revoked" "$RECOVERY_DIR/restore.revoked" 2>/dev/null &&
+            mv -T -- "$RECOVERY_DIR/restore.revoked" "$TUNNL_DIR/revoked" 2>/dev/null; then
+            verify_recovered_history "$RECOVERY_DIR/previous.revoked" || restored=false
+          else
+            restored=false
+          fi
         fi
         if [[ "$HAD_TUNNL_DIR" == false ]]; then
           [[ ! -e "$TUNNL_DIR" ]] || rmdir -- "$TUNNL_DIR" 2>/dev/null || restored=false

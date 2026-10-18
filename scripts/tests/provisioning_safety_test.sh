@@ -1737,6 +1737,386 @@ PY
   assert_no_mutations
 }
 
+same_server_restore_source() {
+  restore_source
+  /bin/cp "$RESTORE_INPUT/server.conf" "$WG_CONF"
+  sed -i '/^# BEGIN_PEER existing/,$d; s/10\.8\.0/10.9.0/g' "$WG_CONF"
+  restore_peer newer newer 10.9.0.2 current >> "$WG_CONF"
+  mkdir -m 700 "$TUNNL_DIR" "$TUNNL_DIR/revoked"
+  restore_peer existing existing 10.8.0.2 > "$TUNNL_DIR/revoked/existing.conf.00112233-4455-4677-8899-aabbccddeeff"
+  restore_peer historical historical 10.7.0.2 old > "$RESTORE_INPUT/revoked/historical.conf"
+  /bin/cp "$WG_CONF" "$TEST_STATE/runtime.conf"
+  /bin/cp "$WG_CONF" "$TEST_ROOT/before.conf"
+  /bin/cp -a "$TUNNL_DIR/revoked" "$TEST_ROOT/before.revoked"
+  printf '10.9.0.1/24\n' > "$TEST_STATE/address"
+  printf '10.9.0.0/24' > "$TEST_STATE/nat"
+  printf 'net.ipv4.ip_forward=1\n' > "$FORWARD_CONF"
+  /bin/cp "$FORWARD_CONF" "$TEST_ROOT/before.forward"
+  touch "$TEST_STATE/enabled" "$TEST_STATE/owned-resource-observations"
+  printf 'unrelated\n' > "$WG_DIR/other.conf"
+  : > "$TEST_STATE/trace"
+}
+
+run_same_server_check() {
+  run_restore_check --replace-running "$@"
+}
+
+read_same_server_review() {
+  RESTORE_REVIEW=$(python3 -c 'import json,sys; print(json.load(sys.stdin)["plan"]["replacement"]["reviewSha256"])' < "$TEST_ROOT/response")
+}
+
+run_same_server_restore() {
+  run_restore --replace-running --expected-current-state "$RESTORE_REVIEW" "$@"
+}
+
+test_restore_same_server_check_is_public_and_mutation_free() {
+  same_server_restore_source
+  run_same_server_check
+  assert_success
+  read_same_server_review
+  [[ "$RESTORE_REVIEW" =~ ^[0-9a-f]{64}$ ]]
+  python3 - "$TEST_ROOT/response" <<'PY'
+import json
+import pathlib
+import sys
+result = json.loads(pathlib.Path(sys.argv[1]).read_text())
+review = result['plan']['replacement']
+assert review['running'] is True and review['serviceEnabled'] is True
+assert review['cidr'] == '10.9.0.0/24'
+assert {(user['name'], user['change']) for user in review['users']} == {('existing', 'restored'), ('newer', 'removed')}
+assert review['discardedRevoked'] == [{'archiveName': 'existing.conf.00112233-4455-4677-8899-aabbccddeeff', 'change': 'removed'}]
+assert 'PrivateKey' not in str(result) and 'PresharedKey' not in str(result)
+PY
+  cmp -s "$WG_CONF" "$TEST_ROOT/before.conf"
+  diff -r "$TUNNL_DIR/revoked" "$TEST_ROOT/before.revoked"
+  assert_no_mutations
+}
+
+test_restore_same_server_rolls_back_access_and_full_history() {
+  same_server_restore_source
+  run_same_server_check
+  assert_success
+  read_same_server_review
+  run_same_server_restore
+  assert_success
+  grep -qxF '# BEGIN_PEER existing' "$WG_CONF"
+  ! grep -q '# BEGIN_PEER newer' "$WG_CONF"
+  diff -r "$TUNNL_DIR/revoked" "$RESTORE_INPUT/revoked"
+  [[ $(cat "$TEST_STATE/stopped-cidr") == 10.9.0.0/24 && $(cat "$TEST_STATE/nat") == 10.8.0.0/24 ]]
+  [[ $(cat "$WG_DIR/other.conf") == unrelated ]]
+  run_restore_verify
+  assert_success
+}
+
+test_restore_same_server_apply_failure_restores_complete_target() {
+  same_server_restore_source
+  run_same_server_check
+  assert_success
+  read_same_server_review
+  printf '1' > "$TEST_STATE/fail-systemctl-restart"
+  run_same_server_restore
+  assert_failure apply_failed
+  [[ "$RESPONSE" == *'"recovery":"restored"'* ]]
+  assert_restored
+  diff -r "$TUNNL_DIR/revoked" "$TEST_ROOT/before.revoked"
+  cmp -s "$FORWARD_CONF" "$TEST_ROOT/before.forward"
+  [[ $(cat "$TEST_STATE/forward-value") == 0 && $(cat "$TEST_STATE/nat") == 10.9.0.0/24 ]]
+}
+
+test_restore_same_server_rejects_stale_private_state_review() {
+  local drift
+  for drift in psk history service forwarding source destination; do
+    (
+      setup
+      same_server_restore_source
+      run_same_server_check
+      assert_success
+      read_same_server_review
+      case "$drift" in
+        psk)
+          sed -i "s|^PresharedKey = .*|PresharedKey = $(printf '%-32.32s' PSK-changed | base64 -w0)|" "$WG_CONF"
+          /bin/cp "$WG_CONF" "$TEST_STATE/runtime.conf"
+          ;;
+        history) printf '\n' >> "$TUNNL_DIR/revoked/existing.conf.00112233-4455-4677-8899-aabbccddeeff" ;;
+        service) /bin/rm "$TEST_STATE/enabled" ;;
+        forwarding) printf '1' > "$TEST_STATE/forward-value" ;;
+        source) sed -i '/^PublicKey = /a PresharedKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=' "$RESTORE_INPUT/server.conf" ;;
+        destination) port=51901 ;;
+      esac
+      : > "$TEST_STATE/trace"
+      if [[ "$drift" == destination ]]; then run_same_server_restore --port "$port"; else run_same_server_restore; fi
+      assert_failure restore_target_changed
+      assert_no_mutations
+    )
+  done
+}
+
+test_restore_same_server_rejects_unowned_or_inconsistent_targets() {
+  local invalid expected
+  for invalid in identity live-key stopped hook history-symlink extra-address extra-route ipv6-route foreign-subnet foreign-port unknown; do
+    (
+      setup
+      same_server_restore_source
+      expected=postcondition_failed
+      case "$invalid" in
+        identity)
+          sed -i "s|^PrivateKey = .*|PrivateKey = $(printf '%-32.32s' PRIVATE-other | base64 -w0)|" "$WG_CONF"
+          expected=server_identity_mismatch
+          ;;
+        live-key) sed -i "s|^PrivateKey = .*|PrivateKey = $(printf '%-32.32s' PRIVATE-other | base64 -w0)|" "$TEST_STATE/runtime.conf" ;;
+        stopped) /bin/rm "$TEST_STATE/runtime.conf"; expected=unmanaged_runtime ;;
+        hook) sed -i "s|^PostDown = .*|PostDown = touch $TEST_ROOT/hook-ran|" "$WG_CONF"; expected=invalid_config ;;
+        history-symlink) ln -s "$WG_CONF" "$TUNNL_DIR/revoked/other.conf"; expected=unsafe_path ;;
+        extra-address) printf '2: wg0 inet 10.9.0.1/24 scope global\n2: wg0 inet6 fe80::1/64 scope link\n' > "$TEST_STATE/all-owned-addresses" ;;
+        extra-route) printf '192.0.2.0/24 dev wg0 proto static\n' > "$TEST_STATE/owned-extra-routes" ;;
+        ipv6-route) printf '2001:db8::/64 dev wg0 proto static\n' > "$TEST_STATE/owned-ipv6-routes" ;;
+        foreign-subnet) printf '3: other inet 10.8.0.1/24 scope global\n' > "$TEST_STATE/ipv4-addresses"; expected=subnet_in_use ;;
+        foreign-port) printf 'UNCONN 0 0 0.0.0.0:51900 0.0.0.0:*\n' > "$TEST_STATE/udp-holders"; expected=port_in_use ;;
+        unknown) printf '*' > "$TEST_STATE/fail-wg-show"; expected=runtime_unknown ;;
+      esac
+      run_same_server_check
+      assert_failure "$expected"
+      [[ ! -e "$TEST_ROOT/hook-ran" && $(cat "$WG_DIR/other.conf") == unrelated ]]
+      assert_no_mutations
+    )
+  done
+}
+
+test_restore_same_server_owns_only_exact_interface_resources() {
+  same_server_restore_source
+  sed -i 's/10\.8\.0/10.9.0/g' "$RESTORE_INPUT/server.conf"
+  [[ $(ss -H -uan 'sport = :51820') == *'0.0.0.0:51820'* ]]
+  run_same_server_check --port 51820
+  assert_success
+  read_same_server_review
+  run_same_server_restore --port 51820
+  assert_success
+  [[ $(cat "$TEST_STATE/nat") == 10.9.0.0/24 && $(cat "$WG_DIR/other.conf") == unrelated ]]
+  run_restore_verify --port 51820
+  assert_success
+}
+
+test_restore_same_server_rejects_custom_owned_routes() {
+  local variant route
+  for variant in table gateway scope type duplicate local-duplicate attribute; do
+    (
+      setup
+      same_server_restore_source
+      case "$variant" in
+        table) route='10.9.0.0/24 dev wg0 table 123 proto kernel scope link src 10.9.0.1' ;;
+        gateway) route='10.9.0.0/24 via 192.0.2.1 dev wg0 proto kernel scope link src 10.9.0.1' ;;
+        scope) route='10.9.0.0/24 dev wg0 proto kernel scope host src 10.9.0.1' ;;
+        type) route='local 10.9.0.0/24 dev wg0 table local proto kernel scope host src 10.9.0.1' ;;
+        duplicate) route='10.9.0.0/24 dev wg0 proto kernel scope link src 10.9.0.1' ;;
+        local-duplicate) route=$'local 10.9.0.1 dev wg0 table local proto kernel scope host src 10.9.0.1\nlocal 10.9.0.1 dev wg0 table local proto kernel scope host src 10.9.0.1' ;;
+        attribute) route='10.9.0.0/24 dev wg0 proto kernel scope link src 10.9.0.1 mtu 1420' ;;
+      esac
+      printf '%s\n' "$route" > "$TEST_STATE/owned-extra-routes"
+      run_same_server_check
+      assert_failure postcondition_failed
+      assert_no_mutations
+      cmp -s "$WG_CONF" "$TEST_ROOT/before.conf"
+      diff -r "$TUNNL_DIR/revoked" "$TEST_ROOT/before.revoked"
+      ! grep -Eq 'PrivateKey|PresharedKey' "$TEST_ROOT/response" "$TEST_ROOT/stderr"
+    )
+  done
+}
+
+test_restore_same_server_accepts_native_managed_route_inventory() {
+  local main_table
+  for main_table in '' ' table main'; do
+    (
+      setup
+      same_server_restore_source
+      sed -i 's/10\.8\.0/10.9.0/g' "$RESTORE_INPUT/server.conf"
+      printf '10.9.0.0/24 dev wg0%s proto kernel scope link src 10.9.0.1\n' "$main_table" > "$TEST_STATE/owned-route-inventory"
+      cat >> "$TEST_STATE/owned-route-inventory" <<'ROUTES'
+broadcast 10.9.0.0 dev wg0 table local proto kernel scope link src 10.9.0.1
+local 10.9.0.1 dev wg0 table local proto kernel scope host src 10.9.0.1
+broadcast 10.9.0.255 dev wg0 table local proto kernel scope link src 10.9.0.1
+ROUTES
+      run_same_server_check --port 51820
+      assert_success
+      assert_no_mutations
+      read_same_server_review
+      run_same_server_restore --port 51820
+      assert_success
+      run_restore_verify --port 51820
+      assert_success
+      [[ $(cat "$WG_DIR/other.conf") == unrelated ]]
+    )
+  done
+}
+
+test_restore_same_server_rejects_custom_route_exemptions() {
+  local variant route
+  for variant in table gateway scope duplicate; do
+    (
+      setup
+      same_server_restore_source
+      sed -i 's/10\.8\.0/10.9.0/g' "$RESTORE_INPUT/server.conf"
+      case "$variant" in
+        table) route='10.9.0.0/24 dev wg0 table 123 proto kernel scope link src 10.9.0.1' ;;
+        gateway) route='10.9.0.0/24 via 192.0.2.1 dev wg0 proto kernel scope link src 10.9.0.1' ;;
+        scope) route='10.9.0.0/24 dev wg0 proto kernel scope host src 10.9.0.1' ;;
+        duplicate) route='10.9.0.0/24 dev wg0 proto kernel scope link src 10.9.0.1' ;;
+      esac
+      printf '%s\n' "$route" > "$TEST_STATE/ipv4-routes-root"
+      run_same_server_check
+      assert_failure subnet_in_use
+      assert_no_mutations
+      ! grep -Eq 'PrivateKey|PresharedKey' "$TEST_ROOT/response" "$TEST_ROOT/stderr"
+    )
+  done
+}
+
+test_restore_same_server_rechecks_resources_after_old_teardown() {
+  same_server_restore_source
+  printf 'UNCONN 0 0 0.0.0.0:51820 0.0.0.0:*\n' > "$TEST_STATE/udp-holders"
+  run_same_server_check --port 51820
+  assert_success
+  read_same_server_review
+  run_same_server_restore --port 51820
+  assert_failure port_in_use
+  [[ "$RESPONSE" == *'"recovery":"restored"'* ]]
+  assert_restored
+  diff -r "$TUNNL_DIR/revoked" "$TEST_ROOT/before.revoked"
+}
+
+test_restore_same_server_failure_boundaries_restore_complete_target() {
+  local boundary
+  for boundary in stop history-move history-publish config-publish forwarding postcondition; do
+    (
+      setup
+      same_server_restore_source
+      run_same_server_check
+      assert_success
+      read_same_server_review
+      case "$boundary" in
+        stop) printf '1' > "$TEST_STATE/fail-systemctl-stop" ;;
+        history-move) printf '1' > "$TEST_STATE/fail-mv-rename" ;;
+        history-publish) printf '2' > "$TEST_STATE/fail-mv-rename" ;;
+        config-publish) printf '3' > "$TEST_STATE/fail-mv-rename" ;;
+        forwarding) printf '1' > "$TEST_STATE/fail-sysctl--w" ;;
+        postcondition) touch "$TEST_STATE/wrong-address-once" ;;
+      esac
+      run_same_server_restore
+      [[ "$RESULT_CODE" -ne 0 && "$RESPONSE" == *'"recovery":"restored"'* ]]
+      assert_restored
+      diff -r "$TUNNL_DIR/revoked" "$TEST_ROOT/before.revoked"
+      cmp -s "$FORWARD_CONF" "$TEST_ROOT/before.forward"
+      [[ $(cat "$TEST_STATE/forward-value") == 0 && $(cat "$TEST_STATE/nat") == 10.9.0.0/24 ]]
+      ! grep -q synthetic-secret-tool-diagnostic "$TEST_ROOT/response" "$TEST_ROOT/stderr"
+    )
+  done
+}
+
+test_restore_same_server_incomplete_rollback_retains_original_history() {
+  same_server_restore_source
+  run_same_server_check
+  assert_success
+  read_same_server_review
+  printf '*' > "$TEST_STATE/fail-systemctl-restart"
+  run_same_server_restore
+  assert_failure apply_failed
+  [[ "$RESPONSE" == *'"recovery":"incomplete"'* ]]
+  local recovery
+  recovery=$(find "$WG_DIR" -maxdepth 1 -type d -name '.tunnl-recovery.*')
+  [[ -f "$recovery/previous.conf" && -f "$recovery/previous.runtime" && -f "$recovery/previous.forward" ]]
+  diff -r "$recovery/previous.revoked" "$TEST_ROOT/before.revoked"
+  cmp -s "$recovery/previous.conf" "$TEST_ROOT/before.conf"
+  assert_private "$recovery" 700
+}
+
+test_restore_same_server_requires_explicit_checked_confirmation() {
+  same_server_restore_source
+  run_restore
+  assert_failure config_exists
+  run_restore --replace-running
+  assert_failure missing_arg
+  run_restore --expected-current-state invalid
+  assert_failure invalid_arg
+  run_restore_verify --replace-running
+  assert_failure invalid_arg
+  run_same_server_check --expected-current-state invalid
+  assert_failure invalid_arg
+  assert_no_mutations
+}
+
+test_restore_same_server_rechecks_review_after_each_lock() {
+  local held
+  for held in host interface; do
+    (
+      setup
+      same_server_restore_source
+      run_same_server_check
+      assert_success
+      read_same_server_review
+      export TEST_HELD_LOCK TEST_LOCK_SIGNAL
+      if [[ "$held" == host ]]; then TEST_HELD_LOCK=$WG_HOST_LOCK_FILE; else TEST_HELD_LOCK=$WG_LOCK_FILE; fi
+      TEST_LOCK_SIGNAL="$TEST_ROOT/replacement-lock-entered"
+      mkfifo "$TEST_LOCK_SIGNAL"
+      exec {lock_signal}<>"$TEST_LOCK_SIGNAL"
+      cat > "$TEST_ROOT/bin/flock" <<'SH'
+#!/usr/bin/env bash
+if [[ $(readlink "/proc/$$/fd/$1") == "$TEST_HELD_LOCK" ]]; then
+  printf 'ready\n' > "$TEST_LOCK_SIGNAL"
+fi
+exec /usr/bin/flock "$@"
+SH
+      chmod 700 "$TEST_ROOT/bin/flock"
+      exec {held_lock}>"$TEST_HELD_LOCK"
+      /usr/bin/flock "$held_lock"
+      : > "$TEST_STATE/trace"
+      bash "$SCRIPTS/restore.sh" --input "$RESTORE_INPUT" --endpoint restored.example --port 51900 \
+        --expected-server-public-key "$RESTORE_PUBLIC_KEY" --confirm --replace-running --expected-current-state "$RESTORE_REVIEW" \
+        > "$TEST_ROOT/response" 2> "$TEST_ROOT/stderr" &
+      local restore_pid=$!
+      if ! read -r -t 5 ready <&"$lock_signal"; then
+        kill "$restore_pid" 2>/dev/null || true
+        wait "$restore_pid" 2>/dev/null || true
+        return 1
+      fi
+      printf '\n' >> "$TUNNL_DIR/revoked/existing.conf.00112233-4455-4677-8899-aabbccddeeff"
+      /usr/bin/flock -u "$held_lock"
+      exec {held_lock}>&-
+      wait "$restore_pid" && RESULT_CODE=0 || RESULT_CODE=$?
+      RESPONSE=$(cat "$TEST_ROOT/response")
+      assert_failure restore_target_changed
+      assert_no_mutations
+    )
+  done
+}
+
+test_restore_same_server_signal_recovers_complete_target() {
+  same_server_restore_source
+  run_same_server_check
+  assert_success
+  read_same_server_review
+  printf '0.3' > "$TEST_STATE/restart-delay"
+  bash "$SCRIPTS/restore.sh" --input "$RESTORE_INPUT" --endpoint restored.example --port 51900 \
+    --expected-server-public-key "$RESTORE_PUBLIC_KEY" --confirm --replace-running --expected-current-state "$RESTORE_REVIEW" \
+    > "$TEST_ROOT/response" 2> "$TEST_ROOT/stderr" &
+  local restore_pid=$!
+  for attempt in $(seq 1 100); do
+    [[ ! -f "$TEST_STATE/count-systemctl-restart" ]] || break
+    sleep 0.01
+  done
+  if [[ ! -f "$TEST_STATE/count-systemctl-restart" ]]; then
+    kill "$restore_pid" 2>/dev/null || true
+    wait "$restore_pid" 2>/dev/null || true
+    return 1
+  fi
+  kill -TERM "$restore_pid"
+  wait "$restore_pid" && RESULT_CODE=0 || RESULT_CODE=$?
+  RESPONSE=$(cat "$TEST_ROOT/response")
+  assert_failure interrupted
+  [[ "$RESPONSE" == *'"recovery":"restored"'* ]]
+  assert_restored
+  diff -r "$TUNNL_DIR/revoked" "$TEST_ROOT/before.revoked"
+  cmp -s "$FORWARD_CONF" "$TEST_ROOT/before.forward"
+}
+
 test_restore_fresh_identity_and_receipt() {
   restore_source
   run_restore
@@ -3037,6 +3417,21 @@ if [[ ${1-} == --case ]]; then
 fi
 
 tests=(
+  test_restore_same_server_check_is_public_and_mutation_free
+  test_restore_same_server_rolls_back_access_and_full_history
+  test_restore_same_server_apply_failure_restores_complete_target
+  test_restore_same_server_rejects_stale_private_state_review
+  test_restore_same_server_rejects_unowned_or_inconsistent_targets
+  test_restore_same_server_owns_only_exact_interface_resources
+  test_restore_same_server_rejects_custom_owned_routes
+  test_restore_same_server_accepts_native_managed_route_inventory
+  test_restore_same_server_rejects_custom_route_exemptions
+  test_restore_same_server_rechecks_resources_after_old_teardown
+  test_restore_same_server_failure_boundaries_restore_complete_target
+  test_restore_same_server_incomplete_rollback_retains_original_history
+  test_restore_same_server_requires_explicit_checked_confirmation
+  test_restore_same_server_rechecks_review_after_each_lock
+  test_restore_same_server_signal_recovers_complete_target
   test_c143_rotation_preserves_running_peer_settings_and_unrelated_config test_c143_rotation_and_verification_preserve_known_stopped_state
   test_c143_rotation_old_observation_is_not_completion test_c143_rotation_readonly_verifier_proves_exact_new_state
   test_c143_rotation_rejects_private_and_public_setting_drift test_c143_rotation_rejects_new_key_reuse_in_unmarked_peer

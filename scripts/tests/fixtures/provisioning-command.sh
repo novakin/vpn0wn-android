@@ -66,6 +66,17 @@ start_runtime() {
   fi
 }
 
+owned_ipv4_routes() {
+  local own_cidr own_address
+  if [[ -f "$TEST_STATE/owned-route-inventory" ]]; then
+    cat "$TEST_STATE/owned-route-inventory"
+  else
+    own_cidr=$(awk '/^# TUNNL_CIDR / {print $3}' "$runtime_file")
+    own_address=$(cat "$address_file")
+    printf '%s dev wg0 proto kernel scope link src %s\n' "$own_cidr" "${own_address%/*}"
+  fi
+}
+
 case "$command_name" in
   wg)
     [[ ! -f "$TEST_STATE/wg-unavailable" ]] || exit 127
@@ -187,6 +198,7 @@ case "$command_name" in
         ;;
       start|restart)
         [[ ! -f "$TEST_STATE/ignore-restart" ]] || exit 0
+        [[ ! -f "$TEST_STATE/restart-delay" ]] || sleep "$(cat "$TEST_STATE/restart-delay")"
         start_runtime
         ;;
       *) exit 2 ;;
@@ -232,14 +244,33 @@ case "$command_name" in
   ss)
     [[ "$*" == '-H -uan sport = :'[0-9]* ]] || exit 2
     [[ ! -f "$TEST_STATE/udp-holders" ]] || cat "$TEST_STATE/udp-holders"
+    if [[ -f "$TEST_STATE/owned-resource-observations" && -f "$runtime_file" ]]; then
+      own_port=$(awk '$1 == "ListenPort" {print $3}' "$runtime_file")
+      [[ "${*: -1}" != "sport = :$own_port" ]] || printf 'UNCONN 0 0 0.0.0.0:%s 0.0.0.0:*\n' "$own_port"
+    fi
     ;;
   iptables) ;;
   ip)
-    if [[ "$*" == '-4 -o address show' ]]; then
+    if [[ "$*" == '-o address show dev wg0' && -f "$TEST_STATE/all-owned-addresses" ]]; then
+      cat "$TEST_STATE/all-owned-addresses"
+    elif [[ "$*" == '-4 -o address show' ]]; then
       [[ ! -f "$TEST_STATE/ipv4-addresses" ]] || cat "$TEST_STATE/ipv4-addresses"
+      if [[ -f "$TEST_STATE/owned-resource-observations" && -f "$runtime_file" ]]; then
+        printf '2: wg0 inet %s scope global\n' "$(cat "$address_file")"
+      fi
+    elif [[ "$*" == '-4 -o route show table all dev wg0' ]]; then
+      if [[ -f "$TEST_STATE/owned-resource-observations" && -f "$runtime_file" ]]; then
+        owned_ipv4_routes
+      fi
+      [[ ! -f "$TEST_STATE/owned-extra-routes" ]] || cat "$TEST_STATE/owned-extra-routes"
+    elif [[ "$*" == '-6 -o route show table all dev wg0' ]]; then
+      [[ ! -f "$TEST_STATE/owned-ipv6-routes" ]] || cat "$TEST_STATE/owned-ipv6-routes"
     elif [[ "$*" == '-4 -o route show table all root '* || "$*" == '-4 -o route show table all match '* ]]; then
       route_file="$TEST_STATE/ipv4-routes-${7}"
       [[ ! -f "$route_file" ]] || cat "$route_file"
+      if [[ -f "$TEST_STATE/owned-resource-observations" && -f "$runtime_file" ]]; then
+        owned_ipv4_routes
+      fi
     elif [[ " $* " == *' link show '* ]]; then
       printf '1: lo: <LOOPBACK> mtu 65536\n'
       [[ ! -f "$TEST_STATE/runtime.conf" ]] || printf '2: wg0: <UP> mtu 1420\n'
