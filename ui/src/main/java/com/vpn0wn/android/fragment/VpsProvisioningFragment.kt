@@ -70,6 +70,7 @@ import com.vpn0wn.android.provisioning.StoredVpsServer
 import com.vpn0wn.android.provisioning.PendingVpsRemove
 import com.vpn0wn.android.provisioning.PendingVpsRestore
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel
+import com.vpn0wn.android.provisioning.VpsInstallProgress
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.AuthMode
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Problem
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.SavedAccess
@@ -221,7 +222,12 @@ class VpsProvisioningFragment : BaseFragment() {
                     val previous = renderedProvisionState
                     if (state.active) screen = Screen.Provision else if (screen is Screen.Provision) screen = Screen.Fleet
                     val editingStep = state.step == Step.SSH || state.step == Step.DETECT
-                    if (previous != null && screen is Screen.Provision && editingStep && previous.step == state.step &&
+                    val progress = root.findViewById<VpsTerminalStreamView>(R.id.vpn0wn_vps_install_progress)
+                    if (previous != null && screen is Screen.Provision && progress != null &&
+                        previous.copy(installationProgress = state.installationProgress) == state) {
+                        renderInstallProgress(progress)
+                        renderedProvisionState = state
+                    } else if (previous != null && screen is Screen.Provision && editingStep && previous.step == state.step &&
                         !state.busy && previous.busy == state.busy && state.problem == null &&
                         (state.detect === previous.detect || state.detect == null)
                     ) {
@@ -745,8 +751,28 @@ class VpsProvisioningFragment : BaseFragment() {
                 Installation.OBSERVED -> R.string.vpn0wn_apply_observed
                 Installation.UNCERTAIN -> R.string.vpn0wn_apply_uncertain
             }
+            addView(VpsTerminalStreamView(requireContext()).apply {
+                id = R.id.vpn0wn_vps_install_progress
+                accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
+                renderInstallProgress(this)
+            })
             addView(mono(str(message), 11, R.color.vpn0wn_ink_2).apply { setPadding(dp(14)) })
         })
+    }
+
+    private fun renderInstallProgress(terminal: VpsTerminalStreamView) {
+        val phases = provisionState.installationProgress
+        terminal.visibility = if (phases.isEmpty()) View.GONE else View.VISIBLE
+        val lines = phases.map { phase ->
+            str(when (phase) {
+                VpsInstallProgress.PREPARING -> R.string.vpn0wn_install_progress_prepare
+                VpsInstallProgress.PACKAGES -> R.string.vpn0wn_install_progress_packages
+                VpsInstallProgress.CONFIGURING -> R.string.vpn0wn_install_progress_configure
+                VpsInstallProgress.STARTING -> R.string.vpn0wn_install_progress_start
+                VpsInstallProgress.VERIFYING -> R.string.vpn0wn_install_progress_verify
+            })
+        }
+        terminal.setLines(listOf(str(R.string.vpn0wn_install_progress_label)) + lines, false)
     }
 
     private fun confirmInstallation() {

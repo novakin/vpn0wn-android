@@ -19,6 +19,7 @@ import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
@@ -95,6 +96,7 @@ class VpsProvisioningViewModel internal constructor(
         val problem: Problem? = null,
         val statusSnapshots: Map<String, StatusSnapshot> = emptyMap(),
         val installation: Installation = Installation.NONE,
+        val installationProgress: List<VpsInstallProgress> = emptyList(),
         val pendingInstall: Boolean = false,
         val installationOwner: StoredVpsServer? = null,
         val recovery: ProvisioningRecovery? = null,
@@ -1399,7 +1401,9 @@ class VpsProvisioningViewModel internal constructor(
                 requireInstallTarget(confirmation, connection)
                 val request = installRequest()
                 if (!matches(confirmation.plan, request)) throw invalidInput()
-                val result = client.install(connection, request) {
+                val progressScope = CoroutineScope(currentCoroutineContext())
+                val result = client.install(connection, request,
+                    onProgress = { phase -> publishInstallProgress(progressScope, expected, phase) }) {
                     withContext(Dispatchers.Main.immediate) {
                         currentCoroutineContext().ensureActive()
                         requireInstallTarget(confirmation, connection)
@@ -1437,6 +1441,18 @@ class VpsProvisioningViewModel internal constructor(
             connection.endpoint != endpoint || connection.endpoint != confirmation.ssh || connection.endpoint != verifiedEndpoint ||
             connection.hostKeyFingerprint != confirmation.fingerprint || connection.hostKeyFingerprint != verifiedFingerprint)
             throw VpsServerStore.ServerChangedException()
+    }
+
+    private fun publishInstallProgress(scope: CoroutineScope, expected: StoredVpsServer, phase: VpsInstallProgress) {
+        scope.launch {
+            currentCoroutineContext().ensureActive()
+            val current = mutableState.value
+            if (!current.active || !current.busy || current.installation != Installation.RUNNING ||
+                current.installationOwner != expected || server != expected) return@launch
+            val previous = current.installationProgress.lastOrNull()
+            if (previous != null && phase.ordinal <= previous.ordinal) return@launch
+            mutableState.value = current.copy(installationProgress = current.installationProgress + phase)
+        }
     }
 
     private suspend fun admitInstall(expected: StoredVpsServer, target: VpsEndpoint, request: VpsInstallRequest) {
@@ -1561,6 +1577,7 @@ class VpsProvisioningViewModel internal constructor(
         invalidateVerification()
         reviewedRotation = null
         mutableState.value = mutableState.value.copy(active = false, detect = null, plan = null, usingSavedAccess = false,
+            installationProgress = emptyList(),
             addConfirmation = null, removeConfirmation = null, rotateConfirmation = null,
             backupSummary = null, backupFailure = null, backupComparison = null, restore = mutableState.value.restore?.takeIf { it.attempt != null }
                 ?.copy(plan = null, outcome = RestoreOutcome.UNCERTAIN))
@@ -1607,7 +1624,7 @@ class VpsProvisioningViewModel internal constructor(
     private fun operate(requireActive: Boolean = true, initialState: State = mutableState.value, action: suspend () -> Unit): Job? {
         if (mutableState.value.busy || requireActive && !mutableState.value.active) return null
         val previous = mutableState.value
-        mutableState.value = initialState.copy(busy = true, problem = null)
+        mutableState.value = initialState.copy(busy = true, problem = null, installationProgress = emptyList())
         return viewModelScope.launch {
             try {
                 action()

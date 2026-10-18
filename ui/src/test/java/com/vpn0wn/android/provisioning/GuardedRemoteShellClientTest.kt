@@ -20,6 +20,28 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class GuardedRemoteShellClientTest {
+    @Test fun streamedProgressCannotBypassTheExistingOperationDeadline() = runTest {
+        var settled = false
+        val phases = mutableListOf<VpsInstallProgress>()
+        val client = GuardedRemoteShellClient(object : RemoteShellClient {
+            override suspend fun close() = Unit
+            override suspend fun execute(command: String) = success()
+            override suspend fun execute(command: String, onProgress: (VpsInstallProgress) -> Unit): ProvisioningCommandOutput {
+                try {
+                    onProgress(VpsInstallProgress.PREPARING)
+                    delay(Long.MAX_VALUE)
+                    error("unreachable")
+                } finally { settled = true }
+            }
+            override suspend fun upload(path: String, content: String, mode: String) = success()
+        }, timeoutMillis = 1000L)
+        val failure = runCatching { client.execute("install", phases::add) }.exceptionOrNull()
+        assertTrue(failure is ProvisioningException)
+        assertEquals(1000L, testScheduler.currentTime)
+        assertEquals(listOf(VpsInstallProgress.PREPARING), phases)
+        assertTrue(settled)
+    }
+
     @Test
     fun executePreservesEnclosingTimeoutCancellation() = runTest {
         var settled = false

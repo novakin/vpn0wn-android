@@ -39,11 +39,14 @@ lock_interface
 require_owned_or_missing_config
 require_owned_forwarding
 [[ "$force" == true || ! -e "$WG_CONF" ]] || fail_json "config_exists" "Configuration already exists. Pass --force to replace it." 73
+printf 'vpn0wn-progress:install:prepare\n' >&2
 begin_mutation install
 PACKAGE_EFFECTS=true
+printf 'vpn0wn-progress:install:packages\n' >&2
 apt-get update >/dev/null 2>&1 || mutation_abort package_failed
 apt-get install -y wireguard iptables qrencode >/dev/null 2>&1 || mutation_abort package_failed
 
+printf 'vpn0wn-progress:install:configure\n' >&2
 server_private_key=$(wg genkey 2>/dev/null) || mutation_abort key_failed
 server_public_key=$(wg_public_key_from_private "$server_private_key" 2>/dev/null) || mutation_abort key_failed
 server_address=$(server_address_for_cidr "$cidr")
@@ -78,8 +81,10 @@ replace_forwarding "$RECOVERY_DIR/candidate.forward" || mutation_abort write_fai
 sysctl -w net.ipv4.ip_forward=1 >/dev/null 2>&1 || mutation_abort forwarding_failed
 
 SYSTEM_CHANGED=true
+printf 'vpn0wn-progress:install:start\n' >&2
 systemctl enable "wg-quick@$WG_IFACE" >/dev/null 2>&1 || mutation_abort enable_failed
 systemctl restart "wg-quick@$WG_IFACE" >/dev/null 2>&1 || mutation_abort apply_failed
+printf 'vpn0wn-progress:install:verify\n' >&2
 observe_runtime && [[ "$RUNTIME_RUNNING" == true ]] && observe_service && [[ "$SERVICE_ENABLED" == true ]] || mutation_abort postcondition_failed
 verify_runtime_config "$WG_CONF" && verify_address "$WG_CONF" || mutation_abort postcondition_failed
 finish_mutation

@@ -46,6 +46,43 @@ import org.robolectric.annotation.Config
 @Config(application = Application::class, sdk = [28])
 @OptIn(ExperimentalCoroutinesApi::class)
 class VpsInstallApplyTest {
+    @Test fun streamedPhasesAreVisibleWhilePendingButCannotValidateAMalformedFinalReply() = runTest {
+        val model = planned()
+        peer.installProgress = VpsInstallProgress.entries
+        peer.installOutput = "synthetic-invalid-final-json"
+        peer.blockInstall = CompletableDeferred()
+        val install = apply(model)
+        model.state.first { it.installationProgress == VpsInstallProgress.entries }
+        assertEquals(Installation.RUNNING, model.state.value.installation)
+        assertTrue(model.state.value.pendingInstall)
+        assertTrue(model.state.value.statusSnapshots.isEmpty())
+        assertNotNull(store.pendingInstall(store.servers.first().single()))
+        peer.blockInstall!!.complete(Unit)
+        install.join()
+        assertEquals(Installation.UNCERTAIN, model.state.value.installation)
+        assertEquals(Problem.INSTALL_FAILED, model.state.value.problem)
+        assertTrue(model.state.value.pendingInstall)
+        assertTrue(model.state.value.statusSnapshots.isEmpty())
+    }
+
+    @Test fun leavingCancelsProgressChildrenAndRejectsLatePhasesAfterANewOwnerBegins() = runTest {
+        val model = planned()
+        peer.installProgress = listOf(VpsInstallProgress.PREPARING, VpsInstallProgress.PACKAGES)
+        peer.blockInstall = CompletableDeferred()
+        val install = apply(model)
+        model.state.first { it.installationProgress.lastOrNull() == VpsInstallProgress.PACKAGES }
+        val stale = requireNotNull(peer.installProgressObserver)
+        model.leave()
+        install.join()
+        model.begin()
+        stale(VpsInstallProgress.VERIFYING)
+        testScheduler.runCurrent()
+        assertTrue(model.state.value.installationProgress.isEmpty())
+        assertTrue(model.state.value.active)
+        assertNotNull(store.pendingInstall(store.servers.first().single()))
+        assertEquals(1, peer.commands.count(::isInstall))
+    }
+
     @get:Rule val folder = TemporaryFolder()
     private lateinit var preferences: DataStore<Preferences>
     private lateinit var scope: CoroutineScope

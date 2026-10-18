@@ -94,11 +94,14 @@ private class JschRemoteShellClient(
     private val jsch = JSch()
     private var session: Session? = null
 
-    override suspend fun execute(command: String): ProvisioningCommandOutput = operate {
+    override suspend fun execute(command: String): ProvisioningCommandOutput = execute(command) {}
+
+    override suspend fun execute(command: String, onProgress: (VpsInstallProgress) -> Unit): ProvisioningCommandOutput = operate {
         val connected = connectedSession()
         val channel = connected.openChannel("exec") as ChannelExec
         val stdout = LimitedOutput(JschRemoteShellClientFactory.MAX_STDOUT_BYTES)
-        val stderr = LimitedOutput(JschRemoteShellClientFactory.MAX_STDERR_BYTES)
+        val progress = VpsInstallProgressReader()
+        val stderr = LimitedOutput(JschRemoteShellClientFactory.MAX_STDERR_BYTES, progress)
         try {
             channel.setInputStream(null)
             channel.setOutputStream(stdout)
@@ -107,11 +110,13 @@ private class JschRemoteShellClient(
             channel.connect(GuardedRemoteShellClient.DEFAULT_TIMEOUT_MILLIS.toInt())
             while (!channel.isClosed) {
                 checkOutput(stdout, stderr)
+                progress.drain().forEach(onProgress)
                 checkOpen()
                 if (!connected.isConnected) throw ProvisioningException("SSH connection closed")
                 Thread.sleep(CHANNEL_POLL_MILLIS)
             }
             checkOutput(stdout, stderr)
+            progress.drain().forEach(onProgress)
             threadFailure.get()?.let { throw it }
             if (channel.exitStatus < 0) throw ProvisioningException("SSH command returned no exit status")
             ProvisioningCommandOutput(channel.exitStatus, stdout.toString(Charsets.UTF_8.name()), stderr.toString(Charsets.UTF_8.name()))
@@ -389,16 +394,18 @@ private class PinnedHostKey(host: String, port: Int, private val pin: ByteArray)
     override fun remove(host: String?, type: String?, key: ByteArray?) = throw UnsupportedOperationException("SSH pin is immutable")
 }
 
-private class LimitedOutput(private val limit: Int) : ByteArrayOutputStream() {
+private class LimitedOutput(private val limit: Int, private val progress: VpsInstallProgressReader? = null) : ByteArrayOutputStream() {
     @Volatile var overflowed = false
         private set
     @Synchronized override fun write(value: Int) {
         if (count >= limit) overflow()
         super.write(value)
+        progress?.write(value)
     }
     @Synchronized override fun write(bytes: ByteArray, offset: Int, length: Int) {
         if (length > limit - count) overflow()
         super.write(bytes, offset, length)
+        if (progress != null) for (index in offset until offset + length) progress.write(bytes[index].toInt())
     }
     private fun overflow(): Nothing {
         overflowed = true
