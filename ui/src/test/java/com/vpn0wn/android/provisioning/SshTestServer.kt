@@ -273,7 +273,7 @@ internal class SshTestServer(
             "java.io.IOException" to SshDisconnectCategory.TRANSPORT_IO,
         )
 
-        // JSch sends its original connect exception in reason 3 before the driver sanitizes it.
+        // JSch attempts to send its original connect exception in reason 3 before the driver sanitizes it.
         fun classifyClientDisconnect(reason: Int, description: String?): SshDisconnectCategory {
             if (reason != KEY_EXCHANGE_FAILED || description == null) return SshDisconnectCategory.OTHER_REDACTED
             if (description == JSCH_EXCEPTION_PREFIX + "verify: false") return SshDisconnectCategory.HOST_SIGNATURE_VERIFY_FALSE

@@ -3,8 +3,12 @@ package com.vpn0wn.android.provisioning
 
 import android.app.Application
 import java.util.concurrent.TimeUnit
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
+import org.apache.sshd.client.SshClient
+import org.apache.sshd.client.keyverifier.ServerKeyVerifier
+import org.apache.sshd.client.session.ClientSession.ClientSessionEvent
+import org.apache.sshd.common.SshConstants
+import org.apache.sshd.common.config.keys.KeyUtils
+import org.apache.sshd.common.digest.BuiltinDigests
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertSame
@@ -96,20 +100,31 @@ class SshTestServerDisconnectTest {
         }
     }
 
-    @Test fun actualPinRefusalReachesPublicServerDisconnectCallbackBeforeAuthentication() = runBlocking {
+    @Test fun explicitClientDisconnectReachesPublicServerCallbackBeforeAuthentication() {
         SshTestServer(temporaryFolder.newFolder().toPath()).use { peer ->
-            val client = JschRemoteShellClientFactory().create(peer.connection(pin = ZERO_PIN))
-            try {
-                val failure = runCatching { withTimeout(TEST_TIMEOUT_MILLIS) { client.execute("success") } }.exceptionOrNull()
-                assertTrue(failure is ProvisioningException)
-                assertEquals("SSH operation failed", failure?.message)
-                assertTrue("Public SSHD disconnect callback missing", peer.clientDisconnectReceived.await(RECEIPT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
-                assertEquals(SshClientDisconnect(true, KEY_EXCHANGE_FAILED, SshDisconnectCategory.HOST_KEY_REFUSED), peer.clientDisconnect)
-                assertEquals(0, peer.passwordAttempts.get())
-                assertEquals(0, peer.keyAttempts.get())
-                assertEquals(1L, peer.commandEntered.count)
-            } finally {
-                client.close()
+            SshClient.setUpDefaultClient().use { client ->
+                client.serverKeyVerifier = ServerKeyVerifier { _, _, key ->
+                    KeyUtils.getFingerPrint(BuiltinDigests.sha256, key) == peer.fingerprint
+                }
+                client.start()
+                client.connect(SshTestServer.USER, "127.0.0.1", peer.port).verify(TEST_TIMEOUT_MILLIS).clientSession.use { session ->
+                    assertTrue(session.waitFor(setOf(ClientSessionEvent.WAIT_AUTH), TEST_TIMEOUT_MILLIS)
+                        .contains(ClientSessionEvent.WAIT_AUTH))
+                    assertFalse(session.isAuthenticated)
+                    val packet = session.createBuffer(SshConstants.SSH_MSG_DISCONNECT)
+                    packet.putInt(KEY_EXCHANGE_FAILED.toLong())
+                    packet.putString("com.jcraft.jsch.JSchChangedHostKeyException: $SECRET")
+                    packet.putString("")
+                    val written = session.writePacket(packet)
+                    written.verify(RECEIPT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    assertTrue(written.isWritten)
+                    assertTrue("Public SSHD disconnect callback missing", peer.clientDisconnectReceived.await(RECEIPT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                    assertEquals(SshClientDisconnect(true, KEY_EXCHANGE_FAILED, SshDisconnectCategory.HOST_KEY_REFUSED), peer.clientDisconnect)
+                    assertFalse(peer.clientDisconnect.toString().contains(SECRET))
+                    assertEquals(0, peer.passwordAttempts.get())
+                    assertEquals(0, peer.keyAttempts.get())
+                    assertEquals(1L, peer.commandEntered.count)
+                }
             }
         }
     }
@@ -123,6 +138,5 @@ class SshTestServerDisconnectTest {
         private const val TEST_TIMEOUT_MILLIS = 10_000L
         private const val RECEIPT_TIMEOUT_SECONDS = 5L
         private const val SECRET = "synthetic-password-and-private-key-payload"
-        private const val ZERO_PIN = "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
     }
 }
