@@ -12,6 +12,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import org.apache.sshd.common.config.keys.PublicKeyEntry
 import org.apache.sshd.common.channel.Channel
 import org.apache.sshd.common.cipher.BuiltinCiphers
@@ -19,6 +20,7 @@ import org.apache.sshd.common.file.virtualfs.VirtualFileSystemFactory
 import org.apache.sshd.common.keyprovider.KeyPairProvider
 import org.apache.sshd.common.mac.BuiltinMacs
 import org.apache.sshd.common.session.Session
+import org.apache.sshd.common.session.SessionListener
 import org.apache.sshd.common.signature.BuiltinSignatures
 import org.apache.sshd.server.Environment
 import org.apache.sshd.server.ExitCallback
@@ -33,6 +35,20 @@ import org.apache.sshd.sftp.server.SftpEventListener
 import org.apache.sshd.sftp.server.SftpSubsystemFactory
 import org.junit.Assert.assertTrue
 
+internal enum class SshDisconnectCategory {
+    NOT_OBSERVED, OTHER_REDACTED, HOST_SIGNATURE_VERIFY_FALSE, HOST_KEY_REFUSED,
+    NEGOTIATION_KEX, NEGOTIATION_HOST_KEY, NEGOTIATION_CIPHER, NEGOTIATION_MAC,
+    NEGOTIATION_COMPRESSION, NEGOTIATION_LANGUAGE, INVALID_KEY_SPEC, INVALID_KEY,
+    INVALID_ALGORITHM_PARAMETERS, NO_SUCH_ALGORITHM, SIGNATURE_FAILURE, PROVIDER_FAILURE,
+    MISSING_CLASS, REFLECTION_FAILURE, TRANSPORT_TIMEOUT, TRANSPORT_EOF, TRANSPORT_IO,
+}
+
+internal data class SshClientDisconnect(
+    val seen: Boolean = false,
+    val reason: Int? = null,
+    val category: SshDisconnectCategory = SshDisconnectCategory.NOT_OBSERVED,
+)
+
 internal class SshTestServer(
     private val directory: Path,
     ecdsaHostKey: Boolean = false,
@@ -42,6 +58,9 @@ internal class SshTestServer(
 ) : AutoCloseable {
     val passwordAttempts = AtomicInteger()
     val keyAttempts = AtomicInteger()
+    val clientDisconnectReceived = CountDownLatch(1)
+    private val observedClientDisconnect = AtomicReference(SshClientDisconnect())
+    val clientDisconnect: SshClientDisconnect get() = observedClientDisconnect.get()
     val commandEntered = CountDownLatch(1)
     val releaseHungOutput = CountDownLatch(1)
     val channelOpenEntered = CountDownLatch(1)
@@ -70,6 +89,11 @@ internal class SshTestServer(
         server.host = host
         server.port = 0
         server.keyPairProvider = KeyPairProvider.wrap(hostKey)
+        server.addSessionListener(object : SessionListener {
+            override fun sessionDisconnect(session: Session, reason: Int, msg: String?, language: String?, initiator: Boolean) {
+                recordClientDisconnect(reason, msg, initiator)
+            }
+        })
         if (legacyRsaOnly) server.signatureFactories = listOf(BuiltinSignatures.rsa)
         if (sha1MacOnly) {
             server.cipherFactories = listOf(BuiltinCiphers.aes128ctr)
@@ -127,6 +151,14 @@ internal class SshTestServer(
 
     fun sendIdleMessage() {
         server.activeSessions.single().sendIgnoreMessage(*"synthetic idle pulse".toByteArray())
+    }
+
+    fun recordClientDisconnect(reason: Int, description: String?, initiator: Boolean) {
+        if (initiator) return
+        val previous = observedClientDisconnect.get()
+        if (previous.seen) return
+        val observed = SshClientDisconnect(true, reason, classifyClientDisconnect(reason, description))
+        if (observedClientDisconnect.compareAndSet(previous, observed)) clientDisconnectReceived.countDown()
     }
 
     override fun close() {
@@ -205,5 +237,55 @@ internal class SshTestServer(
         const val USER = "synthetic-user"
         const val PASSWORD = "synthetic-password"
         const val SECRET_MARKER = "synthetic-secret-payload"
+        private const val KEY_EXCHANGE_FAILED = 3
+        private const val JSCH_EXCEPTION_PREFIX = "com.jcraft.jsch.JSchException: "
+        private const val NEGOTIATION_PREFIX =
+            "com.jcraft.jsch.JSchAlgoNegoFailException: Algorithm negotiation fail: algorithmName=\""
+        private val negotiationCategories = mapOf(
+            "kex" to SshDisconnectCategory.NEGOTIATION_KEX,
+            "server_host_key" to SshDisconnectCategory.NEGOTIATION_HOST_KEY,
+            "cipher.c2s" to SshDisconnectCategory.NEGOTIATION_CIPHER,
+            "cipher.s2c" to SshDisconnectCategory.NEGOTIATION_CIPHER,
+            "mac.c2s" to SshDisconnectCategory.NEGOTIATION_MAC,
+            "mac.s2c" to SshDisconnectCategory.NEGOTIATION_MAC,
+            "compression.c2s" to SshDisconnectCategory.NEGOTIATION_COMPRESSION,
+            "compression.s2c" to SshDisconnectCategory.NEGOTIATION_COMPRESSION,
+            "lang.c2s" to SshDisconnectCategory.NEGOTIATION_LANGUAGE,
+            "lang.s2c" to SshDisconnectCategory.NEGOTIATION_LANGUAGE,
+        )
+        private val exceptionCategories = mapOf(
+            "com.jcraft.jsch.JSchChangedHostKeyException" to SshDisconnectCategory.HOST_KEY_REFUSED,
+            "com.jcraft.jsch.JSchUnknownHostKeyException" to SshDisconnectCategory.HOST_KEY_REFUSED,
+            "java.security.spec.InvalidKeySpecException" to SshDisconnectCategory.INVALID_KEY_SPEC,
+            "java.security.InvalidKeyException" to SshDisconnectCategory.INVALID_KEY,
+            "java.security.InvalidAlgorithmParameterException" to SshDisconnectCategory.INVALID_ALGORITHM_PARAMETERS,
+            "java.security.NoSuchAlgorithmException" to SshDisconnectCategory.NO_SUCH_ALGORITHM,
+            "java.security.SignatureException" to SshDisconnectCategory.SIGNATURE_FAILURE,
+            "java.security.ProviderException" to SshDisconnectCategory.PROVIDER_FAILURE,
+            "java.lang.ClassNotFoundException" to SshDisconnectCategory.MISSING_CLASS,
+            "java.lang.reflect.InvocationTargetException" to SshDisconnectCategory.REFLECTION_FAILURE,
+            "java.lang.InstantiationException" to SshDisconnectCategory.REFLECTION_FAILURE,
+            "java.lang.IllegalAccessException" to SshDisconnectCategory.REFLECTION_FAILURE,
+            "java.lang.NoSuchMethodException" to SshDisconnectCategory.REFLECTION_FAILURE,
+            "java.net.SocketTimeoutException" to SshDisconnectCategory.TRANSPORT_TIMEOUT,
+            "java.io.EOFException" to SshDisconnectCategory.TRANSPORT_EOF,
+            "java.net.SocketException" to SshDisconnectCategory.TRANSPORT_IO,
+            "java.io.IOException" to SshDisconnectCategory.TRANSPORT_IO,
+        )
+
+        // JSch attempts to send its original connect exception in reason 3 before the driver sanitizes it.
+        fun classifyClientDisconnect(reason: Int, description: String?): SshDisconnectCategory {
+            if (reason != KEY_EXCHANGE_FAILED || description == null) return SshDisconnectCategory.OTHER_REDACTED
+            if (description == JSCH_EXCEPTION_PREFIX + "verify: false") return SshDisconnectCategory.HOST_SIGNATURE_VERIFY_FALSE
+            val failure = description.removePrefix(JSCH_EXCEPTION_PREFIX).removePrefix("Session.connect: ")
+            return if (failure.startsWith(NEGOTIATION_PREFIX)) {
+                val end = failure.indexOf('"', NEGOTIATION_PREFIX.length)
+                val component = if (end < 0) null else failure.substring(NEGOTIATION_PREFIX.length, end)
+                negotiationCategories[component] ?: SshDisconnectCategory.OTHER_REDACTED
+            } else {
+                exceptionCategories.entries.firstOrNull { (name, _) -> failure == name || failure.startsWith("$name:") }
+                    ?.value ?: SshDisconnectCategory.OTHER_REDACTED
+            }
+        }
     }
 }
