@@ -224,6 +224,95 @@ class LocalizedCopyLayoutTest {
         } finally { binding.unbind() }
     }
 
+    @Test fun editorListenPortHintAndNumericBindingRemainComplete() = previews(listOf(
+        Preview("ports-en-normal", locale = "en", width = 320, height = 640, scale = 1f),
+        Preview("ports-fr-normal", locale = "fr", width = 320, height = 640, scale = 1.3f),
+        Preview("ports-en-large", locale = "en", width = 320, height = 640, scale = 2f),
+        Preview("ports-fr-large", locale = "fr", width = 320, height = 640, scale = 2f),
+        Preview("ports-en-rtl-large", locale = "en", width = 320, height = 640, scale = 2f, rtl = true),
+        Preview("ports-fr-rtl-large", locale = "fr", width = 320, height = 640, scale = 2f, rtl = true),
+        Preview("ports-en-short", locale = "en", width = 640, height = 320, scale = 1f),
+        Preview("ports-fr-rtl-short", locale = "fr", width = 640, height = 320, scale = 1.3f, rtl = true),
+        Preview("ports-en-short-large", locale = "en", width = 640, height = 320, scale = 2f),
+        Preview("ports-fr-rtl-short-large", locale = "fr", width = 640, height = 320, scale = 2f, rtl = true),
+    )) { activity, case ->
+        val fragment = TunnelEditorFragment()
+        activity.supportFragmentManager.beginTransaction().add(android.R.id.content, fragment).commitNow()
+        val binding = requireNotNull(DataBindingUtil.getBinding<TunnelEditorFragmentBinding>(fragment.requireView()))
+        val config = ConfigProxy()
+        binding.config = config
+        binding.executePendingBindings()
+        try {
+            layout(binding.root, case)
+            assertConfiguration(binding.root, case)
+            val field = binding.listenPortText
+            assertEquals("", field.text.toString())
+            assertEquals(activity.getString(R.string.hint_random), field.hint.toString())
+            assertEquals(InputType.TYPE_CLASS_NUMBER, field.inputType)
+            assertEquals(EditorInfo.IME_ACTION_NEXT, field.imeOptions and EditorInfo.IME_MASK_ACTION)
+            assertEquals(R.id.public_key_text, field.nextFocusUpId)
+            assertEquals(R.id.mtu_text, field.nextFocusDownId)
+            assertEquals(R.id.dns_servers_text, field.nextFocusForwardId)
+            assertEquals(activity.getString(R.string.hint_automatic), binding.mtuText.hint.toString())
+            assertEquals(InputType.TYPE_CLASS_NUMBER, binding.mtuText.inputType)
+            assertEquals(EditorInfo.IME_ACTION_DONE, binding.mtuText.imeOptions and EditorInfo.IME_MASK_ACTION)
+            reveal(binding.editorInterfacePortRow, binding.root, case)
+            for (input in listOf(field, binding.mtuText)) {
+                assertMono(input, R.font.jetbrains_mono_regular)
+                assertTrue("Native numeric field remains operable", input.isEnabled && input.isClickable && input.isFocusable)
+                val hint = ReflectionHelpers.getField<Layout>(input, "mHintLayout")
+                assertEquals(input.hint.toString(), hint.text.toString())
+                assertEquals("Numeric hint keeps its complete word on one line", 1, hint.lineCount)
+                assertTextFits(input, hint)
+                val node = input.createAccessibilityNodeInfo()
+                try { assertTrue("Native numeric field remains editable", node.isEditable) } finally { node.recycle() }
+            }
+            val row = binding.editorInterfacePortRow
+            val divider = binding.editorInterfacePortDivider
+            if (case.width < case.height && case.scale >= 1.5f) {
+                assertEquals(LinearLayout.VERTICAL, row.orientation)
+                assertEquals(row.width, binding.editorListenPortRow.width)
+                assertEquals(row.width, binding.editorMtuRow.width)
+                assertEquals(binding.editorListenPortRow.bottom, divider.top)
+                assertEquals(divider.bottom, binding.editorMtuRow.top)
+                assertEquals(row.width, divider.width)
+                assertEquals("Stacked rows retain the existing 1dp divider", 1, divider.height)
+            } else {
+                assertEquals("Normal and short screens keep the approved split row", LinearLayout.HORIZONTAL, row.orientation)
+                assertEquals(1f, (binding.editorListenPortRow.layoutParams as LinearLayout.LayoutParams).weight, 0f)
+                assertEquals(1f, (binding.editorMtuRow.layoutParams as LinearLayout.LayoutParams).weight, 0f)
+                assertEquals("Split rows retain the existing 1dp divider", 1, divider.width)
+                assertTrue("Split row keeps equal field allocation",
+                    kotlin.math.abs(binding.editorListenPortRow.width - binding.editorMtuRow.width) <= 1)
+            }
+            assertFullyVisible(row)
+            capture(binding.root, case, "editor-ports-empty")
+            val focused = if (field.isInTouchMode) field.requestFocusFromTouch() else field.requestFocus()
+            assertTrue("ListenPort accepts native focus", focused)
+            assertSame("ListenPort owns native focus", field, field.rootView.findFocus())
+            field.setText(SYNTHETIC_PORT.toString())
+            binding.executePendingBindings()
+            assertEquals(SYNTHETIC_PORT.toString(), config.`interface`.listenPort)
+            layout(binding.root, case)
+            assertTextFits(field)
+            capture(binding.root, case, "editor-ports-valid")
+            field.setText("")
+            binding.executePendingBindings()
+            assertEquals("", config.`interface`.listenPort)
+            layout(binding.root, case)
+            val clearedHint = ReflectionHelpers.getField<Layout>(field, "mHintLayout")
+            assertEquals(activity.getString(R.string.hint_random), clearedHint.text.toString())
+            assertEquals(1, clearedHint.lineCount)
+            assertTextFits(field, clearedHint)
+            capture(binding.root, case, "editor-ports-cleared")
+            config.`interface`.listenPort = SYNTHETIC_PORT.toString()
+            binding.executePendingBindings()
+            assertEquals("Model port updates still reach the native field", SYNTHETIC_PORT.toString(), field.text.toString())
+            assertEquals(InputType.TYPE_CLASS_NUMBER, field.inputType)
+            assertEquals("", config.`interface`.mtu)
+        } finally { binding.unbind() }
+    }
+
     @Test fun detailLabelsAndCompleteApplicationPhrasesFit() = runTest {
         val environment = TunnelTestEnvironment(folder.root, backgroundScope)
         try {

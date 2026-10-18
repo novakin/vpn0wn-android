@@ -350,12 +350,14 @@
 
                             <!-- LISTEN PORT + MTU side-by-side -->
                             <LinearLayout
+                                android:id="@+id/editor_interface_port_row"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:baselineAligned="false"
                                 android:orientation="horizontal">
 
                                 <LinearLayout
+                                    android:id="@+id/editor_listen_port_row"
                                     style="@style/Vpn0wnDetailRow"
                                     android:layout_width="0dp"
                                     android:layout_weight="1"
@@ -378,11 +380,13 @@
                                 </LinearLayout>
 
                                 <View
+                                    android:id="@+id/editor_interface_port_divider"
                                     android:layout_width="1dp"
                                     android:layout_height="match_parent"
                                     android:background="@color/vpn0wn_rule" />
 
                                 <LinearLayout
+                                    android:id="@+id/editor_mtu_row"
                                     style="@style/Vpn0wnDetailRow"
                                     android:layout_width="0dp"
                                     android:layout_weight="1"
