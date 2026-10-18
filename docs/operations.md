@@ -249,6 +249,14 @@ The marker survives owner/process recreation and fleet-record removal for the sa
 
 Wrong password/damaged file, unsupported/oversized input and denied/failed provider access report safe errors. Cancel or leaving the sensitive flow retires the action; a slow provider can take longer to drain before another operation is available. Recreating the screen requires a new attempt after any outstanding old picker result is discarded. Keep the original backup/password; this summary does not establish destination compatibility or authorize restoration. [The contract](backend-contracts.md#local-encrypted-backup-inspection--196) owns acquisition, lifecycle and secret-retention limits.
 
+### Compare an encrypted backup with a saved server
+
+The source candidate adds **Compare encrypted backup** to a saved server's detail screen. Choose the original encrypted file, complete configured device authentication and unlock it with its recovery password. Review the authenticated backup summary and choose Compare. The app reads that saved server's current managed snapshot through its pinned SSH access.
+
+The read-only result shows the selected server, both capture times, exact saved-config-text equality and all archive names only in either snapshot or sharing a name with different contents. Names describe those two observations, not a timeline of additions/removals. Spaces and comments count. Different config text does not mean restoration failed, because restore regenerates supported config. No private config or revoked body is displayed.
+
+Close ends the comparison. It supplies no replacement confirmation or mutation and clears no pending operation. Runtime, VPN traffic and external conflicts remain unassessed. Changed saved access, server record, inspection or screen requires a new attempt. [The contract](backend-contracts.md#read-only-encrypted-backup-comparison--196) and [QA](qa-test-plan.md#read-only-encrypted-backup-comparison-controls--196) keep source/local proof distinct from installed/provider/SSH/live acceptance.
+
 ### Restore to a fresh destination
 
 **Source candidate; installed/live acceptance is pending.** Open and unlock an encrypted server backup, then choose Restore. Review four actual steps: independently authenticate the destination SSH fingerprint/credentials, Detect, Check destination, then Restore/verify. Destination must be supported, have the required tools and have no existing configuration/interface/history or conflicting port/subnet. Check is an observation, not a reservation. Review the exact SSH destination/pin, backup date/server identity, selected endpoint/port, preserved network/DNS and active/revoked counts, then authenticate and confirm. The operation writes captured server/user keys, enables forwarding and starts/enables the service.
