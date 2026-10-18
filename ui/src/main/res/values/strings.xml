@@ -508,6 +508,8 @@
     <string name="vpn0wn_label_ip">IP</string>
     <string name="vpn0wn_qr_footer">Scan with a WireGuard app to import this profile.</string>
     <string name="vpn0wn_node_device">DEVICE</string>
+    <string name="vpn0wn_node_encrypted">ENCRYPTED · %1$s</string>
+    <string name="vpn0wn_node_peer">PEER</string>
     <string name="vpn0wn_node_vps">VPS</string>
     <string name="vpn0wn_node_wan">WAN</string>
     <string name="vpn0wn_node_internet">internet</string>
