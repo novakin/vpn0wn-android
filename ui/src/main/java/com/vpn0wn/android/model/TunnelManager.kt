@@ -55,8 +55,6 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
@@ -429,22 +427,22 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         if (!force && !UserKnobs.restoreOnBoot.first()) return
         val previouslyRunning = UserKnobs.runningTunnels.first()
         if (previouslyRunning.isEmpty()) return
-        coroutineScope {
-            eligible.filter { previouslyRunning.contains(it.name) }.map { tunnel ->
-                async {
-                    try {
-                        mutate {
-                            requireManaged(tunnel)
-                            if (tunnel.name !in UserKnobs.runningTunnels.first() || networkAutomation.suppressesRestore(tunnel.name)) return@mutate
-                            changeTunnelState(tunnel, Tunnel.State.UP)
-                        }
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to restore tunnel ${tunnel.name}", e)
-                    }
+        val caller = currentCoroutineContext()
+        mutate {
+            val admitted = previouslyRunning.intersect(UserKnobs.runningTunnels.first())
+            for (tunnel in eligible.filter { it.name in admitted }) {
+                // Reconcile an admitted transition noncancellably without admitting another after caller cancellation.
+                caller.ensureActive()
+                try {
+                    requireManaged(tunnel)
+                    if (networkAutomation.suppressesRestore(tunnel.name)) continue
+                    changeTunnelState(tunnel, Tunnel.State.UP)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to restore tunnel ${tunnel.name}", e)
                 }
-            }.awaitAll()
+            }
         }
     }
 
