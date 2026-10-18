@@ -90,14 +90,14 @@ class VpsFreshRestoreLayoutTest {
                     fixture.peer.restoreCheckOutput = VpsRunningRestoreFixture.response().apply {
                         if (case.large) {
                             val replacement = getJSONObject("plan").getJSONObject("replacement")
-                            replacement.put("peerCount", 24).put("revokedCount", 24)
+                            replacement.put("peerCount", 25).put("revokedCount", 24)
                             replacement.put("users", JSONArray().apply { repeat(24) { index ->
                                 put(JSONObject().put("name", "phone_$index".padEnd(32, '_'))
                                     .put("publicKey", Key.fromBytes(ByteArray(32) { index.toByte() }).toBase64()).put("change", "removed"))
                             } })
                             replacement.put("discardedRevoked", JSONArray().apply { repeat(24) { index ->
                                 put(JSONObject().put("archiveName", "retired_$index".padEnd(32, '_') + ".conf.00000000-0000-0000-0000-000000000001")
-                                    .put("change", "replaced"))
+                                    .put("change", if (index < 23) "removed" else "replaced"))
                             } })
                         }
                     }.toString()

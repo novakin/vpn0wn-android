@@ -534,7 +534,15 @@ object ProvisioningJson {
         return parse(stdout) { json ->
             if (!json.boolean("checkOnly")) throw JSONException("Restore check was not confirmed")
             val plan = json.getJSONObject("plan")
-            VpsRunningRestoreCheck(plan.restorePlan(), plan.getJSONObject("replacement").restoreReplacement())
+            val desired = plan.restorePlan()
+            val replacement = plan.getJSONObject("replacement").restoreReplacement()
+            val currentUnchanged = replacement.peerCount - replacement.users.count { it.change != "restored" }
+            val restoredUnchanged = desired.peerCount - replacement.users.count { it.change != "removed" }
+            val retainedHistory = replacement.revokedCount - replacement.discardedRevoked.count { it.change == "removed" }
+            if (currentUnchanged < 0 || currentUnchanged != restoredUnchanged ||
+                replacement.discardedRevoked.size > replacement.revokedCount || retainedHistory > desired.revokedCount)
+                throw JSONException("Restore differences do not match observed inventories")
+            VpsRunningRestoreCheck(desired, replacement)
         }
     }
 

@@ -73,14 +73,97 @@ class VpsRunningRestoreCheckTest {
         }
     }
 
-    @Test fun maximumUniqueListsAndZeroCountsRemainSupported() {
+    @Test fun userDifferencesCannotExceedCurrentPeerCount() {
+        assertInvalid(VpsRunningRestoreFixture.response().apply { replacement().put("peerCount", 0) })
+        assertInvalid(VpsRunningRestoreFixture.response().apply {
+            getJSONObject("plan").put("peerCount", 2)
+            replacement().put("peerCount", 1).getJSONArray("users").let { rows ->
+                repeat(rows.length()) { rows.getJSONObject(it).put("change", "changed") }
+            }
+        })
+    }
+
+    @Test fun restoredDifferencesCannotExceedDesiredPeerCount() {
+        assertInvalid(VpsRunningRestoreFixture.response().apply { getJSONObject("plan").put("peerCount", 0) })
+        assertInvalid(VpsRunningRestoreFixture.response().apply {
+            val rows = replacement().getJSONArray("users")
+            repeat(rows.length()) { rows.getJSONObject(it).put("change", "changed") }
+        })
+    }
+
+    @Test fun discardedHistoryCannotExceedCurrentHistoryCount() {
+        assertInvalid(VpsRunningRestoreFixture.response().apply { replacement().put("revokedCount", 1) })
+    }
+
+    @Test fun unchangedUsersMustAgreeAcrossInventories() {
+        assertInvalid(VpsRunningRestoreFixture.response().apply { replacement().put("peerCount", 2) })
+        assertInvalid(VpsRunningRestoreFixture.response().apply { getJSONObject("plan").put("peerCount", 2) })
+        assertInvalid(VpsRunningRestoreFixture.response().apply {
+            replacement().put("peerCount", 2).put("users", JSONArray())
+        })
+    }
+
+    @Test fun retainedHistoryMustFitDesiredInventory() {
+        assertInvalid(VpsRunningRestoreFixture.response().apply { getJSONObject("plan").put("revokedCount", 0) })
+        assertInvalid(VpsRunningRestoreFixture.response().apply { replacement().put("revokedCount", 3) })
+        assertInvalid(VpsRunningRestoreFixture.response().apply { replacement().put("discardedRevoked", JSONArray()) })
+    }
+
+    @Test fun unchangedUsersAndRetainedOrNewHistoryRemainSupported() {
         val input = VpsRunningRestoreFixture.response().apply {
-            replacement().put("peerCount", 0).put("revokedCount", 0).put("serviceEnabled", true)
+            getJSONObject("plan").put("peerCount", 2).put("revokedCount", 3)
+            replacement().put("peerCount", 2).put("revokedCount", 3)
+        }
+        val parsed = ProvisioningJson.parseRunningRestoreCheck(input.toString())
+        assertEquals(2, parsed.plan.peerCount)
+        assertEquals(2, parsed.replacement.peerCount)
+        assertEquals(3, parsed.plan.revokedCount)
+        assertEquals(3, parsed.replacement.revokedCount)
+    }
+
+    @Test fun changedUserConsumesOneSlotOnEachSide() {
+        val input = VpsRunningRestoreFixture.response().apply {
+            val row = replacement().getJSONArray("users").getJSONObject(0).put("change", "changed")
+            replacement().put("peerCount", 1).put("users", JSONArray().put(row))
+        }
+        val parsed = ProvisioningJson.parseRunningRestoreCheck(input.toString())
+        assertEquals("changed", parsed.replacement.users.single().change)
+        assertEquals(1, parsed.plan.peerCount)
+        assertEquals(1, parsed.replacement.peerCount)
+    }
+
+    @Test fun zeroInventoriesAndNoDifferencesRemainSupported() {
+        val input = VpsRunningRestoreFixture.response().apply {
+            getJSONObject("plan").put("peerCount", 0).put("revokedCount", 0)
+            replacement().put("peerCount", 0).put("revokedCount", 0).put("users", JSONArray()).put("discardedRevoked", JSONArray())
+        }
+        val parsed = ProvisioningJson.parseRunningRestoreCheck(input.toString())
+        assertEquals(0, parsed.plan.peerCount)
+        assertEquals(0, parsed.replacement.revokedCount)
+        assertTrue(parsed.replacement.users.isEmpty())
+        assertTrue(parsed.replacement.discardedRevoked.isEmpty())
+    }
+
+    @Test fun largeInventoriesCannotHideSmallDeclaredCounts() {
+        assertInvalid(VpsRunningRestoreFixture.response().apply {
+            getJSONObject("plan").put("peerCount", 2)
+            replacement().put("peerCount", 2).put("users", JSONArray().apply { repeat(24) { index ->
+                put(JSONObject().put("name", "phone_$index").put("publicKey", Key.fromBytes(ByteArray(32) { index.toByte() }).toBase64())
+                    .put("change", "changed"))
+            } })
+        })
+    }
+
+    @Test fun maximumUniqueListsRemainSupported() {
+        val input = VpsRunningRestoreFixture.response().apply {
+            getJSONObject("plan").put("peerCount", 253)
+            replacement().put("peerCount", 253).put("revokedCount", 1024).put("serviceEnabled", true)
                 .put("users", JSONArray().apply { repeat(506) { index ->
                     val bytes = ByteArray(32)
                     bytes[0] = index.toByte()
                     bytes[1] = (index shr 8).toByte()
-                    put(JSONObject().put("name", "phone").put("publicKey", Key.fromBytes(bytes).toBase64()).put("change", "removed"))
+                    put(JSONObject().put("name", "phone").put("publicKey", Key.fromBytes(bytes).toBase64())
+                        .put("change", if (index < 253) "removed" else "restored"))
                 } }).put("discardedRevoked", JSONArray().apply { repeat(1024) { index ->
                     put(JSONObject().put("archiveName", "retired_$index.conf").put("change", "removed"))
                 } })
@@ -88,7 +171,7 @@ class VpsRunningRestoreCheckTest {
         val result = ProvisioningJson.parseRunningRestoreCheck(input.toString())
         assertEquals(506, result.replacement.users.size)
         assertEquals(1024, result.replacement.discardedRevoked.size)
-        assertEquals(0, result.replacement.peerCount)
+        assertEquals(253, result.replacement.peerCount)
     }
 
     @Test fun changedTargetUsesSafeConflictCategory() {
@@ -110,7 +193,7 @@ class VpsRunningRestoreCheckTest {
 
 internal object VpsRunningRestoreFixture {
     const val DIGEST = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-    val review = VpsRestoreReplacement(DIGEST, "current.example", "51820", "10.9.0.0/24", "9.9.9.9", 2, 2, false,
+    val review = VpsRestoreReplacement(DIGEST, "current.example", "51820", "10.9.0.0/24", "9.9.9.9", 1, 2, false,
         listOf(VpsRestoreUserChange("phone", Key.fromBytes(ByteArray(32) { 2 }).toBase64(), "restored"),
             VpsRestoreUserChange("phone", Key.fromBytes(ByteArray(32) { 3 }).toBase64(), "removed")),
         listOf(VpsRestoreHistoryChange("retired.conf.ABC123", "removed"), VpsRestoreHistoryChange("phone.conf", "replaced")))
