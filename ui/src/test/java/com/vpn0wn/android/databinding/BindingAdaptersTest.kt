@@ -265,6 +265,35 @@ class BindingAdaptersTest {
     }
 
     @Test
+    fun homeStatusLocalizesMissingCipherWithoutChangingPeerIdentityOrStateColor() {
+        val pair = KeyPair(Key.fromBytes(ByteArray(32)))
+        val local = Interface.Builder().setKeyPair(pair).build()
+        val empty = Config.Builder().setInterface(local).build()
+        val peer = Peer.Builder().setPublicKey(pair.publicKey).build()
+        val withPeer = Config.Builder().setInterface(local).addPeer(peer).build()
+        val withPsk = Config.Builder().setInterface(local).addPeer(Peer.Builder().setPublicKey(pair.publicKey)
+            .setPreSharedKey(Key.fromBytes(ByteArray(32) { 1 })).build()).build()
+        val configs = listOf(null, empty, withPeer, withPsk)
+        for ((locale, missing) in listOf(Locale.ENGLISH to "unbound", Locale.FRENCH to "sans pair")) {
+            val localized = context.createConfigurationContext(Configuration(context.resources.configuration).apply {
+                setLocale(locale)
+            })
+            val expected = listOf(missing, missing, "ChaCha20", "ChaCha20 + PSK")
+            for ((index, config) in configs.withIndex()) {
+                val view = TextView(localized)
+                BindingAdapters.setTunnelStatusTunnel(view, null, Tunnel.State.DOWN, null, config)
+                val status = localized.getString(R.string.vpn0wn_tunnel_status_inactive)
+                val text = view.text as Spanned
+                assertEquals("$locale/$index", "$status · ${expected[index]}", text.toString())
+                val color = text.getSpans(0, text.length, ForegroundColorSpan::class.java).single()
+                assertEquals(0, text.getSpanStart(color))
+                assertEquals(status.length, text.getSpanEnd(color))
+                assertEquals(localized.getColor(R.color.vpn0wn_ink_3), color.foregroundColor)
+            }
+        }
+    }
+
+    @Test
     fun homeStatusColorsOnlyStateAndLeavesCipherTextMixedCase() {
         val config = Config.parse("""
             [Interface]

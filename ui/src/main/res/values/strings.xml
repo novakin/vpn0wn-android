@@ -611,7 +611,6 @@
     <string name="vpn0wn_user_add_pending">A previous create needs reconciliation. Check that attempt before creating another user. A lost private response cannot be rebuilt from server status.</string>
     <string name="vpn0wn_user_created">User created and private profile saved encrypted on this device. Server status confirms the peer. VPN traffic is unverified. Open the user to access the profile after authentication and fresh server verification.</string>
     <string name="vpn0wn_user_reconcile">check previous user creation</string>
-    <string name="vpn0wn_peer_mutation_unavailable">Key rotation is not connected yet.</string>
     <string name="vpn0wn_user_revoke_title">Revoke user</string>
     <string name="vpn0wn_user_confirm_revoke">Revoke</string>
     <string name="vpn0wn_user_revoke_confirmation">Revoke %1$s from %2$s@%3$s:%4$d?\nSSH fingerprint: %5$s\nServer key: %6$s\nClient key: %7$s\nOperation: %8$s\n\nThis archives the original private peer block on the server before removing access. Any retained private profile on this device is deleted only after peer absence and this operation’s archive are verified. Imported tunnels and exported copies remain. Cancellation cannot undo an admitted remote operation.</string>
@@ -733,6 +732,7 @@
     <string name="vpn0wn_upload">↑ UPLOAD</string>
     <string name="vpn0wn_peer_title">PEER #%1$s</string>
     <string name="vpn0wn_no_peer">NO PEER</string>
+    <string name="vpn0wn_cipher_unbound">unbound</string>
     <string name="vpn0wn_no_psk">NO PSK</string>
     <string name="vpn0wn_address_pending">address pending</string>
     <string name="vpn0wn_endpoint_pending">endpoint pending</string>
