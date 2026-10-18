@@ -525,7 +525,10 @@
     <string name="vpn0wn_user_status_idle">◑ IDLE</string>
     <string name="vpn0wn_user_status_revoked">✕ REVOKED</string>
     <string name="vpn0wn_home_wordmark" translatable="false">vpnøwn</string>
-    <string name="vpn0wn_home_header_summary">%1$s · %2$d configured</string>
+    <plurals name="vpn0wn_home_header_summary">
+        <item quantity="one">%1$s · %2$d configured</item>
+        <item quantity="other">%1$s · %2$d configured</item>
+    </plurals>
 
     <string name="vpn0wn_settings_title">settings</string>
     <string name="vpn0wn_settings_subtitle">GLOBAL · APP CONTROL</string>

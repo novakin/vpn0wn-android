@@ -520,8 +520,8 @@ object BindingAdapters {
     fun homeHeaderSummary(context: Context, tunnels: Iterable<ObservableTunnel>?): String {
         val wordmark = context.getString(R.string.vpn0wn_home_wordmark)
         if (tunnels == null) return wordmark
-        return context.getString(R.string.vpn0wn_home_header_summary,
-            wordmark, tunnels.count())
+        val count = tunnels.count()
+        return context.resources.getQuantityString(R.plurals.vpn0wn_home_header_summary, count, wordmark, count)
     }
 
     @JvmStatic
