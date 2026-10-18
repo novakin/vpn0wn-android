@@ -13,6 +13,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.widget.ScrollView
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.res.ResourcesCompat
@@ -56,11 +57,12 @@ class LocalizedCopyLayoutTest {
     @get:Rule val folder = TemporaryFolder()
 
     @Test fun editorLabelsAndNativeFieldsRemainReachable() = previews(largeText = true) { activity, case ->
-        val binding = TunnelEditorFragmentBinding.inflate(activity.layoutInflater)
+        val fragment = TunnelEditorFragment()
+        activity.supportFragmentManager.beginTransaction().add(android.R.id.content, fragment).commitNow()
+        val binding = requireNotNull(DataBindingUtil.getBinding<TunnelEditorFragmentBinding>(fragment.requireView()))
         val config = ConfigProxy().apply { addPeer() }
         binding.config = config
         binding.isNew = true
-        activity.setContentView(binding.root)
         binding.executePendingBindings()
         try {
             layout(binding.root, case)
@@ -127,6 +129,98 @@ class LocalizedCopyLayoutTest {
             }
             assertTextFits(peer.persistentKeepaliveText, hintLayout)
             capture(binding.root, case, "editor-peer")
+        } finally { binding.unbind() }
+    }
+
+    @Test fun editorApplicationSummariesAndConfigureRemainComplete() = previews(listOf(
+        Preview("applications-en-normal", locale = "en", width = 320, height = 640, scale = 1f),
+        Preview("applications-fr-normal", locale = "fr", width = 320, height = 640, scale = 1f),
+        Preview("applications-en-large", locale = "en", width = 320, height = 640, scale = 2f),
+        Preview("applications-fr-large", locale = "fr", width = 320, height = 640, scale = 2f),
+        Preview("applications-en-rtl-large", locale = "en", width = 320, height = 640, scale = 2f, rtl = true),
+        Preview("applications-fr-rtl-large", locale = "fr", width = 320, height = 640, scale = 2f, rtl = true),
+        Preview("applications-en-short", locale = "en", width = 640, height = 320, scale = 1f),
+        Preview("applications-fr-rtl-short", locale = "fr", width = 640, height = 320, scale = 1f, rtl = true),
+        Preview("applications-en-short-large", locale = "en", width = 640, height = 320, scale = 2f),
+        Preview("applications-fr-rtl-short-large", locale = "fr", width = 640, height = 320, scale = 2f, rtl = true),
+    )) { activity, case ->
+        val fragment = TunnelEditorFragment()
+        activity.supportFragmentManager.beginTransaction().add(android.R.id.content, fragment).commitNow()
+        val binding = requireNotNull(DataBindingUtil.getBinding<TunnelEditorFragmentBinding>(fragment.requireView()))
+        val config = ConfigProxy()
+        binding.config = config
+        val selections = listOf(
+            ApplicationSelection("all"),
+            ApplicationSelection("excluded-one", excluded = 1),
+            ApplicationSelection("excluded-many", excluded = 3),
+            ApplicationSelection("included-one", included = 1),
+            ApplicationSelection("included-many", included = 3),
+            ApplicationSelection("zero"),
+        )
+        try {
+            for (selection in selections) {
+                config.`interface`.excludedApplications.apply {
+                    clear()
+                    addAll((0 until selection.excluded).map { "com.example.excluded$it" })
+                }
+                config.`interface`.includedApplications.apply {
+                    clear()
+                    addAll((0 until selection.included).map { "com.example.included$it" })
+                }
+                binding.executePendingBindings()
+                layout(binding.root, case)
+                assertConfiguration(binding.root, case)
+                val expected = when {
+                    selection.included > 0 -> activity.resources.getQuantityString(
+                        R.plurals.set_included_applications, selection.included, selection.included)
+                    selection.excluded > 0 -> activity.resources.getQuantityString(
+                        R.plurals.set_excluded_applications, selection.excluded, selection.excluded)
+                    else -> activity.getString(R.string.all_applications)
+                }
+                assertEquals(expected, binding.editorApplicationsSummary.text.toString())
+                reveal(binding.editorApplicationsRow, binding.root, case)
+                for (label in listOf(binding.editorApplicationsLabel, binding.editorApplicationsSummary)) {
+                    assertFullyVisible(label)
+                    assertTextFits(label)
+                    assertMono(label, R.font.jetbrains_mono_regular)
+                }
+                val summaryLayout = requireNotNull(binding.editorApplicationsSummary.layout)
+                for (line in 0 until summaryLayout.lineCount - 1) {
+                    val end = summaryLayout.getLineEnd(line)
+                    assertTrue("Applications summary keeps words whole: $expected",
+                        end in 1 until expected.length && (expected[end - 1].isWhitespace() || expected[end].isWhitespace()))
+                }
+                val button = binding.setExcludedApplications
+                assertFullyVisible(button)
+                assertTarget(button)
+                assertTextFits(button)
+                assertMono(button, R.font.jetbrains_mono_medium)
+                assertTrue("Configure keeps its native action", button.hasOnClickListeners())
+                val touchMode = button.isInTouchMode
+                val focused = if (touchMode) button.requestFocusFromTouch() else button.requestFocus()
+                assertTrue("Configure accepts native focus; touchMode=$touchMode, focusableInTouchMode=${button.isFocusableInTouchMode}", focused)
+                assertTrue("Configure receives native View focus", button.isFocused)
+                assertSame("Configure owns focus in the rendered tree", button, button.rootView.findFocus())
+                button.clearFocus()
+                val summaryBounds = Rect().also { binding.editorApplicationsSummary.getGlobalVisibleRect(it) }
+                val actionBounds = Rect().also { button.getGlobalVisibleRect(it) }
+                assertFalse("Summary and Configure do not overlap", Rect.intersects(summaryBounds, actionBounds))
+                if (case.width < case.height && case.scale >= 1.5f) {
+                    assertEquals(LinearLayout.VERTICAL, binding.editorApplicationsRow.orientation)
+                    assertEquals(activity.resources.getDimensionPixelSize(R.dimen.normal_margin), button.top - binding.editorApplicationsContent.bottom)
+                    if (case.rtl) {
+                        assertEquals("RTL Configure keeps the logical end inset", binding.editorApplicationsRow.paddingLeft, button.left)
+                    } else {
+                        assertEquals("LTR Configure keeps the logical end inset",
+                            binding.editorApplicationsRow.width - binding.editorApplicationsRow.paddingRight, button.right)
+                    }
+                } else {
+                    assertEquals("Normal and short rows keep the approved horizontal layout", LinearLayout.HORIZONTAL, binding.editorApplicationsRow.orientation)
+                }
+                layout(binding.root, case)
+                assertFullyVisible(binding.editorApplicationsRow)
+                capture(binding.root, case, "editor-applications-${selection.name}")
+            }
         } finally { binding.unbind() }
     }
 
@@ -199,10 +293,6 @@ class LocalizedCopyLayoutTest {
     }
 
     private fun previews(largeText: Boolean = false, check: (AppCompatActivity, Preview) -> Unit) {
-        val originalQualifiers = RuntimeEnvironment.getQualifiers()
-        val originalFontScale = RuntimeEnvironment.getApplication().resources.configuration.fontScale
-        val originalDirection = RuntimeEnvironment.getApplication().resources.configuration.layoutDirection
-        val originalLocale = Locale.getDefault()
         val standardCases = listOf(
             Preview("en-compact", locale = "en", width = 320, height = 640, scale = 1f),
             Preview("fr-compact", locale = "fr", width = 320, height = 640, scale = 1.3f),
@@ -212,6 +302,14 @@ class LocalizedCopyLayoutTest {
         )
         val cases = if (largeText) standardCases + standardCases.map { it.copy(name = "${it.name}-large", scale = 2f) }
             else standardCases
+        previews(cases, check)
+    }
+
+    private fun previews(cases: List<Preview>, check: (AppCompatActivity, Preview) -> Unit) {
+        val originalQualifiers = RuntimeEnvironment.getQualifiers()
+        val originalFontScale = RuntimeEnvironment.getApplication().resources.configuration.fontScale
+        val originalDirection = RuntimeEnvironment.getApplication().resources.configuration.layoutDirection
+        val originalLocale = Locale.getDefault()
         try {
             for (preview in cases) for (night in listOf(false, true)) {
                 val case = preview.copy(night = night)
@@ -371,6 +469,8 @@ class LocalizedCopyLayoutTest {
 
     private data class Preview(val name: String, val locale: String, val width: Int, val height: Int, val scale: Float,
         val rtl: Boolean = false, val night: Boolean = false)
+
+    private data class ApplicationSelection(val name: String, val excluded: Int = 0, val included: Int = 0)
 
     private companion object {
         const val MINIMUM_TARGET_DP = 48
