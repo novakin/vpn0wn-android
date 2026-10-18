@@ -24,6 +24,73 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, sdk = [28])
 class VpsRestoreClientTest {
+    @Test fun runningConfirmRechecksSameUploadBeforeAdmissionAndUsesExactDigest() = runBlocking {
+        val remote = RecordingRemote().apply {
+            checkResponse.getJSONObject("plan").put("replacement", VpsRunningRestoreFixture.replacement())
+            beforeRestore = {
+                assertEquals(commands.last().contains("'--confirm'"), admitted)
+            }
+        }
+        val checked = client(remote).checkRunningServerRestore(connection(), snapshot(), request())
+        assertEquals(VpsRunningRestoreFixture.review, checked.replacement)
+        client(remote).restoreRunningServer(connection(), snapshot(), request(), checked.replacement) { remote.admitted = true }
+        val commands = remote.commands.filter(::isRestore)
+        assertEquals(3, commands.size)
+        assertTrue(commands.take(2).all { it.contains("'--check'") && it.contains("'--replace-running'") })
+        assertTrue(commands.last().contains("'--confirm' '--replace-running' '--expected-current-state' '${VpsRunningRestoreFixture.DIGEST}'"))
+        assertEquals(2, remote.restoreInputUploads)
+        assertTrue(remote.cleaned)
+        assertEquals(2, remote.closes)
+        remote.beforeRestore = null
+        client(remote).verifyFreshRestore(connection(), snapshot(), request())
+        val verify = remote.commands.last(::isRestore)
+        assertTrue(verify.contains("'--verify'"))
+        assertFalse(verify.contains("'--replace-running'") || verify.contains("'--expected-current-state'"))
+    }
+
+    @Test fun changedRunningReviewNeverAdmitsOrConfirms() = runBlocking {
+        val remote = RecordingRemote().apply { checkResponse.getJSONObject("plan").put("replacement", VpsRunningRestoreFixture.replacement()) }
+        val failure = runCatching {
+            client(remote).restoreRunningServer(connection(), snapshot(), request(),
+                VpsRunningRestoreFixture.review.copy(reviewSha256 = "a".repeat(64))) { remote.admitted = true }
+        }.exceptionOrNull()
+        assertTrue(failure is ProvisioningException)
+        assertEquals(ProvisioningFailureCategory.CONFLICT, (failure as ProvisioningException).category)
+        assertFalse(remote.admitted)
+        assertEquals(1, remote.commands.count(::isRestore))
+        assertTrue(remote.commands.single(::isRestore).contains("'--check'"))
+        assertTrue(remote.cleaned)
+        assertEquals(1, remote.closes)
+    }
+
+    @Test fun cancelledRunningRecheckDrainsPrivateCleanupWithoutAdmission() = runBlocking {
+        val remote = RecordingRemote().apply { blockRestore = true }
+        val pending = async { client(remote).restoreRunningServer(connection(), snapshot(), request(), VpsRunningRestoreFixture.review) { remote.admitted = true } }
+        try {
+            remote.entered.await()
+            pending.cancelAndJoin()
+            assertFalse(remote.admitted)
+            assertFalse(remote.commands.any { it.contains("'--confirm'") })
+            assertTrue(remote.cleaned)
+            assertEquals(1, remote.closes)
+        } finally { pending.cancelAndJoin() }
+    }
+
+    @Test fun everyDesiredRunningPlanFieldStillCorrelatesWithCapturedSourceAndRequest() = runBlocking {
+        for ((field, value) in listOf("interface" to "other0", "endpoint" to "foreign.example", "port" to "51822",
+            "cidr" to "10.10.0.0/24", "dns" to "8.8.8.8", "serverPublicKey" to PEER_KEY, "peerCount" to 0, "revokedCount" to 0)) {
+            val remote = RecordingRemote().apply {
+                checkResponse.getJSONObject("plan").put("replacement", VpsRunningRestoreFixture.replacement()).put(field, value)
+            }
+            val failure = runCatching { client(remote).checkRunningServerRestore(connection(), snapshot(), request()) }.exceptionOrNull()
+            assertTrue(failure is ProvisioningException)
+            assertEquals(ProvisioningFailureCategory.INVALID_RESPONSE, (failure as ProvisioningException).category)
+            assertFalse(remote.admitted)
+            assertTrue(remote.cleaned)
+            assertEquals(1, remote.closes)
+        }
+    }
+
     @Test
     fun checkUploadsPrivateInputsBeforeReadOnlyDispatchAndReturnsCorrelatedPublicPlan() = runBlocking {
         val snapshot = snapshot()
@@ -474,6 +541,7 @@ class VpsRestoreClientTest {
         var blockRestore = false
         var conflict = false
         var beforeRestore: (() -> Unit)? = null
+        var restoreInputUploads = 0
 
         override suspend fun execute(command: String): ProvisioningCommandOutput {
             commands.add(command)
@@ -503,6 +571,7 @@ class VpsRestoreClientTest {
         override suspend fun upload(path: String, content: String, mode: String): ProvisioningCommandOutput {
             uploads[path] = content to mode
             if (path.endsWith("/server.conf")) {
+                restoreInputUploads++
                 if (failUpload) return ProvisioningCommandOutput(74, "", "synthetic-secret-diagnostic")
                 if (blockUpload) {
                     entered.complete(Unit)

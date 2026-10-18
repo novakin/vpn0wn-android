@@ -25,9 +25,13 @@ import com.vpn0wn.android.provisioning.VpsFreshRestoreWorkflowTest
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Step
 import com.vpn0wn.android.provisioning.VpsRestoreFixture
+import com.vpn0wn.android.provisioning.VpsRunningRestoreFixture
 import com.vpn0wn.android.provisioning.VpsUserProfileFileTest
+import com.vpn0wn.crypto.Key
 import java.io.File
 import java.util.Locale
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -70,7 +74,9 @@ class VpsFreshRestoreLayoutTest {
             Preview("en-night", "en-rUS-w360dp-h800dp-night-mdpi", 360, 800, 1f, View.LAYOUT_DIRECTION_LTR),
             Preview("fr-stress", "fr-ldrtl-w640dp-h320dp-land-notnight-mdpi", 640, 320, 2f, View.LAYOUT_DIRECTION_RTL),
             Preview("ar-compact", "ar-rSA-ldrtl-w320dp-h640dp-port-notnight-mdpi", 320, 640, 2f, View.LAYOUT_DIRECTION_RTL),
-        )
+        ).flatMap { listOf(it, it.copy(id = "${it.id}-running", running = true)) } +
+            Preview("en-long-review", "en-rUS-w360dp-h800dp-notnight-mdpi", 360, 800, 1f, View.LAYOUT_DIRECTION_LTR,
+                running = true, large = true)
         for (case in cases) {
             RuntimeEnvironment.setQualifiers(case.qualifiers)
             RuntimeEnvironment.setFontScale(case.fontScale)
@@ -79,6 +85,23 @@ class VpsFreshRestoreLayoutTest {
             assertResourceConfiguration(RuntimeEnvironment.getApplication().resources.configuration, case)
             val fixture = provisioningLayoutFixture(folder, case.direction)
             try {
+                if (case.running) {
+                    fixture.peer.configExists = true
+                    fixture.peer.restoreCheckOutput = VpsRunningRestoreFixture.response().apply {
+                        if (case.large) {
+                            val replacement = getJSONObject("plan").getJSONObject("replacement")
+                            replacement.put("peerCount", 25).put("revokedCount", 24)
+                            replacement.put("users", JSONArray().apply { repeat(24) { index ->
+                                put(JSONObject().put("name", "phone_$index".padEnd(32, '_'))
+                                    .put("publicKey", Key.fromBytes(ByteArray(32) { index.toByte() }).toBase64()).put("change", "removed"))
+                            } })
+                            replacement.put("discardedRevoked", JSONArray().apply { repeat(24) { index ->
+                                put(JSONObject().put("archiveName", "retired_$index".padEnd(32, '_') + ".conf.00000000-0000-0000-0000-000000000001")
+                                    .put("change", if (index < 23) "removed" else "replaced"))
+                            } })
+                        }
+                    }.toString()
+                }
                 prepare(fixture)
                 val complete = fixture.model.state.value
                 for (step in Step.entries) {
@@ -104,6 +127,14 @@ class VpsFreshRestoreLayoutTest {
                         assertEquals("ss01, zero, tnum", identity.fontFeatureSettings)
                     }
                     assertTextReachable(fixture.root)
+                    if (case.running && (step == Step.PLAN || step == Step.APPLY)) {
+                        for ((name, resource) in listOf("warning" to R.string.vpn0wn_restore_replace_warning,
+                            "effects" to R.string.vpn0wn_restore_replace_limits)) {
+                            val content = fixture.activity.getString(resource)
+                            val consequence = descendants(fixture.root).filterIsInstance<TextView>().single { it.text.toString() == content }
+                            captureConsequence(fixture.root, consequence, case, "step-${step.ordinal + 1}", name, content)
+                        }
+                    }
                     val scroll = descendants(fixture.root).filterIsInstance<ScrollView>().single()
                     captureEdges(fixture.root, scroll, case, "step-${step.ordinal + 1}")
                 }
@@ -120,6 +151,21 @@ class VpsFreshRestoreLayoutTest {
                 assertConfiguration(decor, case)
                 val message = dialog.findViewById<TextView>(android.R.id.message)!!
                 val text = message.text.toString()
+                if (case.running) {
+                    val warning = fixture.activity.getString(R.string.vpn0wn_restore_replace_warning)
+                    val effects = fixture.activity.getString(R.string.vpn0wn_restore_replace_limits)
+                    assertTrue(text.contains(warning))
+                    assertTrue(text.contains(effects))
+                    val review = requireNotNull(confirmation.replacement)
+                    for (part in review.users.map { it.publicKey } + review.discardedRevoked.map { it.archiveName }) {
+                        assertTrue("Running review retains exact public identity $part", text.contains(part))
+                        assertTrue("Warning precedes variable differences", text.indexOf(warning) < text.indexOf(part))
+                        assertTrue("Effects precede variable differences", text.indexOf(effects) < text.indexOf(part))
+                    }
+                    for ((name, content) in listOf("warning" to warning, "effects" to effects)) {
+                        captureConsequence(decor, message, case, "confirmation", name, content)
+                    }
+                }
                 for (part in listOf(confirmation.ssh.host, confirmation.fingerprint, confirmation.summary.capturedAtUtc,
                     confirmation.plan.serverPublicKey, confirmation.plan.endpoint, confirmation.plan.port, confirmation.plan.cidr, confirmation.plan.dns))
                     assertTrue("Confirmation includes $part", text.contains(part))
@@ -285,8 +331,20 @@ class VpsFreshRestoreLayoutTest {
         assertEquals(case.qualifiers.substringBefore('-'), configuration.locales[0].language)
         assertEquals(case.fontScale, configuration.fontScale, 0f)
         assertEquals("Restore resources retain requested direction", case.direction, configuration.layoutDirection)
-        assertEquals(if (case.id == "en-night") Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO,
+        assertEquals(if ("night" in case.qualifiers.split('-')) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO,
             configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)
+    }
+
+    private fun TestScope.captureConsequence(root: View, text: TextView, case: Preview, state: String, name: String, content: String) {
+        val start = text.text.indexOf(content)
+        assertTrue("Consequence is present before capturing", start >= 0)
+        val painted = requireNotNull(text.layout)
+        for ((edge, offset) in listOf("start" to start, "end" to start + content.length - 1)) {
+            val line = painted.getLineForOffset(offset)
+            assertGlyphReachable(text, Rect(0, painted.getLineTop(line) + text.totalPaddingTop, text.width,
+                painted.getLineBottom(line) + text.totalPaddingTop))
+            captureFrame(root, case, state, "$name-$edge")
+        }
     }
 
     private fun TestScope.captureEdges(root: View, scroll: View, case: Preview, state: String) {
@@ -302,6 +360,12 @@ class VpsFreshRestoreLayoutTest {
         val project = File(requireNotNull(System.getProperty("user.dir"))).let { if (it.name == "ui") it.parentFile else it }
         val directory = System.getProperty("vpn0wn.restore.previewDir")?.let(::File) ?: File(project, ".artifacts/fresh-restore-previews")
         assertTrue(directory.isDirectory || directory.mkdirs())
+        val configuration = root.resources.configuration
+        File(directory, "${case.id}-$state-$edge.json").writeText(JSONObject()
+            .put("case", case.id).put("state", state).put("edge", edge).put("synthetic", true)
+            .put("locale", configuration.locales[0].toLanguageTag()).put("fontScale", configuration.fontScale)
+            .put("layoutDirection", root.layoutDirection).put("nightMode", configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)
+            .put("widthPx", root.width).put("heightPx", root.height).toString(2))
         val bitmap = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
         try { root.draw(Canvas(bitmap)); File(directory, "${case.id}-$state-$edge.png").outputStream().use { assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it)) } }
         finally { bitmap.recycle() }
@@ -327,7 +391,8 @@ class VpsFreshRestoreLayoutTest {
         if (root is ViewGroup) for (index in 0 until root.childCount) yieldAll(descendants(root.getChildAt(index)))
     }
 
-    private data class Preview(val id: String, val qualifiers: String, val width: Int, val height: Int, val fontScale: Float, val direction: Int)
+    private data class Preview(val id: String, val qualifiers: String, val width: Int, val height: Int, val fontScale: Float, val direction: Int,
+        val running: Boolean = false, val large: Boolean = false)
     private companion object {
         val STEPS = listOf(R.string.vpn0wn_step_ssh, R.string.vpn0wn_step_detect, R.string.vpn0wn_restore_check_step, R.string.vpn0wn_restore_action)
     }

@@ -175,6 +175,25 @@ class Vpn0wnProvisioningClient(
         snapshot: VpsBackupResult,
         request: VpsRestoreRequest,
         onAdmitted: suspend () -> Unit = {},
+    ): VpsRestoreResult = restore(connection, snapshot, request, null, onAdmitted)
+
+    suspend fun restoreRunningServer(
+        connection: VpsConnection,
+        snapshot: VpsBackupResult,
+        request: VpsRestoreRequest,
+        replacement: VpsRestoreReplacement,
+        onAdmitted: suspend () -> Unit,
+    ): VpsRestoreResult = restore(connection, snapshot, request,
+        replacement.copy(users = replacement.users.toList(), discardedRevoked = replacement.discardedRevoked.toList()), onAdmitted)
+
+    // Source metadata, reviewed current state and confirmed receipt must each correlate independently.
+    @Suppress("ThrowsCount")
+    private suspend fun restore(
+        connection: VpsConnection,
+        snapshot: VpsBackupResult,
+        request: VpsRestoreRequest,
+        replacement: VpsRestoreReplacement?,
+        onAdmitted: suspend () -> Unit,
     ): VpsRestoreResult {
         val owned = snapshot.copy(revoked = snapshot.revoked.toList())
         validateRestore(owned, request)
@@ -183,8 +202,17 @@ class Vpn0wnProvisioningClient(
         val expectedPeerCount = owned.config.lineSequence().count { it == "[Peer]" }
         return withClient(connection) { client, remoteDir ->
             val inputDir = uploadRestoreInput(client, remoteDir, owned)
+            if (replacement != null) {
+                val reviewed = ProvisioningJson.parseRunningRestoreCheck(run(client, remoteDir, "restore.sh",
+                    request.args(inputDir, checkOnly = true) + "--replace-running").stdout)
+                if (reviewed != VpsRunningRestoreCheck(expectedRestorePlan(owned, request), replacement))
+                    throw ProvisioningException("Server changed; check and review the rollback again",
+                        category = ProvisioningFailureCategory.CONFLICT, remoteCode = "restore_target_changed")
+            }
             onAdmitted()
-            val result = ProvisioningJson.parseRestore(run(client, remoteDir, "restore.sh", request.args(inputDir)).stdout)
+            val args = request.args(inputDir) + if (replacement == null) emptyList() else
+                listOf("--replace-running", "--expected-current-state", replacement.reviewSha256)
+            val result = ProvisioningJson.parseRestore(run(client, remoteDir, "restore.sh", args).stdout)
             if (result.interfaceName != owned.interfaceName || result.endpoint != request.endpoint ||
                 result.port != request.port.toString() || result.serverPublicKey != request.expectedServerPublicKey ||
                 result.cidr != expectedCidr || result.peerCount != expectedPeerCount || result.revokedCount != owned.revokedCount)
@@ -200,6 +228,20 @@ class Vpn0wnProvisioningClient(
             val inputDir = uploadRestoreInput(client, remoteDir, owned)
             val result = ProvisioningJson.parseRestoreCheck(run(client, remoteDir, "restore.sh", request.args(inputDir, checkOnly = true)).stdout)
             if (result != expected)
+                throw ProvisioningException(ProvisioningFailureCategory.INVALID_RESPONSE.safeMessage, category = ProvisioningFailureCategory.INVALID_RESPONSE)
+            result
+        }
+    }
+
+    suspend fun checkRunningServerRestore(connection: VpsConnection, snapshot: VpsBackupResult,
+        request: VpsRestoreRequest): VpsRunningRestoreCheck {
+        val owned = snapshot.copy(revoked = snapshot.revoked.toList())
+        val expected = expectedRestorePlan(owned, request)
+        return withClient(connection) { client, remoteDir ->
+            val inputDir = uploadRestoreInput(client, remoteDir, owned)
+            val result = ProvisioningJson.parseRunningRestoreCheck(run(client, remoteDir, "restore.sh",
+                request.args(inputDir, checkOnly = true) + "--replace-running").stdout)
+            if (result.plan != expected)
                 throw ProvisioningException(ProvisioningFailureCategory.INVALID_RESPONSE.safeMessage, category = ProvisioningFailureCategory.INVALID_RESPONSE)
             result
         }

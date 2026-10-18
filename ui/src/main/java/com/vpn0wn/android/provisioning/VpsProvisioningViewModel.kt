@@ -44,7 +44,7 @@ class VpsProvisioningViewModel internal constructor(
     enum class Step { SSH, DETECT, PLAN, APPLY }
     enum class AuthMode { KEY, PASSWORD }
     enum class SavedAccess { NONE, SAVED, METADATA_ONLY, UNKNOWN, CLEARED }
-    enum class Problem { INVALID_INPUT, CONNECTION_FAILED, INVALID_RESPONSE, ACCESS_MISSING, CONNECTION_CHANGED, STORAGE_FAILED, STORAGE_CONFLICT, CANCELLED, INSTALL_FAILED, INSTALL_PENDING, ADD_PENDING, REMOVE_PENDING, ROTATE_PENDING, RESTORE_PENDING, PEER_CHANGED, IDENTITY_UNAVAILABLE, PROFILE_UNAVAILABLE, ARCHIVE_UNAVAILABLE, ARCHIVE_FULL }
+    enum class Problem { INVALID_INPUT, CONNECTION_FAILED, INVALID_RESPONSE, ACCESS_MISSING, CONNECTION_CHANGED, STORAGE_FAILED, STORAGE_CONFLICT, CANCELLED, INSTALL_FAILED, INSTALL_PENDING, ADD_PENDING, REMOVE_PENDING, ROTATE_PENDING, RESTORE_PENDING, RESTORE_CHANGED, PEER_CHANGED, IDENTITY_UNAVAILABLE, PROFILE_UNAVAILABLE, ARCHIVE_UNAVAILABLE, ARCHIVE_FULL }
     enum class Installation { NONE, RUNNING, INSTALLED, OBSERVED, UNCERTAIN }
     enum class UserCreation { NONE, RUNNING, RETAINED, UNSAVED, UNCERTAIN, CREATED }
     enum class UserRemoval { NONE, CHECKING, RUNNING, UNCERTAIN, FAILED, REMOVED, OBSERVED }
@@ -56,9 +56,11 @@ class VpsProvisioningViewModel internal constructor(
         val revokedCount: Int, val serverPublicKey: String?)
 
     data class RestoreState(val summary: BackupSummary? = null, val plan: VpsRestoreCheckPlan? = null,
-        val owner: StoredVpsServer? = null, val attempt: PendingVpsRestore? = null, val outcome: RestoreOutcome = RestoreOutcome.NONE)
+        val owner: StoredVpsServer? = null, val attempt: PendingVpsRestore? = null, val outcome: RestoreOutcome = RestoreOutcome.NONE,
+        val replacement: VpsRestoreReplacement? = null)
     data class RestoreConfirmation(val server: StoredVpsServer, val ssh: VpsEndpoint, val fingerprint: String,
-        val ciphertextSha256: String, val plan: VpsRestoreCheckPlan, val summary: BackupSummary)
+        val ciphertextSha256: String, val plan: VpsRestoreCheckPlan, val summary: BackupSummary,
+        val replacement: VpsRestoreReplacement? = null)
 
     data class InstallConfirmation(val plan: VpsPlanResult, val ssh: VpsEndpoint, val fingerprint: String, val server: StoredVpsServer)
     data class AddUserConfirmation(val server: StoredVpsServer, val ssh: VpsEndpoint, val fingerprint: String,
@@ -154,6 +156,7 @@ class VpsProvisioningViewModel internal constructor(
     val canRestore: Boolean get() = !mutableState.value.busy && mutableState.value.active &&
         mutableState.value.step == Step.APPLY && mutableState.value.restore?.outcome == RestoreOutcome.READY &&
         mutableState.value.restore?.plan != null && mutableState.value.restore?.attempt == null && restoreSource != null &&
+        (mutableState.value.restore?.replacement != null) == (mutableState.value.detect?.configExists == true) &&
         persistedDetection == server && server != null && verifiedEndpoint != null && verifiedFingerprint != null
 
     private data class ReviewedRotation(val confirmation: RotateUserConfirmation, val profile: VpsUserProfile) {
@@ -417,6 +420,7 @@ class VpsProvisioningViewModel internal constructor(
         val expected = persistedDetection ?: return null
         val summary = mutableState.value.restore?.summary ?: return null
         if (mutableState.value.detect?.supported != true || mutableState.value.restore?.attempt != null) return null
+        val replacing = mutableState.value.detect?.configExists == true
         return operate {
             restoreConfirmation = null
             val connection = connection() ?: return@operate
@@ -424,11 +428,12 @@ class VpsProvisioningViewModel internal constructor(
                 outcome = RestoreOutcome.CHECKING), step = Step.DETECT)
             try {
                 requireRestoreTarget(expected, connection, source)
-                val plan = client.checkFreshRestore(connection, source.snapshot, restoreRequest(summary))
+                val checked = if (replacing) client.checkRunningServerRestore(connection, source.snapshot, restoreRequest(summary)) else null
+                val plan = checked?.plan ?: client.checkFreshRestore(connection, source.snapshot, restoreRequest(summary))
                 currentCoroutineContext().ensureActive()
                 requireRestoreTarget(expected, connection, source)
                 mutableState.value = mutableState.value.copy(restore = RestoreState(summary, plan, expected,
-                    outcome = RestoreOutcome.READY), step = Step.PLAN)
+                    outcome = RestoreOutcome.READY, replacement = checked?.replacement), step = Step.PLAN)
             } finally {
                 if (mutableState.value.restore?.outcome == RestoreOutcome.CHECKING)
                     mutableState.value = mutableState.value.copy(restore = mutableState.value.restore?.copy(outcome = RestoreOutcome.NONE))
@@ -441,7 +446,7 @@ class VpsProvisioningViewModel internal constructor(
         if (!canRestore) return null
         val state = requireNotNull(mutableState.value.restore)
         return RestoreConfirmation(requireNotNull(server), requireNotNull(verifiedEndpoint), requireNotNull(verifiedFingerprint),
-            requireNotNull(restoreSource).ciphertextSha256, requireNotNull(state.plan), requireNotNull(state.summary))
+            requireNotNull(restoreSource).ciphertextSha256, requireNotNull(state.plan), requireNotNull(state.summary), state.replacement)
             .also { restoreConfirmation = it }
     }
 
@@ -450,6 +455,7 @@ class VpsProvisioningViewModel internal constructor(
     fun confirmRestore(confirmation: RestoreConfirmation): Job? {
         val source = restoreSource ?: return null
         if (!canRestore || restoreConfirmation !== confirmation || mutableState.value.restore?.plan !== confirmation.plan ||
+            mutableState.value.restore?.replacement !== confirmation.replacement ||
             source.ciphertextSha256 != confirmation.ciphertextSha256) return null
         restoreConfirmation = null
         return operate {
@@ -459,7 +465,7 @@ class VpsProvisioningViewModel internal constructor(
                 confirmation.fingerprint, confirmation.ciphertextSha256, confirmation.plan)
             try {
                 requireRestoreTarget(expected, connection, source)
-                val result = client.restoreFresh(connection, source.snapshot, restoreRequest(confirmation.summary)) {
+                val admit: suspend () -> Unit = {
                     withContext(Dispatchers.Main.immediate) {
                         currentCoroutineContext().ensureActive()
                         requireRestoreTarget(expected, connection, source)
@@ -478,10 +484,16 @@ class VpsProvisioningViewModel internal constructor(
                         currentCoroutineContext().ensureActive()
                     }
                 }
+                val request = restoreRequest(confirmation.summary)
+                val result = confirmation.replacement?.let { client.restoreRunningServer(connection, source.snapshot, request, it, admit) }
+                    ?: client.restoreFresh(connection, source.snapshot, request, admit)
                 mutableState.value = mutableState.value.copy(cleanupRequired = result.cleanupPath.isNotEmpty(), cleanupOwner = expected)
                 if (result.cleanupPath.isEmpty()) settleRestoration(expected, attempt, source, connection, RestoreOutcome.VERIFIED)
             } finally {
                 if (mutableState.value.restore?.attempt == attempt) publishRestoreUncertainty(expected, attempt)
+                if (confirmation.replacement != null && mutableState.value.restore?.outcome == RestoreOutcome.READY)
+                    mutableState.value = mutableState.value.copy(restore = mutableState.value.restore?.copy(
+                        plan = null, replacement = null, outcome = RestoreOutcome.NONE), step = Step.DETECT)
                 (connection.credential as? VpsCredential.Password)?.clear()
             }
         }
@@ -1297,7 +1309,7 @@ class VpsProvisioningViewModel internal constructor(
             plan = null,
             problem = null,
             installation = if (mutableState.value.pendingInstall) Installation.UNCERTAIN else Installation.NONE,
-            restore = mutableState.value.restore?.copy(plan = null, outcome = if (mutableState.value.restore?.attempt != null)
+            restore = mutableState.value.restore?.copy(plan = null, replacement = null, outcome = if (mutableState.value.restore?.attempt != null)
                 RestoreOutcome.UNCERTAIN else RestoreOutcome.NONE),
         )
     }
@@ -1632,9 +1644,10 @@ class VpsProvisioningViewModel internal constructor(
                 mutableState.value = mutableState.value.copy(problem = Problem.CANCELLED)
                 throw cancelled
             } catch (failure: ProvisioningException) {
-                val problem = when (failure.category) {
-                    ProvisioningFailureCategory.INVALID_INPUT -> Problem.INVALID_INPUT
-                    ProvisioningFailureCategory.INVALID_RESPONSE -> Problem.INVALID_RESPONSE
+                val problem = when {
+                    failure.remoteCode == "restore_target_changed" && mutableState.value.restore?.attempt == null -> Problem.RESTORE_CHANGED
+                    failure.category == ProvisioningFailureCategory.INVALID_INPUT -> Problem.INVALID_INPUT
+                    failure.category == ProvisioningFailureCategory.INVALID_RESPONSE -> Problem.INVALID_RESPONSE
                     else -> Problem.CONNECTION_FAILED
                 }
                 mutableState.value = mutableState.value.copy(problem = problem)
