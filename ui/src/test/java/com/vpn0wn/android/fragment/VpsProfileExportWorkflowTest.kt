@@ -32,7 +32,7 @@ import org.robolectric.shadows.ShadowContentResolver
 @Config(application = Application::class, sdk = [29],
     shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
 @OptIn(ExperimentalCoroutinesApi::class)
-internal class VpsProfileExportWorkflowTest : VpsProvisioningWorkflowFixture() {
+internal class VpsProfileExportRestrictionWorkflowTest : VpsProvisioningWorkflowFixture() {
     @Test
     fun exportRestrictionAtOutputDeletesOwnedFileBeforeAnyProfileBytesAreWritten() = runTest {
         VpsUserProfileFileTest.resetNativeFiles()
@@ -57,7 +57,13 @@ internal class VpsProfileExportWorkflowTest : VpsProvisioningWorkflowFixture() {
             assertEquals(2, profileStatusCommands(fixture))
         } finally { fixture.close() }
     }
+}
 
+@RunWith(RobolectricTestRunner::class)
+@Config(application = Application::class, sdk = [29],
+    shadows = [VpsCredentialFileTest.NativeFiles::class, AppDataTransferSettingsTest.Authentication::class])
+@OptIn(ExperimentalCoroutinesApi::class)
+internal class VpsProfileExportWorkflowTest : VpsProvisioningWorkflowFixture() {
     @Test
     fun exportedProfilesWithShortOrThirtyTwoCharacterNamesRoundTripThroughFileImporter() = runTest {
         for (peerName in listOf("phone", "p".repeat(32))) {
@@ -90,37 +96,37 @@ internal class VpsProfileExportWorkflowTest : VpsProvisioningWorkflowFixture() {
             } finally { fixture.close() }
         }
     }
+}
 
-    private class ProfileOutputProvider(val file: File) : ContentProvider() {
-        var inserts = 0
-        var opens = 0
-        var deletes = 0
-        var name: String? = null
-        var bytesAtDeletion: Long? = null
-        var onOpened: (() -> Unit)? = null
-        override fun onCreate() = true
-        override fun getType(uri: Uri) = "application/x-wireguard-profile"
-        override fun insert(uri: Uri, values: ContentValues?): Uri {
-            inserts++
-            name = values!!.getAsString(MediaStore.MediaColumns.DISPLAY_NAME)
-            return Uri.parse("content://media/external/downloads/1")
-        }
-        override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
-            opens++
-            val descriptor = ParcelFileDescriptor.open(file, if (mode == "r") ParcelFileDescriptor.MODE_READ_ONLY else ParcelFileDescriptor.MODE_WRITE_ONLY)
-            if (mode != "r") onOpened?.invoke()
-            return descriptor
-        }
-        override fun query(uri: Uri, projection: Array<out String>?, selection: String?, selectionArgs: Array<out String>?, sortOrder: String?): Cursor =
-            MatrixCursor(requireNotNull(projection)).apply {
-                addRow(projection.map { if (it == MediaStore.MediaColumns.DISPLAY_NAME) name else file.absolutePath })
-            }
-        override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int {
-            assertEquals(Uri.parse("content://media/external/downloads/1"), uri)
-            deletes++
-            bytesAtDeletion = file.length()
-            return if (file.delete()) 1 else 0
-        }
-        override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<out String>?) = 0
+private class ProfileOutputProvider(val file: File) : ContentProvider() {
+    var inserts = 0
+    var opens = 0
+    var deletes = 0
+    var name: String? = null
+    var bytesAtDeletion: Long? = null
+    var onOpened: (() -> Unit)? = null
+    override fun onCreate() = true
+    override fun getType(uri: Uri) = "application/x-wireguard-profile"
+    override fun insert(uri: Uri, values: ContentValues?): Uri {
+        inserts++
+        name = values!!.getAsString(MediaStore.MediaColumns.DISPLAY_NAME)
+        return Uri.parse("content://media/external/downloads/1")
     }
+    override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
+        opens++
+        val descriptor = ParcelFileDescriptor.open(file, if (mode == "r") ParcelFileDescriptor.MODE_READ_ONLY else ParcelFileDescriptor.MODE_WRITE_ONLY)
+        if (mode != "r") onOpened?.invoke()
+        return descriptor
+    }
+    override fun query(uri: Uri, projection: Array<out String>?, selection: String?, selectionArgs: Array<out String>?, sortOrder: String?): Cursor =
+        MatrixCursor(requireNotNull(projection)).apply {
+            addRow(projection.map { if (it == MediaStore.MediaColumns.DISPLAY_NAME) name else file.absolutePath })
+        }
+    override fun delete(uri: Uri, selection: String?, selectionArgs: Array<out String>?): Int {
+        assertEquals(Uri.parse("content://media/external/downloads/1"), uri)
+        deletes++
+        bytesAtDeletion = file.length()
+        return if (file.delete()) 1 else 0
+    }
+    override fun update(uri: Uri, values: ContentValues?, selection: String?, selectionArgs: Array<out String>?) = 0
 }
