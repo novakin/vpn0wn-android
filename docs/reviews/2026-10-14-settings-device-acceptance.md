@@ -1,6 +1,6 @@
 # Scoped rooted Settings acceptance — #34
 
-Last updated: 2026-10-14 (Europe/Paris).
+Last updated: 2026-10-18 (Europe/Paris).
 
 ## Scope and provenance
 
@@ -155,6 +155,20 @@ Fresh native session `stable-20261014T185120764859Z` completed with exit `0` and
 
 The same independent record verifies exact installed APK/UID, prelaunch DENY and retirement, composite cleanup 15/15, owner 14/14 and seven extra fields. Outer raw timeout reads retain `30000` → `900000` → `30000` milliseconds with original presence preserved. The prior paired portrait HOLD remains unchanged. This completes its missing-row visual proof and sampled preservation only; it establishes no preference/action, granted-root, TalkBack, complete storage or continuous health acceptance.
 
+## Current-artifact TalkBack attempt — 2026-10-18
+
+**Verdict: PARTIAL; app TalkBack acceptance remains incomplete.** This bounded follow-up belongs to [#34](https://github.com/novakin/vpn0wn-android/issues/34), with related Add/peer, Home-selection and G4 limits under [#35](https://github.com/novakin/vpn0wn-android/issues/35), [#36](https://github.com/novakin/vpn0wn-android/issues/36) and [#52](https://github.com/novakin/vpn0wn-android/issues/52). All four remain open. The earlier six-case matrix and failed trials above retain their original scopes; none was repeated or relabeled.
+
+The granted Pixel 7 Pro/API 34 interval used the already installed normal `com.vpn0wn.android.debug` APK from source `5a67a698d9b1e83b6969790df616e27932bdaf84`, tree `ddfcdb08f111e879f118a2603054223429d9be1d`. Installed bytes matched SHA256 `f0818d880d5ae7975446671b0f45acbda1309210c7449f89663c0eb575672595`. Output was 1080×2340 at density 420, font scale 1.0 and default app locale, displaying French. Installed TalkBack `17.0.1.926549743` exposed its native speech-output overlay in main preferences. Its temporary enablement yielded actual generated text and automatic green accessibility focus, including `Paramètres`, `Retour. Bouton` and the Add-sheet title. These observations establish neither app traversal/activation nor acoustic audibility.
+
+Injected ADB swipes and Alt/Meta combinations left app accessibility focus unchanged; a single injected tap directly opened Settings. The earlier paired-tap interpretation is rejected as TalkBack double-tap proof. A bounded preinstalled scrcpy 4.1 UHID keyboard attempt moved its native keyboard-notice focus from description to OK and dismissed the notice, but ordinary keyboard focus can explain that dialog result. Two subsequent Settings shortcuts left Back focused. Neither ADB nor UHID supplies accepted app TalkBack traversal or activation. The attempt stopped without a new harness or another input path. Home checkbox/count/zero-Delete/confirmation feedback, peer values, QR lens and a stress configuration were not exercised.
+
+Ordinary injected input verified only the current remote switch OFF→ON→OFF, Settings Back, Add opening and Back dismissal. Original-size normal French frames show readable wrapping and current font roles; root-denial toast overlap excludes obscured lower Settings content from complete visual acceptance. This is a satisfactory bounded observation record, not a satisfied E2 accessibility verdict.
+
+The owned scrcpy window closed and client exited 0; all owned host commands settled. Native UI restored TalkBack OFF and overlay false; touch exploration returned to 0 and accessibility_enabled remained 1. The same five original accessibility services remained enabled, with Android's raw list order changed. The app returned to its original empty Home; both sampled private-file hashes, including settings preferences, exactly matched baseline after switch restoration. Sampled font/rotation/auto-rotation, size/density, TTS engine and locale also matched. No synthetic profile, personal tunnel toggle, server operation or microphone occurred; no app-root grant or policy-write command was issued. Root policy had no fresh baseline here; scrcpy server-process and remote-helper disappearance were not separately queried after client exit.
+
+Whole TalkBack preference and permission restoration is **not** established. Native initialization changed its XML from 75 to 714 keys: 640 additions, existing `app_version` changed `60123274`→`60215178`, and existing `pref_update_welcome_12_2_shown_key=true` was removed. Other preexisting keys matched. Braille preferences changed 11→12 keys by adding `pref_bd_output_code`; all eleven preexisting keys matched. The observed overlay is restored, but migration/default/keyboard-notice records remain; no private preference file was overwritten. Native phone/notification prompts were denied. Final READ_PHONE_STATE has USER_SET; POST_NOTIFICATIONS has USER_SET and USER_FIXED, both denied with Android's user-sensitive flags. Their earlier flags were not sampled, so those flags are unbound rather than restored. Device ownership was released after these qualified observations. Private XML/package observations, PNGs and exact comparisons remain ignored under `.artifacts/continuation-20261018/e2-talkback-native-20261018/`.
+
 ## Remaining acceptance
 
 | Physical configuration | Current acceptance |
@@ -168,4 +182,4 @@ The same independent record verifies exact installed APK/UID, prelaunch DENY and
 
 Independent case-specific records now establish **6/6 selected physical visual configurations** across distinct sessions on matching source/APK/configuration tuples. Both light-gap cleanup failures, the later dark installation/cleanup failure, the paired portrait HOLD and separately scoped preservation/restoration remain explicit above. Native hierarchy labels, roles and checkable state do not establish spoken TalkBack traversal/actions/announcements, translation or conditional Android/admin/OEM acceptance. Root-granted backend switching, multiple tunnels, tools actions and actual boot restoration remain separate. Tile membership does not prove tile VPN activation. Physical authentication/export/provider/write/cancellation acceptance belongs to the corresponding action owners.
 
-Settings source and policy behavior are unchanged. [QA](../qa-test-plan.md#remaining-g4-device-acceptance) owns remaining checks; [the roadmap](../ui-redesign-roadmap.md#pending) retains incomplete acceptance. Neither #34 nor #52 closes from this scoped record. No performance, protocol, release or whole-E2 acceptance follows.
+This evidence update changes no Settings source or policy behavior. [QA](../qa-test-plan.md#remaining-g4-device-acceptance) owns remaining checks; [the roadmap](../ui-redesign-roadmap.md#pending) retains incomplete acceptance. Neither #34 nor #52 closes from this scoped record. No performance, protocol, release or whole-E2 acceptance follows.
