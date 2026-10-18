@@ -1,6 +1,8 @@
 # Codebase reassessment after delivery repairs
 
-Last updated: 2026-10-17 (Europe/Paris).
+Last updated: 2026-10-18 (Europe/Paris).
+
+**Latest delivered-source engineering assessment: 85/100 at `29bc2a8d`.** The [2026-10-18 follow-up](#post-repair-assessment--2026-10-18) records the repaired owners, current review and evidence limits. The original assessment, tables and findings below retain their 2026-10-17 revision and historical 80/100 judgment.
 
 ## Result and revision
 
@@ -114,3 +116,48 @@ The native reviewer freshly checked official Go download metadata, supporting th
 Keep the current foundation. Use the responsible owner, existing coroutine/transaction boundaries and native APIs. A targeted extraction from the large VPS Fragment/ViewModel or manager is justified only by a concrete duplicated responsibility or reviewable invariant; file length alone does not justify a broad refactor, new framework, scheduler or abstraction layer. No production repair is delivered by this report.
 
 The coordinator is satisfied with the bounded source assessment and honest evidence distinctions. Independent final-report review and publication/merge acceptance belong to the documentation PR; recording findings does not close their repair issues or establish release readiness.
+
+## Post-repair assessment — 2026-10-18
+
+**Overall engineering assessment: 85/100.** Delivered source is `29bc2a8ddd77c88fa7f4bbc6fee0851ddf826716`, tree `7de00d016b4d7f7bfda1f0c93648465baf4743bc`, identical to independently reviewed and CI-tested `07259b598847fbf954ab56106e6aa6755c68a4a9`. This follow-up preserves the original 80/100 assessment at `5882460d` above. Scores are bounded engineering judgments, not completion percentages, defect probabilities or security certificates.
+
+The four Android state findings and native preparation finding above have delivered owner repairs. Current source separates boot/inventory/interactive restoration, publishes delayed selection to attached views, persists renamed running identities, carries an absolute original tile target and invalidates native preparation when its actual inputs change. The corresponding regressions exercise those composed outcomes. Earlier #209–#215 repairs remain present. No new confirmed actionable product defect was found within the follow-up source/caller scope; no additional product correction is proposed from this pass. Known incomplete feature and assurance work retains its existing issue ownership.
+
+### Current ratings
+
+| Area | Rating | Basis and practical limit |
+| --- | ---: | --- |
+| Architecture | **87/100** | Existing presentation, manager/backend, transport and persistence owners fit. Repaired startup/continuation policy composes more consistently; multi-stage orchestration remains complex. |
+| Code quality and reliability | **85/100** | Confirmed state/build defects are repaired with meaningful failure/ownership controls. Broad platform, interruption and remote-outcome behavior remains incompletely evidenced. |
+| Maintainability | **79/100** | Narrow owner changes and existing helpers avoid unnecessary layers. The large VPS Fragment/ViewModel, manager and reflection-heavy fixtures still carry substantial review cost. |
+| Security engineering | **82/100** | Permission, consent, host-pin, authenticated storage/disclosure and privileged transaction boundaries are credible source controls. Actor-matched, signed-artifact, provider, root/user and live assurance remains partial. |
+| Tests and verification | **86/100** | Composed regression controls and bounded native evidence improved. Test inventory is not assertion coverage; process-death restoration and broader physical/release/live matrices remain open. |
+| Documentation | **88/100** | Current delivery/grades and native evidence are reconciled with historical failures, exact sources and remaining gates. Large historical guides still impose maintenance cost; qualified language and complete UI/accessibility proof remain separate. |
+| Agent/process contract | **90/100** | Issue ownership, signed commits, final-head independent ultra, CI and readback are practiced. A fresh branch query still reports `master` unprotected; manual gates are not server enforcement. |
+
+The overall judgment weights sensitive composed behavior and evidence quality; it is not a mechanical average. Scoped independent judgments are Android reliability 86/security 85, provisioning quality 82/security 80 and coordinator test/build quality 88. These local judgments do not independently rate the whole project or waive release gates.
+
+### Review coverage and reuse
+
+The current inventory has 650 tracked entries. The original 578-entry ledger was validated against its pinned modes/object IDs. Relative to that original source, 460 entries are unchanged, 118 changed and 72 added; relative to rated `5882460d`, 553 are unchanged, 67 changed and 30 added. File counts identify scope; they do not certify every binary, generated file, test assertion or dependency.
+
+| Area | Current review boundary |
+| --- | --- |
+| Android/state/IPC | A 248-path fingerprint ledger binds fourteen fresh owner/composed-delta reads, fifty unchanged owners reused from the prior complete Android pass, three provisioning boundaries, the manifest, nine changed/147 unchanged resources, fourteen test sources and ten guides. Depth is recorded per entry; unchanged resource fingerprints do not become a new linguistic or visual review. |
+| Provisioning/security | Forty-four maintained source inputs and forty-four test-source fingerprints cover all 25 provisioning Kotlin owners, twelve maintained scripts and related presentation/manager/authentication/output consumers. Nine added production owners and current removal, rotation, endpoint, secret-output and progress composition received fresh attention. Nine of twelve prior bounded backup fingerprints match; the three changed consumers were reassessed. |
+| Native/root/build | A 52-input fingerprint record binds maintained owners and guidance; forty original non-UI native paths match the rated baseline. Existing backend, JNI/Go and root/tools criteria are reused at matching inputs, with fresh preparation/build-delta inspection. The prior 170-file external inventory retains its interface/exclusion scope; no new complete third-party audit is claimed. |
+| Tests/CI/dependencies | A 180-input coordinator inventory includes 49 changes since the rated baseline. Fresh targeted assertion/fixture reads cover the repaired owners and progress, plus the actual workflow, preparation recipe and its eight controls. Other tests retain earlier review depth; no assertion-by-assertion review of every test or fresh complete advisory resolution is claimed. |
+
+These inventories overlap and are not additive coverage totals. The reviews use actual ownership/caller paths and exact committed/source fingerprints. Historical FAILED criteria stay at their original revisions; unchanged files can participate in a repaired composition, as with Config equality repaired through Key ownership. Current source review does not rerun historical controls or convert their actors/artifacts into current whole-app proof. Draft #103 remains excluded.
+
+### Actual evidence and remaining gates
+
+Successful exact-head [CI 39094646970](https://github.com/novakin/vpn0wn-android/actions/runs/39094646970) retains **1,407 UI debug, 23 tunnel and one release-startup test**, zero failures/errors/skips and zero Detekt findings. UI debug, release startup and Detekt executed; tunnel tests were FROM-CACHE. Eighteen offline VPS, eight preparation, five translation-import, six cleanup, six Go race groups and seven JNI controls passed. Conditional APK steps skipped. These are the delivering feature run's results, reused at the identical tree, not newly executed by this report.
+
+The [native record](2026-10-18-native-consent-transfer-acceptance.md) adds independently reviewed R8 selection/replacement/removal and A4 equal-version upgrade/transfer/rollback outcomes at their own pinned debug artifacts. It retains the original failures, incomplete process-death restoration, normalized VPN-metadata limits and the original failed A4 stop wrapper with separate read-only reconciliation. Five R8 consent-owner blobs are unchanged through this delivered source; that parity does not make its probe a whole-current-master or release APK.
+
+The [current security follow-up](2026-10-12-app-root-security-audit.md#delivered-source-follow-up--2026-10-18) retains stable findings, original actors and sign-off gaps. No fresh complete advisory query or binary/source scan ran for this assessment; prior maintained-toolchain/linked-symbol results keep their exact artifact and OpenPGP-advisory limits. No new test, build, device or live-server operation was run by the source reviewers.
+
+Continue the existing issue-owned gates: physical/provider/configured-authentication and spoken accessibility acceptance; root-tool coexistence and signed/release migration; native wizard/SSH/private-key and disposable-server restore/fault/client-traffic proof; external transport, system VPN policy and recovery boundaries. Protocol/automation/bootstrap choices remain unselected where recorded. Speed/battery stays last and needs the controlled real unplugged baseline. No 100/100, whole-app security sign-off, DPI/performance gain or production-ready claim follows.
+
+The coordinator is satisfied with this bounded post-repair source assessment and its evidence distinctions. Keep the existing foundation; change or extract an owner only for a demonstrated requirement or invariant. Final independent review of the maintained reports, documentation checks and publication/merge readback belong to the documentation PR.
