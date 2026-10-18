@@ -12,6 +12,24 @@ The layer lists below are target requirements, not a passing coverage report. [S
 
 All `TunnelManagerTest` cases now drain their owned application job and real-I/O descendants through cancellation-safe `TunnelTestEnvironment.close()` before Main is reset. Blocking-worker release remains inside the fixture lifetime, with the outer drain reachable if worker cleanup fails. This corrects a confirmed test-lifetime contract breach; it does not establish the cause of PR #254 CI run `39075065215`'s empty persisted-running-set failure. Focused class, broader UI execution and final-head CI evidence belong to the PR acceptance record. Production transitions, persistence policy and assertions are unchanged.
 
+### UI CI font-resource pressure containment — #260
+
+2026-10-18 (Europe/Paris): [#260](https://github.com/novakin/vpn0wn-android/issues/260) owns a new test-runtime pressure follow-up. The earlier [#255/#254](https://github.com/novakin/vpn0wn-android/pull/254) acceptance retains its recorded passing scope. Subsequent [run `39080922048`](https://github.com/novakin/vpn0wn-android/actions/runs/39080922048) at `ce6c54df` and [run `39080931810`](https://github.com/novakin/vpn0wn-android/actions/runs/39080931810) at `3b0417a7` each failed backup cancellation and profile export/import with `OutOfMemoryError: Java heap space` in Robolectric's compressed-font asset path. [Run `39080955973`](https://github.com/novakin/vpn0wn-android/actions/runs/39080955973) at `0bc2dfef` failed the same profile control and skipped backup cancellation after an uncaught worker OOM; that skipped control is not a pass. The failing allocations reach `FileMap.getDataPtr` through `ShadowFontBuilder.nGetAssetBuffer`, sometimes failing in the ZIP stream allocation. These traces identify the allocation path, not the dominant retained heap owner or a production leak.
+
+Backup's worker previously ran four API28 controls, then three API29 controls; cancellation was last in all three retained JUnit reports. The profile worker ran its provider-restriction control before a round-trip control containing two independent fixtures. The source now bounds those workers as follows:
+
+| Concrete test class | SDK | Preserved controls |
+| --- | --- | --- |
+| `VpsBackupWorkflowTest` | 28 | Four authentication/password lifecycle controls. |
+| `VpsBackupOutputWorkflowTest` | 29 | Authenticated recoverable ciphertext and provider-boundary deletion. |
+| `VpsBackupCancellationWorkflowTest` | 29 | Remote cancellation drain and editor clearing. |
+| `VpsProfileExportRestrictionWorkflowTest` | 29 | Provider-boundary restriction before any profile bytes. |
+| `VpsProfileExportWorkflowTest` | 29 | File-import round trip for both short and 32-character peer names. |
+
+All nine moved-owner method bodies remain unchanged. The 47 other workflow controls and both round-trip fixtures retain their assertions and ownership, preserving the original 49-control workflow inventory plus all seven backup controls. Shared fixtures have no inherited tests. CI's complete unfiltered UI test task discovers the concrete classes, including colocated Kotlin classes; focused selections must name every affected owner. The existing 2 GiB heap, serial execution, per-class worker recycling, deadlines, real font loading and separate rendering suites remain unchanged. Explicit LEGACY graphics would not repair these controls: Robolectric 4.16 already defaults to LEGACY and neither failing class overrides it.
+
+The focused WSL/JDK21 offline gate at base `a3d2cb84` plus the frozen two-test-source delta passes all nine methods across these five concrete owners, with zero failures/errors/skips and zero executed Detekt findings. Both source receipts match before/after; all five fresh XML reports fall within the producer window. Actual command/worker logs show five distinct 2 GiB processes, each finishing before the next starts. This is bounded test-runtime containment; final-head full CI remains required. Preserve the failed reports and distinguish allocation facts from any later heap diagnosis. Do not treat filtered success as full-suite acceptance or infer device, installed-app, native SSH, live-server or production behavior from this change.
+
 ### UI CI ownership and SDK worker controls — #255
 
 [Issue #255](https://github.com/novakin/vpn0wn-android/issues/255) owns the bounded CI follow-up needed by #254; #196's feature and installed/live acceptance stay separate. Run `39076789126` executed 1,369 debug UI controls with two failures: Settings membership timed out at its filtered read, and the VPS workflow exhausted its Java heap while loading compressed Robolectric font data. All 18 manager controls passed. The retained callback/write receipt shows a real update returning membership true, but its timing does not establish when the commit completed relative to timeout. No lost DataStore replay, product leak or exact historical failure cause is inferred.
