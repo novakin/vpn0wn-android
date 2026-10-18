@@ -366,8 +366,13 @@ class VpsProvisioningFragment : BaseFragment() {
     private fun fleetScreen(): View {
         val container = vertical()
         container.addView(topBar(title = str(R.string.vpn0wn_servers_title).lowercase(Locale.ROOT), sub = str(if (servers.all { it.usersKnown }) R.string.vpn0wn_servers_summary else R.string.vpn0wn_servers_summary_partial, servers.size, servers.sumOf { it.users.size }), leftIcon = R.drawable.ic_vpn0wn_chevron_left, onLeft = { goBack() }, right = listOf(iconButton(R.drawable.ic_vpn0wn_logs, str(R.string.vpn0wn_logs_title)) { toast(str(R.string.vpn0wn_server_logs_pending)) }, iconButton(R.drawable.ic_vpn0wn_settings, str(R.string.settings)) { toast(str(R.string.vpn0wn_server_settings_pending)) }), big = true))
-        container.addView(statusTiles())
         val (scrollView, scroll) = scrollContent()
+        scrollView.removeView(scroll)
+        val page = vertical().apply {
+            addView(statusTiles())
+            addView(scroll)
+        }
+        scrollView.addView(page)
         scroll.addView(sectionHeader(1, str(R.string.vpn0wn_server_fleet), filter?.let { str(it.shortLabelRes) } ?: str(R.string.vpn0wn_self_hosted)))
         val displayed = if (filter == null) servers else servers.filter { it.status == filter }
         displayed.forEach { scroll.addView(serverCard(it)) }

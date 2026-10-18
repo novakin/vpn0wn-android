@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.ImageButton
 import android.widget.ImageView
+import android.widget.ScrollView
 import android.widget.TextView
 import com.vpn0wn.android.R
 import com.vpn0wn.android.provisioning.VpsDeployFixtureData
@@ -127,6 +128,63 @@ class VpsHeaderLayoutTest {
                     assertEquals(expectedNight, fixture.root.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)
                     capture(fixture.root, "${case.id}-$name")
                 }
+            } finally {
+                fixture.close()
+            }
+        }
+    }
+
+    @Test fun fleetActionsRemainFullyReachableInShortEnlargedWindows() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        val cases = listOf(
+            Preview("fleet-compact-day", "en-rUS-w320dp-h640dp-port-notnight-mdpi", 320, 640, 1f, View.LAYOUT_DIRECTION_LTR),
+            Preview("fleet-short-night-rtl", "fr-ldrtl-w640dp-h244dp-land-night-mdpi", 640, 244, 2f, View.LAYOUT_DIRECTION_RTL),
+        )
+        for (case in cases) {
+            RuntimeEnvironment.setQualifiers(case.qualifiers)
+            RuntimeEnvironment.setFontScale(case.fontScale)
+            val fixture = provisioningLayoutFixture(folder, case.direction)
+            try {
+                fixture.activity.supportActionBar?.hide()
+                val screen = VpsProvisioningFragment::class.java.getDeclaredMethod("fleetScreen")
+                    .apply { isAccessible = true }.invoke(fixture.fragment) as View
+                fixture.root.removeAllViews()
+                fixture.root.addView(screen, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+                runCurrent()
+                layout(fixture.root.rootView, case)
+                assertEquals("Native content width", case.width, fixture.root.width)
+                assertEquals("Native content height", case.height, fixture.root.height)
+                assertEquals(case.direction, fixture.root.layoutDirection)
+                assertEquals(case.qualifiers.substringBefore('-'), fixture.root.resources.configuration.locales[0].language)
+                assertEquals(case.fontScale, fixture.root.resources.configuration.fontScale, 0f)
+                assertEquals(if (case.id.contains("night")) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO,
+                    fixture.root.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)
+                val actionName = fixture.activity.getString(R.string.vpn0wn_add_server).removePrefix("+ ").trim()
+                val action = descendants(screen).single { it.isClickable && it.contentDescription?.toString() == actionName }
+                val scroll = descendants(screen).filterIsInstance<ScrollView>().single()
+                val all = descendants(screen).filterIsInstance<TextView>().single { it.text.toString() == fixture.activity.getString(R.string.vpn0wn_filter_all) }
+                val tile = generateSequence<View>(all) { it.parent as? View }.first { it.isClickable }
+                val strip = tile.parent as View
+                val stripBounds = Rect().also(strip::getDrawingRect)
+                fixture.root.offsetDescendantRectToMyCoords(strip, stripBounds)
+                assertEquals("Status band retains full width", Rect(0, stripBounds.top, case.width, stripBounds.bottom), stripBounds)
+                val importAction = requireNotNull(screen.findViewById<View>(R.id.vpn0wn_vps_import_backup))
+                val body = importAction.parent as View
+                assertEquals("Existing logical body gutter", (14 * resources.displayMetrics.density).toInt(), body.paddingLeft)
+                assertEquals(body.paddingLeft, body.paddingRight)
+                capture(fixture.root, "${case.id}-top")
+                assertTrue("Add server retains native minimum width", action.width >= 48 * resources.displayMetrics.density)
+                assertTrue("Add server retains native minimum height", action.height >= 48 * resources.displayMetrics.density)
+                action.requestRectangleOnScreen(Rect().also(action::getDrawingRect), true)
+                runCurrent()
+                layout(fixture.root.rootView, case)
+                capture(fixture.root, "${case.id}-add")
+                assertTrue("Complete Add server target fits native scroll viewport: ${action.height} within ${scroll.height}",
+                    action.height <= scroll.height - scroll.paddingTop - scroll.paddingBottom)
+                assertFullyVisible(action)
+                val bounds = Rect().also(action::getDrawingRect)
+                fixture.root.offsetDescendantRectToMyCoords(action, bounds)
+                assertTrue("Complete Add server target fits captured root: $bounds", Rect(0, 0, case.width, case.height).contains(bounds))
             } finally {
                 fixture.close()
             }
