@@ -92,6 +92,17 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
             val configuration = resources.configuration
             if (configuration.orientation == Configuration.ORIENTATION_PORTRAIT &&
                 configuration.screenWidthDp < COMPACT_WINDOW_WIDTH_DP && configuration.fontScale >= ENLARGED_FONT_SCALE) {
+                editorInterfacePortRow.orientation = LinearLayout.VERTICAL
+                for (row in listOf(editorListenPortRow, editorMtuRow)) {
+                    row.layoutParams = (row.layoutParams as LinearLayout.LayoutParams).apply {
+                        width = ViewGroup.LayoutParams.MATCH_PARENT
+                        weight = 0f
+                    }
+                }
+                editorInterfacePortDivider.layoutParams = editorInterfacePortDivider.layoutParams.apply {
+                    height = width
+                    width = ViewGroup.LayoutParams.MATCH_PARENT
+                }
                 editorApplicationsRow.orientation = LinearLayout.VERTICAL
                 editorApplicationsContent.layoutParams = (editorApplicationsContent.layoutParams as LinearLayout.LayoutParams).apply {
                     width = ViewGroup.LayoutParams.MATCH_PARENT
