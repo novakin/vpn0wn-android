@@ -25,9 +25,13 @@ import com.vpn0wn.android.provisioning.VpsFreshRestoreWorkflowTest
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Step
 import com.vpn0wn.android.provisioning.VpsRestoreFixture
+import com.vpn0wn.android.provisioning.VpsRunningRestoreFixture
 import com.vpn0wn.android.provisioning.VpsUserProfileFileTest
+import com.vpn0wn.crypto.Key
 import java.io.File
 import java.util.Locale
+import org.json.JSONArray
+import org.json.JSONObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -70,7 +74,9 @@ class VpsFreshRestoreLayoutTest {
             Preview("en-night", "en-rUS-w360dp-h800dp-night-mdpi", 360, 800, 1f, View.LAYOUT_DIRECTION_LTR),
             Preview("fr-stress", "fr-ldrtl-w640dp-h320dp-land-notnight-mdpi", 640, 320, 2f, View.LAYOUT_DIRECTION_RTL),
             Preview("ar-compact", "ar-rSA-ldrtl-w320dp-h640dp-port-notnight-mdpi", 320, 640, 2f, View.LAYOUT_DIRECTION_RTL),
-        )
+        ).flatMap { listOf(it, it.copy(id = "${it.id}-running", running = true)) } +
+            Preview("en-long-review", "en-rUS-w360dp-h800dp-notnight-mdpi", 360, 800, 1f, View.LAYOUT_DIRECTION_LTR,
+                running = true, large = true)
         for (case in cases) {
             RuntimeEnvironment.setQualifiers(case.qualifiers)
             RuntimeEnvironment.setFontScale(case.fontScale)
@@ -79,6 +85,22 @@ class VpsFreshRestoreLayoutTest {
             assertResourceConfiguration(RuntimeEnvironment.getApplication().resources.configuration, case)
             val fixture = provisioningLayoutFixture(folder, case.direction)
             try {
+                if (case.running) {
+                    fixture.peer.configExists = true
+                    fixture.peer.restoreCheckOutput = VpsRunningRestoreFixture.response().apply {
+                        if (case.large) {
+                            val replacement = getJSONObject("plan").getJSONObject("replacement")
+                            replacement.put("users", JSONArray().apply { repeat(24) { index ->
+                                put(JSONObject().put("name", "phone_$index".padEnd(32, '_'))
+                                    .put("publicKey", Key.fromBytes(ByteArray(32) { index.toByte() }).toBase64()).put("change", "removed"))
+                            } })
+                            replacement.put("discardedRevoked", JSONArray().apply { repeat(24) { index ->
+                                put(JSONObject().put("archiveName", "retired_$index".padEnd(32, '_') + ".conf.00000000-0000-0000-0000-000000000001")
+                                    .put("change", "replaced"))
+                            } })
+                        }
+                    }.toString()
+                }
                 prepare(fixture)
                 val complete = fixture.model.state.value
                 for (step in Step.entries) {
@@ -120,6 +142,12 @@ class VpsFreshRestoreLayoutTest {
                 assertConfiguration(decor, case)
                 val message = dialog.findViewById<TextView>(android.R.id.message)!!
                 val text = message.text.toString()
+                if (case.running) {
+                    assertTrue(text.contains(fixture.activity.getString(R.string.vpn0wn_restore_replace_warning)))
+                    val review = requireNotNull(confirmation.replacement)
+                    for (part in review.users.map { it.publicKey } + review.discardedRevoked.map { it.archiveName })
+                        assertTrue("Running review retains exact public identity $part", text.contains(part))
+                }
                 for (part in listOf(confirmation.ssh.host, confirmation.fingerprint, confirmation.summary.capturedAtUtc,
                     confirmation.plan.serverPublicKey, confirmation.plan.endpoint, confirmation.plan.port, confirmation.plan.cidr, confirmation.plan.dns))
                     assertTrue("Confirmation includes $part", text.contains(part))
@@ -285,7 +313,7 @@ class VpsFreshRestoreLayoutTest {
         assertEquals(case.qualifiers.substringBefore('-'), configuration.locales[0].language)
         assertEquals(case.fontScale, configuration.fontScale, 0f)
         assertEquals("Restore resources retain requested direction", case.direction, configuration.layoutDirection)
-        assertEquals(if (case.id == "en-night") Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO,
+        assertEquals(if ("night" in case.qualifiers.split('-')) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO,
             configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)
     }
 
@@ -327,7 +355,8 @@ class VpsFreshRestoreLayoutTest {
         if (root is ViewGroup) for (index in 0 until root.childCount) yieldAll(descendants(root.getChildAt(index)))
     }
 
-    private data class Preview(val id: String, val qualifiers: String, val width: Int, val height: Int, val fontScale: Float, val direction: Int)
+    private data class Preview(val id: String, val qualifiers: String, val width: Int, val height: Int, val fontScale: Float, val direction: Int,
+        val running: Boolean = false, val large: Boolean = false)
     private companion object {
         val STEPS = listOf(R.string.vpn0wn_step_ssh, R.string.vpn0wn_step_detect, R.string.vpn0wn_restore_check_step, R.string.vpn0wn_restore_action)
     }

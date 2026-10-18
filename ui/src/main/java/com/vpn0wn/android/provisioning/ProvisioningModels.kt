@@ -5,6 +5,8 @@
 package com.vpn0wn.android.provisioning
 
 import android.util.Log
+import com.vpn0wn.config.InetNetwork
+import com.vpn0wn.config.ParseException
 import com.vpn0wn.crypto.Key
 import com.vpn0wn.crypto.KeyFormatException
 import java.time.Instant
@@ -212,6 +214,25 @@ data class VpsRestoreCheckPlan(
     val serverPublicKey: String,
     val peerCount: Int,
     val revokedCount: Int,
+)
+
+data class VpsRunningRestoreCheck(val plan: VpsRestoreCheckPlan, val replacement: VpsRestoreReplacement)
+
+data class VpsRestoreUserChange(val name: String, val publicKey: String, val change: String)
+
+data class VpsRestoreHistoryChange(val archiveName: String, val change: String)
+
+data class VpsRestoreReplacement(
+    val reviewSha256: String,
+    val endpoint: String,
+    val port: String,
+    val cidr: String,
+    val dns: String,
+    val peerCount: Int,
+    val revokedCount: Int,
+    val serviceEnabled: Boolean,
+    val users: List<VpsRestoreUserChange>,
+    val discardedRevoked: List<VpsRestoreHistoryChange>,
 )
 
 data class VpsRestoreVerification(
@@ -504,16 +525,86 @@ object ProvisioningJson {
     fun parseRestoreCheck(stdout: String): VpsRestoreCheckPlan = parse(stdout) { json ->
         if (!json.boolean("checkOnly")) throw JSONException("Restore check was not confirmed")
         val plan = json.getJSONObject("plan")
-        VpsRestoreCheckPlan(
-            interfaceName = plan.string("interface"),
-            endpoint = plan.string("endpoint"),
-            port = plan.string("port"),
-            cidr = plan.string("cidr"),
-            dns = plan.string("dns"),
-            serverPublicKey = plan.string("serverPublicKey"),
-            peerCount = plan.restoreCount("peerCount", MAX_MANAGED_PEERS),
-            revokedCount = plan.restoreCount("revokedCount", VpsBackupResult.MAX_REVOKED_FILES),
-        )
+        if (plan.has("replacement")) throw JSONException("Fresh restore returned replacement review")
+        plan.restorePlan()
+    }
+
+    fun parseRunningRestoreCheck(stdout: String): VpsRunningRestoreCheck {
+        if (stdout.toByteArray(Charsets.UTF_8).size > MAX_RESTORE_REVIEW_BYTES) invalidResponse()
+        return parse(stdout) { json ->
+            if (!json.boolean("checkOnly")) throw JSONException("Restore check was not confirmed")
+            val plan = json.getJSONObject("plan")
+            VpsRunningRestoreCheck(plan.restorePlan(), plan.getJSONObject("replacement").restoreReplacement())
+        }
+    }
+
+    private fun JSONObject.restorePlan() = VpsRestoreCheckPlan(
+        interfaceName = string("interface"), endpoint = string("endpoint"), port = string("port"),
+        cidr = string("cidr"), dns = string("dns"), serverPublicKey = string("serverPublicKey"),
+        peerCount = restoreCount("peerCount", MAX_MANAGED_PEERS),
+        revokedCount = restoreCount("revokedCount", VpsBackupResult.MAX_REVOKED_FILES),
+    )
+
+    // Digest/runtime admission and canonical network parsing are independent response boundaries.
+    @Suppress("ThrowsCount")
+    private fun JSONObject.restoreReplacement(): VpsRestoreReplacement {
+        val digest = string("reviewSha256")
+        val port = string("port")
+        val cidr = string("cidr")
+        if (!RESTORE_REVIEW_SHA256.matches(digest) || !boolean("running") ||
+            port.toIntOrNull()?.let { it in 1..MAX_RESTORE_PORT && it.toString() == port } != true)
+            throw JSONException("Invalid running restore review")
+        try {
+            val network = InetNetwork.parse(cidr)
+            if (!cidr.endsWith(".0/24") || network.toString() != cidr) throw JSONException("Invalid restore network")
+        } catch (_: ParseException) {
+            throw JSONException("Invalid restore network")
+        }
+        return VpsRestoreReplacement(digest, restoreText("endpoint"), port, cidr, restoreText("dns"),
+            restoreCount("peerCount", MAX_MANAGED_PEERS), restoreCount("revokedCount", VpsBackupResult.MAX_REVOKED_FILES),
+            boolean("serviceEnabled"), restoreUserChanges(), restoreHistoryChanges())
+    }
+
+    // Inventory bounds, row shape and canonical public identity are independent response boundaries.
+    @Suppress("ThrowsCount")
+    private fun JSONObject.restoreUserChanges(): List<VpsRestoreUserChange> {
+        val rows = getJSONArray("users")
+        if (rows.length() > MAX_MANAGED_PEERS * 2) throw JSONException("Restore user review exceeds supported limits")
+        val keys = mutableSetOf<String>()
+        return (0 until rows.length()).map { index ->
+            val row = rows.getJSONObject(index)
+            val name = row.string("name")
+            val key = row.string("publicKey")
+            val change = row.string("change")
+            if (!PendingVpsAdd.NAME.matches(name) || !keys.add(key) || change !in setOf("restored", "removed", "changed"))
+                throw JSONException("Invalid restore user review")
+            try {
+                if (Key.fromBase64(key).toBase64() != key) throw JSONException("Invalid restore user identity")
+            } catch (_: KeyFormatException) {
+                throw JSONException("Invalid restore user identity")
+            }
+            VpsRestoreUserChange(name, key, change)
+        }
+    }
+
+    private fun JSONObject.restoreHistoryChanges(): List<VpsRestoreHistoryChange> {
+        val rows = getJSONArray("discardedRevoked")
+        if (rows.length() > VpsBackupResult.MAX_REVOKED_FILES) throw JSONException("Restore history review exceeds supported limits")
+        val names = mutableSetOf<String>()
+        return (0 until rows.length()).map { index ->
+            val row = rows.getJSONObject(index)
+            val name = row.string("archiveName")
+            val change = row.string("change")
+            if (!VpsRevokedArchive.ARCHIVE_NAME.matches(name) || !names.add(name) || change !in setOf("removed", "replaced"))
+                throw JSONException("Invalid restore history review")
+            VpsRestoreHistoryChange(name, change)
+        }
+    }
+
+    private fun JSONObject.restoreText(name: String): String = string(name).also { value ->
+        if (value.isBlank() || value.length > MAX_RESTORE_PUBLIC_CHARS || value.any(Char::isISOControl) ||
+            !Charsets.UTF_8.newEncoder().canEncode(value))
+            throw JSONException("Invalid restore public text")
     }
 
     fun parseRestoreVerification(stdout: String): VpsRestoreVerification = parse(stdout) { json ->
@@ -591,7 +682,7 @@ object ProvisioningJson {
             "unmanaged_config", "unmanaged_forwarding", "shared_wireguard_state",
             "unmanaged_runtime", "unsafe_path", "config_exists", "peer_exists",
             "peer_not_found", "peer_identity_mismatch", "server_identity_mismatch", "rotation_mismatch", "new_peer_exists",
-            "address_pool_full", "backup_limit", "port_in_use", "subnet_in_use", "revoked_history_exists", "archive_limit", "operation_id_conflict" -> ProvisioningFailureCategory.CONFLICT
+            "address_pool_full", "backup_limit", "port_in_use", "subnet_in_use", "revoked_history_exists", "archive_limit", "operation_id_conflict", "restore_target_changed" -> ProvisioningFailureCategory.CONFLICT
             "not_installed", "missing_server_metadata" -> ProvisioningFailureCategory.NOT_INSTALLED
             "runtime_unknown", "archive_inventory_unknown" -> ProvisioningFailureCategory.RUNTIME_UNKNOWN
             "missing_tool", "lock_failed", "snapshot_failed", "key_failed", "write_failed",
@@ -665,6 +756,10 @@ object ProvisioningJson {
 
     private const val TAG = "vpn0wn/Provisioning"
     private const val MAX_MANAGED_PEERS = 253
+    private const val MAX_RESTORE_PORT = 65_535
+    private const val MAX_RESTORE_PUBLIC_CHARS = 1024
+    private const val MAX_RESTORE_REVIEW_BYTES = 262_144
+    private val RESTORE_REVIEW_SHA256 = Regex("[0-9a-f]{64}")
     private val BACKUP_TIMESTAMP = Regex("[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z")
     private val BACKUP_INTERFACE = Regex("[A-Za-z0-9_.-]{1,15}")
 }

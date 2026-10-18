@@ -31,6 +31,7 @@ import com.vpn0wn.android.provisioning.VpsFreshRestoreWorkflowTest
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel
 import com.vpn0wn.android.provisioning.VpsProfileFixture
 import com.vpn0wn.android.provisioning.VpsRestoreFixture
+import com.vpn0wn.android.provisioning.VpsRunningRestoreFixture
 import com.vpn0wn.android.provisioning.VpsUserProfileFileTest
 import com.vpn0wn.android.util.BiometricAuthenticator
 import java.security.MessageDigest
@@ -76,6 +77,61 @@ class VpsFreshRestoreFragmentTest {
     }
 
     @After fun teardown() { Dispatchers.resetMain() }
+
+    @Test fun runningConfirmationIncludesLiteralRollbackWarningAndAllPublicChangesBeforeAnyWrite() = runTest {
+        val fixture = fixture()
+        try {
+            fixture.peer.configExists = true
+            fixture.peer.restoreCheckOutput = VpsRunningRestoreFixture.response().toString()
+            ready(fixture)
+            requestRestoreAuthentication(fixture)(BiometricAuthenticator.Result.Success(null))
+            settle()
+            val dialog = requireNotNull(restoreDialog(fixture))
+            val message = requireNotNull(dialog.findViewById<TextView>(android.R.id.message))
+            assertEquals(fixture.activity.getString(R.string.vpn0wn_restore_replace_confirm),
+                dialog.getButton(DialogInterface.BUTTON_POSITIVE).text.toString())
+            assertTrue(message.text.contains(fixture.activity.getString(R.string.vpn0wn_restore_replace_warning)))
+            val review = VpsRunningRestoreFixture.review
+            for (part in listOf(review.endpoint, review.port, review.cidr, review.dns) +
+                review.users.flatMap { listOf(it.name, it.publicKey) } + review.discardedRevoked.map { it.archiveName })
+                assertTrue("Running confirmation includes $part", message.text.contains(part))
+            assertNull(message.ellipsize)
+            assertTrue(descendants(requireNotNull(dialog.window).decorView).any {
+                it is android.widget.ScrollView || it is androidx.core.widget.NestedScrollView
+            })
+            assertFalse(message.text.contains(VpsFreshRestoreWorkflowTest.SNAPSHOT.config))
+            dialog.getButton(DialogInterface.BUTTON_NEGATIVE).performClick()
+            settle()
+            assertFalse(fixture.peer.commands.any { it.contains("'--confirm'") })
+            assertNull(Vpn0wnApplication.getVpsServerStore().pendingRestore(Vpn0wnApplication.getVpsServerStore().servers.first().single()))
+        } finally { fixture.close() }
+    }
+
+    @Test fun staleRunningDialogCannotDispatchOrReplaceCurrentAuthenticatedConfirmation() = runTest {
+        val fixture = fixture()
+        try {
+            fixture.peer.configExists = true
+            fixture.peer.restoreCheckOutput = VpsRunningRestoreFixture.response().toString()
+            ready(fixture)
+            requestRestoreAuthentication(fixture)(BiometricAuthenticator.Result.Success(null))
+            settle()
+            val stale = requireNotNull(restoreDialog(fixture))
+            stale.dismiss()
+            settle()
+            requestRestoreAuthentication(fixture)(BiometricAuthenticator.Result.Success(null))
+            settle()
+            val current = requireNotNull(restoreDialog(fixture))
+            stale.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            settle()
+            assertSame(current, restoreDialog(fixture))
+            assertFalse(fixture.peer.commands.any { it.contains("'--confirm'") })
+            current.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            finishModel(fixture)
+            assertEquals(VpsProvisioningViewModel.RestoreOutcome.VERIFIED, fixture.model.state.value.restore?.outcome)
+            assertEquals(1, fixture.peer.commands.count { it.contains("'--confirm'") })
+            assertEquals(2, fixture.peer.commands.count { it.contains("'--check'") })
+        } finally { fixture.close() }
+    }
 
     @Test fun realSummaryRestoreTransfersSensitiveSourceAcrossDismissAndRender() = runTest {
         val fixture = fixture()
