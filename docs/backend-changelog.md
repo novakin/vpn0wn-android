@@ -8,7 +8,7 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## In Progress
 
-- **Native consent and upgrade/transfer verification — #177/#71 (2026-10-18, Europe/Paris):** the [dated native record](reviews/2026-10-18-native-consent-transfer-acceptance.md) distinguishes accepted consent cases, failed harness attempts, sampled restoration and incomplete process-death restoration. Its A4 cohort passed fourteen native update/transfer/rollback phases; the original stop wrapper remains failed, with five preservation postconditions established separately. No shipping behavior, schema or protocol change follows. Wider issue-owned physical/release and runtime acceptance remains open.
+- **Native upgrade/transfer verification — #71 (2026-10-18, Europe/Paris):** the [dated native record](reviews/2026-10-18-native-consent-transfer-acceptance.md) distinguishes accepted cohorts, failed harness attempts and sampled restoration. Its A4 cohort passed fourteen native update/transfer/rollback phases; the original stop wrapper remains failed, with five preservation postconditions established separately. The later [aggregate consent assessment](reviews/2026-10-18-native-consent-transfer-acceptance.md#aggregate-consent-acceptance--2026-10-18) meets #177's separate bounded investigation/owner criteria. No shipping behavior, schema or protocol change follows; #71's physical/release and migration acceptance remains open.
 
 - **Native backup picker/output acceptance — #196/#28 (2026-10-18, Europe/Paris):** the [physical API34 picker/Downloads record](reviews/2026-10-18-native-backup-picker-acceptance.md) adds actual DocumentsUI lifecycle/inspection and real MediaStore success/injected-failure/cancellation settlement, with checked isolated cleanup and sampled preservation. No production source or server dispatch changes. Same-UID/no-configured-authentication and wider provider/platform/accessibility/live-restore gates keep #196 open; the subsequent [combined Downloads record](reviews/2026-10-18-native-downloads-acceptance.md) meets #28's separate acceptance boundary.
 
@@ -71,6 +71,8 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 - [x] Add opt-in destructive end-to-end test path against a disposable Ubuntu/Debian VPS.
 
 ## Done
+
+- **Bounded consent acceptance — #177 (2026-10-18, Europe/Paris):** the [aggregate independent assessment](reviews/2026-10-18-native-consent-transfer-acceptance.md#aggregate-consent-acceptance--2026-10-18) meets the investigation/owner criteria using delivered source and previously accepted native cohorts. This reconciles current status without a new behavior or runtime result. The closing PR owns final documentation review, CI and actual issue closure; original causality and broader device/release acceptance remain separate.
 
 - **Downloads ownership acceptance — #28 (2026-10-18, Europe/Paris):** the [combined scoped record](reviews/2026-10-18-native-downloads-acceptance.md) meets the agreed source/native/physical boundary through accepted source/ZIP controls, physical API34 MediaStore proof and API28 legacy permission/success/failure/cancellation controls. `DownloadsFileSaver.save` and its output owner remain unchanged. D1–D4 failures and D5's native PASS/automated overall FAIL remain intact; later uninstall/package evidence reconciles relevant cleanup, with former APK-path erasure unmeasured. Contracts, operations, QA and plan now link that bounded acceptance; wider #52/#196 work remains open.
 
