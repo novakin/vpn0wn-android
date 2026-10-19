@@ -839,3 +839,5 @@ RX/TX bindings share one cached result for each `Statistics` snapshot. A fresh s
 ## Verification boundaries
 
 Use existing [QA coverage](qa-test-plan.md) and [development commands](development.md#verification-commands-and-ownership). Validate actual responses, successful controls, failures, cancellation and state recovery. Syntax checks alone do not prove safe mutations; wrappers alone do not prove SSH behavior; JVM tests alone do not prove device/native traffic. Record those limits with the result.
+
+The [2026-10-19 inner-IPv6 cohort](reviews/2026-10-19-inner-ipv6-acceptance.md) verifies ordinary WireGuard through production Application/TunnelManager/GoBackend/VpnService in an isolated API24 x86_64 package. Explicit/omitted-port IPv6 HTTP and fresh handshakes pass against an unmodified official userspace peer over local outer IPv4, with checked cleanup. This changes no config/protocol/socket contract and establishes no new warm-up ordering, protection-return/timing, kernel, external/physical path, recovery/handover or release acceptance; #61 remains open.
