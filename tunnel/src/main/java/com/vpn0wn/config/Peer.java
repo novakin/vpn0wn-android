@@ -34,6 +34,7 @@ public final class Peer {
     private final Set<InetNetwork> allowedIps;
     private final Optional<InetEndpoint> endpoint;
     private final Optional<Integer> persistentKeepalive;
+    private final Optional<String> amneziaKeepalive;
     private final Optional<Key> preSharedKey;
     private final Key publicKey;
 
@@ -42,6 +43,7 @@ public final class Peer {
         allowedIps = Collections.unmodifiableSet(new LinkedHashSet<>(builder.allowedIps));
         endpoint = builder.endpoint;
         persistentKeepalive = builder.persistentKeepalive;
+        amneziaKeepalive = builder.amneziaKeepalive;
         preSharedKey = builder.preSharedKey;
         publicKey = Objects.requireNonNull(builder.publicKey, "Peers must have a public key");
     }
@@ -54,6 +56,11 @@ public final class Peer {
      * @return a {@code Peer} with all of its attributes set from {@code lines}
      */
     public static Peer parse(final Iterable<? extends CharSequence> lines)
+            throws BadConfigException {
+        return parse(lines, false);
+    }
+
+    static Peer parse(final Iterable<? extends CharSequence> lines, final boolean amnezia)
             throws BadConfigException {
         final Builder builder = new Builder();
         for (final CharSequence line : lines) {
@@ -68,7 +75,10 @@ public final class Peer {
                     builder.parseEndpoint(attribute.getValue());
                     break;
                 case "persistentkeepalive":
-                    builder.parsePersistentKeepalive(attribute.getValue());
+                    if (amnezia)
+                        builder.parseAmneziaKeepalive(attribute.getValue());
+                    else
+                        builder.parsePersistentKeepalive(attribute.getValue());
                     break;
                 case "presharedkey":
                     builder.parsePreSharedKey(attribute.getValue());
@@ -92,6 +102,7 @@ public final class Peer {
         return allowedIps.equals(other.allowedIps)
                 && endpoint.equals(other.endpoint)
                 && persistentKeepalive.equals(other.persistentKeepalive)
+                && amneziaKeepalive.equals(other.amneziaKeepalive)
                 && preSharedKey.equals(other.preSharedKey)
                 && publicKey.equals(other.publicKey);
     }
@@ -120,6 +131,14 @@ public final class Peer {
      *
      * @return the persistent keepalive, or {@code Optional.empty()} if none is configured
      */
+    public Optional<String> getAmneziaKeepalive() {
+        return amneziaKeepalive;
+    }
+
+    public Optional<String> getPersistentKeepaliveText() {
+        return amneziaKeepalive.isPresent() ? amneziaKeepalive : persistentKeepalive.map(String::valueOf);
+    }
+
     public Optional<Integer> getPersistentKeepalive() {
         return persistentKeepalive;
     }
@@ -148,6 +167,7 @@ public final class Peer {
         hash = 31 * hash + allowedIps.hashCode();
         hash = 31 * hash + endpoint.hashCode();
         hash = 31 * hash + persistentKeepalive.hashCode();
+        hash = 31 * hash + amneziaKeepalive.hashCode();
         hash = 31 * hash + preSharedKey.hashCode();
         hash = 31 * hash + publicKey.hashCode();
         return hash;
@@ -179,7 +199,7 @@ public final class Peer {
         if (!allowedIps.isEmpty())
             sb.append("AllowedIPs = ").append(Attribute.join(allowedIps)).append('\n');
         endpoint.ifPresent(ep -> sb.append("Endpoint = ").append(ep).append('\n'));
-        persistentKeepalive.ifPresent(pk -> sb.append("PersistentKeepalive = ").append(pk).append('\n'));
+        getPersistentKeepaliveText().ifPresent(pk -> sb.append("PersistentKeepalive = ").append(pk).append('\n'));
         preSharedKey.ifPresent(psk -> sb.append("PreSharedKey = ").append(psk.toBase64()).append('\n'));
         sb.append("PublicKey = ").append(publicKey.toBase64()).append('\n');
         return sb.toString();
@@ -198,7 +218,7 @@ public final class Peer {
         for (final InetNetwork allowedIp : allowedIps)
             sb.append("allowed_ip=").append(allowedIp).append('\n');
         endpoint.flatMap(InetEndpoint::getResolved).ifPresent(ep -> sb.append("endpoint=").append(ep).append('\n'));
-        persistentKeepalive.ifPresent(pk -> sb.append("persistent_keepalive_interval=").append(pk).append('\n'));
+        getPersistentKeepaliveText().ifPresent(pk -> sb.append("persistent_keepalive_interval=").append(pk).append('\n'));
         preSharedKey.ifPresent(psk -> sb.append("preshared_key=").append(psk.toHex()).append('\n'));
         return sb.toString();
     }
@@ -214,6 +234,7 @@ public final class Peer {
         private Optional<InetEndpoint> endpoint = Optional.empty();
         // Defaults to not present.
         private Optional<Integer> persistentKeepalive = Optional.empty();
+        private Optional<String> amneziaKeepalive = Optional.empty();
         // Defaults to not present.
         private Optional<Key> preSharedKey = Optional.empty();
         // No default; must be provided before building.
@@ -254,6 +275,17 @@ public final class Peer {
             }
         }
 
+        public Builder parseAmneziaKeepalive(final String value) throws BadConfigException {
+            try {
+                AmneziaSettings.parseRange(value);
+            } catch (final IllegalArgumentException failure) {
+                throw new BadConfigException(Section.PEER, Location.AMNEZIA_KEEPALIVE, Reason.INVALID_VALUE, value);
+            }
+            amneziaKeepalive = Optional.of(value);
+            persistentKeepalive = Optional.empty();
+            return this;
+        }
+
         public Builder parsePersistentKeepalive(final String persistentKeepalive)
                 throws BadConfigException {
             try {
@@ -290,6 +322,7 @@ public final class Peer {
             if (persistentKeepalive < 0 || persistentKeepalive > MAX_PERSISTENT_KEEPALIVE)
                 throw new BadConfigException(Section.PEER, Location.PERSISTENT_KEEPALIVE,
                         Reason.INVALID_VALUE, String.valueOf(persistentKeepalive));
+            amneziaKeepalive = Optional.empty();
             this.persistentKeepalive = persistentKeepalive == 0 ?
                     Optional.empty() : Optional.of(persistentKeepalive);
             return this;

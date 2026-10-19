@@ -14,12 +14,17 @@ import androidx.databinding.ObservableList
 import com.vpn0wn.android.BR
 import com.vpn0wn.config.Attribute
 import com.vpn0wn.config.BadConfigException
+import com.vpn0wn.config.AmneziaSettings
 import com.vpn0wn.config.Interface
 import com.vpn0wn.crypto.Key
 import com.vpn0wn.crypto.KeyFormatException
 import com.vpn0wn.crypto.KeyPair
 
 class InterfaceProxy : BaseObservable, Parcelable {
+    private var amneziaSettings: AmneziaSettings? = null
+
+    val isAmnezia: Boolean get() = amneziaSettings != null
+
     @get:Bindable
     val excludedApplications: ObservableList<String> = ObservableArrayList()
 
@@ -78,9 +83,19 @@ class InterfaceProxy : BaseObservable, Parcelable {
         listenPort = parcel.readString() ?: ""
         mtu = parcel.readString() ?: ""
         privateKey = parcel.readString() ?: ""
+        val fields = parcel.readInt()
+        if (fields >= 0) {
+            val builder = AmneziaSettings.Builder()
+            repeat(fields) {
+                val field = AmneziaSettings.Field.valueOf(requireNotNull(parcel.readString()))
+                builder.put(field, requireNotNull(parcel.readString()))
+            }
+            amneziaSettings = builder.build()
+        }
     }
 
     constructor(other: Interface) {
+        amneziaSettings = other.amneziaSettings.orElse(null)
         addresses = Attribute.join(other.addresses)
         val dnsServerStrings = other.dnsServers.map { it.hostAddress }.plus(other.dnsSearchDomains)
         dnsServers = Attribute.join(dnsServerStrings)
@@ -106,6 +121,7 @@ class InterfaceProxy : BaseObservable, Parcelable {
     @Throws(BadConfigException::class)
     fun resolve(): Interface {
         val builder = Interface.Builder()
+        amneziaSettings?.let { builder.setAmneziaSettings(it) }
         if (addresses.isNotEmpty()) builder.parseAddresses(addresses)
         if (dnsServers.isNotEmpty()) builder.parseDnsServers(dnsServers)
         if (excludedApplications.isNotEmpty()) builder.excludeApplications(excludedApplications)
@@ -124,6 +140,12 @@ class InterfaceProxy : BaseObservable, Parcelable {
         dest.writeString(listenPort)
         dest.writeString(mtu)
         dest.writeString(privateKey)
+        val fields = amneziaSettings?.values
+        dest.writeInt(fields?.size ?: -1)
+        fields?.forEach { (field, value) ->
+            dest.writeString(field.name)
+            dest.writeString(value)
+        }
     }
 
     private class InterfaceProxyCreator : Parcelable.Creator<InterfaceProxy> {

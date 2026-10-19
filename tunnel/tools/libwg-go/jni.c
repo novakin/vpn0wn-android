@@ -11,7 +11,7 @@
 #include "jni_context.h"
 
 struct go_string { const char *str; long n; };
-extern int wgTurnOn(struct go_string ifname, int tun_fd, struct go_string settings, struct wg_context *context, JNIEnv *env, struct wg_capture *capture);
+extern int wgTurnOn(struct go_string ifname, int tun_fd, struct go_string settings, struct wg_context *context, JNIEnv *env, struct wg_capture *capture, int amnezia);
 extern void wgTurnOff(int handle, JNIEnv *env);
 extern char *wgGetConfig(int handle, JNIEnv *env);
 extern int wgRebind(int handle, JNIEnv *env);
@@ -20,7 +20,7 @@ extern jlong wgTransportSnapshot(int handle);
 extern int wgRecover(int handle, const char *peer, jlong episode, struct go_string endpoint, JNIEnv *env, jobject caller);
 extern char *wgVersion();
 
-JNIEXPORT jint JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgTurnOn(JNIEnv *env, jclass c, jstring ifname, jint tun_fd, jstring settings, jobject service, jobject activation_thread, jlong activation_id, jobject capture_value)
+static jint turnOn(JNIEnv *env, jstring ifname, jint tun_fd, jstring settings, jobject service, jobject activation_thread, jlong activation_id, jobject capture_value, int amnezia)
 {
 	struct wg_context *context = NULL;
 	const char *ifname_str = (*env)->GetStringUTFChars(env, ifname, 0);
@@ -52,13 +52,23 @@ JNIEXPORT jint JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgTurnOn(JNIEnv
 	}, tun_fd, (struct go_string){
 		.str = settings_str,
 		.n = settings_len
-	}, context, env, capture);
+	}, context, env, capture, amnezia);
 	(*env)->ReleaseStringUTFChars(env, ifname, ifname_str);
 	(*env)->ReleaseStringUTFChars(env, settings, settings_str);
 	return ret;
 failed:
 	close(tun_fd);
 	return -1;
+}
+
+JNIEXPORT jint JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgTurnOn(JNIEnv *env, jclass c, jstring ifname, jint tun_fd, jstring settings, jobject service, jobject activation_thread, jlong activation_id, jobject capture_value)
+{
+	return turnOn(env, ifname, tun_fd, settings, service, activation_thread, activation_id, capture_value, 0);
+}
+
+JNIEXPORT jint JNICALL Java_com_vpn0wn_android_backend_GoBackend_awgTurnOn(JNIEnv *env, jclass c, jstring ifname, jint tun_fd, jstring settings, jobject service, jobject activation_thread, jlong activation_id, jobject capture_value)
+{
+	return turnOn(env, ifname, tun_fd, settings, service, activation_thread, activation_id, capture_value, 1);
 }
 
 JNIEXPORT void JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgTurnOff(JNIEnv *env, jclass c, jint handle)

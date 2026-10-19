@@ -12,6 +12,8 @@ import (
 )
 
 const version = "v0.0.0-20250521234502-f333402bd9cb"
+const amneziaVersion = "v3.1.20260828"
+const amneziaModule = "github.com/amnezia-vpn/amneziawg-go/v3"
 
 func main() {
 	if len(os.Args) < 2 || len(os.Args) > 3 || (len(os.Args) == 3 && os.Args[2] != "host") {
@@ -147,6 +149,9 @@ func generate(output string, host bool) error {
 		}
 		replacements[filepath.Join(module.Dir, "device", "vpn0wn_recovery_fixture.go")] = recoveryFixture
 	}
+	if err := addAmneziaOverlay(output, moduleRoot, replacements); err != nil {
+		return err
+	}
 	data, err := json.Marshal(struct{ Replace map[string]string }{replacements})
 	if err != nil {
 		return err
@@ -155,6 +160,24 @@ func generate(output string, host bool) error {
 }
 
 func patch(name, source string) (string, error) {
+	return patchEngine(name, source, false)
+}
+
+func patchEngine(name, source string, amnezia bool) (string, error) {
+	var untouchedSuffix string
+	if amnezia && name == "send.go" {
+		var err error
+		source, err = patchAmneziaTransportPadding(source)
+		if err != nil {
+			return "", err
+		}
+		response := "\nfunc (peer *Peer) SendHandshakeResponse() error {"
+		if strings.Count(source, response) != 1 {
+			return "", fmt.Errorf("AmneziaWG initiation boundary does not match pinned source")
+		}
+		boundary := strings.Index(source, response)
+		untouchedSuffix, source = source[boundary:], source[:boundary]
+	}
 	var edits [][2]string
 	switch name {
 	case "device.go":
@@ -216,6 +239,38 @@ func patch(name, source string) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported overlay file %s", name)
 	}
+	if amnezia {
+		if name == "peer.go" {
+			edits = append(edits, [2]string{
+				"func (peer *Peer) SendBuffers(buffers [][]byte) error {",
+				"func (peer *Peer) SendBuffers(buffers [][]byte) error {\n\treturn peer.sendBuffers(buffers, false)\n}\n\nfunc (peer *Peer) sendBuffers(buffers [][]byte, initiation bool) error {",
+			}, [2]string{
+				"err := peer.device.net.bind.Send(buffers, endpoint)",
+				"send := peer.device.net.bind.Send\n\tif initiation {\n\t\tif sender, ok := peer.device.net.bind.(interface { SendInitiation([][]byte, conn.Endpoint) error }); ok {\n\t\t\tsend = sender.SendInitiation\n\t\t}\n\t}\n\terr := send(buffers, endpoint)",
+			})
+		}
+		if name == "send.go" {
+			edits[6] = [2]string{
+				"rand.Read(trailer)\n\n\tsendBuffer = append(sendBuffer, buf)",
+				"rand.Read(trailer)\n\n\tsendBuffer = append(sendBuffer, buf)\n\tif !isRetry {\n\t\tpeer.recovery.activeCycle = true\n\t}\n\tpeer.recovery.Unlock()\n\tpeer.device.staticIdentity.RUnlock()",
+			}
+			edits[7][0] = strings.ReplaceAll(edits[7][0], "[][]byte{packet}", "sendBuffer")
+			edits[7][1] = strings.ReplaceAll(edits[7][1], "[][]byte{packet}", "sendBuffer")
+			edits[7][1] = strings.ReplaceAll(edits[7][1], "peer.SendBuffers(sendBuffer)", "peer.sendBuffers(sendBuffer, true)")
+			edits = append(edits, [2]string{
+				"cip, err := peer.device.HeaderProtectionCipher(crypt[:HeaderCipherNonceSize])\n\tif err != nil {\n\t\treturn err\n\t}",
+				"cip, err := peer.device.HeaderProtectionCipher(crypt[:HeaderCipherNonceSize])\n\tif err != nil {\n\t\tpeer.recovery.Unlock()\n\t\tpeer.device.staticIdentity.RUnlock()\n\t\treturn false, err\n\t}",
+			})
+		}
+		if name == "timers.go" {
+			for i := range edits {
+				for j := range edits[i] {
+					edits[i][j] = strings.ReplaceAll(edits[i][j], "expiredRetransmitHandshake(peer *Peer)", "expiredRetransmitHandshake(peer *Peer, d time.Duration)")
+					edits[i][j] = strings.ReplaceAll(edits[i][j], "RejectAfterTime * 3", "peer.device.keychainExpireTime() * 3")
+				}
+			}
+		}
+	}
 	for i, edit := range edits {
 		expected := 1
 		if name == "device.go" && i == 1 {
@@ -229,7 +284,7 @@ func patch(name, source string) (string, error) {
 		}
 		source = strings.ReplaceAll(source, edit[0], edit[1])
 	}
-	return source, nil
+	return source + untouchedSuffix, nil
 }
 
 const retainedRebindSource = `func (device *Device) Rebind() error {

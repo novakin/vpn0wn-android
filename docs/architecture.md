@@ -1,10 +1,20 @@
 # Architecture and maintenance boundaries
 
-Last updated: 2026-10-18 (Europe/Paris).
+Last updated: 2026-10-19 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
 Preserve the existing Android DataBinding/Fragment foundation and upstream WireGuard config/backend ownership. This guide describes current code; planned integration and repairs are identified explicitly.
+
+## Retain two protocol engines in one native runtime — #76, 2026-10-19
+
+**Problem:** the selected optional AWG engine introduces distinct native device/configuration types. Copying its Android wrapper would lose this app's protected-socket startup, transport capture, handle/query drain and teardown ownership. A second c-shared library would duplicate lifecycle code and introduce Go-runtime/symbol coexistence risk.
+
+**Decision/status:** implementation in progress. The maintainer [selected official optional AWG](https://github.com/novakin/vpn0wn-android/issues/76#issuecomment-6259581090); retain both pinned device packages in the existing single Go runtime and select explicitly at activation. A concrete AWG `conn.Bind` bridge delegates to the existing protected UDP owner while bypassing the ordinary WG warm-up detector. A shared lifecycle interface has two real native implementations. Reuse version-checked ownership patches with explicit AWG source matches; never apply the WG overlay blindly to another module.
+
+**Alternatives/consequences:** separate `libawg-go.so` would require distinct JNI/SONAME/build outputs and duplicate runtime proof; replacing WG with AWG would change the verified ordinary-protocol baseline. Neither is chosen. Shared transitive dependencies require a resolved-module/license review, and both ordinary WG regressions and AWG behavior must pass against the actual combined binary. The existing Go 1.26.9 toolchain meets AWG's Go 1.25 minimum; API24 remains unchanged.
+
+**Compatibility/verification:** the [configuration contract](backend-contracts.md#optional-amneziawg-configuration-and-native-ownership--76) owns explicit protocol intent, lossless fields, allocation bounds and honest kernel refusal. The existing editor retains imported AWG fields through edits/recreation. Native/ABI/API24 and matching-server acceptance is still pending; no compatibility, DPI or performance claim follows from the architecture choice.
 
 ## Ownership
 

@@ -91,7 +91,7 @@ class LicensesActivityTest {
         val unsplitText = TextView(activity).apply { text = payload }
         assertEquals(ACCESSIBILITY_TEXT_LIMIT, unsplitText.createAccessibilityNodeInfo().text.length)
         val texts = notices(activity)
-        assertEquals(34, texts.size)
+        assertEquals(35, texts.size)
         val accessibleTexts = texts.map { text ->
             assertTrue(text.text.length < ACCESSIBILITY_TEXT_LIMIT)
             val accessibleText = text.createAccessibilityNodeInfo().text.toString()
@@ -116,6 +116,7 @@ class LicensesActivityTest {
             "JSch bundled JZlib" to "jsch-JZlib-BSD.txt",
             "JSch bundled jBCrypt" to "jsch-jBCrypt-ISC.txt",
             "Bouncy Castle lightweight crypto — org.bouncycastle:bcprov-jdk15to18:1.86" to "bouncycastle-MIT.txt",
+            "AmneziaWG Go — github.com/amnezia-vpn/amneziawg-go/v3:v3.1.20260828" to "amneziawg-go-MIT.txt",
         )) {
             val original = activity.assets.open("licenses/$asset").bufferedReader().use { it.readText() }
             val complete = original.lineSequence().joinToString("\n") { it.trimEnd() }.trim()

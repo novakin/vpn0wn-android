@@ -30,6 +30,10 @@ class PeerProxy : BaseObservable, Parcelable {
     private var totalPeers = 0
 
     @get:Bindable
+    val isAmnezia: Boolean
+        get() = owner?.`interface`?.isAmnezia == true
+
+    @get:Bindable
     var allowedIps: String = ""
         set(value) {
             field = value
@@ -84,7 +88,7 @@ class PeerProxy : BaseObservable, Parcelable {
     constructor(other: Peer) {
         allowedIps = Attribute.join(other.allowedIps)
         endpoint = other.endpoint.map { it.toString() }.orElse("")
-        persistentKeepalive = other.persistentKeepalive.map { it.toString() }.orElse("")
+        persistentKeepalive = other.persistentKeepaliveText.orElse("")
         preSharedKey = other.preSharedKey.map { it.toBase64() }.orElse("")
         publicKey = other.publicKey.toBase64()
     }
@@ -101,6 +105,7 @@ class PeerProxy : BaseObservable, Parcelable {
         peers.addOnListChangedCallback(peerListListener)
         setTotalPeers(peers.size)
         this.owner = owner
+        notifyPropertyChanged(BR.amnezia)
     }
 
     private fun calculateAllowedIpsState() {
@@ -166,7 +171,10 @@ class PeerProxy : BaseObservable, Parcelable {
         val builder = Peer.Builder()
         if (allowedIps.isNotEmpty()) builder.parseAllowedIPs(allowedIps)
         if (endpoint.isNotEmpty()) builder.parseEndpoint(endpoint)
-        if (persistentKeepalive.isNotEmpty()) builder.parsePersistentKeepalive(persistentKeepalive)
+        if (persistentKeepalive.isNotEmpty()) {
+            if (isAmnezia) builder.parseAmneziaKeepalive(persistentKeepalive)
+            else builder.parsePersistentKeepalive(persistentKeepalive)
+        }
         if (preSharedKey.isNotEmpty()) builder.parsePreSharedKey(preSharedKey)
         if (publicKey.isNotEmpty()) builder.parsePublicKey(publicKey)
         return builder.build()

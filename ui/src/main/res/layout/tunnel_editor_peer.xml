@@ -12,8 +12,6 @@
 
         <import type="com.vpn0wn.android.widget.KeyInputFilter" />
 
-        <import type="com.vpn0wn.android.databinding.BindingAdapters" />
-
         <variable
             name="collection"
             type="androidx.databinding.ObservableList&lt;com.vpn0wn.android.viewmodel.PeerProxy&gt;" />
@@ -203,18 +201,16 @@
                     style="@style/Vpn0wnConfigRowLabel"
                     android:text="@string/persistent_keepalive" />
 
-                <!-- Numeric inflation forces one line; binding reapplies native wrapping afterward. -->
                 <EditText
                     android:id="@+id/persistent_keepalive_text"
                     style="@style/Vpn0wnEditorField"
                     android:hint="@string/hint_optional_discouraged"
                     android:imeOptions="actionNext"
-                    android:inputType="number"
-                    android:singleLine="@{false}"
                     android:nextFocusUp="@id/selected_checkbox"
                     android:nextFocusDown="@id/endpoint_text"
                     android:nextFocusForward="@id/endpoint_text"
-                    android:text="@={item.persistentKeepalive}" />
+                    android:text="@={item.persistentKeepalive}"
+                    app:amneziaKeepalive="@{item.amnezia}" />
             </LinearLayout>
 
         </LinearLayout>

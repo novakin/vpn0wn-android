@@ -256,6 +256,9 @@
     <string name="permission_description">control WireGuard tunnels, enabling and disabling tunnels at will, potentially misdirecting Internet traffic</string>
     <string name="permission_label">control WireGuard tunnels</string>
     <string name="persistent_keepalive">Persistent keepalive</string>
+    <string name="persistent_keepalive_range_seconds">every %1$s seconds</string>
+    <string name="persistent_keepalive_disabled">disabled</string>
+    <string name="bad_config_explanation_awg_pka">: use unsigned seconds or an ordered range such as 20-30, up to 4294967295. The full 0-4294967295 range is unsupported.</string>
     <string name="pre_shared_key">Pre-shared key</string>
     <string name="pre_shared_key_enabled">enabled</string>
     <string name="private_key">Private key</string>
@@ -878,4 +881,5 @@
     <string name="vpn0wn_install_progress_configure">Preparing WireGuard configuration…</string>
     <string name="vpn0wn_install_progress_start">Starting the WireGuard service…</string>
     <string name="vpn0wn_install_progress_verify">Checking the interface and configuration…</string>
+    <string name="amnezia_requires_userspace">AmneziaWG requires the userspace backend. Disable the kernel backend in Settings before connecting.</string>
 </resources>

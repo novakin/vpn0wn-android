@@ -317,6 +317,8 @@ public final class GoBackend implements Backend {
 
     private static native int wgTurnOn(String ifName, int tunFd, String settings, VpnService service, Thread activationThread, long activationId, SocketCapture capture);
 
+    private static native int awgTurnOn(String ifName, int tunFd, String settings, VpnService service, Thread activationThread, long activationId, SocketCapture capture);
+
     private void captureHandshakeObservation(final VpnService service, final long activationId, final byte[] publicKey,
                                              final int eventCode, final boolean retry, final String endpoint, final long exhaustedEpisode) {
         final Activation captured = activation;
@@ -946,8 +948,11 @@ public final class GoBackend implements Backend {
                 {
                     final int tunnelHandle;
                     try {
-                        tunnelHandle = wgTurnOn(tunnel.getName(), tun.detachFd(), goConfig, service, Thread.currentThread(), starting.session.getId(),
-                                new SocketCapture(starting, network == null ? TransportMode.LEGACY : TransportMode.OWNED, network, authority));
+                        final SocketCapture capture = new SocketCapture(starting, network == null ? TransportMode.LEGACY : TransportMode.OWNED, network, authority);
+                        if (config.getInterface().getAmneziaSettings().isPresent())
+                            tunnelHandle = awgTurnOn(tunnel.getName(), tun.detachFd(), goConfig, service, Thread.currentThread(), starting.session.getId(), capture);
+                        else
+                            tunnelHandle = wgTurnOn(tunnel.getName(), tun.detachFd(), goConfig, service, Thread.currentThread(), starting.session.getId(), capture);
                         if (tunnelHandle < 0)
                             throw new BackendException(Reason.GO_ACTIVATION_ERROR_CODE, tunnelHandle);
                     } catch (final Exception | Error e) {

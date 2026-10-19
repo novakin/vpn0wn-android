@@ -1,12 +1,22 @@
 # Operations and recovery
 
-Last updated: 2026-10-18 (Europe/Paris).
+Last updated: 2026-10-19 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
 This guide describes current Android handling and known limits. The [UI roadmap](ui-redesign-roadmap.md) lists visual gaps; the [improvement plan](improvement-plan.md) tracks reliability repairs. Do not treat a rendered screen or successful command as proof of a working VPN/deployment.
 
 ## Import, edit and connect
+
+### Optional AmneziaWG preparation — #76
+
+The maintainer selected the [official optional AWG engine](backend-contracts.md#optional-amneziawg-configuration-and-native-ownership--76) on 2026-10-19. Implementation and acceptance remain in progress. AWG profiles need a compatible AWG server and userspace backend; ordinary WireGuard profiles and existing VPS provisioning remain WireGuard. Disable the kernel backend before starting an AWG profile. The app rejects AWG kernel activation before root/tool work; it does not convert a server or silently change protocols.
+
+Import a complete compatible AWG profile through the existing file, archive or QR flow. Recognized AWG fields select the protocol; an otherwise default profile can explicitly use `Protocol = AmneziaWG`. Export writes the compatibility comment `# vpn0wn:protocol=AmneziaWG` and retained fields. Existing editor fields preserve imported AWG settings and display/edit peer keepalive scalar/ranges. Dedicated controls for every AWG interface field are not added; prepare those in the imported profile. The parser rejects unsafe/unsupported values with field-scoped errors. Preserve original backups before moving a profile to an older app version that lacks AWG parsing.
+
+The AWG engine owns configured I/J handshake packets. vpn0wn's ordinary WireGuard one-byte warm-up is not layered onto AWG, including explicit ListenPort profiles. A configured packet does not establish DPI effectiveness, battery savings or server compatibility. No live AWG server, installed AWG session or production readiness is established by this source preparation.
+
+### Existing WireGuard operation
 
 Home shows the configured count beside the approved outlined vpnØwn artwork; accessible branding remains `vpn0wn`. The count is real localized text and follows font scale; the logo preserves its aspect and responsive dp height. Launcher, themed icon, tile and TV artwork use the same approved symbol or wordmark. [Android brand adoption](ui-redesign-roadmap.md#android-brand-asset-adoption--2026-10-10) owns output acceptance and supersedes the earlier Inter Tight product-wordmark rendering. The visible app name is vpn0wn (`vpn0wn β` for debug). Current source configures `com.vpn0wn.android` and `com.vpn0wn.android.debug`; installing either creates a sandbox separate from the matching legacy app. [Scoped new-ID installed proof](reviews/2026-10-11-namespace-acceptance.md) covers a synthetic rooted debug session alongside the legacy app; it does not establish personal-data migration or complete renamed-artifact acceptance.
 

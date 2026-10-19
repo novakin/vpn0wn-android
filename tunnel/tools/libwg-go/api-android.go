@@ -22,6 +22,8 @@ import (
 	"strings"
 	"unsafe"
 
+	awgdevice "github.com/amnezia-vpn/amneziawg-go/v3/device"
+	awgtun "github.com/amnezia-vpn/amneziawg-go/v3/tun"
 	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/android/androidbind"
 	"golang.zx2c4.com/wireguard/android/uapiserver"
@@ -74,7 +76,7 @@ func init() {
 }
 
 //export wgTurnOn
-func wgTurnOn(interfaceName string, tunFd int32, settings string, context *C.struct_wg_context, env *C.JNIEnv, capture *C.struct_wg_capture) int32 {
+func wgTurnOn(interfaceName string, tunFd int32, settings string, context *C.struct_wg_context, env *C.JNIEnv, capture *C.struct_wg_capture, amnezia C.int) int32 {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	tag := cstring("vpn0wn/GoBackend/" + interfaceName)
@@ -83,18 +85,6 @@ func wgTurnOn(interfaceName string, tunFd int32, settings string, context *C.str
 		Errorf:   AndroidLogger{level: C.ANDROID_LOG_ERROR, tag: tag}.Printf,
 	}
 
-	tun, name, err := tun.CreateUnmonitoredTUNFromFD(int(tunFd))
-	if err != nil {
-		unix.Close(int(tunFd))
-		if capture != nil {
-			C.wgReleaseCapture(context, capture)
-		}
-		C.wgFreeContext(env, context)
-		logger.Errorf("CreateUnmonitoredTUNFromFD: %v", err)
-		return -1
-	}
-
-	logger.Verbosef("Attaching to interface %v", name)
 	bind := androidbind.New(func(base conn.Bind, socketCount int) error {
 		return androidbind.ProtectSockets(base, socketCount, func(fd int) bool {
 			return C.wgProtectSocket(context, C.int(fd)) != 0
@@ -110,24 +100,49 @@ func wgTurnOn(interfaceName string, tunFd int32, settings string, context *C.str
 		}
 		C.wgHandshakeObservation(context, (*C.char)(unsafe.Pointer(&peer[0])), C.int(event), isRetry, cstring(endpoint), C.jlong(episode))
 	})
-	device := device.NewDevice(tun, bind, logger)
-	handle := &TunnelHandle{device: device, bind: bind, context: context}
+	var engine tunnelDevice
+	var name string
+	var err error
+	if amnezia != 0 {
+		var nativeTun awgtun.Device
+		nativeTun, name, err = awgtun.CreateUnmonitoredTUNFromFD(int(tunFd))
+		if err == nil {
+			engine = awgdevice.NewDevice(nativeTun, androidbind.Amnezia{Bind: bind}, &awgdevice.Logger{
+				Verbosef: logger.Verbosef, Errorf: logger.Errorf,
+			})
+		}
+	} else {
+		var nativeTun tun.Device
+		nativeTun, name, err = tun.CreateUnmonitoredTUNFromFD(int(tunFd))
+		if err == nil {
+			engine = device.NewDevice(nativeTun, bind, logger)
+		}
+	}
+	if err != nil {
+		unix.Close(int(tunFd))
+		bind.Shutdown()
+		C.wgFreeContext(env, context)
+		logger.Errorf("CreateUnmonitoredTUNFromFD: %v", err)
+		return -1
+	}
+	logger.Verbosef("Attaching to interface %v", name)
+	handle := &TunnelHandle{device: engine, bind: bind, context: context}
 
-	err = device.IpcSet(settings)
+	err = engine.IpcSet(settings)
 	if err != nil {
 		handle.close(env)
 		logger.Errorf("IpcSet: %v", err)
 		return -1
 	}
-	device.DisableSomeRoamingForBrokenMobileSemantics()
+	engine.DisableSomeRoamingForBrokenMobileSemantics()
 
-	uapi, err := uapiserver.Listen(name, device.IpcHandle)
+	uapi, err := uapiserver.Listen(name, engine.IpcHandle)
 	handle.uapi = uapi
 	if err != nil {
 		logger.Errorf("UAPI listen: %v", err)
 	}
 
-	err = device.Up()
+	err = engine.Up()
 	if err != nil {
 		logger.Errorf("Unable to bring up device: %v", err)
 		handle.close(env)

@@ -2,6 +2,7 @@
 package com.vpn0wn.android.fragment
 
 import android.app.Application
+import android.content.ClipboardManager
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -55,6 +56,127 @@ import org.robolectric.util.ReflectionHelpers
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class LocalizedCopyLayoutTest {
     @get:Rule val folder = TemporaryFolder()
+
+    @Test fun amneziaEditorKeepaliveRangeAndZeroRemainComplete() = previews(keepalivePreviews()) { activity, case ->
+        val fragment = TunnelEditorFragment()
+        activity.supportFragmentManager.beginTransaction().add(android.R.id.content, fragment).commitNow()
+        val binding = requireNotNull(DataBindingUtil.getBinding<TunnelEditorFragmentBinding>(fragment.requireView()))
+        binding.isNew = true
+        try {
+            for ((name, value) in keepaliveValues()) {
+                val config = ConfigProxy(keepaliveProfile(value))
+                binding.config = config
+                binding.executePendingBindings()
+                layout(binding.root, case)
+                assertConfiguration(binding.root, case)
+                val peer = requireNotNull(DataBindingUtil.getBinding<TunnelEditorPeerBinding>(binding.peersLayout.getChildAt(0)))
+                val field = peer.persistentKeepaliveText
+                assertEquals(value, field.text.toString())
+                assertEquals(InputType.TYPE_CLASS_TEXT, field.inputType and InputType.TYPE_MASK_CLASS)
+                assertTrue("AWG ranges disable suggestions", field.inputType and InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS != 0)
+                assertEquals(EditorInfo.IME_ACTION_NEXT, field.imeOptions and EditorInfo.IME_MASK_ACTION)
+                reveal(field, binding.root, case)
+                assertTrue("AWG keepalive accepts native focus", field.requestFocus())
+                field.setText("")
+                val connection = requireNotNull(field.onCreateInputConnection(EditorInfo()))
+                assertTrue("Native input connection accepts the complete range", connection.commitText(value, 1))
+                binding.executePendingBindings()
+                assertEquals(value, config.resolve().peers.single().amneziaKeepalive.get())
+                layout(binding.root, case)
+                reveal(field, binding.root, case)
+                capture(binding.root, case, "editor-$name", "awg-keepalive-previews")
+                assertTextFits(field)
+                assertMono(field, R.font.jetbrains_mono_regular)
+                val node = field.createAccessibilityNodeInfo()
+                try {
+                    assertTrue("AWG keepalive remains editable", node.isEditable)
+                    assertEquals(value, node.text.toString())
+                } finally { node.recycle() }
+                field.clearFocus()
+            }
+            val ordinary = ConfigProxy(keepaliveProfile("25", amnezia = false))
+            binding.config = ordinary
+            binding.executePendingBindings()
+            layout(binding.root, case)
+            val peer = requireNotNull(DataBindingUtil.getBinding<TunnelEditorPeerBinding>(binding.peersLayout.getChildAt(0)))
+            val field = peer.persistentKeepaliveText
+            assertEquals(InputType.TYPE_CLASS_NUMBER, field.inputType and InputType.TYPE_MASK_CLASS)
+            reveal(field, binding.root, case)
+            assertTrue(field.requestFocus())
+            field.setText("")
+            assertTrue(requireNotNull(field.onCreateInputConnection(EditorInfo())).commitText("26", 1))
+            binding.executePendingBindings()
+            assertEquals(26, ordinary.resolve().peers.single().persistentKeepalive.get().toInt())
+            layout(binding.root, case)
+            reveal(field, binding.root, case)
+            capture(binding.root, case, "editor-wireguard-numeric", "awg-keepalive-previews")
+            assertTextFits(field)
+            assertMono(field, R.font.jetbrains_mono_regular)
+        } finally { binding.unbind() }
+    }
+
+    @Test fun amneziaDetailKeepaliveRangeAndDisabledRemainCompleteAndCopyable() = runTest {
+        val environment = TunnelTestEnvironment(folder.root, backgroundScope)
+        try {
+            previews(keepalivePreviews()) { activity, case ->
+                val binding = TunnelDetailFragmentBinding.inflate(activity.layoutInflater)
+                activity.setContentView(binding.root)
+                try {
+                    for ((name, value) in keepaliveValues()) {
+                        val profile = keepaliveProfile(value)
+                        binding.config = profile
+                        binding.tunnel = ObservableTunnel(environment.manager, "synthetic", profile, Tunnel.State.DOWN)
+                        binding.executePendingBindings()
+                        layout(binding.root, case)
+                        assertConfiguration(binding.root, case)
+                        val peer = requireNotNull(DataBindingUtil.getBinding<TunnelDetailPeerBinding>(binding.peersLayout.getChildAt(0)))
+                        val row = peer.persistentKeepaliveRow
+                        val text = peer.persistentKeepaliveText
+                        val expected = if (value == "0") activity.getString(R.string.persistent_keepalive_disabled)
+                            else activity.getString(R.string.persistent_keepalive_range_seconds, value)
+                        assertEquals(View.VISIBLE, row.visibility)
+                        assertEquals(expected, text.text.toString())
+                        reveal(row, binding.root, case)
+                        capture(binding.root, case, "detail-$name", "awg-keepalive-previews")
+                        assertTextFits(text)
+                        assertMono(text, R.font.jetbrains_mono_medium)
+                        assertTarget(row)
+                        val description = "${activity.getString(R.string.persistent_keepalive)}: $expected"
+                        val node = row.createAccessibilityNodeInfo()
+                        try {
+                            assertTrue("Keepalive copy remains accessible", node.isClickable)
+                            assertEquals(description, node.contentDescription.toString())
+                        } finally { node.recycle() }
+                        assertTrue(row.performClick())
+                        val clipboard = activity.getSystemService(ClipboardManager::class.java)
+                        val clip = requireNotNull(clipboard.primaryClip)
+                        assertEquals(expected, clip.getItemAt(0).text.toString())
+                        assertEquals(description, clip.description.label.toString())
+                    }
+                } finally { binding.unbind() }
+            }
+        } finally { environment.close() }
+    }
+
+    private fun keepalivePreviews() = listOf(
+        Preview("awg-en-compact", locale = "en", width = 320, height = 640, scale = 1f),
+        Preview("awg-fr-large", locale = "fr", width = 320, height = 640, scale = 2f),
+        Preview("awg-ar-rtl-short-large", locale = "ar", width = 640, height = 320, scale = 2f, rtl = true),
+    )
+
+    private fun keepaliveValues() = listOf("range" to "20-30", "disabled" to "0", "maximum" to "4294967294-4294967295")
+
+    private fun keepaliveProfile(value: String, amnezia: Boolean = true): TunnelConfig = TunnelConfig.parse("""
+        [Interface]
+        ${if (amnezia) "Protocol = AmneziaWG" else ""}
+        PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+        Address = 192.0.2.2/32
+        [Peer]
+        PublicKey = AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+        Endpoint = 198.51.100.42:51820
+        AllowedIPs = 0.0.0.0/0, ::/0
+        PersistentKeepalive = $value
+    """.trimIndent().reader().buffered())
 
     @Test fun editorLabelsAndNativeFieldsRemainReachable() = previews(largeText = true) { activity, case ->
         val fragment = TunnelEditorFragment()
@@ -520,10 +642,11 @@ class LocalizedCopyLayoutTest {
         assertTrue("Settled native traversal permits drawing", ready)
     }
 
-    private fun capture(root: View, case: Preview, name: String) {
+    private fun capture(root: View, case: Preview, name: String, directory: String? = null) {
         assertConfiguration(root, case)
         val project = File(requireNotNull(System.getProperty("user.dir"))).let { if (it.name == "ui") it.parentFile else it }
-        val output = System.getenv("VPN0WN_LOCALIZED_COPY_OUTPUT")?.let(::File)
+        val output = directory?.let { File(project, ".artifacts/$it") }
+            ?: System.getenv("VPN0WN_LOCALIZED_COPY_OUTPUT")?.let(::File)
             ?: File(project, ".artifacts/localized-copy-previews")
         assertTrue("Preview output directory is available", output.isDirectory || output.mkdirs())
         val bitmap = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
