@@ -683,7 +683,7 @@ class VpsProvisioningFragment : BaseFragment() {
             configLine(str(R.string.vpn0wn_label_host), provisionForm.host)
             configLine(str(R.string.vpn0wn_ssh_fingerprint), provisionForm.fingerprint, wrap = true)
             configLine(str(R.string.vpn0wn_label_firewall), result.firewall)
-            configLine(str(R.string.vpn0wn_label_wg_status), str(if (result.wireGuardInstalled) R.string.vpn0wn_tools_installed else R.string.vpn0wn_tools_absent))
+            configLine(str(R.string.vpn0wn_label_wg_status), str(if (result.wireGuardInstalled) R.string.vpn0wn_tools_installed else R.string.vpn0wn_tools_absent), wrap = true)
             configLine(str(R.string.vpn0wn_label_ip_forwarding), str(when (result.ipv4Forwarding) {
                 "0" -> R.string.vpn0wn_restore_service_disabled
                 "1" -> R.string.vpn0wn_restore_service_enabled

@@ -150,6 +150,10 @@ class VpsProvisioningLayoutTest {
                 val value = descendants(label.parent as View).filterIsInstance<TextView>().single { it !== label }
                 assertEquals(fixture.activity.getString(expected), value.text.toString())
                 assertTextFits(value)
+                val toolsStatus = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_tools_absent))
+                assertTextFits(toolsStatus)
+                for (line in 0 until toolsStatus.layout.lineCount)
+                    assertEquals("Runtime verification qualifier stays visible", 0, toolsStatus.layout.getEllipsisCount(line))
                 if ((locale == "en" && observation == "0") || (locale == "fr" && observation == "1")) {
                     settlePreview(fixture.root, 320, 640)
                     assertPreviewConfiguration(fixture.root, locale, "notnight", 1f, View.LAYOUT_DIRECTION_LTR)
