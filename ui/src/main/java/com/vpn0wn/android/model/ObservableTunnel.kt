@@ -180,7 +180,7 @@ class ObservableTunnel internal constructor(
         DISABLED, CANCELLED, FAILED, OBSOLETE
     }
 
-    enum class RecoveryFailureCategory { CANCELLED, INTERRUPTED, IO, SERVICE_UNAVAILABLE, DEFECT }
+    enum class RecoveryFailureCategory { CANCELLED, INTERRUPTED, DNS_RESOLUTION, IO, SERVICE_UNAVAILABLE, DEFECT }
     enum class RecoveryTransportState { UNKNOWN, READY, UNAVAILABLE }
     enum class RecoveryPowerState { UNKNOWN, NOT_DEEP_IDLE, DEEP_IDLE }
 

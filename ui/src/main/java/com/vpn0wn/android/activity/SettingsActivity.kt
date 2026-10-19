@@ -400,7 +400,7 @@ class SettingsActivity : AppCompatActivity() {
             if (automationPending) return
             viewLifecycleOwner.lifecycleScope.launch {
                 try {
-                    val tunnels = Application.getTunnelManager().getTunnels().filter { GoBackend.hasNumericEndpoints(it.getConfigAsync()) }
+                    val tunnels = Application.getTunnelManager().getTunnels().toList()
                     if (tunnels.isEmpty()) {
                         showAutomationFailure()
                         return@launch

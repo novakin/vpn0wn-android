@@ -148,7 +148,7 @@ class SettingsAutomationUiTest {
         assertNull(shadowOf(activity).nextStartedService)
     }
 
-    @Test fun defaultChooserAcceptsOnlyActualNumericOrEndpointFreeProfilesAndCancelKeepsSelection() = settingsTest {
+    @Test fun defaultChooserAcceptsHostnameProfilesAndCancelKeepsSelection() = settingsTest {
         val env = environment()
         env.manager.create("numeric", peerProfile("192.0.2.1:51820"))
         env.manager.create("endpoint-free", TunnelTestEnvironment.profile())
@@ -160,8 +160,8 @@ class SettingsAutomationUiTest {
         settle(activity)
         val chooser = latestDialog()
         val names = (0 until chooser.listView.adapter.count).map { chooser.listView.adapter.getItem(it).toString() }
-        assertEquals(setOf("numeric", "endpoint-free"), names.toSet())
-        val index = names.indexOf("numeric")
+        assertEquals(setOf("numeric", "endpoint-free", "hostname"), names.toSet())
+        val index = names.indexOf("hostname")
         val selectionOwner = fragment(activity).viewLifecycleOwner.lifecycleScope.coroutineContext[Job]!!
         val previousJobs = selectionOwner.children.toSet()
         chooser.listView.performItemClick(null, index, chooser.listView.adapter.getItemId(index))
@@ -169,9 +169,9 @@ class SettingsAutomationUiTest {
         selectionOwner.children.filterNot { it in previousJobs }.toList().joinAll()
         settle(activity)
 
-        assertEquals("numeric", state().defaultName)
+        assertEquals("hostname", state().defaultName)
         assertFalse("Selecting a default does not enable automation", state().enabled)
-        assertEquals("numeric", preference(activity, "automation_default").summary)
+        assertEquals("hostname", preference(activity, "automation_default").summary)
         assertTrue(preference(activity, "automation_enable").isEnabled)
         assertNull(shadowOf(activity).nextStartedService)
 
@@ -179,7 +179,7 @@ class SettingsAutomationUiTest {
         settle(activity)
         latestDialog().getButton(DialogInterface.BUTTON_NEGATIVE).performClick()
         settle(activity)
-        assertEquals("numeric", state().defaultName)
+        assertEquals("hostname", state().defaultName)
     }
 
     @Test fun deniedVpnConsentLeavesAutomationDisabledAndExplicitRetryStartsOnlyOneEnableRequest() = settingsTest {
@@ -295,6 +295,7 @@ class SettingsAutomationUiTest {
         val env = environment()
         env.manager.create("default", TunnelTestEnvironment.profile())
         env.manager.create("numeric", peerProfile("192.0.2.1:51820"))
+        env.manager.create("hostname", peerProfile("vpn.example.invalid:51820"))
         for (case in previews()) {
             configure(case)
             val activity = openSettings()
@@ -312,7 +313,7 @@ class SettingsAutomationUiTest {
             val chooserRoot = requireNotNull(chooser.window).decorView
             layout(chooserRoot, case)
             assertConfiguration(chooserRoot, case)
-            assertEquals(2, chooser.listView.adapter.count)
+            assertEquals(3, chooser.listView.adapter.count)
             for (index in 0 until chooser.listView.adapter.count) {
                 chooser.listView.setSelection(index)
                 layout(chooserRoot, case)
