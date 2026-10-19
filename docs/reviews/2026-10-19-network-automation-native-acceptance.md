@@ -6,6 +6,8 @@ Last updated: 2026-10-19 (Europe/Paris).
 
 **Scoped PASS: one isolated API28 x86_64 native A7 cohort, including recorded cleanup and preservation.** The [independent runtime ultra review](https://github.com/novakin/vpn0wn-android/pull/298#pullrequestreview-5567387815) is satisfied within this scope, with no unresolved material findings. [PR #298](https://github.com/novakin/vpn0wn-android/pull/298) delivered the bounded source implementation as merge `1a084d016e440eb374ea2a6d9e1b7cc0a0022e42`. [#74](https://github.com/novakin/vpn0wn-android/issues/74) remains open for wider acceptance.
 
+The later [API36 Settings Resume and Stop cohort](#api36-settings-resume-and-stop-acknowledgement--2026-10-19) has its own scoped verdict below; A7 identities, observations and limitations remain historical.
+
 This record summarizes retained runtime evidence and its independent review. It performs no new runtime run and adds no product changes. Native A7 is distinct from the earlier JVM A7 checkpoint in the [QA guide](../qa-test-plan.md#planned-network-automation-controls--74). The [backend contract](../backend-contracts.md#planned-network-automation--74) and [operator guidance](../operations.md#planned-network-automation--74) retain ownership and support limits. Source review and CI keep their separate scopes in the PR acceptance record.
 
 ## Frozen source and artifact
@@ -70,8 +72,65 @@ Private evidence remains under ignored `.artifacts/continuation-20261018/`, incl
 | `network-automation-native-a7-runtime-ultra-review.md` | `3bb356be72d9a5f9ec75e597d3cab39ebb78569993f96ede652e01e31c8c860d` |
 | `network-automation-native-a7-runtime-audit.json` | `aa6d0b488c3b7fc11f6e34821d743e2b2eb95c63a400f86288481363a110ba4f` |
 
-Remaining #74 acceptance includes physical public-N selection/routing and hand-back, Wi-Fi loss with working mobile, packet/source-port/protocol behavior, outer IPv6 data traffic, failure and in-flight cancellation races, supported API/OEM/permission/policy/background/process/boot behavior, enabled service-Resume acknowledgement, and installed Settings/output/accessibility controls. Wider exact rules and supported configuration/backend boundaries remain governed by the owning contract.
+At the A7 checkpoint, remaining #74 acceptance included physical public-N selection/routing and hand-back, Wi-Fi loss with working mobile, packet/source-port/protocol behavior, outer IPv6 data traffic, failure and in-flight cancellation races, supported API/OEM/permission/policy/background/process/boot behavior, enabled service-Resume acknowledgement, and installed Settings/output/accessibility controls. Wider exact rules and supported configuration/backend boundaries remain governed by the owning contract.
 
 A7 establishes no seamless handover, zero-leak guarantee, peer-health guarantee, reliable background survival, latency, speed or battery improvement. The passive observer suspends event threads, so its timing cannot support performance claims. Source merge and this isolated synthetic debug cohort establish no shipping-APK equivalence, release or physical deployment.
 
 Documentation impact is limited to this historical acceptance record and current #74 status/evidence pointers. No new behavior, API/schema, architecture choice, operational policy, build setup or agent workflow follows; existing requirements and earlier source/test dates remain intact.
+
+
+## API36 Settings Resume and Stop acknowledgement — 2026-10-19
+
+**Scoped PASS: the isolated API36 x86_64 R4 retry1 ordinary-process cohort, checked cleanup/preservation and observed native Settings output.** Independent runtime, state and original-pixel reviews are satisfied within this scope, with no unresolved material finding. Actual Settings/service Resume delivery and durable user-Stop acknowledgement are observed here; A7's direct-controller-only limitation remains specific to A7. This evidence update changes no product behavior or policy and does not close [#74](https://github.com/novakin/vpn0wn-android/issues/74).
+
+### Frozen API36 boundary
+
+| Binding | Accepted identity |
+| --- | --- |
+| Runtime source / tree | `ad03dda6ad0023b151ec42f856efb755076b89bb` / `a78485cab54b89cc69b412496215aed2f8a19d7e` |
+| Input manifest SHA256 | `2ea8ed18866b9bb7c01e81c71091da22765263890a50b3ce55de318773813d97` |
+| Produced and pulled installed APK | 19,719,011 bytes; SHA256 `e52323b74872e2c1f1da16b39a71f06c3020c83eb6d4b482481ba8883e414183` |
+| Isolated package / platform | `local.vpn0wn.automation74resumeprobe.debug`; Android API36, x86_64 |
+
+The artifact audit accepted the separate probe's manifest, DEX, native libraries and signature; the complete installed copy matches its producer. One seed-only instrumentation creates an endpoint-free DOWN profile through the production manager, then settles naturally. All six ordinary-process checkpoints have no active instrumentation. Normal Main/Settings entry, real default/Enable actions, native VPN consent and notification Allow precede the production foreground monitor. No direct controller call, private-service shell start or injected exit history substitutes for the actions below. The fixture has no peers or traffic target.
+
+### Observed Resume and Stop sequence
+
+| Control | Accepted observation |
+| --- | --- |
+| Manual DOWN | Actual tunnel control commits the full DOWN manual receipt and empty running intent; monitor remains foreground while TUN/VpnService are absent. |
+| Resume with active monitor | Actual Settings Resume dispatch lies between service observations. The same process/start identity and monitor record remain, while `lastStartId` increases from 3 to 4. Held preferences are byte-identical; Resume does not clear the hold. |
+| First Stop and normal reentry | Android's documented `cmd activity stop-app` stops the owned normal app. Reentry has a new process, durable pause and no monitor/TUN. The prior acknowledgement is unchanged before explicit Resume. This exercises the documented Stop simulation, not Task Manager UI operation. |
+| Explicit paused Resume | Real Resume starts the foreground monitor, clears pause and commits acknowledgement equal to the complete first Stop stamp. The episode, manual DOWN hold and prior automatic attempt remain unchanged. |
+| Ordinary process death/reentry | Identity-checked same-UID SIGKILL has platform signal-exit evidence. Legitimate visible reentry preserves byte-identical acknowledged preferences and the DOWN hold; the consumed Stop does not latch again. |
+| Newer Stop | A second Stop and normal reopen produce a new durable pause with no monitor/TUN, while the first acknowledgement remains unchanged. |
+| Explicit teardown | Actual Disable confirmation commits disabled state and empty running intent; monitor/VPN inactivity and deletion of the owned profile are observed. |
+
+An independent decoder checked all 21 retained preference payloads against raw command bytes and parsed state. All six phases match their raw process/service/state observations. Both complete Stop stamps, including timestamps, independently match system exit history using this run's boot-bound timezone/offset observation. The seed's instrumentation-ending force-stop boundary is separately identified; it is neither tested Stop. These correlations prove the sampled durable sequence without publishing private process identifiers or raw preferences. Active Resume delivery is observed in this retry; the earlier conditional `lastStartId` availability caveat does not apply to it.
+
+### Native output and cleanup verdict
+
+All eight original 1080×1920 PNGs were inspected and matched to successful raw screencap bytes. Independent satisfaction verdict: **satisfied for the observed dark portrait English/LTR automation rows; no correction needed.** Enabled binding/health limitations, manual hold, first/newer Stop pause, resumed hold and disabled state remain distinct and fully readable, with no observed clipping or overlap. The acknowledged and ordinary-reentry captures are pixel-identical but have separate successful capture commands. Existing Inter Tight/Mono roles and native tokens remain. This does not verify a configured font scale, other themes/sizes/locales/RTL, keyboard/TalkBack, the unpictured consent/notification/Disable dialogs or the entire Settings page.
+
+The actual host session and UI controller exited 0. All 560 UI commands and four supplemental read-only timezone commands succeeded. All 141 host receipts settled without timeout; only the two expected PID-absence probes exited 1. All 29 owned hierarchy files have successful hash-bound removal. All twelve cleanup flags are independently corroborated, cleanup errors are empty, nine before/after command pairs and complete snapshots are byte-identical, and uninstall/package/process/emulator evidence agrees. The 28 consumed inputs, 38 source descriptors, nine tools and seven reused helpers retain their bound bytes. Source HEAD/tree were clean and unchanged at preservation release. Both authority gates are closed.
+
+Host process/port observations support owned-resource absence and shared-owner preservation at review time; they are point-in-time evidence. No final ADB device-list observation is claimed. A future operation needs fresh admission. Raw private evidence remains under ignored `.artifacts/continuation-20261019-automation/`.
+
+### Retained Resume-cohort failures and remaining scope
+
+| Attempt | Failure retained; no lifecycle acceptance |
+| --- | --- |
+| R1 | Default selection rejected the observed native list row because the generic click path required a clickable ancestor. |
+| R2 | Strict focus observation rejected the expected VPN Activity during a transient null current window, before consent dispatch. |
+| R3 | VPN consent dispatched; notification selection failed because the Google controller package and Android resource namespace differ. No notification dispatch occurred. |
+| R4 first run | Installed-copy pull failed with a partial APK and no explanatory diagnostic. No UI sequence ran. Cleanup/preservation passed; the failure cause remains unexplained. |
+
+Their independent cleanup reviews passed; retained failures and evidence remain unchanged. R4 retry1 used the same reviewed R4 inputs and full APK, completed installed-copy verification and passed the sequence above. Its success does not diagnose the earlier transfer failure or retrospectively accept any failed attempt. The earlier A2–A6 and A7 records retain their separate scopes.
+
+| Retained independent record | SHA256 |
+| --- | --- |
+| `r4-retry1-independent-runtime-review.md` | `ef26b1c38ffe1e5e8885514b401ab8f565b3a56aee44e1a8ed3d16ebc6dd38c6` |
+| `r4-retry1-phase-state-review.md` | `02add5e0f12429f5ccc4b8a69664812284b82bc028a7c9a041f8b9aa96bc6608` |
+| `r4-retry1-independent-png-review.md` | `74cd47fb8a6b1356fbfd24a98aa73225288681a50e8c899c3f00c32d8c6f551c` |
+
+Remaining #74 acceptance includes physical public-N routing/hand-back and Wi-Fi/mobile fallback; authenticated traffic, packet/source-port/IPv6/hostname behavior; failed commits/acknowledgements, missing/ambiguous/evicted history, failed-attempt suppression and in-flight cancellation; wider APIs/OEM/permissions/background/boot/sticky-restart behavior; and broader installed output/accessibility. Visible reentry proves neither sticky restart nor boot reliability. API36 is not separate API24–35 or physical API34 coverage. Wider exact rules/backend/configuration support remains governed by the contract. No VPN-health, shipping-APK, release, physical deployment, seamless-handover, zero-leak, performance or battery claim follows.
