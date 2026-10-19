@@ -37,6 +37,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -512,6 +513,7 @@ class AppDataTransferManagerTest {
     @Test
     fun startupRestoreSnapshotCannotActivateProfileImportedDuringSavedStateRead() = runTest {
         val env = environment()
+        env.manager.getTunnels()
         val dataStore = preferencesStore()
         UserKnobs.setRunningTunnels(setOf("new", "orphan"))
         val readingRestore = CompletableDeferred<Unit>()
@@ -523,7 +525,10 @@ class AppDataTransferManagerTest {
                 reads++
                 if (reads == 2) {
                     readingRestore.complete(Unit)
-                    finishRestoreRead.await()
+                    // A real clock releases admitted import work if fixture read ordering regresses.
+                    withContext(Dispatchers.IO) {
+                        withTimeout(TimeUnit.SECONDS.toMillis(5)) { finishRestoreRead.await() }
+                    }
                 }
                 emit(snapshot)
             }

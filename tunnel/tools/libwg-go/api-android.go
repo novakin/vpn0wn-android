@@ -74,7 +74,7 @@ func init() {
 }
 
 //export wgTurnOn
-func wgTurnOn(interfaceName string, tunFd int32, settings string, context *C.struct_wg_context, env *C.JNIEnv) int32 {
+func wgTurnOn(interfaceName string, tunFd int32, settings string, context *C.struct_wg_context, env *C.JNIEnv, capture *C.struct_wg_capture) int32 {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	tag := cstring("vpn0wn/GoBackend/" + interfaceName)
@@ -86,6 +86,9 @@ func wgTurnOn(interfaceName string, tunFd int32, settings string, context *C.str
 	tun, name, err := tun.CreateUnmonitoredTUNFromFD(int(tunFd))
 	if err != nil {
 		unix.Close(int(tunFd))
+		if capture != nil {
+			C.wgReleaseCapture(context, capture)
+		}
 		C.wgFreeContext(env, context)
 		logger.Errorf("CreateUnmonitoredTUNFromFD: %v", err)
 		return -1
@@ -97,6 +100,9 @@ func wgTurnOn(interfaceName string, tunFd int32, settings string, context *C.str
 			return C.wgProtectSocket(context, C.int(fd)) != 0
 		})
 	}, func() bool { return C.wgServiceActive(context) != 0 })
+	if capture != nil {
+		bind.SetInitialCapture(capturedTransport(context, capture, true))
+	}
 	bind.SetHandshakeObserver(func(peer [32]byte, event int, retry bool, endpoint string, episode uint64) {
 		isRetry := C.int(0)
 		if retry {
@@ -140,6 +146,101 @@ func wgTurnOn(interfaceName string, tunFd int32, settings string, context *C.str
 		return -1
 	}
 	return id
+}
+
+func capturedTransport(context *C.struct_wg_context, capture *C.struct_wg_capture, available bool) *androidbind.Capture {
+	return &androidbind.Capture{
+		Available: available,
+		Prepare: func(base conn.Bind, count int) error {
+			return androidbind.ProtectSockets(base, count, func(fd int) bool {
+				return C.wgPrepareCapturedSocket(context, capture, C.int(fd)) != 0
+			})
+		},
+		Publish: func(generation uint64) error {
+			if C.wgReportCapturedTransport(context, capture, C.jlong(generation), 1) == 0 {
+				return errors.New("transport reporting failed")
+			}
+			return nil
+		},
+		Empty: func(generation uint64) error {
+			if C.wgReportCapturedTransport(context, capture, C.jlong(generation), 0) == 0 {
+				return errors.New("transport empty reporting failed")
+			}
+			return nil
+		},
+		Confirm: func(generation uint64) error {
+			if C.wgConfirmCapturedTransport(context, capture, C.jlong(generation)) == 0 {
+				return errors.New("transport publication retired")
+			}
+			return nil
+		},
+		Release: func() { C.wgReleaseCapture(context, capture) },
+	}
+}
+
+//export wgTransport
+func wgTransport(tunnelHandle int32, expected C.jlong, capture *C.struct_wg_capture, available C.int, env *C.JNIEnv) C.jlong {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	handle := tunnelHandles.acquire(tunnelHandle)
+	if handle == nil {
+		C.wgFreeCapture(env, capture)
+		return 131
+	}
+	defer handle.queries.Done()
+	if C.wgServiceActive(handle.context) == 0 {
+		C.wgFreeCapture(env, capture)
+		C.wgRethrowException(env, handle.context)
+		return C.jlong(handle.bind.Generation()<<8 | 131)
+	}
+	installed := false
+	next := capturedTransport(handle.context, capture, available != 0)
+	defer func() {
+		if !installed {
+			next.Release()
+		}
+	}()
+	err := handle.device.RebindTransport(func() error {
+		var err error
+		installed, err = handle.bind.ReplaceCapture(uint64(expected), next)
+		return err
+	})
+	outcome := 4
+	if errors.Is(err, unix.EBUSY) {
+		outcome = 1
+	} else if errors.Is(err, androidbind.ErrObsolete) {
+		outcome = 2
+	} else if err != nil {
+		outcome = 5
+	}
+	if handle.bind.IsStopped() {
+		outcome = 3
+	}
+	if C.wgServiceActive(handle.context) == 0 {
+		outcome |= 128
+	}
+	if C.wgRethrowException(env, handle.context) != 0 {
+		outcome |= 128
+	}
+	return C.jlong(handle.bind.Generation()<<8 | uint64(outcome))
+}
+
+//export wgTransportSnapshot
+func wgTransportSnapshot(tunnelHandle int32) C.jlong {
+	handle := tunnelHandles.acquire(tunnelHandle)
+	if handle == nil {
+		return 0
+	}
+	defer handle.queries.Done()
+	generation, ready := handle.bind.Snapshot()
+	result := generation << 2
+	if ready {
+		result |= 1
+	}
+	if C.wgContextHealthy(handle.context) != 0 {
+		result |= 2
+	}
+	return C.jlong(result)
 }
 
 //export wgTurnOff

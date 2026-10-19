@@ -210,19 +210,22 @@ class ZipExporterPolicyTest {
             val manager = fixture.activity.supportFragmentManager
             manager.beginTransaction().detach(fixture.fragment).commitNow()
             manager.beginTransaction().attach(fixture.fragment).commitNow()
+            runCurrent()
+            val currentPreference = checkNotNull(fixture.fragment.findPreference<Preference>("zip_exporter"))
+            val replacement = fixture.copy(preference = currentPreference,
+                steadyViewJobs = fixture.fragment.viewLifecycleOwner.lifecycleScope.coroutineContext[Job]!!.children.toSet())
 
             callback(BiometricAuthenticator.Result.Success(null))
-            settle(fixture)
+            settle(replacement)
 
             assertEquals(0, fixture.provider.inserts)
-            val currentPreference = checkNotNull(fixture.fragment.findPreference<Preference>("zip_exporter"))
             assertTrue(currentPreference.isEnabled)
             currentPreference.performClick()
             assertEquals(2, Authentication.callbacks.size)
             callback(BiometricAuthenticator.Result.Success(null))
             assertFalse(currentPreference.isEnabled)
             Authentication.callbacks.last()(BiometricAuthenticator.Result.Success(null))
-            settle(fixture)
+            settle(replacement)
             assertEquals(1, fixture.provider.inserts)
         }
     }
@@ -236,7 +239,8 @@ class ZipExporterPolicyTest {
                 Authentication.callbacks.single()(BiometricAuthenticator.Result.Success(null))
                 runCurrent()
                 assertTrue(withContext(Dispatchers.IO) { entered.await(5, TimeUnit.SECONDS) })
-                val export = fixture.fragment.viewLifecycleOwner.lifecycleScope.coroutineContext[Job]!!.children.single()
+                val export = fixture.fragment.viewLifecycleOwner.lifecycleScope.coroutineContext[Job]!!.children
+                    .filter { it !in fixture.steadyViewJobs }.single()
                 fixture.activity.supportFragmentManager.beginTransaction().detach(fixture.fragment).commitNow()
                 release.countDown()
                 export.join()
@@ -288,12 +292,14 @@ class ZipExporterPolicyTest {
             it.attachInfo(activity, ProviderInfo().apply { authority = "media" })
             ShadowContentResolver.registerProviderInternal("media", it)
         }
-        return Fixture(activity, fragment, checkNotNull(fragment.findPreference("zip_exporter")), provider)
+        val steadyViewJobs = fragment.viewLifecycleOwner.lifecycleScope.coroutineContext[Job]!!.children.toSet()
+        return Fixture(activity, fragment, checkNotNull(fragment.findPreference("zip_exporter")), provider, steadyViewJobs)
     }
 
     private suspend fun TestScope.settle(fixture: Fixture) {
         runCurrent()
-        fixture.fragment.viewLifecycleOwner.lifecycleScope.coroutineContext[Job]!!.children.toList().joinAll()
+        fixture.fragment.viewLifecycleOwner.lifecycleScope.coroutineContext[Job]!!.children
+            .filter { it !in fixture.steadyViewJobs }.toList().joinAll()
         runCurrent()
     }
 
@@ -317,7 +323,7 @@ class ZipExporterPolicyTest {
     }
 
     private data class Fixture(val activity: SettingsActivity, val fragment: SettingsActivity.SettingsFragment,
-        val preference: Preference, val provider: ExportProvider)
+        val preference: Preference, val provider: ExportProvider, val steadyViewJobs: Set<Job>)
 
     private class ExportProvider(val file: File) : ContentProvider() {
         private val outputUri = Uri.parse("content://media/external/downloads/1")

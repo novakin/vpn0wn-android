@@ -7,6 +7,7 @@
 package com.vpn0wn.android.util
 
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
@@ -54,11 +55,15 @@ object UserKnobs {
         }
     }
 
-    private val MULTIPLE_TUNNELS = booleanPreferencesKey("multiple_tunnels")
+    internal val MULTIPLE_TUNNELS = booleanPreferencesKey("multiple_tunnels")
     val multipleTunnels: Flow<Boolean>
         get() = Application.getPreferencesDataStore().data.map {
             it[MULTIPLE_TUNNELS] ?: false
         }
+
+    internal suspend fun setMultipleTunnels(enabled: Boolean) {
+        Application.getPreferencesDataStore().edit { it[MULTIPLE_TUNNELS] = enabled }
+    }
 
     private val DARK_THEME = booleanPreferencesKey("dark_theme")
     val darkTheme: Flow<Boolean>
@@ -107,11 +112,13 @@ object UserKnobs {
 
     suspend fun setRunningTunnels(runningTunnels: Set<String>) {
         Application.getPreferencesDataStore().edit {
-            if (runningTunnels.isEmpty())
-                it.remove(RUNNING_TUNNELS)
-            else
-                it[RUNNING_TUNNELS] = runningTunnels
+            setRunningTunnels(it, runningTunnels)
         }
+    }
+
+    internal fun setRunningTunnels(preferences: MutablePreferences, runningTunnels: Set<String>) {
+        if (runningTunnels.isEmpty()) preferences.remove(RUNNING_TUNNELS)
+        else preferences[RUNNING_TUNNELS] = runningTunnels
     }
 
     internal val transferBooleanKeys = listOf(DARK_THEME, MULTIPLE_TUNNELS, ALLOW_REMOTE_CONTROL_INTENTS, RESTORE_ON_BOOT)

@@ -5,6 +5,44 @@ public final class WgContextTest {
     private static native int checkRetained(long handle);
     private static native void closeRetained(long handle);
     private static native boolean callerInterrupted(Object caller);
+    private static native int exerciseCaptured(Service service, Thread startup, Capture capture);
+    private static native long retainCapture(Service service, Thread startup, Capture capture);
+    private static native void freeCapture(long handle);
+
+    private static final class Capture {
+        final Thread owner = Thread.currentThread();
+        final java.util.List<String> calls = new java.util.ArrayList<>();
+        String denied;
+        String failed;
+        final Error failure = new AssertionError("Synthetic captured callback defect");
+
+        private boolean callback(String stage) {
+            if (Thread.currentThread() == owner)
+                throw new AssertionError("Captured callback did not attach a worker");
+            calls.add(stage);
+            if (stage.equals(failed))
+                throw failure;
+            return !stage.equals(denied);
+        }
+
+        private boolean prepare(int socket) {
+            if (socket != 42)
+                throw new AssertionError("Captured descriptor changed");
+            return callback("prepare");
+        }
+
+        private boolean report(long generation, boolean ready) {
+            if (generation != (ready ? 91 : 92))
+                throw new AssertionError("Captured generation changed");
+            return callback(ready ? "report" : "empty");
+        }
+
+        private boolean confirm(long generation) {
+            if (generation != 91)
+                throw new AssertionError("Confirmed generation changed");
+            return callback("confirm");
+        }
+    }
 
     private static final class FailedCaller {
         final Error failure = new AssertionError("Synthetic caller defect");
@@ -138,6 +176,48 @@ public final class WgContextTest {
         } finally {
             closeRetained(handle);
         }
-        System.out.println("JNI context: seven worker/lifetime/observation/failure/retained-interruption controls PASS");
+        Capture capture = new Capture();
+        if (exerciseCaptured(new Service(), Thread.currentThread(), capture) != 31
+                || !capture.calls.equals(java.util.List.of("prepare", "report", "confirm", "empty")))
+            throw new AssertionError("Captured worker callbacks lost order or identity");
+        for (String stage : java.util.List.of("prepare", "report", "confirm", "empty")) {
+            Capture deniedCapture = new Capture();
+            deniedCapture.denied = stage;
+            if (exerciseCaptured(new Service(), Thread.currentThread(), deniedCapture) != (31 & ~(1 << java.util.List.of("prepare", "report", "confirm", "empty").indexOf(stage))))
+                throw new AssertionError("Captured denial became success: " + stage);
+            Capture failedCapture = new Capture();
+            failedCapture.failed = stage;
+            try {
+                exerciseCaptured(new Service(), Thread.currentThread(), failedCapture);
+                throw new AssertionError("Captured defect was swallowed: " + stage);
+            } catch (Error actual) {
+                if (actual != failedCapture.failure || failedCapture.calls.size() != java.util.List.of("prepare", "report", "confirm", "empty").indexOf(stage) + 1)
+                    throw new AssertionError("Captured defect identity or terminal latch changed: " + stage);
+            }
+        }
+        Capture inactive = new Capture();
+        Service inactiveService = new Service();
+        inactiveService.destroyed = true;
+        if (exerciseCaptured(inactiveService, Thread.currentThread(), inactive) != 16 || !inactive.calls.isEmpty())
+            throw new AssertionError("Destroyed service reached capture");
+
+        java.lang.ref.ReferenceQueue<Capture> queue = new java.lang.ref.ReferenceQueue<>();
+        Capture retainedCapture = new Capture();
+        java.lang.ref.WeakReference<Capture> weakCapture = new java.lang.ref.WeakReference<>(retainedCapture, queue);
+        long captureHandle = retainCapture(new Service(), Thread.currentThread(), retainedCapture);
+        if (captureHandle == 0)
+            throw new AssertionError("Capture retention failed");
+        retainedCapture = null;
+        System.gc();
+        if (weakCapture.get() == null)
+            throw new AssertionError("Capture global reference did not retain owner");
+        freeCapture(captureHandle);
+        for (int attempt = 0; attempt < 100 && !weakCapture.isEnqueued(); attempt++) {
+            System.gc();
+            Thread.sleep(10);
+        }
+        if (queue.poll() != weakCapture)
+            throw new AssertionError("Capture global reference leaked after release");
+        System.out.println("JNI context: seven legacy controls plus capture callback/denial/failure/lifetime controls PASS");
     }
 }

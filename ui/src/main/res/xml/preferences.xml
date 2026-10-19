@@ -12,6 +12,52 @@
         android:title="@string/vpn0wn_settings_section_connection">
 
         <Preference
+            android:key="automation_default"
+            android:icon="@drawable/ic_vpn0wn_server"
+            android:layout="@layout/vpn0wn_preference_item"
+            android:persistent="false"
+            android:singleLineTitle="false"
+            android:title="@string/automation_default"
+            android:summary="@string/automation_choose_default" />
+
+        <Preference
+            android:key="automation_status"
+            android:icon="@drawable/ic_vpn0wn_refresh"
+            android:layout="@layout/vpn0wn_preference_item"
+            android:persistent="false"
+            android:selectable="false"
+            android:singleLineTitle="false"
+            android:title="@string/automation_title"
+            android:summary="@string/automation_status_disabled" />
+
+        <Preference
+            android:key="automation_enable"
+            android:icon="@drawable/ic_vpn0wn_refresh"
+            android:layout="@layout/vpn0wn_preference_item"
+            android:persistent="false"
+            android:singleLineTitle="false"
+            android:title="@string/automation_enable"
+            android:summary="@string/automation_enable_summary" />
+
+        <Preference
+            android:key="automation_resume"
+            android:icon="@drawable/ic_vpn0wn_refresh"
+            android:layout="@layout/vpn0wn_preference_item"
+            android:persistent="false"
+            android:singleLineTitle="false"
+            android:title="@string/automation_resume"
+            android:summary="@string/automation_resume_summary" />
+
+        <Preference
+            android:key="automation_disable"
+            android:icon="@drawable/ic_vpn0wn_refresh"
+            android:layout="@layout/vpn0wn_preference_item"
+            android:persistent="false"
+            android:singleLineTitle="false"
+            android:title="@string/automation_disable"
+            android:summary="@string/automation_disable_summary" />
+
+        <Preference
             android:icon="@drawable/ic_vpn0wn_settings"
             android:key="system_vpn_settings"
             android:layout="@layout/vpn0wn_preference_item"

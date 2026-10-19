@@ -33,8 +33,12 @@ import androidx.recyclerview.widget.RecyclerView
 import com.vpn0wn.android.QuickTileService
 import com.vpn0wn.android.R
 import com.vpn0wn.android.backend.Backend
+import com.vpn0wn.android.backend.GoBackend
+import com.vpn0wn.android.backend.GoBackendLifecycleTest
 import com.vpn0wn.android.backend.WgQuickBackend
 import com.vpn0wn.android.model.TunnelTestEnvironment
+import com.vpn0wn.android.model.NetworkAutomationController
+import com.vpn0wn.android.model.NetworkAutomationState
 import com.vpn0wn.android.preference.KernelModuleEnablerPreference
 import com.vpn0wn.android.util.RootShell
 import com.vpn0wn.android.util.ToolsInstaller
@@ -50,6 +54,7 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.resetMain
@@ -118,12 +123,98 @@ class SettingsActivityTest {
         assertTrue(fragment.findPreference<Preference>("settings_connection")!!.isVisible)
         assertNotNull(fragment.findPreference<Preference>("system_vpn_settings"))
         assertNull(fragment.findPreference<Preference>("kernel_module_enabler"))
+        assertNull(fragment.findPreference<Preference>("multiple_tunnels"))
         assertNull(fragment.findPreference<Preference>("quick_tile"))
         assertNotNull(fragment.findPreference<SwitchPreferenceCompat>("dark_theme"))
         assertNotNull(fragment.findPreference<Preference>("zip_exporter"))
         assertNotNull(fragment.findPreference<Preference>("version"))
         assertEquals(Int.MAX_VALUE, fragment.preferenceScreen.initialExpandedChildrenCount)
         assertNonemptyCategories(fragment)
+    }
+
+    @Test @Config(shadows = [GoBackendLifecycleTest.LibraryShadow::class, SettingsVpnPolicyTest.NativeVersion::class])
+    fun goBackendRetainsOnlyTheSavedModeOffRepairAndRejectsOn() = settingsTest {
+        val env = environment()
+        env.replaceBackend(GoBackend(env.application))
+        val activity = openSettings()
+        settle(activity)
+        val preference = fragment(activity).findPreference<SwitchPreferenceCompat>("multiple_tunnels")!!
+        assertFalse(preference.isVisible)
+        assertFalse(preference.isChecked)
+        assertFalse(preference.callChangeListener(true))
+        runCurrent()
+        assertFalse(UserKnobs.multipleTunnels.first())
+
+        UserKnobs.setMultipleTunnels(true)
+        settle(activity)
+        assertTrue(preference.isVisible)
+        assertTrue(preference.isChecked)
+        assertTrue(preference.isEnabled)
+        assertEquals(activity.getString(R.string.multiple_tunnels_saved_title), preference.title)
+        assertEquals(activity.getString(R.string.multiple_tunnels_saved_summary), preference.summaryOn)
+        preference.performClick()
+        UserKnobs.multipleTunnels.first { !it }
+        runCurrent()
+        assertFalse(preference.isVisible)
+        assertFalse(preference.isChecked)
+        controllers.last().recreate()
+        settle(controllers.last().get())
+        assertFalse(fragment(controllers.last().get()).findPreference<Preference>("multiple_tunnels")!!.isVisible)
+    }
+
+    @Test fun automationUnsupportedBackendDisablesEnableWithoutClaimingASelectedDefaultOrSuccess() = settingsTest {
+        environment()
+        val activity = openSettings()
+        settle(activity)
+        val fragment = fragment(activity)
+        assertEquals(activity.getString(R.string.automation_choose_default), fragment.findPreference<Preference>("automation_default")!!.summary)
+        assertEquals(activity.getString(R.string.automation_unsupported), fragment.findPreference<Preference>("automation_status")!!.summary)
+        assertTrue(fragment.findPreference<Preference>("automation_enable")!!.isVisible)
+        assertFalse(fragment.findPreference<Preference>("automation_enable")!!.isEnabled)
+        assertFalse(fragment.findPreference<Preference>("automation_resume")!!.isVisible)
+        assertFalse(fragment.findPreference<Preference>("automation_disable")!!.isVisible)
+    }
+
+    @Test fun automationExitFeedbackDistinguishesPinLossAndUnknownWithoutClaimingAndroidHandling() = settingsTest {
+        val env = environment()
+        val activity = openSettings()
+        settle(activity)
+        val controller = env.manager.networkAutomation
+        @Suppress("UNCHECKED_CAST")
+        val statuses = controller.javaClass.getDeclaredField("mutableStatus").apply { isAccessible = true }
+            .get(controller) as MutableStateFlow<NetworkAutomationController.Status>
+        val fragment = fragment(activity)
+        for ((condition, summary) in listOf(
+            NetworkAutomationController.Condition.EXIT_RETAINED_PIN to R.string.automation_status_exit_pin,
+            NetworkAutomationController.Condition.EXIT_NO_TRANSPORT to R.string.automation_status_exit_unavailable,
+            NetworkAutomationController.Condition.EXIT_UNKNOWN to R.string.automation_status_exit_unknown,
+        )) {
+            statuses.value = NetworkAutomationController.Status(condition, false, "fixture", NetworkAutomationState.Exit.FAILED)
+            runCurrent()
+            val actual = fragment.findPreference<Preference>("automation_status")!!.summary
+            assertEquals(activity.getString(summary), actual)
+            assertNotEquals(activity.getString(R.string.automation_status_android), actual)
+            assertTrue(fragment.findPreference<Preference>("automation_enable")!!.isVisible)
+            assertFalse(fragment.findPreference<Preference>("automation_resume")!!.isVisible)
+        }
+    }
+
+    @Test fun automationPendingSettlementDisablesActionsAndRetainsExplicitDisableRow() = settingsTest {
+        val env = environment()
+        val activity = openSettings()
+        settle(activity)
+        @Suppress("UNCHECKED_CAST")
+        val statuses = env.manager.networkAutomation.javaClass.getDeclaredField("mutableStatus").apply { isAccessible = true }
+            .get(env.manager.networkAutomation) as MutableStateFlow<NetworkAutomationController.Status>
+        statuses.value = NetworkAutomationController.Status(NetworkAutomationController.Condition.EXIT_PENDING,
+            false, "fixture", NetworkAutomationState.Exit.PENDING, true)
+        runCurrent()
+        val fragment = fragment(activity)
+        assertFalse(fragment.findPreference<Preference>("automation_default")!!.isEnabled)
+        assertFalse(fragment.findPreference<Preference>("automation_enable")!!.isEnabled)
+        assertTrue(fragment.findPreference<Preference>("automation_disable")!!.isVisible)
+        assertFalse(fragment.findPreference<Preference>("automation_disable")!!.isEnabled)
+        assertEquals(activity.getString(R.string.automation_status_exit_pending), fragment.findPreference<Preference>("automation_status")!!.summary)
     }
 
     @Test fun kernelSupportFilesystemProbeRunsOffMain() = settingsTest {
@@ -232,8 +323,9 @@ class SettingsActivityTest {
         for (key in listOf("restore_on_boot", "multiple_tunnels")) {
             val preference = fragment.findPreference<SwitchPreferenceCompat>(key)!!
             assertFalse(preference.isChecked)
-            preference.isChecked = true
+            preference.performClick()
         }
+        UserKnobs.multipleTunnels.first { it }
         settle(activity)
         controllers.last().recreate()
         settle(controllers.last().get())
@@ -419,13 +511,21 @@ class SettingsActivityTest {
         val activity = openSettings { setApplicationField(env, "preferencesDataStore", unavailableStore) }
         settle(activity)
         assertFalse(fragment(activity).findPreference<Preference>("quick_tile")!!.isVisible)
+        for (key in listOf("automation_default", "automation_enable", "automation_resume", "automation_disable")) {
+            assertFalse(fragment(activity).findPreference<Preference>(key)!!.isEnabled)
+        }
         setApplicationField(env, "preferencesDataStore", dataStore)
         assertNull(UserKnobs.quickTileAdded.first())
     }
 
     @Test @Config(sdk = [33]) fun membershipReadFailureAfterLoadedRemovalHidesTheAvailableRow() = settingsTest {
         val env = environment()
+        KernelSupport.available = true
+        val shell = ProbeShell(env.application)
+        val tools = ToolsInstaller(env.application, shell)
+        setApplicationField(env, "futureBackend", CompletableDeferred<Backend>(WgQuickBackend(env.application, shell, tools)))
         UserKnobs.setQuickTileAdded(false)
+        UserKnobs.setMultipleTunnels(true)
         val dataStore = com.vpn0wn.android.Application.getPreferencesDataStore()
         val failRead = CompletableDeferred<Unit>()
         val failingStore = object : DataStore<Preferences> by dataStore {
@@ -442,8 +542,14 @@ class SettingsActivityTest {
         failRead.complete(Unit)
         runCurrent()
         assertFalse(tile.isVisible)
+        assertFalse(fragment(activity).findPreference<Preference>("multiple_tunnels")!!.isEnabled)
+        assertTrue(fragment(activity).findPreference<SwitchPreferenceCompat>("multiple_tunnels")!!.isChecked)
+        for (key in listOf("automation_default", "automation_enable", "automation_resume", "automation_disable")) {
+            assertFalse(fragment(activity).findPreference<Preference>(key)!!.isEnabled)
+        }
         setApplicationField(env, "preferencesDataStore", dataStore)
         assertEquals(false, UserKnobs.quickTileAdded.first())
+        assertTrue(UserKnobs.multipleTunnels.first())
     }
 
     @Test @Config(sdk = [33]) fun lateSuccessfulResultPersistsAfterSettingsDestruction() = settingsTest {

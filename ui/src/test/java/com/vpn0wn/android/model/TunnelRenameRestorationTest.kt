@@ -8,14 +8,17 @@ import com.vpn0wn.android.backend.Backend
 import com.vpn0wn.android.backend.Tunnel
 import com.vpn0wn.android.util.UserKnobs
 import java.io.IOException
+import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -61,6 +64,7 @@ class TunnelRenameRestorationTest {
             restarted.restoreState(true)
             assertEquals(Tunnel.State.UP, inventory["new"]!!.state)
             assertEquals(Tunnel.State.UP, inventory["other"]!!.state)
+            assertEquals(setOf("new", "other"), UserKnobs.runningTunnels.first())
             assertEquals(setOf("new", "other"), env.store.configs.keys)
         } finally {
             env.close()
@@ -83,6 +87,34 @@ class TunnelRenameRestorationTest {
             assertEquals(Tunnel.State.DOWN, inventory["new"]!!.state)
             assertEquals(Tunnel.State.UP, inventory["other"]!!.state)
         } finally {
+            env.close()
+        }
+    }
+
+    @Test
+    fun cancelledRestorationFinishesAdmittedTunnelWithoutStartingTheNext() = runTest {
+        val env = environment()
+        try {
+            val first = env.manager.create("first", TunnelTestEnvironment.profile())
+            val second = env.manager.create("second", TunnelTestEnvironment.profile(51821))
+            UserKnobs.setRunningTunnels(setOf(first.name, second.name))
+            env.backend.blockUp = true
+            val restoring = async { env.manager.restoreState(true) }
+            try {
+                assertTrue(withContext(Dispatchers.IO) { env.backend.upEntered.await(5, TimeUnit.SECONDS) })
+                restoring.cancel()
+                assertFalse(restoring.isCompleted)
+            } finally {
+                env.backend.releaseUp.countDown()
+            }
+            restoring.join()
+            assertTrue(restoring.isCancelled)
+            assertEquals(Tunnel.State.UP, first.state)
+            assertEquals(Tunnel.State.DOWN, second.state)
+            assertEquals(setOf(first), env.backend.appliedConfigs.keys)
+            assertEquals(setOf(first.name), UserKnobs.runningTunnels.first())
+        } finally {
+            env.backend.releaseUp.countDown()
             env.close()
         }
     }

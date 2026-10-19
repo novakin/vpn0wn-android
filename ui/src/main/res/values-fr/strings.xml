@@ -1,6 +1,37 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Modified for vpn0wn. -->
 <resources>
+    <string name="automation_unsupported">L\'automatisation réseau nécessite le mode espace utilisateur avec un seul tunnel. Désactivez d\'abord le mode noyau et les tunnels simultanés.</string>
+    <string name="automation_title">Automatisation réseau</string>
+    <string name="automation_default">Tunnel par défaut</string>
+    <string name="automation_choose_default">Choisir un tunnel en espace utilisateur, à adresses numériques ou sans point de terminaison</string>
+    <string name="automation_enable">Activer l’automatisation réseau</string>
+    <string name="automation_enable_summary">Connecte le tunnel par défaut et suit les réseaux publics admissibles. Un accès Internet validé prime sur le type de transport.</string>
+    <string name="automation_resume">Reprendre la surveillance</string>
+    <string name="automation_resume_summary">Reprend après un arrêt utilisateur ou une surveillance inactive. Les choix manuels et tentatives en échec restent protégés.</string>
+    <string name="automation_disable">Désactiver l’automatisation</string>
+    <string name="automation_disable_confirm_action">Désactiver</string>
+    <string name="automation_disable_summary">Garde le VPN connecté et rend la gestion réseau à Android, avec une brève interruption du trafic.</string>
+    <string name="automation_disable_confirmation">L’automatisation s’arrêtera. Le VPN reste connecté pendant que de nouveaux sockets protégés rendent la gestion réseau à Android. Le trafic s’interrompt brièvement. En cas d’échec, l’automatisation reste désactivée ; déconnectez puis reconnectez manuellement.</string>
+    <string name="automation_action_failed">Impossible de démarrer l’automatisation. Choisissez un tunnel numérique en espace utilisateur et vérifiez l’autorisation VPN.</string>
+    <string name="automation_status_disabled">Désactivée. Les commandes ordinaires des tunnels conservent leur comportement.</string>
+    <string name="automation_status_inactive">Activée ; surveillance inactive. Reprenez depuis cet écran.</string>
+    <string name="automation_status_monitoring">Surveillance des réseaux publics. Cela ne prouve ni la santé du VPN ni l’accès Internet.</string>
+    <string name="automation_status_waiting">En attente d’un réseau public admissible. Aucun repli sans liaison réseau.</string>
+    <string name="automation_status_owned">Sockets liés au réseau public sélectionné. Le routage physique et la santé du VPN restent non vérifiés.</string>
+    <string name="automation_status_manual">Choix manuel conservé. Les changements réseau ne le libèrent pas.</string>
+    <string name="automation_status_paused">En pause après un arrêt utilisateur. Reprenez explicitement ; les choix manuels et échecs sont conservés.</string>
+    <string name="automation_status_unresolved">Le tunnel par défaut ou une intention nécessite une réparation. Sélectionnez le tunnel réel puis faites un choix manuel explicite.</string>
+    <string name="automation_status_failed">Transition en échec ou incertaine. Aucune nouvelle tentative automatique équivalente. Déconnectez puis reconnectez manuellement si nécessaire.</string>
+    <string name="automation_status_exit_pending">Automatisation désactivée ; restitution à Android en cours ou résultat non enregistré. Aucune nouvelle tentative automatique.</string>
+    <string name="automation_status_exit_failed">Automatisation désactivée. Gestion Android non confirmée ; une liaison imposée ou un transport indisponible peut subsister. Déconnectez puis reconnectez manuellement.</string>
+    <string name="automation_status_exit_pin">Automatisation désactivée. Le VPN conserve une liaison au réseau public imposée par l’application ; la restitution à Android a échoué. Déconnectez puis reconnectez manuellement.</string>
+    <string name="automation_status_exit_unavailable">Automatisation désactivée. Le VPN n’a plus de transport utilisable après l’échec de restitution. Déconnectez puis reconnectez manuellement.</string>
+    <string name="automation_status_exit_unknown">Automatisation désactivée. La liaison des sockets et la gestion Android sont inconnues. Déconnectez puis reconnectez manuellement.</string>
+    <string name="automation_status_android">Automatisation désactivée. Gestion réseau Android rétablie pour la même activation VPN encore active.</string>
+    <string name="automation_notification_channel">Automatisation réseau</string>
+    <string name="automation_notification_title">Surveillance réseau vpn0wn</string>
+    <string name="automation_notification_summary">La surveillance est distincte de la connexion et de la santé du VPN. Ouvrez les paramètres pour l’état.</string>
     <string name="app_data_transfer_export_title">Exporter les données de l’application</string>
     <string name="app_data_transfer_export_summary">Profils, paramètres et serveurs enregistrés. Le ZIP contient des clés privées ; gardez-le confidentiel.</string>
     <string name="app_data_transfer_export_success">ZIP de transfert privé enregistré : %1$s</string>
@@ -205,6 +236,8 @@
     <string name="multiple_tunnels_summary_off">Activer un tunnel éteindra les autres</string>
     <string name="multiple_tunnels_summary_on">Plusieurs tunnels peuvent être activés simultanément</string>
     <string name="multiple_tunnels_title">Autoriser plusieurs tunnels simultanés</string>
+    <string name="multiple_tunnels_saved_title">Mode multitunnel enregistré</string>
+    <string name="multiple_tunnels_saved_summary">Nécessite le mode noyau. Désactivez ce réglage enregistré pour activer l’automatisation réseau.</string>
     <string name="name">Nom</string>
     <string name="no_config_error">Tentative d\'établir un tunnel sans configuration</string>
     <string name="no_configs_error">Aucune configuration trouvée</string>
