@@ -14,7 +14,7 @@ The maintainer selected the [official optional AWG engine](backend-contracts.md#
 
 Import a complete compatible AWG profile through the existing file, archive or QR flow. Recognized AWG fields select the protocol; an otherwise default profile can explicitly use `Protocol = AmneziaWG`. Export writes the compatibility comment `# vpn0wn:protocol=AmneziaWG` and retained fields. Existing editor fields preserve imported AWG settings and display/edit peer keepalive scalar/ranges. Dedicated controls for every AWG interface field are not added; prepare those in the imported profile. The parser rejects unsafe/unsupported values with field-scoped errors. Preserve original backups before moving a profile to an older app version that lacks AWG parsing.
 
-The AWG engine owns configured I/J handshake packets. vpn0wn's ordinary WireGuard one-byte warm-up is not layered onto AWG, including explicit ListenPort profiles. A configured packet does not establish DPI effectiveness, battery savings or server compatibility. No live AWG server, installed AWG session or production readiness is established by this source preparation.
+The AWG engine owns configured I/J handshake packets. vpn0wn's ordinary WireGuard one-byte warm-up is not layered onto AWG, including explicit ListenPort profiles. A configured packet does not establish DPI effectiveness, battery savings or server compatibility. The separate [API24 A4 probe](reviews/2026-10-19-amneziawg-native-lifecycle-acceptance.md) records passing startup/rebind/teardown and cleanup. That isolated lifecycle evidence establishes no live AWG server, Android handshake/data traffic, external-server interoperability or production readiness.
 
 ### Existing WireGuard operation
 

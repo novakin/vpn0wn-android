@@ -14,7 +14,7 @@ Preserve the existing Android DataBinding/Fragment foundation and upstream WireG
 
 **Alternatives/consequences:** separate `libawg-go.so` would require distinct JNI/SONAME/build outputs and duplicate runtime proof; replacing WG with AWG would change the verified ordinary-protocol baseline. Neither is chosen. Shared transitive dependencies require a resolved-module/license review, and both ordinary WG regressions and AWG behavior must pass against the actual combined binary. The existing Go 1.26.9 toolchain meets AWG's Go 1.25 minimum; API24 remains unchanged.
 
-**Compatibility/verification:** the [configuration contract](backend-contracts.md#optional-amneziawg-configuration-and-native-ownership--76) owns explicit protocol intent, lossless fields, allocation bounds and honest kernel refusal. The existing editor retains imported AWG fields through edits/recreation. Native/ABI/API24 and matching-server acceptance is still pending; no compatibility, DPI or performance claim follows from the architecture choice.
+**Compatibility/verification:** the [configuration contract](backend-contracts.md#optional-amneziawg-configuration-and-native-ownership--76) owns explicit protocol intent, lossless fields, allocation bounds and honest kernel refusal. The existing editor retains imported AWG fields through edits/recreation. [Combined source/ABI checks](qa-test-plan.md#optional-amneziawg-controls--76) and the [scoped API24 A4 lifecycle cohort](reviews/2026-10-19-amneziawg-native-lifecycle-acceptance.md) pass at their recorded revisions/artifacts. Android traffic/protection observation, matching-server interoperability and broader platform/release acceptance remain open; no DPI or performance claim follows from the architecture choice.
 
 ## Ownership
 
