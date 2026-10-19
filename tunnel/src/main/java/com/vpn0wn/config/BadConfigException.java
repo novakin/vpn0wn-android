@@ -69,6 +69,8 @@ public class BadConfigException extends Exception {
     public enum Location {
         TOP_LEVEL(""),
         ADDRESS("Address"),
+        AMNEZIA_KEEPALIVE("PersistentKeepalive"),
+        AMNEZIA_WG("AmneziaWG"),
         ALLOWED_IPS("AllowedIPs"),
         DNS("DNS"),
         ENDPOINT("Endpoint"),

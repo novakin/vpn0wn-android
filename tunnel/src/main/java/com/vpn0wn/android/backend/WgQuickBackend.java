@@ -124,6 +124,8 @@ public final class WgQuickBackend implements Backend {
 
     @Override
     public synchronized State setState(final Tunnel tunnel, State state, @Nullable final Config config) throws Exception {
+        if (state != State.DOWN && config != null && config.getInterface().getAmneziaSettings().isPresent())
+            throw new BackendException(Reason.AMNEZIA_REQUIRES_USERSPACE);
         final State originalState = getState(tunnel);
         final Config originalConfig = runningConfigs.get(tunnel);
         final Map<Tunnel, Config> runningConfigsSnapshot = new HashMap<>(runningConfigs);

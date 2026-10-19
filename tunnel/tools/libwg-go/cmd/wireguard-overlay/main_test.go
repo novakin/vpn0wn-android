@@ -44,7 +44,7 @@ func TestPinnedOverlayPreservesModuleSource(t *testing.T) {
 	if err := json.Unmarshal(data, &overlay); err != nil {
 		t.Fatal(err)
 	}
-	if len(overlay.Replace) != len(before) {
+	if len(overlay.Replace) != len(before)+6 {
 		t.Fatal("unexpected overlay scope")
 	}
 	for source, original := range before {
@@ -134,6 +134,42 @@ func TestOverlayRejectsChangedUpstreamSource(t *testing.T) {
 		}
 		if _, err := patch(filepath.Base(file), "unmatched upstream"); err == nil {
 			t.Fatalf("%s missing upstream match accepted", file)
+		}
+	}
+}
+
+func TestAmneziaOverlayPreservesPinnedSourceAndPacketTrain(t *testing.T) {
+	data, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", amneziaModule).Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	directory := strings.TrimSpace(string(data))
+	output := t.TempDir()
+	if err := generate(output, false); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range []string{"device.go", "peer.go", "noise-protocol.go", "uapi.go", "send.go", "timers.go"} {
+		original, err := os.ReadFile(filepath.Join(directory, "device", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		staged, err := os.ReadFile(filepath.Join(output, "amneziawg", "device", name))
+		if err != nil || !bytes.Equal(original, staged) {
+			t.Fatalf("Amnezia source changed: %s", name)
+		}
+		patched, err := os.ReadFile(filepath.Join(output, "amnezia-"+name))
+		if err != nil || bytes.Equal(original, patched) {
+			t.Fatalf("Amnezia source not overlaid: %s", name)
+		}
+		if _, err := patchEngine(name, string(original)+string(original), true); err == nil {
+			t.Fatalf("duplicate AWG match accepted: %s", name)
+		}
+		if name == "send.go" {
+			for _, retained := range []string{"ipacket.Obfuscate(buf, nil)", "peer.device.JunkPackets()", "peer.sendBuffers(sendBuffer, true)", "peer.cookieGenerator.AddMacs(packet)"} {
+				if !bytes.Contains(patched, []byte(retained)) {
+					t.Fatalf("AWG packet construction lost %s", retained)
+				}
+			}
 		}
 	}
 }

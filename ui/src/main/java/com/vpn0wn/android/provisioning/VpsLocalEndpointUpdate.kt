@@ -48,6 +48,7 @@ class VpsLocalEndpointUpdate private constructor(
             val replacement = Peer.Builder().setPublicKey(peer.publicKey).addAllowedIps(peer.allowedIps).setEndpoint(endpoint).apply {
                 peer.preSharedKey.ifPresent { setPreSharedKey(it) }
                 peer.persistentKeepalive.ifPresent { setPersistentKeepalive(it) }
+                peer.amneziaKeepalive.ifPresent { parseAmneziaKeepalive(it) }
             }.build()
             val updated = if (previous == endpoint) expectedConfig else Config.Builder().setInterface(expectedConfig.`interface`)
                 .addPeers(expectedConfig.peers.map { if (it === peer) replacement else it }).build()

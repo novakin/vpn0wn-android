@@ -82,6 +82,7 @@ class GoBackendRebindTest {
         NativeShadow.recoveryEndpoints.clear()
         NativeShadow.expectedRecoveryEndpoint = "127.0.0.1:51820"
         NativeShadow.startupSettings = null
+        NativeShadow.selectedAmnezia = false
         ResolverShadow.calls.clear()
         ResolverShadow.lookup = null
         NativeShadow.turnOff = null
@@ -758,6 +759,37 @@ class GoBackendRebindTest {
         assertEquals(1, BuilderShadow.establishCalls)
     }
 
+    @Test fun ownedAmneziaHostnamePreservesExplicitZeroKeepalive() {
+        assertOwnedAmneziaHostnamePreservesKeepalive("0")
+    }
+
+    @Test fun ownedAmneziaHostnamePreservesRangeKeepalive() {
+        assertOwnedAmneziaHostnamePreservesKeepalive("15-30")
+    }
+
+    private fun assertOwnedAmneziaHostnamePreservesKeepalive(keepalive: String) {
+        ResolverShadow.lookup = { arrayOf(InetAddress.getByName("127.0.0.1")) }
+        val config = connect(endpoint = "vpn.example.invalid:51820", network = eligibleNetwork(),
+            amneziaKeepalive = keepalive)
+        val saved = config.toWgQuickString()
+        val active = session()
+        val settings = requireNotNull(NativeShadow.startupSettings)
+        assertTrue(NativeShadow.selectedAmnezia)
+        assertTrue(settings.contains("jc=0\n"))
+        assertTrue(settings.contains("persistent_keepalive_interval=$keepalive\n"))
+        assertTrue(settings.contains("endpoint=127.0.0.1:51820\n"))
+        ResolverShadow.lookup = { arrayOf(InetAddress.getByName("192.0.2.73")) }
+
+        assertEquals(RecoveryResult.Outcome.INITIATION_SKIPPED, backend.recover(tunnel, exhaustion()).outcome())
+        assertEquals(listOf("192.0.2.73:51820" to 1L), NativeShadow.recoveryEndpoints)
+        assertEquals(keepalive, config.peers.single().amneziaKeepalive.get())
+        assertEquals("vpn.example.invalid", config.peers.single().endpoint.get().host)
+        assertEquals(saved, config.toWgQuickString())
+        assertSame(config, field("currentConfig").get(backend))
+        assertSame(active, session())
+        assertEquals(1, BuilderShadow.establishCalls)
+    }
+
     @Test fun ownedHostnameKeepsCurrentIpv6AddressWhenResolverHasNoAlternative() {
         ResolverShadow.lookup = { arrayOf(InetAddress.getByName("2001:db8::73")) }
         connect(endpoint = "vpn.example.invalid:51820", network = eligibleNetwork())
@@ -1066,7 +1098,7 @@ class GoBackendRebindTest {
     }
 
     private fun connect(port: Int? = 51820, endpoint: String = "127.0.0.1:51820", network: Network? = null,
-        authority: GoBackend.TransportAuthority = GoBackend.TransportAuthority()): Config {
+        authority: GoBackend.TransportAuthority = GoBackend.TransportAuthority(), amneziaKeepalive: String? = null): Config {
         NativeShadow.expectedService = service
         BuilderShadow.descriptor = ParcelFileDescriptor.open(folder.newFile(), ParcelFileDescriptor.MODE_READ_WRITE)
         val listenPort = port?.let { "ListenPort = $it" }.orEmpty()
@@ -1075,10 +1107,12 @@ class GoBackendRebindTest {
             PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
             Address = 192.0.2.2/32
             $listenPort
+            ${if (amneziaKeepalive == null) "" else "Protocol = AmneziaWG\nJc = 0"}
             [Peer]
             PublicKey = CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk=
             AllowedIPs = 192.0.2.1/32
             Endpoint = $endpoint
+            ${amneziaKeepalive?.let { "PersistentKeepalive = $it" }.orEmpty()}
         """.trimIndent().byteInputStream())
         if (network == null) backend.setState(tunnel, Tunnel.State.UP, config)
         else {
@@ -1181,6 +1215,7 @@ class GoBackendRebindTest {
             val recoveryEndpoints = mutableListOf<Pair<String, Long>>()
             var expectedRecoveryEndpoint = "127.0.0.1:51820"
             var startupSettings: String? = null
+            var selectedAmnezia = false
             var turnOff: ((Int) -> Unit)? = null
             var turnOn: ((Any, Int) -> Int)? = null
             var transport: ((Int, Long, Any, Boolean) -> Long)? = null
@@ -1189,6 +1224,16 @@ class GoBackendRebindTest {
             lateinit var expectedService: GoBackend.VpnService
             @Implementation @JvmStatic fun wgTurnOn(name: String, fd: Int, settings: String,
                 service: GoBackend.VpnService, thread: Thread, id: Long, @org.robolectric.annotation.ClassName("com.vpn0wn.android.backend.GoBackend\$SocketCapture") capture: Any): Int {
+                selectedAmnezia = false
+                return start(name, fd, settings, service, thread, id, capture)
+            }
+            @Implementation @JvmStatic fun awgTurnOn(name: String, fd: Int, settings: String,
+                service: GoBackend.VpnService, thread: Thread, id: Long, @org.robolectric.annotation.ClassName("com.vpn0wn.android.backend.GoBackend\$SocketCapture") capture: Any): Int {
+                selectedAmnezia = true
+                return start(name, fd, settings, service, thread, id, capture)
+            }
+            private fun start(name: String, fd: Int, settings: String, service: GoBackend.VpnService,
+                thread: Thread, id: Long, capture: Any): Int {
                 assertEquals("fixture", name)
                 assertEquals(73, fd)
                 assertFalse(settings.isEmpty())

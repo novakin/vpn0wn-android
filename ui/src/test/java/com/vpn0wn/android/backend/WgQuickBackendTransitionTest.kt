@@ -82,6 +82,17 @@ class WgQuickBackendTransitionTest {
     }
 
     @Test
+    fun amneziaIsRejectedBeforeRootObservationOrToolInstallation() {
+        val amnezia = com.vpn0wn.config.Config.parse((profile.toWgQuickString().replace("[Interface]", "[Interface]\nProtocol = AmneziaWG")).reader().buffered())
+        for (state in listOf(Tunnel.State.UP, Tunnel.State.TOGGLE)) {
+            val failure = assertThrows(BackendException::class.java) { backend.setState(NamedTunnel("awg"), state, amnezia) }
+            assertEquals(BackendException.Reason.AMNEZIA_REQUIRES_USERSPACE, failure.reason)
+        }
+        assertEquals(0, ToolsShadow.calls.get())
+        assertTrue(shell.events.isEmpty())
+    }
+
+    @Test
     fun concurrentUpKeepsOnlyOneTunnelWhenMultipleModeIsDisabled() = concurrentUp(false)
 
     @Test

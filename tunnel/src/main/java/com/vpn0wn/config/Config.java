@@ -66,11 +66,16 @@ public final class Config {
         final Builder builder = new Builder();
         final Collection<String> interfaceLines = new ArrayList<>();
         final Collection<String> peerLines = new ArrayList<>();
+        final Collection<Collection<String>> peerSections = new ArrayList<>();
         boolean inInterfaceSection = false;
         boolean inPeerSection = false;
         boolean seenInterfaceSection = false;
         @Nullable String line;
         while ((line = reader.readLine()) != null) {
+            if (inInterfaceSection && AmneziaSettings.PROTOCOL_MARKER.equals(line.trim())) {
+                interfaceLines.add(line.trim());
+                continue;
+            }
             final int commentIndex = line.indexOf('#');
             if (commentIndex != -1)
                 line = line.substring(0, commentIndex);
@@ -80,7 +85,7 @@ public final class Config {
             if (line.startsWith("[")) {
                 // Consume all [Peer] lines read so far.
                 if (inPeerSection) {
-                    builder.parsePeer(peerLines);
+                    peerSections.add(new ArrayList<>(peerLines));
                     peerLines.clear();
                 }
                 if ("[Interface]".equalsIgnoreCase(line)) {
@@ -104,12 +109,14 @@ public final class Config {
             }
         }
         if (inPeerSection)
-            builder.parsePeer(peerLines);
+            peerSections.add(peerLines);
         if (!seenInterfaceSection)
             throw new BadConfigException(Section.CONFIG, Location.TOP_LEVEL,
                     Reason.MISSING_SECTION, null);
         // Combine all [Interface] sections in the file.
         builder.parseInterface(interfaceLines);
+        for (final Collection<String> section : peerSections)
+            builder.parsePeer(section);
         return builder.build();
     }
 
@@ -203,6 +210,12 @@ public final class Config {
         public Config build() {
             if (interfaze == null)
                 throw new IllegalArgumentException("An [Interface] section is required");
+            if (!interfaze.getAmneziaSettings().isPresent()) {
+                for (final Peer peer : peers) {
+                    if (peer.getAmneziaKeepalive().isPresent())
+                        throw new IllegalArgumentException("AmneziaWG keepalive requires AmneziaWG protocol");
+                }
+            }
             return new Config(this);
         }
 
@@ -213,7 +226,7 @@ public final class Config {
 
         public Builder parsePeer(final Iterable<? extends CharSequence> lines)
                 throws BadConfigException {
-            return addPeer(Peer.parse(lines));
+            return addPeer(Peer.parse(lines, interfaze != null && interfaze.getAmneziaSettings().isPresent()));
         }
 
         public Builder setInterface(final Interface interfaze) {

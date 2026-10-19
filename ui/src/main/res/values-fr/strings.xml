@@ -252,6 +252,9 @@
     <string name="permission_description">contrôler les tunnels WireGuard, activer et désactiver les tunnels à volonté, potentiellement détourner le trafic Internet</string>
     <string name="permission_label">contrôler les tunnels WireGuard</string>
     <string name="persistent_keepalive">Maintien de connexion permanente</string>
+    <string name="persistent_keepalive_range_seconds">toutes les %1$s secondes</string>
+    <string name="persistent_keepalive_disabled">désactivé</string>
+    <string name="bad_config_explanation_awg_pka"> : utilisez des secondes positives ou nulles, ou une plage ordonnée comme 20-30, jusqu’à 4294967295. La plage complète 0-4294967295 n’est pas prise en charge.</string>
     <string name="pre_shared_key">Clé pré-partagée</string>
     <string name="pre_shared_key_enabled">activée</string>
     <string name="private_key">Clé privée</string>
@@ -871,4 +874,5 @@
     <string name="vpn0wn_install_progress_configure">Préparation de la configuration WireGuard…</string>
     <string name="vpn0wn_install_progress_start">Démarrage du service WireGuard…</string>
     <string name="vpn0wn_install_progress_verify">Vérification de l’interface et de la configuration…</string>
+    <string name="amnezia_requires_userspace">AmneziaWG nécessite le moteur utilisateur. Désactivez le moteur du noyau dans les paramètres avant la connexion.</string>
 </resources>

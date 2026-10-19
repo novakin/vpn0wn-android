@@ -58,5 +58,6 @@ public final class BackendException extends Exception {
         TUN_CREATION_ERROR,
         GO_ACTIVATION_ERROR_CODE,
         DNS_RESOLUTION_FAILURE,
+        AMNEZIA_REQUIRES_USERSPACE,
     }
 }

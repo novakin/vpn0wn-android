@@ -62,7 +62,7 @@ func TestQuietDeviceTracksTUNClosure(t *testing.T) {
 	}
 }
 
-func configPort(t *testing.T, d *device.Device) uint16 {
+func configPort(t *testing.T, d interface{ IpcGet() (string, error) }) uint16 {
 	t.Helper()
 	config, err := d.IpcGet()
 	if err != nil {

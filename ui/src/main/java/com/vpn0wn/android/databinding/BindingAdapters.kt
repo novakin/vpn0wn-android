@@ -18,6 +18,7 @@ import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.os.SystemClock
 import android.text.InputFilter
+import android.text.InputType
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
@@ -475,8 +476,29 @@ object BindingAdapters {
 
     @JvmStatic
     fun persistentKeepaliveText(context: Context, peer: Peer?): String {
-        val seconds = peer?.persistentKeepalive?.orElse(0) ?: return ""
-        return context.resources.getQuantityString(R.plurals.persistent_keepalive_seconds_unit, seconds, seconds)
+        val amnezia = peer?.amneziaKeepalive?.orElse(null)
+        if (amnezia != null) {
+            val seconds = amnezia.toIntOrNull()
+            return when {
+                amnezia.split('-').all { it.toLong() == 0L } ->
+                    context.getString(R.string.persistent_keepalive_disabled)
+                seconds != null ->
+                    context.resources.getQuantityString(R.plurals.persistent_keepalive_seconds_unit, seconds, seconds)
+                else -> context.getString(R.string.persistent_keepalive_range_seconds, amnezia)
+            }
+        }
+        val seconds = peer?.persistentKeepalive?.orElse(0)
+        return if (seconds == null) "" else
+            context.resources.getQuantityString(R.plurals.persistent_keepalive_seconds_unit, seconds, seconds)
+    }
+
+    @JvmStatic
+    @BindingAdapter("amneziaKeepalive")
+    fun setKeepaliveInput(view: EditText, amnezia: Boolean) {
+        view.inputType = if (amnezia) InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            else InputType.TYPE_CLASS_NUMBER
+        // Changing input type restores single-line scrolling; apply wrapping afterward.
+        view.setSingleLine(false)
     }
 
     @JvmStatic

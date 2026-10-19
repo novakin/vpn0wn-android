@@ -10,11 +10,14 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	awgdevice "github.com/amnezia-vpn/amneziawg-go/v3/device"
+	awgtuntest "github.com/amnezia-vpn/amneziawg-go/v3/tun/tuntest"
 	"golang.zx2c4.com/wireguard/android/androidbind"
 	"golang.zx2c4.com/wireguard/android/uapiserver"
 	"golang.zx2c4.com/wireguard/conn"
@@ -30,6 +33,81 @@ func testHandle(t *testing.T) *TunnelHandle {
 	wg := device.NewDevice(tunnel.TUN(), bind, device.NewLogger(device.LogLevelSilent, ""))
 	t.Cleanup(func() { bind.Shutdown(); wg.Close() })
 	return &TunnelHandle{device: wg, bind: bind}
+}
+
+func testAmneziaHandle(t *testing.T) *TunnelHandle {
+	t.Helper()
+	tunnel := awgtuntest.NewChannelTUN()
+	<-tunnel.TUN().Events()
+	bind := androidbind.New(func(conn.Bind, int) error { return nil }, func() bool { return true })
+	awg := awgdevice.NewDevice(tunnel.TUN(), androidbind.Amnezia{Bind: bind}, awgdevice.NewLogger(awgdevice.LogLevelSilent, ""))
+	t.Cleanup(func() { bind.Shutdown(); awg.Close() })
+	return &TunnelHandle{device: awg, bind: bind}
+}
+
+func TestHandleHostnameRecoveryAcrossEngines(t *testing.T) {
+	for _, engine := range []struct {
+		name   string
+		create func(*testing.T) *TunnelHandle
+	}{{"WireGuard", testHandle}, {"AmneziaWG", testAmneziaHandle}} {
+		t.Run(engine.name, func(t *testing.T) {
+			for _, test := range []struct {
+				name, replacement string
+				current           bool
+			}{{"valid", "127.0.0.2:51820", true}, {"generation", "127.0.0.2:51820", false},
+				{"hostname", "vpn.example.invalid:51820", true}, {"port", "127.0.0.2:51821", true}} {
+				t.Run(test.name, func(t *testing.T) {
+					h := engine.create(t)
+					key, other, private := [32]byte{9}, [32]byte{10}, [32]byte{1}
+					if err := h.device.IpcSet(fmt.Sprintf("private_key=%x\npublic_key=%x\nendpoint=127.0.0.1:51820\npublic_key=%x\nendpoint=127.0.0.3:51821\n", private, key, other)); err != nil {
+						t.Fatal(err)
+					}
+					if err := h.device.Up(); err != nil {
+						t.Fatal(err)
+					}
+					fixture := h.device.(interface {
+						ExhaustPeerForTest([32]byte) (uint64, error)
+					})
+					episode, err := fixture.ExhaustPeerForTest(key)
+					if err != nil || episode == 0 {
+						t.Fatalf("fixture exhaustion: token=%d error=%v", episode, err)
+					}
+					before, err := h.device.IpcGet()
+					if err != nil {
+						t.Fatal(err)
+					}
+					generation := h.bind.Generation()
+					result := h.device.Recover(key, episode, "127.0.0.1:51820", test.replacement,
+						func() bool { return test.current && h.bind.Generation() == generation }, func() bool { return false })
+					if test.name != "valid" {
+						after, err := h.device.IpcGet()
+						if result != device.RecoveryObsolete || err != nil || h.bind.Generation() != generation ||
+							!strings.Contains(after, "endpoint=127.0.0.1:51820\n") || !strings.Contains(after, "endpoint=127.0.0.3:51821\n") {
+							t.Fatal("rejected resolution mutated peer or transport")
+						}
+						result = h.device.Recover(key, episode, "127.0.0.1:51820", "127.0.0.2:51820",
+							func() bool { return h.bind.Generation() == generation }, func() bool { return false })
+					}
+					after, err := h.device.IpcGet()
+					if err != nil || result != device.RecoveryInitiationSkipped || h.bind.Generation() <= generation {
+						t.Fatalf("replacement recovery: outcome=%d error=%v", result, err)
+					}
+					if !strings.Contains(after, "endpoint=127.0.0.2:51820\n") || !strings.Contains(after, "endpoint=127.0.0.3:51821\n") {
+						t.Fatal("recovery failed to isolate the claimed peer")
+					}
+					for _, line := range strings.Split(before, "\n") {
+						if strings.HasPrefix(line, "listen_port=") && !strings.Contains(after, line+"\n") {
+							t.Fatal("recovery changed the local port")
+						}
+					}
+					if repeated := h.device.Recover(key, episode, "127.0.0.2:51820", "127.0.0.1:51820",
+						func() bool { return true }, func() bool { return false }); repeated != device.RecoveryObsolete {
+						t.Fatal("recovery reused a claimed episode")
+					}
+				})
+			}
+		})
+	}
 }
 
 func awaitHandle(t *testing.T, done <-chan struct{}) {

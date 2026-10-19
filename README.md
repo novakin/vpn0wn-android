@@ -1,10 +1,12 @@
 # vpn0wn — WireGuard Android fork
 
-Last updated: 2026-10-18 (Europe/Paris).
+Last updated: 2026-10-19 (Europe/Paris).
 
 vpn0wn, previously presented as Tunnl, is [novakin's WireGuard Android fork](https://github.com/novakin/vpn0wn-android), adding an engineering-console redesign and a partial VPS fleet/provisioning flow to the existing Android DataBinding/Fragment architecture.
 
 The app uses [WireGuard](https://www.wireguard.com/), with the [kernel implementation](https://git.zx2c4.com/android_kernel_wireguard/about/) when available and the non-root [userspace implementation](https://git.zx2c4.com/wireguard-go/about/). The [official WireGuard app on the Play Store](https://play.google.com/store/apps/details?id=com.wireguard.android) distributes upstream WireGuard, not this fork.
+
+The candidate source also adds [optional AmneziaWG](docs/backend-contracts.md#optional-amneziawg-configuration-and-native-ownership--76), while ordinary profiles retain WireGuard. [Scoped API24 lifecycle evidence](docs/reviews/2026-10-19-amneziawg-native-lifecycle-acceptance.md) covers an isolated test APK. [PR #302](https://github.com/novakin/vpn0wn-android/pull/302) owns source review and delivery; [#76](https://github.com/novakin/vpn0wn-android/issues/76) and parent [#72](https://github.com/novakin/vpn0wn-android/issues/72) retain broader interoperability/release acceptance.
 
 ## Current scope
 

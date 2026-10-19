@@ -134,7 +134,7 @@
                 android:foreground="?attr/selectableItemBackground"
                 android:minHeight="48dp"
                 android:orientation="vertical"
-                android:visibility="@{!item.persistentKeepalive.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}"
+                android:visibility="@{!item.persistentKeepaliveText.isPresent() ? android.view.View.GONE : android.view.View.VISIBLE}"
                 app:copyText="@{BindingAdapters.persistentKeepaliveText(context, item)}">
 
                 <TextView
@@ -143,8 +143,12 @@
 
                 <TextView
                     android:id="@+id/persistent_keepalive_text"
-                    style="@style/Vpn0wnConfigRowValue"
+                    style="@style/Vpn0wnMonoValueText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
                     android:text="@{BindingAdapters.persistentKeepaliveText(context, item)}"
+                    android:textSize="13sp"
                     tools:text="every 25 seconds" />
             </LinearLayout>
 
