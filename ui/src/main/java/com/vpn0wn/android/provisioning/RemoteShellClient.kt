@@ -16,6 +16,8 @@ interface RemoteShellClient {
 
 interface RemoteShellClientFactory {
     fun create(connection: VpsConnection): RemoteShellClient
+    suspend fun discoverHostKey(host: String, port: Int): String =
+        throw ProvisioningException("SSH host-key discovery is unavailable")
 }
 
 class GuardedRemoteShellClient(
@@ -53,6 +55,10 @@ class GuardedRemoteShellClientFactory(
     private val delegate: RemoteShellClientFactory,
     private val timeoutMillis: Long = GuardedRemoteShellClient.DEFAULT_TIMEOUT_MILLIS,
 ) : RemoteShellClientFactory {
+    override suspend fun discoverHostKey(host: String, port: Int): String =
+        withTimeoutOrNull(timeoutMillis) { delegate.discoverHostKey(host, port) }
+            ?: throw ProvisioningException("SSH host-key discovery timed out")
+
     override fun create(connection: VpsConnection): RemoteShellClient {
         if (!connection.trustHostKey && connection.hostKeyFingerprint.isNullOrBlank())
             throw ProvisioningException("SSH host fingerprint is required when host-key trust is disabled")

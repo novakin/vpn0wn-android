@@ -7,6 +7,7 @@ package com.vpn0wn.android.fragment
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.ActivityNotFoundException
+import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.net.Uri
 import android.graphics.Color
@@ -135,6 +136,8 @@ class VpsProvisioningFragment : BaseFragment() {
     private var storeJob: Job? = null
     private var renderedProvisionState: State? = null
     private var installDialog: AlertDialog? = null
+    private var hostTrustDialog: AlertDialog? = null
+    private var displayedHostTrust: VpsProvisioningViewModel.HostTrustConfirmation? = null
     private var restoreDialog: AlertDialog? = null
     private var restoreAuthentication: VpsProvisioningViewModel.RestoreConfirmation? = null
     private var addUserDialog: AlertDialog? = null
@@ -248,6 +251,7 @@ class VpsProvisioningFragment : BaseFragment() {
                     }
                     showRemoveUserConfirmation(state)
                     showRotateUserConfirmation(state)
+                    showHostTrustConfirmation(state)
                     val settledProblem = !state.busy && state.problem != null
                     if (settledProblem && (state.problem != previous?.problem || previous?.busy == true)) {
                         root.findViewById<View>(R.id.vpn0wn_vps_operation_problem)?.let { problem ->
@@ -265,6 +269,7 @@ class VpsProvisioningFragment : BaseFragment() {
     }
 
     override fun onDestroyView() {
+        retireHostTrustDialog()
         restoreAuthentication = null
         retireRestoreConfirmation()
         if (provisionState.restore != null && provisionState.active) provision.leave()
@@ -507,11 +512,11 @@ class VpsProvisioningFragment : BaseFragment() {
         })
         scroll.addView(sectionHeader(4, str(R.string.vpn0wn_section_actions), str(R.string.vpn0wn_hint_remote)))
         scroll.addView(actionGrid(listOf(
-            VpsDeployAction(R.drawable.ic_vpn0wn_refresh, str(R.string.vpn0wn_action_repair), str(R.string.vpn0wn_action_repair_sub), R.color.vpn0wn_ink) { toast(str(R.string.vpn0wn_repair_queued)) },
+            VpsDeployAction(R.drawable.ic_vpn0wn_refresh, str(R.string.vpn0wn_action_repair), str(R.string.vpn0wn_action_unavailable), R.color.vpn0wn_ink, true) { toast(str(R.string.vpn0wn_repair_queued)) },
             VpsDeployAction(R.drawable.ic_vpn0wn_share, str(R.string.vpn0wn_action_backup), str(R.string.vpn0wn_action_backup_sub),
                 R.color.vpn0wn_signal_deep, !canBackup(server.id)) { requestBackup(server) },
-            VpsDeployAction(R.drawable.ic_vpn0wn_logs, str(R.string.vpn0wn_action_terminal), str(R.string.vpn0wn_action_terminal_sub), R.color.vpn0wn_ink) { toast(str(R.string.vpn0wn_terminal_pending)) },
-            VpsDeployAction(R.drawable.ic_vpn0wn_trash, str(R.string.vpn0wn_action_uninstall), str(R.string.vpn0wn_action_uninstall_sub), R.color.vpn0wn_error) { toast(str(R.string.vpn0wn_uninstall_requires_confirmation)) },
+            VpsDeployAction(R.drawable.ic_vpn0wn_logs, str(R.string.vpn0wn_action_terminal), str(R.string.vpn0wn_action_unavailable), R.color.vpn0wn_ink, true) { toast(str(R.string.vpn0wn_terminal_pending)) },
+            VpsDeployAction(R.drawable.ic_vpn0wn_trash, str(R.string.vpn0wn_action_uninstall), str(R.string.vpn0wn_action_unavailable), R.color.vpn0wn_error, true) { toast(str(R.string.vpn0wn_uninstall_requires_confirmation)) },
         )))
         if (provisionState.statusSnapshots[server.id]?.status?.serverPublicKey == null)
             scroll.addView(mono(str(R.string.vpn0wn_backup_identity_required), 11, R.color.vpn0wn_ink_3).apply { setPadding(dp(14)) })
@@ -530,8 +535,8 @@ class VpsProvisioningFragment : BaseFragment() {
             })
             scroll.addView(sectionHeader(5, str(R.string.vpn0wn_section_ssh_access), str(R.string.vpn0wn_hint_local)))
             scroll.addView(panel {
-                addView(rowButton(str(R.string.vpn0wn_reuse_saved_ssh)) { provision.reuse(stored) })
-                addView(rowButton(str(R.string.vpn0wn_clear_saved_ssh)) {
+                addView(rowButton(str(R.string.vpn0wn_reuse_saved_ssh), R.drawable.ic_vpn0wn_refresh) { provision.reuse(stored) })
+                addView(rowButton(str(R.string.vpn0wn_clear_saved_ssh), R.drawable.ic_vpn0wn_trash) {
                     MaterialAlertDialogBuilder(requireContext())
                         .setTitle(R.string.vpn0wn_clear_saved_ssh)
                         .setMessage(R.string.vpn0wn_clear_saved_ssh_confirmation)
@@ -630,9 +635,8 @@ class VpsProvisioningFragment : BaseFragment() {
                 provision.edit(provisionForm.copy(user = it))
             }, LinearLayout.LayoutParams(0, WRAP_CONTENT, 1f))
             addView(split)
-            editLine(R.id.vpn0wn_vps_ssh_fingerprint, str(R.string.vpn0wn_ssh_fingerprint), "SHA256:…", provisionForm.fingerprint) {
-                provision.edit(provisionForm.copy(fingerprint = it))
-            }
+            if (provisionForm.fingerprint.isNotBlank())
+                configLine(str(R.string.vpn0wn_ssh_fingerprint), provisionForm.fingerprint, wrap = true)
             addView(mono(str(R.string.vpn0wn_ssh_pin_note), 10, R.color.vpn0wn_ink_3).apply { setPadding(dp(14), 0, dp(14), dp(12)) })
             addView(vertical().apply { id = R.id.vpn0wn_vps_ssh_credentials; sshCredentials() })
         })
@@ -658,9 +662,8 @@ class VpsProvisioningFragment : BaseFragment() {
                     provision.edit(provisionForm.copy(passphrase = it))
                 }
                 addView(mono(str(R.string.vpn0wn_private_key_keystore_note), 10, R.color.vpn0wn_ink_3).apply { setPadding(dp(14), 0, dp(14), dp(8)) })
-                addView(smallOutlineButton(str(R.string.vpn0wn_pick_key_file)) {
-                    toast(str(R.string.vpn0wn_key_file_picker_pending))
-                }.withMargins(left = 14, right = 14, bottom = 12))
+                addView(smallOutlineButton(str(R.string.vpn0wn_pick_key_file)).withMargins(left = 14, right = 14, bottom = 8))
+                addView(mono(str(R.string.vpn0wn_key_file_picker_pending), 10, R.color.vpn0wn_ink_3).apply { setPadding(dp(14), 0, dp(14), dp(12)) })
             } else {
                 boxedEditLine(R.id.vpn0wn_vps_ssh_password, str(R.string.vpn0wn_auth_password), str(R.string.vpn0wn_password_placeholder), String(provisionForm.password), InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD, textSize = 14) {
                     provision.edit(provisionForm.copy(password = it.toCharArray()))
@@ -681,7 +684,11 @@ class VpsProvisioningFragment : BaseFragment() {
             configLine(str(R.string.vpn0wn_ssh_fingerprint), provisionForm.fingerprint, wrap = true)
             configLine(str(R.string.vpn0wn_label_firewall), result.firewall)
             configLine(str(R.string.vpn0wn_label_wg_status), str(if (result.wireGuardInstalled) R.string.vpn0wn_tools_installed else R.string.vpn0wn_tools_absent))
-            configLine(str(R.string.vpn0wn_label_ip_forwarding), result.ipv4Forwarding)
+            configLine(str(R.string.vpn0wn_label_ip_forwarding), str(when (result.ipv4Forwarding) {
+                "0" -> R.string.vpn0wn_restore_service_disabled
+                "1" -> R.string.vpn0wn_restore_service_enabled
+                else -> R.string.vpn0wn_unknown
+            }))
         })
         parent.addView(card().apply {
             setPadding(dp(14), dp(10), dp(14), dp(10))
@@ -780,6 +787,48 @@ class VpsProvisioningFragment : BaseFragment() {
             })
         }
         terminal.setLines(listOf(str(R.string.vpn0wn_install_progress_label)) + lines, false)
+    }
+
+    private fun showHostTrustConfirmation(state: State) {
+        val ownerView = view ?: return
+        val confirmation = state.hostTrustConfirmation
+        if (confirmation == null || !state.active) {
+            retireHostTrustDialog()
+            return
+        }
+        if (state.busy || displayedHostTrust === confirmation) return
+        val host = confirmation.ssh.host.let { if (':' in it) "[$it]" else it }
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setTitle(R.string.vpn0wn_ssh_trust_title)
+            .setMessage(getString(R.string.vpn0wn_ssh_trust_confirmation, host, confirmation.ssh.port, confirmation.fingerprint))
+            .setNegativeButton(android.R.string.cancel, null)
+            .setPositiveButton(R.string.vpn0wn_ssh_trust_and_connect, null).create()
+        val previous = hostTrustDialog
+        hostTrustDialog = null
+        previous?.dismiss()
+        hostTrustDialog = dialog
+        displayedHostTrust = confirmation
+        dialog.setOnDismissListener {
+            if (hostTrustDialog === dialog) retireHostTrustDialog()
+        }
+        dialog.show()
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+            if (hostTrustDialog !== dialog || view !== ownerView || !dialog.isShowing ||
+                !viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) ||
+                provisionState.hostTrustConfirmation !== confirmation) return@setOnClickListener
+            hostTrustDialog = null
+            displayedHostTrust = null
+            dialog.dismiss()
+            provision.confirmHostTrust(confirmation)
+        }
+    }
+
+    private fun retireHostTrustDialog() {
+        val dialog = hostTrustDialog
+        hostTrustDialog = null
+        displayedHostTrust = null
+        dialog?.dismiss()
+        provision.dismissHostTrustConfirmation()
     }
 
     private fun confirmInstallation() {
@@ -2835,7 +2884,9 @@ class VpsProvisioningFragment : BaseFragment() {
                 setHintTextColor(color(R.color.vpn0wn_ink_3))
                 this.minLines = minLines
                 gravity = if (minLines > 1) Gravity.TOP else Gravity.CENTER_VERTICAL
-                background = rounded(R.color.vpn0wn_paper_3, R.color.vpn0wn_rule_strong, dp(4))
+                background = rounded(R.color.vpn0wn_paper_3, R.color.vpn0wn_rule_strong, dp(4)).apply {
+                    setStroke(dp(1), editorBorderColors())
+                }
                 setPadding(dp(10), dp(8), dp(10), dp(8))
                 doAfterTextChanged { if (isAttachedToWindow && isEnabled) onChange(it?.toString().orEmpty()) }
             }, LinearLayout.LayoutParams(-1, WRAP_CONTENT))
@@ -2871,11 +2922,16 @@ class VpsProvisioningFragment : BaseFragment() {
             setTextColor(color(R.color.vpn0wn_ink))
             setHintTextColor(color(R.color.vpn0wn_ink_3))
             setSingleLine((inputType and InputType.TYPE_TEXT_FLAG_MULTI_LINE) == 0)
-            backgroundTintList = android.content.res.ColorStateList.valueOf(color(R.color.vpn0wn_rule_strong))
-            setPadding(0, dp(2), 0, dp(2))
+            backgroundTintList = editorBorderColors()
+            setPadding(0, dp(2), 0, dp(12))
             doAfterTextChanged { if (isAttachedToWindow && isEnabled) onChange(it?.toString().orEmpty()) }
         })
     }
+
+    private fun editorBorderColors(): ColorStateList = ColorStateList(
+        arrayOf(intArrayOf(-android.R.attr.state_enabled), intArrayOf(android.R.attr.state_focused), intArrayOf()),
+        intArrayOf(color(R.color.vpn0wn_rule), color(R.color.vpn0wn_signal_deep), color(R.color.vpn0wn_rule_strong)),
+    )
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
@@ -2963,7 +3019,7 @@ class VpsProvisioningFragment : BaseFragment() {
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
     @Suppress("MagicNumber")
-    private fun smallOutlineButton(text: String, onClick: () -> Unit): View {
+    private fun smallOutlineButton(text: String): View {
         return TextView(requireContext()).apply {
             setTextAppearance(R.style.Vpn0wnMonoSubText)
             this.text = text.uppercase(Locale.ROOT)
@@ -2976,7 +3032,8 @@ class VpsProvisioningFragment : BaseFragment() {
             background = rounded(R.color.vpn0wn_paper_2, R.color.vpn0wn_rule_strong, dp(4))
             actionAccessibility(Button::class.java.name)
             setPadding(dp(12), dp(7), dp(12), dp(7))
-            setOnClickListener { onClick() }
+            isEnabled = false
+            alpha = 0.45f
         }
     }
 

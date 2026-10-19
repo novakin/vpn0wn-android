@@ -264,6 +264,42 @@ class GuardedRemoteShellClientTest {
     }
 
     @Test
+    fun factoryDiscoveryDelegatesWithoutCreatingAnAuthenticatedClient() = runTest {
+        val factory = GuardedRemoteShellClientFactory(object : RemoteShellClientFactory {
+            override fun create(connection: VpsConnection): RemoteShellClient = error("Unexpected authentication")
+            override suspend fun discoverHostKey(host: String, port: Int): String {
+                assertEquals("198.51.100.10", host)
+                assertEquals(2222, port)
+                return "synthetic fingerprint"
+            }
+        })
+        assertEquals("synthetic fingerprint", factory.discoverHostKey("198.51.100.10", 2222))
+    }
+
+    @Test
+    fun factoryDiscoveryTimeoutSettlesDelegateAndPreservesEnclosingCancellation() = runTest {
+        for (enclosing in listOf(false, true)) {
+            var settled = false
+            val factory = GuardedRemoteShellClientFactory(object : RemoteShellClientFactory {
+                override fun create(connection: VpsConnection): RemoteShellClient = error("Unexpected authentication")
+                override suspend fun discoverHostKey(host: String, port: Int): String {
+                    try {
+                        delay(Long.MAX_VALUE)
+                        error("unreachable")
+                    } finally { settled = true }
+                }
+            }, timeoutMillis = if (enclosing) 60_000L else 1_000L)
+            val result = runCatching { withTimeout(2_000L) { factory.discoverHostKey("198.51.100.10", 22) } }
+            if (enclosing) assertTrue(result.exceptionOrNull() is TimeoutCancellationException)
+            else {
+                assertTrue(result.exceptionOrNull() is ProvisioningException)
+                assertEquals("SSH host-key discovery timed out", result.exceptionOrNull()?.message)
+            }
+            assertTrue(settled)
+        }
+    }
+
+    @Test
     fun passwordCredentialCanBeCleared() {
         val password = VpsCredential.Password(charArrayOf('s', 'e', 'c', 'r', 'e', 't'))
 

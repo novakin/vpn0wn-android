@@ -66,6 +66,106 @@ class VpsServerCredentialTest {
     fun tearDown() { scope.cancel() }
 
     @Test
+    fun hostTrustPersistsBeforeAnyFleetOrCredentialExists() = runBlocking {
+        store.trustHost("2001:db8::1", 22, pin)
+        val before = file.readBytes()
+        val reopened = VpsServerStore(preferences, credentialFileForTest(file, key))
+        assertEquals(pin, reopened.trustedHostFingerprint("2001:0db8:0:0:0:0:0:1", 22))
+        assertNull(reopened.trustedHostFingerprint("2001:db8::1", 2222))
+        assertTrue(reopened.servers.first().isEmpty())
+        reopened.trustHost("2001:0db8:0:0:0:0:0:1", 22, pin)
+        assertArrayEquals(before, file.readBytes())
+        assertFalse(file.readBytes().toString(Charsets.UTF_8).contains(pin))
+    }
+
+    @Test
+    fun hostTrustBindsCanonicalAddressAndPortAcrossServerIdsAndUsers() = runBlocking {
+        val first = server().copy(host = "2001:db8::1")
+        val second = server("second").copy(host = "2001:0db8:0:0:0:0:0:1", sshUser = "admin")
+        val otherPort = first.copy(id = "other-port", sshPort = 2222)
+        val changedPin = "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(ByteArray(32))
+        listOf(first, second, otherPort).forEach { store.upsert(it) }
+        store.trustHost(first.host, first.sshPort, pin)
+        store.saveCredential(first, pin, VpsCredential.Password("first".toCharArray()))
+        val before = file.readBytes()
+        expect<VpsServerStore.CredentialConflictException> { store.trustHost(second.host, second.sshPort, changedPin) }
+        expect<VpsServerStore.CredentialConflictException> {
+            store.saveCredential(second, changedPin, VpsCredential.Password("refused".toCharArray()))
+        }
+        assertArrayEquals(before, file.readBytes())
+        store.saveCredential(second, pin, VpsCredential.Password("second".toCharArray()))
+        store.trustHost(otherPort.host, otherPort.sshPort, changedPin)
+        assertPassword("first", store.loadConnection(first))
+        assertPassword("second", store.loadConnection(second))
+        assertEquals(changedPin, store.trustedHostFingerprint(otherPort.host, otherPort.sshPort))
+    }
+
+    @Test
+    fun clearCredentialsAndRemoveServerRetainAcceptedHostTrustAfterReopen() = runBlocking {
+        val server = server()
+        store.upsert(server)
+        store.saveCredential(server, pin, VpsCredential.Password("synthetic".toCharArray()))
+        store.clearCredential(server.id)
+        var reopened = VpsServerStore(preferences, credentialFileForTest(file, key))
+        assertNull(reopened.loadConnection(server))
+        assertEquals(pin, reopened.trustedHostFingerprint(server.host, server.sshPort))
+        reopened.saveCredential(server, pin, VpsCredential.Password("synthetic".toCharArray()))
+        reopened.remove(server.id)
+        reopened = VpsServerStore(preferences, credentialFileForTest(file, key))
+        assertTrue(reopened.servers.first().isEmpty())
+        assertEquals(pin, reopened.trustedHostFingerprint(server.host, server.sshPort))
+    }
+
+    @Test
+    fun legacyCredentialPinsBecomeHostTrustWithoutAReadTimeRewrite() = runBlocking {
+        val server = server()
+        store.upsert(server)
+        val legacy = VpsCredentialSnapshot(credentials = linkedMapOf(server.id to SavedVpsCredential(
+            VpsEndpoint(server.host, server.sshPort, server.sshUser), pin, VpsCredential.Password("legacy".toCharArray()),
+        )))
+        credentialFileForTest(file, key).write(VpsCredentialRecords.encode(legacy))
+        VpsCredentialRecords.clear(legacy)
+        val before = file.readBytes()
+        assertEquals(pin, store.trustedHostFingerprint(server.host, server.sshPort))
+        assertPassword("legacy", store.loadConnection(server))
+        assertArrayEquals(before, file.readBytes())
+        store.clearCredential(server.id)
+        assertEquals(pin, VpsServerStore(preferences, credentialFileForTest(file, key))
+            .trustedHostFingerprint(server.host, server.sshPort))
+    }
+
+    @Test
+    fun conflictingLegacyPinsForCanonicalHostFailClosedWithoutWriting() = runBlocking {
+        val changedPin = "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(ByteArray(32))
+        val legacy = VpsCredentialSnapshot(credentials = linkedMapOf(
+            "one" to SavedVpsCredential(VpsEndpoint("2001:db8::1"), pin, VpsCredential.Password("one".toCharArray())),
+            "two" to SavedVpsCredential(VpsEndpoint("2001:0db8:0:0:0:0:0:1", user = "admin"), changedPin,
+                VpsCredential.Password("two".toCharArray())),
+        ))
+        credentialFileForTest(file, key).write(VpsCredentialRecords.encode(legacy))
+        VpsCredentialRecords.clear(legacy)
+        val before = file.readBytes()
+        val failure = expect<VpsCredentialStorageException> { store.trustHost("2001:db8::1", 22, pin) }
+        assertEquals(VpsCredentialStorageException.Category.CORRUPT, failure.category)
+        assertArrayEquals(before, file.readBytes())
+    }
+
+    @Test
+    fun malformedAndDuplicateTrustRowsNeverBecomeUsableTrust() {
+        val valid = """{"host":"192.0.2.1","port":22,"fingerprint":"$pin","auth":"host_key"}"""
+        for (payload in listOf(
+            "[$valid,$valid]", "[${valid.replace("192.0.2.1", "localhost")}]",
+            "[${valid.replace("\"port\":22", "\"port\":\"22\"")}]",
+            "[${valid.replace("\"auth\":\"host_key\"", "\"auth\":\"host_key\",\"user\":\"root\"")}]",
+        )) {
+            val failure = assertThrows(VpsCredentialStorageException::class.java) {
+                VpsCredentialRecords.decode(payload.toByteArray())
+            }
+            assertEquals(VpsCredentialStorageException.Category.CORRUPT, failure.category)
+        }
+    }
+
+    @Test
     fun passwordKeyPassphraseAndPinRoundTripWithoutPlaintextPersistence() = runBlocking {
         val passwordServer = server("../password ' arbitrary")
         val keyServer = server("key")
@@ -171,6 +271,7 @@ class VpsServerCredentialTest {
         for (action in listOf<suspend () -> Unit>(
             { store.loadConnection(server); Unit },
             { store.saveCredential(server, pin, VpsCredential.Password("replacement".toCharArray())) },
+            { store.trustHost(server.host, server.sshPort, pin) },
             { store.remove(server.id) },
         )) {
             val failure = expect<VpsCredentialStorageException> { action() }
@@ -371,6 +472,30 @@ class VpsServerCredentialTest {
     }
 
     @Test
+    fun admittedHostTrustWriteSettlesBeforeCancellationAndSurvivesReopen() = runBlocking {
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val blocking = VpsCredentialFile(file, { key }, output = {
+            FileOutputStream(it).also {
+                entered.countDown()
+                check(release.await(5, TimeUnit.SECONDS))
+            }
+        }, rename = ::move, stat = { it.exists() })
+        val trusting = VpsServerStore(preferences, blocking)
+        val saving = launch(Dispatchers.Default) { trusting.trustHost("192.0.2.1", 22, pin) }
+        try {
+            assertTrue(withContext(Dispatchers.IO) { entered.await(5, TimeUnit.SECONDS) })
+            saving.cancel()
+            assertFalse(saving.isCompleted)
+        } finally {
+            release.countDown()
+            saving.join()
+        }
+        assertTrue(saving.isCancelled)
+        assertEquals(pin, VpsServerStore(preferences, credentialFileForTest(file, key)).trustedHostFingerprint("192.0.2.1", 22))
+    }
+
+    @Test
     fun admittedLoadCancellationDoesNotPublishTheDecryptedPassword() = runBlocking {
         val server = server()
         store.upsert(server)
@@ -430,9 +555,9 @@ class VpsServerCredentialTest {
 
     @Test
     fun malformedRecordPayloadNeverBecomesAnEmptyCredentialSet() {
-        val valid = VpsCredentialRecords.encode(mapOf("one" to SavedVpsCredential(
+        val valid = VpsCredentialRecords.encode(VpsCredentialSnapshot(credentials = linkedMapOf("one" to SavedVpsCredential(
             VpsEndpoint("192.0.2.1"), pin, VpsCredential.Password("synthetic".toCharArray()),
-        )))
+        ))))
         val first = JSONArray(valid.toString(Charsets.UTF_8)).getJSONObject(0)
         for (payload in listOf("bad-json", JSONArray().put(first).put(first).toString(),
             JSONArray().put(first.put("unexpected", "field")).toString())) {

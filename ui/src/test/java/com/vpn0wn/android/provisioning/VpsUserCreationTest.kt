@@ -154,12 +154,14 @@ class VpsUserCreationTest {
     }
 
     @Test
-    fun changedPinOrFullServerRecordBeforeAdmissionBlocksRemoteMutation() = runTest {
+    fun clearedAccessOrChangedFullServerRecordBeforeAdmissionBlocksRemoteMutation() = runTest {
         val model = ready()
         val confirmation = prepare(model)
-        store.saveCredential(server(), OTHER_PIN, VpsCredential.Password("replacement".toCharArray()))
+        val original = server()
+        store.clearCredential(original.id)
+        assertEquals(PIN, store.trustedHostFingerprint(original.host, original.sshPort))
         requireNotNull(model.confirmAddUser(confirmation)).join()
-        assertEquals(Problem.CONNECTION_CHANGED, model.state.value.problem)
+        assertEquals(Problem.ACCESS_MISSING, model.state.value.problem)
         assertTrue(addCommands().isEmpty())
         assertTrue(pending().isEmpty())
         store.saveCredential(server(), PIN, VpsCredential.Password("restored".toCharArray()))
@@ -265,7 +267,8 @@ class VpsUserCreationTest {
         peer.blockAdd = CompletableDeferred()
         val creating = requireNotNull(model.confirmAddUser(requireNotNull(model.state.value.addConfirmation)))
         peer.addEntered.await()
-        store.saveCredential(current, OTHER_PIN, VpsCredential.Password("replacement".toCharArray()))
+        store.clearCredential(current.id)
+        assertEquals(PIN, store.trustedHostFingerprint(current.host, current.sshPort))
         peer.blockAdd!!.complete(Unit)
         creating.join()
         assertEquals(Problem.CONNECTION_CHANGED, model.state.value.problem)
@@ -516,13 +519,14 @@ class VpsUserCreationTest {
     }
 
     @Test
-    fun pinChangedAfterAdmissionRetainsOriginalProfileButWithholdsCurrentOwnerPublication() = runTest {
+    fun clearedAccessAfterAdmissionRetainsOriginalProfileButWithholdsCurrentOwnerPublication() = runTest {
         val model = ready()
         peer.blockAdd = CompletableDeferred()
         val creating = requireNotNull(model.confirmAddUser(prepare(model)))
         peer.addEntered.await()
         val original = server()
-        store.saveCredential(original, OTHER_PIN, VpsCredential.Password("replacement".toCharArray()))
+        store.clearCredential(original.id)
+        assertEquals(PIN, store.trustedHostFingerprint(original.host, original.sshPort))
         peer.blockAdd!!.complete(Unit)
         creating.join()
         assertEquals(Problem.CONNECTION_CHANGED, model.state.value.problem)
@@ -530,10 +534,7 @@ class VpsUserCreationTest {
         assertNotNull(profiles().load(original, SERVER_KEY, CLIENT_KEY))
         assertEquals(CLIENT_KEY, pending().single().clientPublicKey)
         assertEquals(original, server())
-        val current = requireNotNull(store.loadConnection(original))
-        try { assertEquals(OTHER_PIN, current.hostKeyFingerprint) } finally {
-            (current.credential as VpsCredential.Password).clear()
-        }
+        assertNull(store.loadConnection(original))
     }
 
     @Test
@@ -629,6 +630,5 @@ class VpsUserCreationTest {
         val SERVER_KEY = VpsProfileFixture.serverKey.publicKey.toBase64()
         val CLIENT_KEY = VpsProfileFixture.client.publicKey.toBase64()
         val PIN = "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(ByteArray(32) { it.toByte() })
-        val OTHER_PIN = "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(ByteArray(32) { (it + 1).toByte() })
     }
 }

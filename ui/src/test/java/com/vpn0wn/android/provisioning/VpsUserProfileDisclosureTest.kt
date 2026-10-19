@@ -227,7 +227,7 @@ class VpsUserProfileDisclosureTest {
     }
 
     @Test
-    fun changedHostPinDuringFreshReadRejectsDisclosure() = runTest {
+    fun clearedAccessDuringFreshReadRejectsDisclosure() = runTest {
         retainProfile()
         val model = ready()
         val original = server()
@@ -235,7 +235,8 @@ class VpsUserProfileDisclosureTest {
         var consumed = false
         val operation = requireNotNull(model.useUserProfile(original, CLIENT_KEY) { consumed = true })
         peer.statusEntered.await()
-        store.saveCredential(original, OTHER_PIN, VpsCredential.Password("replacement".toCharArray()))
+        store.clearCredential(original.id)
+        assertEquals(PIN, store.trustedHostFingerprint(original.host, original.sshPort))
         peer.blockStatus!!.complete(Unit)
         operation.join()
         assertFalse(consumed)
@@ -325,6 +326,5 @@ class VpsUserProfileDisclosureTest {
         val SERVER_KEY = VpsProfileFixture.serverKey.publicKey.toBase64()
         val CLIENT_KEY = VpsProfileFixture.client.publicKey.toBase64()
         val PIN = "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(ByteArray(32) { it.toByte() })
-        val OTHER_PIN = "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(ByteArray(32) { (it + 1).toByte() })
     }
 }

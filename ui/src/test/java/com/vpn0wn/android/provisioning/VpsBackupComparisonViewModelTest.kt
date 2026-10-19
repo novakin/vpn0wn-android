@@ -161,12 +161,13 @@ class VpsBackupComparisonViewModelTest {
         assertEquals(peer.connections.size, peer.closes.get())
     }
 
-    @Test fun pinReplacementDuringCaptureRejectsTheResultAndClearsCopiedCredentials() = runTest {
+    @Test fun clearedAccessDuringCaptureRejectsTheResultAndClearsCopiedCredentials() = runTest {
         inspect()
         peer.blockBackup = CompletableDeferred()
         val operation = requireNotNull(model.compareBackup(server) {})
         peer.backupEntered.await()
-        store.saveCredential(server, OTHER_PIN, VpsCredential.Password("replacement".toCharArray()))
+        store.clearCredential(server.id)
+        assertEquals(PIN, store.trustedHostFingerprint(server.host, server.sshPort))
         peer.blockBackup!!.complete(Unit)
         operation.join()
         assertEquals(VpsProvisioningViewModel.Problem.CONNECTION_CHANGED, model.state.value.problem)
@@ -240,6 +241,5 @@ class VpsBackupComparisonViewModelTest {
 
     private companion object {
         val PIN = "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(ByteArray(32) { it.toByte() })
-        val OTHER_PIN = "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(ByteArray(32) { (it + 1).toByte() })
     }
 }

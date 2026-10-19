@@ -120,12 +120,13 @@ class VpsProvisioningCompatibilityTest {
         return provisioningLayoutFixture(folder, View.LAYOUT_DIRECTION_LTR)
     }
 
-    private fun TestScope.fillAccess(fixture: VpsProvisioningLayoutFixture) {
+    private suspend fun TestScope.fillAccess(fixture: VpsProvisioningLayoutFixture) {
+        com.vpn0wn.android.Application.getVpsServerStore().trustHost("198.51.100.42", 22,
+            "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(ByteArray(32) { it.toByte() }))
         val add = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_add_server).removePrefix("+ ").trim())
         clickableAncestor(add).performClick()
         settle()
         input(fixture.root, fixture.activity.getString(R.string.vpn0wn_host_placeholder)).setText("198.51.100.42")
-        input(fixture.root, "SHA256:…").setText("SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(ByteArray(32) { it.toByte() }))
         click(fixture, R.string.vpn0wn_auth_password)
         input(fixture.root, fixture.activity.getString(R.string.vpn0wn_password_placeholder)).setText("synthetic-rotation-password")
     }

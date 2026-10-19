@@ -203,16 +203,17 @@ class VpsPeerEndpointTest {
         }
     }
 
-    @Test fun fullSavedRecordAndPinChangesDuringReadRejectConsumption() = runTest {
-        for (changePin in listOf(false, true)) {
+    @Test fun changedFullSavedRecordAndClearedAccessDuringReadRejectConsumption() = runTest {
+        for (clearAccess in listOf(false, true)) {
             val original = server()
             val model = model()
             blockFreshStatus()
             var consumed = false
             val operation = requireNotNull(model.usePeerEndpoint(original, SERVER_KEY, CLIENT_KEY) { _, _, _ -> consumed = true })
             peer.statusEntered.await()
-            if (changePin) store.saveCredential(original, OTHER_PIN, VpsCredential.Password("replacement".toCharArray()))
+            if (clearAccess) store.clearCredential(original.id)
             else store.upsert(original.copy(name = "Changed while status is read"))
+            assertEquals(PIN, store.trustedHostFingerprint(original.host, original.sshPort))
             peer.blockStatus!!.complete(Unit)
             operation.join()
             assertFalse(consumed)
@@ -236,7 +237,7 @@ class VpsPeerEndpointTest {
         }
     }
 
-    @Test fun changedReviewedFingerprintIsRejectedBeforeAnotherSshRead() = runTest {
+    @Test fun pinReplacementAndMismatchedReviewedFingerprintAreRejectedBeforeAnotherSshRead() = runTest {
         val model = model()
         val original = server()
         var reviewedFingerprint: String? = null
@@ -244,9 +245,14 @@ class VpsPeerEndpointTest {
             reviewedFingerprint = fingerprint
         }).join()
         assertEquals(PIN, reviewedFingerprint)
-        store.saveCredential(original, OTHER_PIN, VpsCredential.Password("replacement".toCharArray()))
-        requireNotNull(model.usePeerEndpoint(original, SERVER_KEY, CLIENT_KEY, reviewedFingerprint) { _, _, _ ->
-            fail("Changed reviewed pin was consumed")
+        try {
+            store.saveCredential(original, OTHER_PIN, VpsCredential.Password("replacement".toCharArray()))
+            fail("An existing trusted host key was replaced")
+        } catch (_: VpsServerStore.CredentialConflictException) {
+            assertEquals(PIN, store.trustedHostFingerprint(original.host, original.sshPort))
+        }
+        requireNotNull(model.usePeerEndpoint(original, SERVER_KEY, CLIENT_KEY, OTHER_PIN) { _, _, _ ->
+            fail("Mismatched reviewed pin was consumed")
         }).join()
         assertEquals(Problem.CONNECTION_CHANGED, model.state.value.problem)
         assertEquals(1, statusCommands().size)
@@ -254,9 +260,9 @@ class VpsPeerEndpointTest {
         assertEquals(original, server())
     }
 
-    @Test fun queuedLocalAdmissionRechecksPinAndPendingIntentWithoutFleetRecordChange() = runTest {
+    @Test fun queuedLocalAdmissionRechecksAccessAndPendingIntentWithoutFleetRecordChange() = runTest {
         val original = server()
-        for (changePin in listOf(false, true)) {
+        for (clearAccess in listOf(false, true)) {
             val env = TunnelTestEnvironment(folder.newFolder(), backgroundScope)
             val model = model()
             val config = com.vpn0wn.config.Config.parse(VpsProfileFixture.text().byteInputStream())
@@ -276,14 +282,15 @@ class VpsPeerEndpointTest {
                 })
                 operation = admitted
                 atApply.await()
-                if (changePin) store.saveCredential(original, OTHER_PIN, VpsCredential.Password("replacement".toCharArray()))
+                if (clearAccess) store.clearCredential(original.id)
                 else store.admitInstall(original, VpsEndpoint(original.host, original.sshPort, original.sshUser),
                     VpsInstallRequest(original.endpoint, original.cidr, original.dns))
+                assertEquals(PIN, store.trustedHostFingerprint(original.host, original.sshPort))
                 assertEquals(original, server())
                 env.backend.releaseUp.countDown()
                 blocking.join()
                 admitted.join()
-                assertEquals(if (changePin) Problem.CONNECTION_CHANGED else Problem.INSTALL_PENDING, model.state.value.problem)
+                assertEquals(if (clearAccess) Problem.CONNECTION_CHANGED else Problem.INSTALL_PENDING, model.state.value.problem)
                 assertSame(config, selected.peekConfig())
                 assertSame(config, env.store.configs["selected"])
                 assertEquals(Tunnel.State.DOWN, selected.state)

@@ -7,6 +7,14 @@ import kotlinx.coroutines.CompletableDeferred
 import org.json.JSONObject
 
 internal class VpsPlanningTestPeer : RemoteShellClientFactory {
+    var discoveredFingerprint = "SHA256:" + java.util.Base64.getEncoder().withoutPadding().encodeToString(ByteArray(32) { it.toByte() })
+    val discoveries = mutableListOf<Pair<String, Int>>()
+    var blockDiscovery: CompletableDeferred<Unit>? = null
+    override suspend fun discoverHostKey(host: String, port: Int): String {
+        discoveries.add(host to port)
+        blockDiscovery?.await()
+        return discoveredFingerprint
+    }
     val connections = Collections.synchronizedList(mutableListOf<VpsConnection>())
     val commands = Collections.synchronizedList(mutableListOf<String>())
     val closes = AtomicInteger()

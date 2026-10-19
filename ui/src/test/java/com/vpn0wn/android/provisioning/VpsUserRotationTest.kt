@@ -145,15 +145,30 @@ class VpsUserRotationTest {
         assertEquals(1, rotates().size)
     }
 
-    @Test fun changedPinAfterConfirmationFailsBeforeStageOrNetwork() = runTest {
+    @Test fun clearedAccessCannotReplaceTrustedPinOrDispatchReviewedRotation() = runTest {
         val model = ready()
         val confirmation = prepare(model)
-        store.saveCredential(server(), OTHER_PIN, VpsCredential.Password(charArrayOf()))
+        val current = server()
+        val connections = peer.connections.size
+        val commands = peer.commands.size
+        val writes = profileWrites
+        store.clearCredential(current.id)
+        val replacement = runCatching {
+            store.saveCredential(current, OTHER_PIN, VpsCredential.Password(charArrayOf()))
+        }.exceptionOrNull()
+        assertTrue(replacement is VpsServerStore.CredentialConflictException)
+        assertEquals(PIN, store.trustedHostFingerprint(current.host, current.sshPort))
+        assertNull(store.loadConnection(current))
         requireNotNull(model.confirmRotateUser(confirmation)).join()
-        assertEquals(Problem.CONNECTION_CHANGED, model.state.value.problem)
-        assertNull(store.pendingRotation(server()))
+        assertEquals(Problem.ACCESS_MISSING, model.state.value.problem)
+        assertEquals(connections, peer.connections.size)
+        assertEquals(commands, peer.commands.size)
+        assertTrue(peer.discoveries.isEmpty())
+        assertNull(store.pendingRotation(current))
+        assertEquals(writes, profileWrites)
         assertTrue(rotates().isEmpty())
-        assertNotNull(profiles().load(server(), SERVER_KEY, CLIENT_KEY))
+        assertTrue(verifies().isEmpty())
+        assertNotNull(profiles().load(current, SERVER_KEY, CLIENT_KEY))
     }
 
     @Test fun cancelledUploadRetiresPreparedProposalWithoutRemoteDispatch() = runTest {
