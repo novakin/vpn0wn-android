@@ -98,7 +98,7 @@ internal class NetworkAutomationController(
 
     suspend fun selectDefault(name: String) = manager.automationAdmission {
         val tunnel = manager.automationTarget(name) ?: throw IOException("Default tunnel is unavailable")
-        requireNumeric(tunnel)
+        tunnel.getConfigAsync()
         val state = NetworkAutomationState.update { it.copy(defaultName = name, resolved = true, revision = it.revision + 1) }
         retirePending()
         show(state, if (state.enabled) Condition.MONITORING else disabledCondition(state))
@@ -111,7 +111,7 @@ internal class NetworkAutomationController(
         if (ownedWork?.isCompleted == false || manualWork?.isCompleted == false || exitWork?.isCompleted == false) throw IOException("Transport settlement is still pending")
         val name = previous.defaultName ?: throw IOException("Choose a default tunnel first")
         val tunnel = manager.automationTarget(name) ?: throw IOException("Default tunnel is unavailable")
-        requireNumeric(tunnel)
+        tunnel.getConfigAsync()
         val backend = requireSingleUserspace(Application.getBackend())
         val running = withContext(Dispatchers.IO) { backend.runningTunnelNames }
         if (running.any { it != name }) throw IOException("Disconnect other tunnels first")
@@ -340,13 +340,6 @@ internal class NetworkAutomationController(
         evaluations.trySend(Unit)
     }
 
-    suspend fun checkConfig(tunnel: ObservableTunnel, config: com.vpn0wn.config.Config) {
-        val backend = Application.getBackend() as? GoBackend ?: return
-        if (backend.getTransportSnapshot(tunnel)?.mode() == GoBackend.TransportMode.OWNED && !GoBackend.hasNumericEndpoints(config)) {
-            throw IOException("Disconnect before changing an owned tunnel to hostname endpoints")
-        }
-    }
-
     suspend fun requireDisabled() {
         if (read().enabled || ownedWork?.isCompleted == false || manualWork?.isCompleted == false || exitWork?.isCompleted == false) {
             throw IOException("Disable network automation before changing backend")
@@ -458,7 +451,7 @@ internal class NetworkAutomationController(
                             manager.ordinaryAutomationTransition(admission.tunnel, target)
                         }
                     } else result = withContext(Dispatchers.IO) {
-                        if (target == Tunnel.State.UP && config != null && GoBackend.hasNumericEndpoints(config)) {
+                        if (target == Tunnel.State.UP && config != null) {
                             setManualOwnedState(admission, backend, config)
                         } else backend.setStateWithAuthority(admission.tunnel, target, config, admission.authority)
                     }
@@ -524,12 +517,6 @@ internal class NetworkAutomationController(
         return Tunnel.State.UP
     }
 
-    private suspend fun requireNumeric(tunnel: ObservableTunnel): com.vpn0wn.config.Config {
-        val config = tunnel.getConfigAsync()
-        if (!GoBackend.hasNumericEndpoints(config)) throw IOException("Choose a numeric or endpoint-free tunnel")
-        return config
-    }
-
     private suspend fun admit(): Request? = manager.automationAdmission {
         val networks = latest ?: return@automationAdmission null
         if (observer !== networks.generation) return@automationAdmission null
@@ -551,14 +538,10 @@ internal class NetworkAutomationController(
         val config = tunnel.getConfigAsync()
         val actual = backend.getTransportSnapshot(tunnel)
         val exactManualOwner = actual != null && manualOwner?.first === tunnel && actual.session() === manualOwner?.second
-        if (manual != null && (!GoBackend.hasNumericEndpoints(config) || actual?.mode() == GoBackend.TransportMode.LEGACY ||
+        if (manual != null && (actual?.mode() == GoBackend.TransportMode.LEGACY ||
                 name != state.defaultName && !exactManualOwner ||
                 name == state.defaultName && actual == null && name !in UserKnobs.runningTunnels.first())) {
             show(state, Condition.MANUAL_HOLD)
-            return@automationAdmission null
-        }
-        if (!GoBackend.hasNumericEndpoints(config)) {
-            show(state, Condition.UNRESOLVED)
             return@automationAdmission null
         }
         val winner = networks.select(actual?.network())

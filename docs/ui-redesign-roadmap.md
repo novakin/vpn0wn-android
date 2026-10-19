@@ -1,6 +1,6 @@
 # vpn0wn UI Redesign Roadmap
 
-Last updated: 2026-10-18 (Europe/Paris).
+Last updated: 2026-10-19 (Europe/Paris).
 
 ## Design Source
 
@@ -504,6 +504,9 @@ Three-state: `ok: true` → `◆` signal-deep pill; `ok: false` → `✕` error 
 ## Progress
 
 ### Done
+
+- **Hostname automation selection — #73/#74 (2026-10-19 source candidate):** existing `SettingsActivity` default chooser includes actual hostname profiles and preserves its native list/actions; default/French guidance removes the obsolete numeric-only restriction. The existing Detail recovery failure row adds a fixed DNS-resolution category stating that the transport is unchanged. Fonts, colors, geometry and action ownership remain unchanged. [QA](qa-test-plan.md#selected-network-hostname-recovery-controls--7374) records accepted scoped source/native-view output and the remaining enlarged capture, installed and accessibility limits.
+
 
 - [x] **Rollback consequences precede differences — #196, 2026-10-18:** the running restore review and secure confirmation show the older-access/history warning and downtime/start/enable effects before variable user/archive lists. Ordering/presence regressions and direct warning/effects native captures cover both review steps and confirmation. [Local controls](qa-test-plan.md#android-running-server-rollback-controls--196) pass; 177 final originals across nine cases retain actual configuration metadata and 24-user/24-history difference rows with coherent current/desired inventories. Author review is satisfied within the synthetic API28 matrix; exact-head independent review, installed window/authentication/accessibility and live acceptance remain separate.
 

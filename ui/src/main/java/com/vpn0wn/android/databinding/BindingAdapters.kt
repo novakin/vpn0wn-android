@@ -331,6 +331,7 @@ object BindingAdapters {
         val failure = when (snapshot.failureCategory) {
             ObservableTunnel.RecoveryFailureCategory.CANCELLED -> R.string.vpn0wn_recovery_failure_cancelled
             ObservableTunnel.RecoveryFailureCategory.INTERRUPTED -> R.string.vpn0wn_recovery_failure_interrupted
+            ObservableTunnel.RecoveryFailureCategory.DNS_RESOLUTION -> R.string.vpn0wn_recovery_failure_dns
             ObservableTunnel.RecoveryFailureCategory.IO -> R.string.vpn0wn_recovery_failure_io
             ObservableTunnel.RecoveryFailureCategory.SERVICE_UNAVAILABLE -> R.string.vpn0wn_recovery_failure_service
             ObservableTunnel.RecoveryFailureCategory.DEFECT -> R.string.vpn0wn_recovery_failure_defect

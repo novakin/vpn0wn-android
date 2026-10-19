@@ -27,6 +27,8 @@ import com.vpn0wn.config.InetEndpointTest
 import com.vpn0wn.crypto.Key
 import java.io.IOException
 import java.lang.reflect.InvocationTargetException
+import java.net.InetAddress
+import java.net.UnknownHostException
 import java.time.Duration
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
@@ -65,12 +67,14 @@ import org.robolectric.annotation.Implementation
 import org.robolectric.annotation.Implements
 import org.robolectric.annotation.LooperMode
 import org.robolectric.shadows.ShadowSystemClock
+import org.robolectric.shadows.ShadowNetwork
 import org.robolectric.shadows.ShadowVpnService
 
 @RunWith(RobolectricTestRunner::class)
 @RobolectricConfig(application = Application::class, sdk = [36], shadows = [TunnelRecoveryTest.NativeShadow::class,
     GoBackendRebindTest.BuilderShadow::class, GoBackendHandshakeTest.DescriptorShadow::class,
-    GoBackendLifecycleTest.LibraryShadow::class, InetEndpointTest.NumericAddressShadow::class])
+    GoBackendLifecycleTest.LibraryShadow::class, InetEndpointTest.NumericAddressShadow::class,
+    GoBackendRebindTest.ResolverShadow::class, GoBackendRebindTest.TransportServiceShadow::class])
 @LooperMode(LooperMode.Mode.PAUSED)
 @OptIn(ExperimentalCoroutinesApi::class)
 class TunnelRecoveryTest {
@@ -903,9 +907,65 @@ class TunnelRecoveryTest {
         }
     }
 
-    private suspend fun TestScope.withFixture(handler: CoroutineExceptionHandler? = null, block: suspend TestScope.(Fixture) -> Unit) {
+    @Test fun ownedDnsOutageKeepsRecoveryAvailableWithoutNativeEntryOrUnknownSettlement() = runTest {
+        withFixture(ownedHostname = true) { fixture ->
+            val session = fixture.tunnel.activeHandshakeSession
+            val saved = fixture.tunnel.getConfigAsync()
+            val transport = fixture.backend.getTransportSnapshot(fixture.tunnel)
+            GoBackendRebindTest.ResolverShadow.lookup = { throw UnknownHostException("Synthetic DNS outage") }
+            emit(fixture, 1)
+            val failed = awaitSnapshot(fixture) { it.backendEntries == 1 && !it.requestPending }
+            assertCounts(failed, 0, 0, 1, 0)
+            assertEquals(ObservableTunnel.RecoveryStatus.FAILED, failed.status)
+            assertEquals(ObservableTunnel.RecoveryFailureCategory.DNS_RESOLUTION, failed.failureCategory)
+            assertFalse(failed.automaticRecoveryDisabled)
+            assertTrue(NativeShadow.calls.isEmpty())
+            assertSame(transport, fixture.backend.getTransportSnapshot(fixture.tunnel))
+
+            GoBackendRebindTest.ResolverShadow.lookup = { arrayOf(InetAddress.getByName("192.0.2.73")) }
+            emit(fixture, 2)
+            val recovered = awaitSnapshot(fixture) { it.confirmedAdmissions == 1 && !it.requestPending }
+            assertCounts(recovered, 1, 1, 2, 0)
+            assertNull(recovered.failureCategory)
+            assertFalse(recovered.automaticRecoveryDisabled)
+            assertEquals("192.0.2.73:51820", NativeShadow.calls.single().replacement)
+            assertEquals(1L, NativeShadow.calls.single().generation)
+            assertSame(session, fixture.tunnel.activeHandshakeSession)
+            assertSame(saved, fixture.tunnel.getConfigAsync())
+            assertEquals("vpn.example.invalid", saved.peers.first().endpoint.get().host)
+            assertEquals(1, NativeShadow.startupCalls)
+            assertEquals(1, GoBackendRebindTest.BuilderShadow.establishCalls)
+        }
+    }
+
+    @Test fun repeatedOwnedDnsOutagesStillExhaustFiniteBackendRequestBudget() = runTest {
+        withFixture(ownedHostname = true) { fixture ->
+            GoBackendRebindTest.ResolverShadow.calls.clear()
+            GoBackendRebindTest.ResolverShadow.lookup = { throw UnknownHostException("Synthetic DNS outage") }
+            for (episode in 1..4) {
+                emit(fixture, episode.toLong())
+                val failed = awaitSnapshot(fixture) { it.backendEntries == episode && !it.requestPending }
+                assertCounts(failed, 0, 0, episode, 0)
+                assertEquals(ObservableTunnel.RecoveryFailureCategory.DNS_RESOLUTION, failed.failureCategory)
+                assertFalse(failed.automaticRecoveryDisabled)
+            }
+            emit(fixture, 5)
+            val limited = awaitSnapshot(fixture) { !it.requestPending }
+            assertEquals(ObservableTunnel.RecoveryStatus.DROPPED_ENTRY_LIMIT, limited.status)
+            assertCounts(limited, 0, 0, 4, 0)
+            assertEquals(4, GoBackendRebindTest.ResolverShadow.calls.size)
+            assertTrue(NativeShadow.calls.isEmpty())
+        }
+    }
+
+    private suspend fun TestScope.withFixture(handler: CoroutineExceptionHandler? = null, ownedHostname: Boolean = false,
+                                             block: suspend TestScope.(Fixture) -> Unit) {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         NativeShadow.reset()
+        GoBackendRebindTest.ResolverShadow.calls.clear()
+        GoBackendRebindTest.ResolverShadow.lookup = null
+        GoBackendRebindTest.TransportServiceShadow.reported.clear()
+        GoBackendRebindTest.TransportServiceShadow.reporting = null
         InetEndpointTest.NumericAddressShadow.unavailableAddress = null
         val scope = if (handler == null) backgroundScope else CoroutineScope(backgroundScope.coroutineContext + handler)
         val env = TunnelTestEnvironment(folder.root, scope)
@@ -914,11 +974,18 @@ class TunnelRecoveryTest {
             val backend = GoBackend(ApplicationProvider.getApplicationContext())
             NativeShadow.stateLock = backendField(backend, "stateLock")
             env.replaceBackend(backend)
-            val tunnel = env.manager.create("fixture", profile())
+            val config = profile(if (ownedHostname) "vpn.example.invalid:51820" else "127.0.0.1:51820")
+            val tunnel = env.manager.create("fixture", config)
             val activeFixture = Fixture(env, backend, tunnel)
             fixture = activeFixture
             activeFixture.recreateService()
-            tunnel.setStateAsync(Tunnel.State.UP)
+            if (ownedHostname) {
+                GoBackendRebindTest.ResolverShadow.lookup = { arrayOf(InetAddress.getByName("127.0.0.1")) }
+                NativeShadow.publishCapture = true
+                withContext(Dispatchers.IO) {
+                    backend.setStateOwned(tunnel, Tunnel.State.UP, config, ShadowNetwork.newInstance(73), GoBackend.TransportAuthority())
+                }
+            } else tunnel.setStateAsync(Tunnel.State.UP)
             pump()
             assertNotNull(tunnel.activeHandshakeSession)
             block(activeFixture)
@@ -1032,7 +1099,7 @@ class TunnelRecoveryTest {
         assertEquals(unknown, snapshot.unknownSettlements)
     }
 
-    private fun profile(): Config = Config.parse("""
+    private fun profile(endpoint: String = "127.0.0.1:51820"): Config = Config.parse("""
         [Interface]
         PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
         ListenPort = 51820
@@ -1040,7 +1107,7 @@ class TunnelRecoveryTest {
         [Peer]
         PublicKey = ${peer.toBase64()}
         AllowedIPs = 192.0.2.1/32
-        Endpoint = 127.0.0.1:51820
+        Endpoint = $endpoint
         [Peer]
         PublicKey = ${otherPeer.toBase64()}
         AllowedIPs = 192.0.2.3/32
@@ -1073,7 +1140,8 @@ class TunnelRecoveryTest {
         }
     }
 
-    data class NativeCall(val handle: Int, val peer: ByteArray, val episode: Long, val endpoint: String, val caller: Thread)
+    data class NativeCall(val handle: Int, val peer: ByteArray, val episode: Long, val endpoint: String,
+                          val replacement: String, val generation: Long, val caller: Thread)
 
     @Implements(value = GoBackend::class, isInAndroidSdk = false)
     // Robolectric instantiates this JNI shadow through a public no-argument constructor.
@@ -1085,6 +1153,7 @@ class TunnelRecoveryTest {
             var turnOff: (() -> Unit)? = null
             var nextHandle = 7
             var startupCalls = 0
+            var publishCapture = false
             var turnOffCalls = 0
             var activationId = 0L
             var expectedName = "fixture"
@@ -1097,6 +1166,7 @@ class TunnelRecoveryTest {
                 turnOff = null
                 nextHandle = 7
                 startupCalls = 0
+                publishCapture = false
                 turnOffCalls = 0
                 activationId = 0
                 expectedName = "fixture"
@@ -1111,23 +1181,30 @@ class TunnelRecoveryTest {
                 assertSame(expectedService, service)
                 assertSame(Thread.currentThread(), thread)
                 assertNotNull(capture)
+                if (publishCapture) {
+                    assertEquals(true, capture.javaClass.getDeclaredMethod("report", Long::class.javaPrimitiveType,
+                        Boolean::class.javaPrimitiveType).apply { isAccessible = true }.invoke(capture, 1L, true))
+                    assertEquals(true, capture.javaClass.getDeclaredMethod("confirm", Long::class.javaPrimitiveType)
+                        .apply { isAccessible = true }.invoke(capture, 1L))
+                }
                 activationId = id
                 startupCalls++
                 return nextHandle++
             }
 
-            @Implementation @JvmStatic fun wgRecover(handle: Int, peer: ByteArray, episode: Long, endpoint: String, caller: Thread): Int {
+            @Implementation @JvmStatic fun wgRecover(handle: Int, peer: ByteArray, episode: Long, endpoint: String,
+                replacement: String, generation: Long, caller: Thread): Int {
                 assertFalse(Thread.holdsLock(stateLock))
                 assertNotSame(Looper.getMainLooper().thread, Thread.currentThread())
                 assertSame(Thread.currentThread(), caller)
-                val call = NativeCall(handle, peer.copyOf(), episode, endpoint, caller)
+                val call = NativeCall(handle, peer.copyOf(), episode, endpoint, replacement, generation, caller)
                 calls += call
                 return response(call)
             }
 
             @Implementation @JvmStatic fun wgTransportSnapshot(handle: Int): Long {
                 assertTrue(handle >= 7)
-                return 2L
+                return if (publishCapture) (1L shl 2) or 3L else 2L
             }
             @Implementation @JvmStatic fun wgTurnOff(handle: Int) {
                 assertTrue(handle >= 7)
