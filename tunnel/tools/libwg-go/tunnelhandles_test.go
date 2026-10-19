@@ -173,7 +173,7 @@ func testHandleTeardownCancelsTransportBeforeBorrowDrain(t *testing.T, recovery 
 	go func() {
 		defer borrowed.queries.Done()
 		if recovery {
-			result := borrowed.device.Recover(key, episode, "127.0.0.1:51820", func() bool { return false })
+			result := borrowed.device.Recover(key, episode, "127.0.0.1:51820", "", func() bool { return true }, func() bool { return false })
 			if result != device.RecoveryTransportFailed {
 				rebound <- fmt.Errorf("cancelled recovery outcome=%d", result)
 			} else {

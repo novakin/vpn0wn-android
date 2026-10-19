@@ -459,7 +459,6 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
 
     suspend fun setTunnelConfig(tunnel: ObservableTunnel, config: Config): Config = mutate {
         requireManaged(tunnel)
-        networkAutomation.checkConfig(tunnel, config)
         networkAutomation.fence(setOf(tunnel.name))
         invalidateRecovery(tunnel)
         tunnel.invalidateStatistics()
@@ -488,7 +487,6 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         if (state != Tunnel.State.DOWN || tunnel.state != Tunnel.State.DOWN) throw ConfigUpdateRejectedException()
         validateAdmission()
         if (previousConfig == config) return@mutate previousConfig
-        networkAutomation.checkConfig(tunnel, config)
         networkAutomation.fence(setOf(tunnel.name))
         invalidateRecovery(tunnel)
         tunnel.invalidateStatistics()
@@ -942,7 +940,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     private fun settleRecovery(activation: RecoveryActivation, entry: RecoveryEntry) {
         val result = entry.result
         if (entry.entered) activation.backendEntries++
-        if (!entry.entered || result?.admitted() == false) {
+        if (!entry.entered || result?.admitted() == false || entry.failure is GoBackend.EndpointResolutionException) {
             activation.chargedAttempts--
         } else {
             activation.lastChargedAt = checkNotNull(entry.enteredAt)
@@ -979,6 +977,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         null -> null
         is CancellationException -> ObservableTunnel.RecoveryFailureCategory.CANCELLED
         is InterruptedException -> ObservableTunnel.RecoveryFailureCategory.INTERRUPTED
+        is GoBackend.EndpointResolutionException -> ObservableTunnel.RecoveryFailureCategory.DNS_RESOLUTION
         is IOException -> ObservableTunnel.RecoveryFailureCategory.IO
         is BackendException -> if (failure.reason == BackendException.Reason.UNABLE_TO_START_VPN)
             ObservableTunnel.RecoveryFailureCategory.SERVICE_UNAVAILABLE else ObservableTunnel.RecoveryFailureCategory.DEFECT

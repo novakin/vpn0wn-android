@@ -328,32 +328,69 @@ class NetworkAutomationSettlementTest {
         } finally { env.close() }
     }
 
-    @Test fun alreadyLegacyDisableRetainsUsableCompletedManualCapture() = runTest {
+    @Test fun alreadyLegacyDisableRetainsUsableOrdinaryCapture() = runTest {
         val env = environment()
         try {
-            val config = TunnelConfig.parse("""
-                [Interface]
-                PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-                Address = 192.0.2.2/32
-                [Peer]
-                PublicKey = CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk=
-                Endpoint = fixture.invalid:51820
-            """.trimIndent().byteInputStream())
-            val endpoint = config.peers.single().endpoint.get()
-            InetEndpoint::class.java.getDeclaredField("resolved").apply { isAccessible = true }.set(endpoint, InetEndpoint.parse("127.0.0.1:51820"))
-            InetEndpoint::class.java.getDeclaredField("lastResolution").apply { isAccessible = true }.set(endpoint, Instant.now())
-            val tunnel = env.manager.create("fixture", config)
+            val tunnel = env.manager.create("fixture", cachedHostnameProfile())
             connect(env, tunnel, startOwned = false)
-            NetworkAutomationState.update { it.copy(enabled = true, episode = 1, defaultName = "missing", resolved = false) }
             env.manager.setTunnelState(tunnel, Tunnel.State.UP)
-            assertEquals(GoBackend.TransportMode.LEGACY, activeBackend?.getTransportSnapshot(tunnel)?.mode())
+            val backend = requireNotNull(activeBackend)
+            val original = requireNotNull(backend.getTransportSnapshot(tunnel))
+            val capture = requireNotNull(NativeShadow.capture)
+            assertEquals(GoBackend.TransportMode.LEGACY, original.mode())
+            assertTrue(original.ready())
+            NetworkAutomationState.update { it.copy(enabled = true, episode = 1, defaultName = "missing", resolved = false) }
             env.manager.networkAutomation.disable()
             assertEquals(NetworkAutomationState.Exit.COMPLETE, state().exit)
             assertEquals(0, NativeShadow.replacements.get())
-            assertTrue(requireNotNull(activeBackend).rebind(tunnel))
-            assertEquals(GoBackend.TransportMode.LEGACY, activeBackend?.getTransportSnapshot(tunnel)?.mode())
-            assertTrue(requireNotNull(activeBackend?.getTransportSnapshot(tunnel)).ready())
+            assertSame(capture, NativeShadow.capture)
+            assertSame(original.session(), backend.getTransportSnapshot(tunnel)?.session())
+            assertTrue(backend.rebind(tunnel))
+            assertSame(capture, NativeShadow.capture)
+            val reopened = requireNotNull(backend.getTransportSnapshot(tunnel))
+            assertSame(original.session(), reopened.session())
+            assertEquals(GoBackend.TransportMode.LEGACY, reopened.mode())
+            assertTrue(reopened.ready())
         } finally { env.close() }
+    }
+
+    @Test fun enabledHostnameUpWithoutEligibleNetworkFailsBeforeNativeStartup() = runTest {
+        val env = environment()
+        try {
+            val tunnel = env.manager.create("fixture", cachedHostnameProfile())
+            connect(env, tunnel, startOwned = false)
+            NetworkAutomationState.update { it.copy(enabled = true, episode = 1, defaultName = "missing", resolved = false) }
+            try {
+                env.manager.setTunnelState(tunnel, Tunnel.State.UP)
+                fail("Expected missing eligible network failure")
+            } catch (failure: IOException) {
+                assertEquals("No eligible public network", failure.message)
+            }
+            val manual = requireNotNull(state().manual)
+            assertEquals(tunnel.name, manual.name)
+            assertEquals(Tunnel.State.UP.name, manual.absolute)
+            assertEquals(NetworkAutomationState.Outcome.FAILED, manual.outcome)
+            assertEquals(0, NativeShadow.starts.get())
+            assertEquals(0, NativeShadow.replacements.get())
+            assertEquals(Tunnel.State.DOWN, requireNotNull(activeBackend).getState(tunnel))
+            assertNull(activeBackend?.getTransportSnapshot(tunnel))
+            assertTrue(UserKnobs.runningTunnels.first().isEmpty())
+        } finally { env.close() }
+    }
+
+    private fun cachedHostnameProfile(): TunnelConfig {
+        val config = TunnelConfig.parse("""
+            [Interface]
+            PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+            Address = 192.0.2.2/32
+            [Peer]
+            PublicKey = CQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQk=
+            Endpoint = fixture.invalid:51820
+        """.trimIndent().byteInputStream())
+        val endpoint = config.peers.single().endpoint.get()
+        InetEndpoint::class.java.getDeclaredField("resolved").apply { isAccessible = true }.set(endpoint, InetEndpoint.parse("127.0.0.1:51820"))
+        InetEndpoint::class.java.getDeclaredField("lastResolution").apply { isAccessible = true }.set(endpoint, Instant.now())
+        return config
     }
 
     private suspend fun state() = NetworkAutomationState.read(VpnApplication.getPreferencesDataStore().data.first())

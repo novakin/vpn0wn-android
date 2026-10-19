@@ -96,6 +96,7 @@ class RecoveryDiagnosticsBindingTest {
         val failures = mapOf(
             ObservableTunnel.RecoveryFailureCategory.CANCELLED to R.string.vpn0wn_recovery_failure_cancelled,
             ObservableTunnel.RecoveryFailureCategory.INTERRUPTED to R.string.vpn0wn_recovery_failure_interrupted,
+            ObservableTunnel.RecoveryFailureCategory.DNS_RESOLUTION to R.string.vpn0wn_recovery_failure_dns,
             ObservableTunnel.RecoveryFailureCategory.IO to R.string.vpn0wn_recovery_failure_io,
             ObservableTunnel.RecoveryFailureCategory.SERVICE_UNAVAILABLE to R.string.vpn0wn_recovery_failure_service,
             ObservableTunnel.RecoveryFailureCategory.DEFECT to R.string.vpn0wn_recovery_failure_defect,

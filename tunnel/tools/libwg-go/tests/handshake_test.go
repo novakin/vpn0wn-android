@@ -306,11 +306,11 @@ func TestVpn0wnHandshakeRecoveryClaimAndDuplicate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	result := peer.device.Recover([32]byte(peer.handshake.remoteStatic), episode, "127.0.0.1:51820", func() bool { return false })
+	result := peer.device.Recover([32]byte(peer.handshake.remoteStatic), episode, "127.0.0.1:51820", "", func() bool { return true }, func() bool { return false })
 	if result != RecoveryInitiationSkipped || bind.openCalls.Load() != 2 {
 		t.Fatalf("throttled recovery: outcome=%d opens=%d", result, bind.openCalls.Load())
 	}
-	if result := peer.device.Recover([32]byte(peer.handshake.remoteStatic), episode, "127.0.0.1:51820", func() bool { return false }); result != RecoveryObsolete {
+	if result := peer.device.Recover([32]byte(peer.handshake.remoteStatic), episode, "127.0.0.1:51820", "", func() bool { return true }, func() bool { return false }); result != RecoveryObsolete {
 		t.Fatalf("duplicate claim outcome=%d", result)
 	}
 	after, err := peer.device.IpcGet()
@@ -330,19 +330,71 @@ func TestVpn0wnHandshakeRecoveryRejectsBusyStaleEndpointAndNewCycle(t *testing.T
 	episode := vpn0wnExhaustPeer(t, peer, bind)
 	key := [32]byte(peer.handshake.remoteStatic)
 	peer.device.ipcMutex.Lock()
-	if result := peer.device.Recover(key, episode, "[::1]:51820", func() bool { return false }); result != RecoveryBusy {
+	if result := peer.device.Recover(key, episode, "[::1]:51820", "", func() bool { return true }, func() bool { return false }); result != RecoveryBusy {
 		t.Fatalf("busy outcome=%d", result)
 	}
 	peer.device.ipcMutex.Unlock()
-	if result := peer.device.Recover(key, episode, "[::1]:51821", func() bool { return false }); result != RecoveryObsolete {
+	if result := peer.device.Recover(key, episode, "[::1]:51821", "", func() bool { return true }, func() bool { return false }); result != RecoveryObsolete {
 		t.Fatalf("changed endpoint outcome=%d", result)
 	}
 	newEpisode := vpn0wnExhaustPeer(t, peer, bind)
 	if newEpisode == episode {
 		t.Fatal("new cycle reused exhaustion token")
 	}
-	if result := peer.device.Recover(key, episode, "[::1]:51820", func() bool { return false }); result != RecoveryObsolete || bind.openCalls.Load() != 1 {
+	if result := peer.device.Recover(key, episode, "[::1]:51820", "", func() bool { return true }, func() bool { return false }); result != RecoveryObsolete || bind.openCalls.Load() != 1 {
 		t.Fatal("old cycle mutated shared transport")
+	}
+}
+
+func TestVpn0wnHandshakeHostnameRecoveryUpdatesOnlyClaimedPeerAndRetainsPortAndTun(t *testing.T) {
+	peer, bind := vpn0wnHandshakePeer(t, "127.0.0.1:51820", false)
+	episode := vpn0wnExhaustPeer(t, peer, bind)
+	other, err := peer.device.NewPeer(NoisePublicKey{10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	other.endpoint.val, err = bind.ParseEndpoint("127.0.0.2:51821")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := peer.device.net.port
+	result := peer.device.Recover([32]byte(peer.handshake.remoteStatic), episode, "127.0.0.1:51820", "[::1]:51820",
+		func() bool { return true }, func() bool { return false })
+	if result != RecoveryInitiationSkipped || bind.openCalls.Load() != 2 {
+		t.Fatalf("hostname recovery: outcome=%d opens=%d", result, bind.openCalls.Load())
+	}
+	peer.endpoint.Lock()
+	endpoint := peer.endpoint.val.DstToString()
+	peer.endpoint.Unlock()
+	other.endpoint.Lock()
+	unrelated := other.endpoint.val.DstToString()
+	other.endpoint.Unlock()
+	if endpoint != "[::1]:51820" || unrelated != "127.0.0.2:51821" || peer.device.net.port != port || bind.tunCloseCalls.Load() != 0 {
+		t.Fatal("hostname recovery changed unrelated endpoint, local port or retained TUN")
+	}
+}
+
+func TestVpn0wnHandshakeHostnameRecoveryRefusesStaleGenerationOrInvalidReplacementBeforeMutation(t *testing.T) {
+	for _, test := range []struct {
+		name, replacement string
+		current bool
+	}{
+		{"generation", "127.0.0.2:51820", false},
+		{"hostname", "vpn.example.invalid:51820", true},
+		{"port", "127.0.0.2:51821", true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			peer, bind := vpn0wnHandshakePeer(t, "127.0.0.1:51820", false)
+			episode := vpn0wnExhaustPeer(t, peer, bind)
+			result := peer.device.Recover([32]byte(peer.handshake.remoteStatic), episode, "127.0.0.1:51820", test.replacement,
+				func() bool { return test.current }, func() bool { return false })
+			peer.endpoint.Lock()
+			endpoint := peer.endpoint.val.DstToString()
+			peer.endpoint.Unlock()
+			if result != RecoveryObsolete || endpoint != "127.0.0.1:51820" || bind.openCalls.Load() != 1 {
+				t.Fatal("obsolete resolution mutated endpoint or transport")
+			}
+		})
 	}
 }
 
@@ -365,7 +417,7 @@ func TestVpn0wnHandshakeRecoveryTokenDoesNotSurvivePeerReplacement(t *testing.T)
 	if newEpisode == oldEpisode {
 		t.Fatal("replacement peer reused token")
 	}
-	if result := d.Recover([32]byte(key), oldEpisode, "127.0.0.1:51820", func() bool { return false }); result != RecoveryObsolete || bind.openCalls.Load() != 1 {
+	if result := d.Recover([32]byte(key), oldEpisode, "127.0.0.1:51820", "", func() bool { return true }, func() bool { return false }); result != RecoveryObsolete || bind.openCalls.Load() != 1 {
 		t.Fatal("old peer trigger acquired replacement peer")
 	}
 }
@@ -397,7 +449,7 @@ func TestVpn0wnHandshakeRecoveryFailedOpenRemainsAdmittedWithoutInitiation(t *te
 	sends := bind.sendCalls
 	bind.mu.Unlock()
 	bind.onOpen = func() error { return errors.New("synthetic protection denial") }
-	if result := peer.device.Recover([32]byte(peer.handshake.remoteStatic), episode, "127.0.0.1:51820", func() bool { return false }); result != RecoveryTransportFailed {
+	if result := peer.device.Recover([32]byte(peer.handshake.remoteStatic), episode, "127.0.0.1:51820", "", func() bool { return true }, func() bool { return false }); result != RecoveryTransportFailed {
 		t.Fatalf("failed transport outcome=%d", result)
 	}
 	bind.mu.Lock()
@@ -414,7 +466,7 @@ func TestVpn0wnHandshakeRecoveryDistinguishesStartedAndFailedSend(t *testing.T) 
 		peer.handshake.mutex.Lock()
 		peer.handshake.lastSentHandshake = time.Now().Add(-2 * RekeyTimeout)
 		peer.handshake.mutex.Unlock()
-		result := peer.device.Recover([32]byte(peer.handshake.remoteStatic), episode, "127.0.0.1:51820", func() bool { return false })
+		result := peer.device.Recover([32]byte(peer.handshake.remoteStatic), episode, "127.0.0.1:51820", "", func() bool { return true }, func() bool { return false })
 		want := RecoveryInitiationStarted
 		if failed {
 			want = RecoveryInitiationSendFailed
@@ -442,7 +494,7 @@ func TestVpn0wnHandshakeRecoveryCancellationWhileWaitingForStaticIdentity(t *tes
 	peer.device.staticIdentity.Lock()
 	result := make(chan int, 1)
 	go func() {
-		result <- peer.device.Recover([32]byte(peer.handshake.remoteStatic), episode, "127.0.0.1:51820", checkCancellation)
+		result <- peer.device.Recover([32]byte(peer.handshake.remoteStatic), episode, "127.0.0.1:51820", "", func() bool { return true }, checkCancellation)
 	}()
 	select {
 	case <-preparing:
@@ -544,7 +596,7 @@ func TestVpn0wnHandshakeRecoveryAcceptedResponseSuppressesOldExpiryBeforeComplet
 	if observations[len(observations)-1].episode != 0 {
 		t.Fatal("old expiry minted a token after accepted response")
 	}
-	if result := localDevice.Recover([32]byte(local.handshake.remoteStatic), episode, "127.0.0.1:51820", func() bool { return false }); result != RecoveryObsolete || localBind.openCalls.Load() != 1 {
+	if result := localDevice.Recover([32]byte(local.handshake.remoteStatic), episode, "127.0.0.1:51820", "", func() bool { return true }, func() bool { return false }); result != RecoveryObsolete || localBind.openCalls.Load() != 1 {
 		t.Fatal("authenticated progress allowed old recovery mutation")
 	}
 }
@@ -562,7 +614,7 @@ func TestVpn0wnHandshakeRecoveryResponderConfirmationSuppressesOldExpiry(t *test
 	if observations[len(observations)-1].episode != 0 {
 		t.Fatal("old expiry minted token after responder confirmation")
 	}
-	if result := peer.device.Recover([32]byte(peer.handshake.remoteStatic), episode, "127.0.0.1:51820", func() bool { return false }); result != RecoveryObsolete {
+	if result := peer.device.Recover([32]byte(peer.handshake.remoteStatic), episode, "127.0.0.1:51820", "", func() bool { return true }, func() bool { return false }); result != RecoveryObsolete {
 		t.Fatal("confirmed peer allowed old recovery")
 	}
 }
@@ -585,7 +637,7 @@ func TestVpn0wnHandshakeRecoveryPendingStaticWriterDoesNotDeadlock(t *testing.T)
 	}
 	recovered := make(chan int, 1)
 	go func() {
-		recovered <- peer.device.Recover([32]byte(peer.handshake.remoteStatic), episode, "127.0.0.1:51820", checkCancellation)
+		recovered <- peer.device.Recover([32]byte(peer.handshake.remoteStatic), episode, "127.0.0.1:51820", "", func() bool { return true }, checkCancellation)
 	}()
 	select {
 	case <-readerHeld:
@@ -646,7 +698,7 @@ func TestVpn0wnHandshakeRecoveryCancelsCapturedSendBeforeDown(t *testing.T) {
 	}
 	recovered := make(chan int, 1)
 	go func() {
-		recovered <- peer.device.Recover([32]byte(peer.handshake.remoteStatic), episode, "127.0.0.1:51820", func() bool { return false })
+		recovered <- peer.device.Recover([32]byte(peer.handshake.remoteStatic), episode, "127.0.0.1:51820", "", func() bool { return true }, func() bool { return false })
 	}()
 	select {
 	case <-replacementOpening:
@@ -729,7 +781,7 @@ func TestVpn0wnHandshakeRecoveryPreservesMixedPeersOnSharedTransport(t *testing.
 	peer.handshake.mutex.Lock()
 	peer.handshake.lastSentHandshake = time.Now().Add(-2 * RekeyTimeout)
 	peer.handshake.mutex.Unlock()
-	result := peer.device.Recover([32]byte(peer.handshake.remoteStatic), episode, "127.0.0.1:51820", func() bool { return false })
+	result := peer.device.Recover([32]byte(peer.handshake.remoteStatic), episode, "127.0.0.1:51820", "", func() bool { return true }, func() bool { return false })
 	if result != RecoveryInitiationStarted {
 		t.Fatalf("mixed-peer recovery outcome=%d", result)
 	}

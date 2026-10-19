@@ -33,6 +33,7 @@ import com.vpn0wn.util.NonNullForAll;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.Inet4Address;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -189,6 +190,13 @@ public final class GoBackend implements Backend {
     public record TransportResult(TransportOutcome outcome, @Nullable TransportSnapshot snapshot,
                                   boolean currentActivation, boolean contextReusable) { }
 
+    /** A failed endpoint lookup before native recovery admission; no transport mutation occurred. */
+    public static final class EndpointResolutionException extends IOException {
+        private EndpointResolutionException(final UnknownHostException cause) {
+            super("VPN endpoint resolution failed before native admission", cause);
+        }
+    }
+
     public static final class TransportAuthority {
         private final AtomicLong publication = new AtomicLong();
 
@@ -307,7 +315,8 @@ public final class GoBackend implements Backend {
 
     private static native int wgRebind(int handle);
 
-    private static native int wgRecover(int handle, byte[] peer, long episode, String endpoint, Thread caller);
+    private static native int wgRecover(int handle, byte[] peer, long episode, String endpoint,
+                                        String replacement, long generation, Thread caller);
 
     private static native long wgTransport(int handle, long expectedGeneration, SocketCapture capture, boolean available);
 
@@ -541,7 +550,7 @@ public final class GoBackend implements Backend {
 
     /**
      * Claim a still-exhausted native episode and replace its activation's shared protected transport.
-     * Call off Main. Exceptions or interruption can follow mutation and require conservative accounting.
+     * Call off Main. Except EndpointResolutionException, failures can follow mutation and require conservative accounting.
      * Only the triggering peer receives an ordinary initiation request; saved configuration is untouched.
      */
     public RecoveryResult recover(final Tunnel tunnel, final HandshakeObservation observation) throws Exception {
@@ -552,6 +561,8 @@ public final class GoBackend implements Backend {
         final int handle;
         final VpnService service;
         final Activation capturedActivation;
+        final Config config;
+        final TransportSnapshot transport;
         synchronized (stateLock) {
             capturedActivation = activation;
             if (currentTunnel != tunnel || currentTunnelHandle == -1 || currentService == null || capturedActivation == null)
@@ -563,10 +574,31 @@ public final class GoBackend implements Backend {
                 return new RecoveryResult(RecoveryResult.Outcome.OBSOLETE, false, false);
             handle = currentTunnelHandle;
             service = currentService;
+            config = currentConfig;
+            transport = capturedActivation.transport;
             requireActiveService(service);
         }
+        String replacement = "";
+        final InetEndpoint configured = config.getPeers().stream()
+                .filter(peer -> peer.getPublicKey().equals(observation.peer()))
+                .findFirst().flatMap(Peer::getEndpoint).orElse(null);
+        if (configured != null && !isNumericEndpoint(configured)) {
+            final Network resolvedNetwork = recoveryNetwork(transport);
+            if (resolvedNetwork != null)
+                replacement = resolveEndpoint(resolvedNetwork, configured, observation.endpoint()).toString();
+        }
+        if (Thread.currentThread().isInterrupted())
+            throw new InterruptedException("VPN recovery interrupted");
+        synchronized (stateLock) {
+            if (activation != capturedActivation || currentConfig != config || capturedActivation.transport != transport)
+                return new RecoveryResult(RecoveryResult.Outcome.OBSOLETE, false, false);
+            requireActiveService(service);
+        }
+        final String resolved = replacement;
+        final long generation = replacement.isEmpty() || transport == null ? -1 : transport.generation();
         final int result = (int) runNativeTransport(capturedActivation, handle, () -> (long) wgRecover(handle,
-                observation.peer().getBytes(), observation.exhaustedEpisode(), observation.endpoint().toString(), Thread.currentThread()));
+                observation.peer().getBytes(), observation.exhaustedEpisode(), observation.endpoint().toString(),
+                resolved, generation, Thread.currentThread()));
         if (Thread.currentThread().isInterrupted())
             throw new InterruptedException("VPN recovery interrupted");
         final int outcomeCode = result & ~NATIVE_RECOVERY_CONTEXT_UNAVAILABLE;
@@ -708,23 +740,77 @@ public final class GoBackend implements Backend {
 
     public State setStateOwned(final Tunnel tunnel, final State state, @Nullable final Config config,
                                final Network network, final TransportAuthority authority) throws Exception {
-        if (state == State.UP && (config == null || !hasNumericEndpoints(config)))
-            throw new IllegalArgumentException("Owned transport requires numeric endpoints");
         return setStateWithTransport(tunnel, state, config, network, authority);
     }
 
-    public static boolean hasNumericEndpoints(final Config config) {
-        for (final Peer peer : config.getPeers()) {
-            final InetEndpoint endpoint = peer.getEndpoint().orElse(null);
-            if (endpoint == null)
-                continue;
-            try {
-                InetAddresses.parse(endpoint.getHost());
-            } catch (final ParseException ignored) {
-                return false;
-            }
+    private static boolean isNumericEndpoint(final InetEndpoint endpoint) {
+        try {
+            InetAddresses.parse(endpoint.getHost());
+            return true;
+        } catch (final ParseException ignored) {
+            return false;
         }
-        return true;
+    }
+
+    @Nullable
+    private Network recoveryNetwork(@Nullable final TransportSnapshot transport) {
+        return transport != null && transport.ready() && transport.mode() == TransportMode.OWNED ? transport.network() : null;
+    }
+
+    private static InetEndpoint resolveEndpoint(final Network network, final InetEndpoint endpoint,
+                                                @Nullable final InetEndpoint previous) throws Exception {
+        if (isNumericEndpoint(endpoint))
+            return endpoint;
+        if (Thread.currentThread().isInterrupted())
+            throw new InterruptedException("VPN endpoint resolution interrupted");
+        final InetAddress[] addresses;
+        try {
+            addresses = network.getAllByName(endpoint.getHost());
+            if (addresses.length == 0)
+                throw new UnknownHostException("VPN endpoint resolution returned no addresses");
+        } catch (final UnknownHostException failure) {
+            if (Thread.currentThread().isInterrupted())
+                throw new InterruptedException("VPN endpoint resolution interrupted");
+            throw new EndpointResolutionException(failure);
+        }
+        if (Thread.currentThread().isInterrupted())
+            throw new InterruptedException("VPN endpoint resolution interrupted");
+        final InetAddress previousAddress = previous == null ? null : InetAddresses.parse(previous.getHost());
+        InetEndpoint selected = null;
+        for (final InetAddress address : addresses) {
+            final String host = address.getHostAddress();
+            final InetEndpoint candidate = InetEndpoint.parse((address instanceof Inet4Address ? host : "[" + host + "]") + ":" + endpoint.getPort());
+            if (selected == null)
+                selected = candidate;
+            if (previous == null || endpoint.getPort() != previous.getPort() || !address.equals(previousAddress))
+                return candidate;
+        }
+        return selected;
+    }
+
+    private String resolveOwnedConfig(final Config config, final Network network, final VpnService service,
+                                      final TransportAuthority authority) throws Exception {
+        final Config.Builder resolved = new Config.Builder().setInterface(config.getInterface());
+        for (final Peer peer : config.getPeers()) {
+            requireActiveService(service);
+            if (authority.isRetired())
+                throw new IOException("VPN transition superseded");
+            final InetEndpoint endpoint = peer.getEndpoint().orElse(null);
+            if (endpoint == null || isNumericEndpoint(endpoint)) {
+                resolved.addPeer(peer);
+                continue;
+            }
+            final Peer.Builder replacement = new Peer.Builder().setPublicKey(peer.getPublicKey()).addAllowedIps(peer.getAllowedIps())
+                    .setEndpoint(resolveEndpoint(network, endpoint, null));
+            if (peer.getPersistentKeepalive().isPresent())
+                replacement.setPersistentKeepalive(peer.getPersistentKeepalive().get());
+            peer.getPreSharedKey().ifPresent(replacement::setPreSharedKey);
+            resolved.addPeer(replacement.build());
+        }
+        requireActiveService(service);
+        if (authority.isRetired())
+            throw new IOException("VPN transition superseded");
+        return resolved.build().toWgUserspaceString();
     }
 
     private State setStateWithTransport(final Tunnel tunnel, State state, @Nullable final Config config,
@@ -772,7 +858,7 @@ public final class GoBackend implements Backend {
                 final Network selectedNetwork = network != null ? network : originalTunnel == tunnel && previousTransport != null &&
                         previousTransport.mode() == TransportMode.OWNED ? previousTransport.network() : null;
                 if (originalTunnel == tunnel && previousTransport != null && previousTransport.mode() != TransportMode.LEGACY &&
-                        (selectedNetwork == null || config == null || !hasNumericEndpoints(config)))
+                        (selectedNetwork == null || config == null))
                     throw new IOException("Disconnect before replacing an unavailable owned configuration");
                 final StateTransition transition = new StateTransition(tunnel, authority);
                 synchronized (stateLock) {
@@ -866,7 +952,7 @@ public final class GoBackend implements Backend {
             }
 
 
-            dnsRetry: for (int i = 0; i < DNS_RESOLUTION_RETRIES; ++i) {
+            dnsRetry: for (int i = 0; network == null && i < DNS_RESOLUTION_RETRIES; ++i) {
                 requireActiveService(service);
                 // Pre-resolve IPs so they're cached when building the userspace string
                 for (final Peer peer : config.getPeers()) {
@@ -888,7 +974,7 @@ public final class GoBackend implements Backend {
             requireActiveService(service);
 
             // Build config
-            final String goConfig = config.toWgUserspaceString();
+            final String goConfig = network == null ? config.toWgUserspaceString() : resolveOwnedConfig(config, network, service, authority);
 
             // Create the vpn tunnel with android API
             final VpnService.Builder builder = service.getBuilder();
