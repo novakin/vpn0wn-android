@@ -323,7 +323,7 @@ func wgRebind(tunnelHandle int32, env *C.JNIEnv) int32 {
 const recoveryContextUnavailable = 1 << 8
 
 //export wgRecover
-func wgRecover(tunnelHandle int32, publicKey *C.char, episode C.jlong, endpoint string, env *C.JNIEnv, caller C.jobject) int32 {
+func wgRecover(tunnelHandle int32, publicKey *C.char, episode C.jlong, endpoint, replacement string, expected C.jlong, env *C.JNIEnv, caller C.jobject) int32 {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	handle := tunnelHandles.acquire(tunnelHandle)
@@ -338,7 +338,9 @@ func wgRecover(tunnelHandle int32, publicKey *C.char, episode C.jlong, endpoint 
 	var key [32]byte
 	copy(key[:], unsafe.Slice((*byte)(unsafe.Pointer(publicKey)), len(key)))
 	callerException := false
-	result := handle.device.Recover(key, uint64(episode), endpoint, func() bool {
+	result := handle.device.Recover(key, uint64(episode), endpoint, replacement, func() bool {
+		return expected < 0 || handle.bind.Generation() == uint64(expected)
+	}, func() bool {
 		interrupted := C.wgCallerInterrupted(env, caller)
 		callerException = interrupted < 0
 		return interrupted != 0

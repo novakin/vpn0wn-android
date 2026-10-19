@@ -152,6 +152,13 @@ func generate(output string, host bool) error {
 	if err := addAmneziaOverlay(output, moduleRoot, replacements); err != nil {
 		return err
 	}
+	if host {
+		fixture, err := filepath.Abs(filepath.Join("tests", "amnezia_recovery_fixture.go"))
+		if err != nil {
+			return err
+		}
+		replacements[filepath.Join(output, "amneziawg", "device", "vpn0wn_recovery_fixture.go")] = fixture
+	}
 	data, err := json.Marshal(struct{ Replace map[string]string }{replacements})
 	if err != nil {
 		return err

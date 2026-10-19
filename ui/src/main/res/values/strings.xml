@@ -9,7 +9,7 @@
     <string name="automation_unsupported">Network automation requires single-tunnel userspace mode. Disable kernel mode and multiple simultaneous tunnels first.</string>
     <string name="automation_title">Network automation</string>
     <string name="automation_default">Default tunnel</string>
-    <string name="automation_choose_default">Choose a numeric or endpoint-free userspace tunnel</string>
+    <string name="automation_choose_default">Choose a userspace tunnel</string>
     <string name="automation_enable">Enable network automation</string>
     <string name="automation_enable_summary">Connect the default tunnel and follow eligible public networks. Working Internet takes priority over transport type.</string>
     <string name="automation_resume">Resume monitoring</string>
@@ -18,7 +18,7 @@
     <string name="automation_disable_confirm_action">Disable</string>
     <string name="automation_disable_summary">Keep the VPN connected and return network handling to Android, with a brief traffic gap.</string>
     <string name="automation_disable_confirmation">Automation will stop. The VPN stays connected while fresh protected sockets return network handling to Android. Traffic pauses briefly. If hand-back fails, automation stays off; disconnect and reconnect manually.</string>
-    <string name="automation_action_failed">Automation could not start. Choose a numeric userspace default tunnel and check VPN permission.</string>
+    <string name="automation_action_failed">Automation could not start. Choose a userspace default tunnel and check VPN permission.</string>
     <string name="automation_status_disabled">Disabled. Ordinary tunnel controls keep their existing behavior.</string>
     <string name="automation_status_inactive">Enabled; monitor inactive. Resume from this screen.</string>
     <string name="automation_status_monitoring">Monitoring public networks. This does not establish VPN or Internet health.</string>
@@ -870,6 +870,7 @@
     <string name="vpn0wn_recovery_result_send_failed">Transport replacement ready; local initiation send failed</string>
     <string name="vpn0wn_recovery_failure_cancelled">Failure: cancelled</string>
     <string name="vpn0wn_recovery_failure_interrupted">Failure: interrupted</string>
+    <string name="vpn0wn_recovery_failure_dns">Failure: VPN server name could not be resolved; transport unchanged</string>
     <string name="vpn0wn_recovery_failure_io">Failure: input/output error</string>
     <string name="vpn0wn_recovery_failure_service">Failure: VPN service unavailable</string>
     <string name="vpn0wn_recovery_failure_defect">Failure: internal error</string>

@@ -31,13 +31,28 @@ const recoveryDeviceSource = `const (
 	RecoveryInitiationSendFailed
 )
 
-func (device *Device) Recover(key [32]byte, episode uint64, endpoint string, cancelled func() bool) int {
+func (device *Device) Recover(key [32]byte, episode uint64, endpoint, replacement string, current func() bool, cancelled func() bool) int {
 	if !device.ipcMutex.TryLock() {
 		return RecoveryBusy
 	}
 	defer device.ipcMutex.Unlock()
 	if !device.isUp() || cancelled() {
 		return RecoveryUnavailable
+	}
+	if !current() {
+		return RecoveryObsolete
+	}
+	var replacementEndpoint conn.Endpoint
+	if replacement != "" {
+		address, err := netip.ParseAddrPort(replacement)
+		original, originalErr := netip.ParseAddrPort(endpoint)
+		if err != nil || originalErr != nil || address.Port() != original.Port() {
+			return RecoveryObsolete
+		}
+		replacementEndpoint, err = device.net.bind.ParseEndpoint(replacement)
+		if err != nil {
+			return RecoveryObsolete
+		}
 	}
 	peer := device.LookupPeer(NoisePublicKey(key))
 	if peer == nil || episode == 0 {
@@ -51,13 +66,16 @@ func (device *Device) Recover(key [32]byte, episode uint64, endpoint string, can
 	if peer.endpoint.val != nil {
 		currentEndpoint = peer.endpoint.val.DstToString()
 	}
-	peer.endpoint.Unlock()
 	_, numericError := netip.ParseAddrPort(currentEndpoint)
 	eligible := peer.isRunning.Load() && peer.recovery.exhausted == episode && !peer.recovery.claimed &&
-		numericError == nil && currentEndpoint == endpoint
+		numericError == nil && currentEndpoint == endpoint && current()
 	if eligible {
 		peer.recovery.claimed = true
+		if replacementEndpoint != nil {
+			peer.endpoint.val = replacementEndpoint
+		}
 	}
+	peer.endpoint.Unlock()
 	peer.recovery.Unlock()
 	if !eligible {
 		return RecoveryObsolete

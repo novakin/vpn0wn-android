@@ -91,7 +91,7 @@ class RecoveryReadoutsLayoutTest {
                     }
                     revealLine(binding.recoveryTransport, 0, binding.root, case)
                     capture(binding.root, case, "middle")
-                    if (case.snapshot?.lastOutcome != null) {
+                    if (case.snapshot?.lastOutcome != null || case.snapshot?.failureCategory != null) {
                         revealReadout(binding.recoveryResult, binding.root, case)
                         capture(binding.root, case, "result")
                         if (!fullyVisible(binding.recoveryResult)) {
@@ -132,6 +132,9 @@ class RecoveryReadoutsLayoutTest {
         Preview("long-french-safe-failure", "fr", 320, 640, 2f, snapshot = settled(
             RecoveryResult.Outcome.INITIATION_SEND_FAILED, ObservableTunnel.RecoveryTransportState.READY)
             .copy(failureCategory = ObservableTunnel.RecoveryFailureCategory.SERVICE_UNAVAILABLE)),
+        Preview("dns-failure-en", "en", 320, 640, 1f, snapshot = dnsFailure()),
+        Preview("dns-failure-fr-large", "fr", 320, 640, 2f, snapshot = dnsFailure()),
+        Preview("dns-failure-rtl-large", "ar", 640, 320, 2f, rtl = true, snapshot = dnsFailure()),
         Preview("later-authentication-multiple-peers", "ar", 640, 320, 1f, rtl = true, snapshot = settled(
             RecoveryResult.Outcome.INITIATION_STARTED, ObservableTunnel.RecoveryTransportState.READY),
             authenticationTime = REQUEST_UPTIME + 1),
@@ -150,6 +153,13 @@ class RecoveryReadoutsLayoutTest {
             backendEntries = 1, lastTriggerPeer = firstPeer, lastRequestPeer = requestPeer,
             lastRequestElapsedRealtimeMillis = REQUEST_UPTIME, lastOutcome = outcome, transportState = transport,
             lastResultRecordedElapsedRealtimeMillis = RESULT_UPTIME)
+
+    private fun dnsFailure() = snapshot(ObservableTunnel.RecoveryStatus.FAILED).copy(
+        backendEntries = 1, lastTriggerPeer = firstPeer, lastRequestPeer = requestPeer,
+        lastRequestElapsedRealtimeMillis = REQUEST_UPTIME,
+        failureCategory = ObservableTunnel.RecoveryFailureCategory.DNS_RESOLUTION,
+        lastResultRecordedElapsedRealtimeMillis = RESULT_UPTIME,
+    )
 
     private fun populate(tunnel: ObservableTunnel, case: Preview) {
         if (case.snapshot == null) return
@@ -196,6 +206,9 @@ class RecoveryReadoutsLayoutTest {
             if (snapshot.automaticRecoveryDisabled) assertTrue(binding.recoveryStatus.text.contains(context.getString(R.string.vpn0wn_recovery_disabled_fact)))
             if (snapshot.transportState == ObservableTunnel.RecoveryTransportState.UNAVAILABLE) {
                 assertEquals(context.getString(R.string.vpn0wn_recovery_transport_unavailable), binding.recoveryTransport.text.toString())
+            }
+            if (snapshot.failureCategory == ObservableTunnel.RecoveryFailureCategory.DNS_RESOLUTION) {
+                assertEquals(context.getString(R.string.vpn0wn_recovery_failure_dns), binding.recoveryResult.text.toString())
             }
             val authentication = if (case.authenticationTime != null && case.authenticationTime > REQUEST_UPTIME)
                 context.getString(R.string.vpn0wn_recovery_authenticated_later, case.authenticationTime)

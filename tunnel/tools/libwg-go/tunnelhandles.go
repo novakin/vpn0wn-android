@@ -27,7 +27,7 @@ type tunnelDevice interface {
 	DisableSomeRoamingForBrokenMobileSemantics()
 	Rebind() error
 	RebindTransport(func() error) error
-	Recover([32]byte, uint64, string, func() bool) int
+	Recover([32]byte, uint64, string, string, func() bool, func() bool) int
 }
 
 type TunnelHandle struct {

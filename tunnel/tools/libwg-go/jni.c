@@ -17,7 +17,7 @@ extern char *wgGetConfig(int handle, JNIEnv *env);
 extern int wgRebind(int handle, JNIEnv *env);
 extern jlong wgTransport(int handle, jlong expected, struct wg_capture *capture, int available, JNIEnv *env);
 extern jlong wgTransportSnapshot(int handle);
-extern int wgRecover(int handle, const char *peer, jlong episode, struct go_string endpoint, JNIEnv *env, jobject caller);
+extern int wgRecover(int handle, const char *peer, jlong episode, struct go_string endpoint, struct go_string replacement, jlong expected, JNIEnv *env, jobject caller);
 extern char *wgVersion();
 
 static jint turnOn(JNIEnv *env, jstring ifname, jint tun_fd, jstring settings, jobject service, jobject activation_thread, jlong activation_id, jobject capture_value, int amnezia)
@@ -94,7 +94,7 @@ JNIEXPORT jlong JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgTransportSna
 	return wgTransportSnapshot(handle);
 }
 
-JNIEXPORT jint JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgRecover(JNIEnv *env, jclass c, jint handle, jbyteArray peer, jlong episode, jstring endpoint, jobject caller)
+JNIEXPORT jint JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgRecover(JNIEnv *env, jclass c, jint handle, jbyteArray peer, jlong episode, jstring endpoint, jstring replacement, jlong expected, jobject caller)
 {
 	if ((*env)->GetArrayLength(env, peer) != 32)
 		return 2;
@@ -106,7 +106,15 @@ JNIEXPORT jint JNICALL Java_com_vpn0wn_android_backend_GoBackend_wgRecover(JNIEn
 	if (!endpoint_str)
 		return 3;
 	size_t endpoint_len = (*env)->GetStringUTFLength(env, endpoint);
-	int result = wgRecover(handle, (const char *)public_key, episode, (struct go_string){endpoint_str, endpoint_len}, env, caller);
+	const char *replacement_str = (*env)->GetStringUTFChars(env, replacement, 0);
+	if (!replacement_str) {
+		(*env)->ReleaseStringUTFChars(env, endpoint, endpoint_str);
+		return 3;
+	}
+	size_t replacement_len = (*env)->GetStringUTFLength(env, replacement);
+	int result = wgRecover(handle, (const char *)public_key, episode, (struct go_string){endpoint_str, endpoint_len},
+		(struct go_string){replacement_str, replacement_len}, expected, env, caller);
+	(*env)->ReleaseStringUTFChars(env, replacement, replacement_str);
 	(*env)->ReleaseStringUTFChars(env, endpoint, endpoint_str);
 	return result;
 }
