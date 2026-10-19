@@ -618,10 +618,15 @@ class VpsFreshRestoreFragmentTest {
     private suspend fun TestScope.prepareTarget(fixture: VpsProvisioningLayoutFixture) {
         val plan = VpsFreshRestoreWorkflowTest.PLAN
         fixture.peer.restorePlan = plan
+        fixture.peer.discoveredFingerprint = VpsRestoreFixture.pin
         fixture.model.edit(fixture.model.draft.copy(host = "198.51.100.42", endpoint = plan.endpoint, port = plan.port,
-            fingerprint = VpsRestoreFixture.pin, authMode = VpsProvisioningViewModel.AuthMode.PASSWORD))
+            authMode = VpsProvisioningViewModel.AuthMode.PASSWORD))
         fixture.model.edit(fixture.model.draft.copy(password = "synthetic-ssh-password".toCharArray()))
         requireNotNull(fixture.model.detect()).join()
+        val trust = requireNotNull(fixture.model.state.value.hostTrustConfirmation)
+        assertEquals(VpsRestoreFixture.pin, trust.fingerprint)
+        assertTrue("Destination discovery precedes authenticated restore access", fixture.peer.connections.isEmpty())
+        requireNotNull(fixture.model.confirmHostTrust(trust)).join()
         requireNotNull(fixture.model.checkRestore()).join()
         fixture.model.reviewApply()
         settle()

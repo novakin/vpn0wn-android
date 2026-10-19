@@ -461,8 +461,11 @@ class VpsInstallApplyTest {
     @Test fun failedSaveOfChangedSshTargetPreservesReadOnlyResultsButCannotAdmitAnotherServer() = runTest {
         val model = planned()
         val original = store.servers.first().single()
-        model.edit(model.draft.copy(host = "203.0.113.9", fingerprint = replacementPin()))
+        model.enterCredentials()
+        model.edit(model.draft.copy(host = "203.0.113.9"))
+        peer.discoveredFingerprint = replacementPin()
         requireNotNull(model.detect()).join()
+        requireNotNull(model.confirmHostTrust(requireNotNull(model.state.value.hostTrustConfirmation))).join()
         assertNotNull(model.state.value.detect)
         assertEquals(Problem.STORAGE_CONFLICT, model.state.value.problem)
         assertEquals("203.0.113.9", model.draft.endpoint)
@@ -703,9 +706,14 @@ class VpsInstallApplyTest {
 
     private suspend fun planned(serverStore: VpsServerStore = store): VpsProvisioningViewModel = model(serverStore).also { model ->
         model.begin()
-        model.edit(model.draft.copy(host = "198.51.100.42", fingerprint = PIN, authMode = AuthMode.PASSWORD))
+        model.edit(model.draft.copy(host = "198.51.100.42", authMode = AuthMode.PASSWORD))
         model.edit(model.draft.copy(password = "synthetic-password".toCharArray()))
         requireNotNull(model.detect()).join()
+        model.state.value.hostTrustConfirmation?.let { confirmation ->
+            assertEquals(PIN, confirmation.fingerprint)
+            requireNotNull(model.confirmHostTrust(confirmation)).join()
+        }
+        assertEquals(PIN, serverStore.trustedHostFingerprint(model.draft.host, model.draft.sshPort.toInt()))
         requireNotNull(model.plan()).join()
         model.reviewApply()
     }

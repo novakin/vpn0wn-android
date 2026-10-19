@@ -51,7 +51,7 @@ class VpsServerStore internal constructor(
     private val credentialFile: VpsCredentialFile,
 ) {
     internal class InvalidTransferMetadataException : IllegalArgumentException("Invalid VPS fleet metadata")
-    class CredentialConflictException : IllegalStateException("Saved SSH credentials do not match the current server; remove them before changing SSH settings")
+    class CredentialConflictException : IllegalStateException("Saved SSH identity does not match the current server")
     class ServerChangedException : IllegalStateException("Server changed while status was being read")
     class AddPendingException(val owner: StoredVpsServer? = null) : IllegalStateException("A user creation needs reconciliation")
     class RemovePendingException(val ownerServerId: String? = null, val owner: StoredVpsServer? = null,
@@ -83,7 +83,7 @@ class VpsServerStore internal constructor(
         }
         if (previous == null || !sameSshEndpoint(previous, server)) {
             withCredentials { records ->
-                if (server.id in records) throw CredentialConflictException()
+                if (server.id in records.credentials) throw CredentialConflictException()
             }
         }
         dataStore.edit { preferences ->
@@ -108,7 +108,7 @@ class VpsServerStore internal constructor(
             ?.let { throw removePendingFailure(preferences, it) }
         val original = currentServers().singleOrNull { it.id == id }
         withCredentials { records ->
-            val removed = records.remove(id)
+            val removed = records.credentials.remove(id)
             var credentialRemoved = false
             try {
                 if (removed != null) {
@@ -124,7 +124,7 @@ class VpsServerStore internal constructor(
                     try {
                         val current = currentServers().singleOrNull { it.id == id }
                         if (current == original) {
-                            records[id] = removed
+                            records.credentials[id] = removed
                             writeCredentials(records)
                         } else if (current != null) {
                             throw CredentialConflictException()
@@ -346,7 +346,7 @@ class VpsServerStore internal constructor(
     private suspend fun requireCurrentCredential(expected: StoredVpsServer, fingerprint: String) {
         if (currentServers().singleOrNull { it.id == expected.id } != expected) throw ServerChangedException()
         withCredentials { records ->
-            val credential = records[expected.id]
+            val credential = records.credentials[expected.id]
             if (credential == null || !credential.matches(expected) || credential.fingerprint != fingerprint)
                 throw CredentialConflictException()
         }
@@ -563,6 +563,24 @@ class VpsServerStore internal constructor(
         )
     }
 
+    suspend fun trustedHostFingerprint(host: String, port: Int): String? = mutate {
+        val endpoint = SshHost.parse(host, port)
+        withCredentials { records -> records.trustedHosts[endpoint] }
+    }
+
+    suspend fun trustHost(host: String, port: Int, fingerprint: String) = mutate {
+        val endpoint = SshHost.parse(host, port)
+        JschRemoteShellClientFactory.decodeHostFingerprint(fingerprint)
+        withCredentials { records ->
+            val previous = records.trustedHosts[endpoint]
+            if (previous != null && previous != fingerprint) throw CredentialConflictException()
+            if (previous == null) {
+                records.trustedHosts[endpoint] = fingerprint
+                writeCredentials(records)
+            }
+        }
+    }
+
     suspend fun saveCredential(server: StoredVpsServer, fingerprint: String, credential: VpsCredential) = mutate {
         JschRemoteShellClientFactory.decodeHostFingerprint(fingerprint)
         requireCurrent(server)
@@ -575,7 +593,11 @@ class VpsServerStore internal constructor(
             .firstOrNull { it.matches(server) && (!it.owns(server) || it.fingerprint != fingerprint) }
             ?.let { throw removePendingFailure(preferences, it) }
         withCredentials { records ->
-            records[server.id]?.let { if (!it.matches(server)) throw CredentialConflictException() }
+            records.credentials[server.id]?.let { if (!it.matches(server)) throw CredentialConflictException() }
+            val host = SshHost.parse(server.host, server.sshPort)
+            val trusted = records.trustedHosts[host]
+            if (trusted != null && trusted != fingerprint) throw CredentialConflictException()
+            records.trustedHosts[host] = fingerprint
             val saved = SavedVpsCredential(
                 VpsEndpoint(server.host, server.sshPort, server.sshUser),
                 fingerprint,
@@ -584,7 +606,7 @@ class VpsServerStore internal constructor(
                     is VpsCredential.PrivateKey -> credential.copy()
                 },
             )
-            val previous = records.put(server.id, saved)
+            val previous = records.credentials.put(server.id, saved)
             (previous?.credential as? VpsCredential.Password)?.clear()
             writeCredentials(records)
         }
@@ -598,8 +620,9 @@ class VpsServerStore internal constructor(
             val result = mutate {
                 requireCurrent(server)
                 withCredentials { records ->
-                    records[server.id]?.let { saved ->
-                        if (!saved.matches(server)) throw CredentialConflictException()
+                    records.credentials[server.id]?.let { saved ->
+                        if (!saved.matches(server) || records.trustedHosts[SshHost.parse(server.host, server.sshPort)] != saved.fingerprint)
+                            throw CredentialConflictException()
                         saved.connection().also { loaded = it }
                     }
                 }
@@ -622,7 +645,7 @@ class VpsServerStore internal constructor(
         PendingVpsRemove.decode(preferences[PENDING_REMOVALS].orEmpty()).firstOrNull { it.serverId == id }
             ?.let { throw removePendingFailure(preferences, it) }
         withCredentials { records ->
-            val removed = records.remove(id)
+            val removed = records.credentials.remove(id)
             try {
                 if (removed != null) writeCredentials(records)
             } finally {
@@ -652,7 +675,7 @@ class VpsServerStore internal constructor(
         val newIds = incoming.map { it.id }.filterNot { it in currentIds }
         if (newIds.isNotEmpty()) {
             withCredentials { records ->
-                if (newIds.any { it in records }) throw CredentialConflictException()
+                if (newIds.any { it in records.credentials }) throw CredentialConflictException()
             }
         }
         block()
@@ -694,16 +717,16 @@ class VpsServerStore internal constructor(
     private fun rotationPendingFailure(preferences: Preferences, attempt: PendingVpsRotate): RotatePendingException =
         RotatePendingException(attempt.serverId, decodeServersForMutation(preferences[SERVERS].orEmpty()).singleOrNull(attempt::owns), attempt)
 
-    private suspend fun <T> withCredentials(block: suspend (MutableMap<String, SavedVpsCredential>) -> T): T {
+    private suspend fun <T> withCredentials(block: suspend (VpsCredentialSnapshot) -> T): T {
         val records = withContext(Dispatchers.IO) {
             credentialFile.read()?.let { bytes ->
                 try { VpsCredentialRecords.decode(bytes) } finally { bytes.fill(0) }
-            } ?: linkedMapOf()
+            } ?: VpsCredentialSnapshot()
         }
         return try { block(records) } finally { VpsCredentialRecords.clear(records) }
     }
 
-    private suspend fun writeCredentials(records: Map<String, SavedVpsCredential>) = withContext(Dispatchers.IO) {
+    private suspend fun writeCredentials(records: VpsCredentialSnapshot) = withContext(Dispatchers.IO) {
         val bytes = VpsCredentialRecords.encode(records)
         try { credentialFile.write(bytes) } finally { bytes.fill(0) }
     }

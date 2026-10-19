@@ -112,6 +112,87 @@ class JschRemoteShellClientTest {
     }
 
     @Test
+    fun discoveryReturnsVerifiedRsaAndEcdsaKeysBeforeLoadingAnyAuthenticationMethod() = runBlocking {
+        val original = requireNotNull(JSch.getConfig("userauth.none"))
+        try {
+            JSch.setConfig("userauth.none", "com.vpn0wn.tests.AuthenticationMustNotStart")
+            for (ecdsa in listOf(false, true)) {
+                SshTestServer(temporaryFolder.newFolder().toPath(), ecdsaHostKey = ecdsa).use { peer ->
+                    val socket = Socket()
+                    val fingerprint = withTimeout(TEST_TIMEOUT) {
+                        JschRemoteShellClientFactory { socket }.discoverHostKey("127.0.0.1", peer.port)
+                    }
+                    assertEquals(peer.fingerprint, fingerprint)
+                    assertTrue(socket.isClosed)
+                    assertEquals(0, peer.passwordAttempts.get())
+                    assertEquals(0, peer.keyAttempts.get())
+                    assertEquals(1L, peer.commandEntered.count)
+                    assertEquals(1L, peer.channelOpenEntered.count)
+                    assertEquals(1L, peer.uploadEntered.count)
+                    awaitNoSessions(peer)
+                }
+            }
+        } finally { JSch.setConfig("userauth.none", original) }
+    }
+
+    @Test
+    fun discoveredPinAuthenticatesOnlyTheSameHostKey() = runBlocking {
+        server().use { peer ->
+            val factory = JschRemoteShellClientFactory()
+            val discovered = withTimeout(TEST_TIMEOUT) { factory.discoverHostKey("127.0.0.1", peer.port) }
+            val client = factory.create(peer.connection(pin = discovered))
+            try {
+                assertEquals(0, withTimeout(TEST_TIMEOUT) { client.execute("success") }.exitCode)
+                assertEquals(1, peer.passwordAttempts.get())
+            } finally { client.close() }
+            SshTestServer(temporaryFolder.newFolder().toPath()).use { changed ->
+                val refused = factory.create(changed.connection(pin = discovered))
+                try {
+                    assertSafeFailure(runCatching { withTimeout(TEST_TIMEOUT) { refused.execute("success") } }.exceptionOrNull())
+                    assertEquals(0, changed.passwordAttempts.get())
+                    assertEquals(0, changed.keyAttempts.get())
+                } finally { refused.close() }
+                awaitNoSessions(changed)
+            }
+        }
+    }
+
+    @Test
+    fun discoveryRejectsInvalidEndpointsBeforeSocketCreationAndPreservesDefects() = runBlocking {
+        var socketCreations = 0
+        val defect = AssertionError("synthetic socket defect")
+        val factory = JschRemoteShellClientFactory { socketCreations++; throw defect }
+        for ((host, port) in listOf("localhost" to 22, "127.0.0.1.invalid" to 22, "127.0.0.1" to 0, "::1" to 65536)) {
+            assertSafeFailure(runCatching { factory.discoverHostKey(host, port) }.exceptionOrNull())
+        }
+        assertEquals(0, socketCreations)
+        assertOriginalError(defect, runCatching { factory.discoverHostKey("127.0.0.1", 22) }.exceptionOrNull())
+        assertEquals(1, socketCreations)
+    }
+
+    @Test
+    fun discoveryCancellationDrainsBlockedConnectAndBannerIo() = runBlocking {
+        for (stage in BlockingStage.entries) {
+            val socket = GateSocket(stage)
+            supervisorScope {
+                val operation = async(Dispatchers.IO) {
+                    JschRemoteShellClientFactory { socket }.discoverHostKey("127.0.0.1", 22222)
+                }
+                try {
+                    awaitEntered(socket.entered)
+                    withTimeout(TEST_TIMEOUT) { operation.cancelAndJoin() }
+                    assertTrue(operation.isCancelled)
+                    assertTrue(socket.isClosed)
+                    assertTrue(socket.exited.await(1, TimeUnit.SECONDS))
+                } finally {
+                    socket.close()
+                    operation.cancelAndJoin()
+                }
+            }
+        }
+    }
+
+    @Test
     fun correctPinPasswordAndOneSessionPreserveSeparateOutputsExitStatusAndClose() = runBlocking {
         server().use { peer ->
             val socket = Socket()

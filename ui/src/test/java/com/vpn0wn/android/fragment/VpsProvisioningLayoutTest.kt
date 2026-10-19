@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.graphics.Color
 import android.graphics.Rect
 import android.os.Bundle
 import android.os.Looper
@@ -36,10 +37,10 @@ import com.vpn0wn.android.provisioning.VpsDeployUser
 import com.vpn0wn.android.provisioning.VpsDeployUserStatus
 import com.vpn0wn.android.provisioning.VpsPlanningTestPeer
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel
+import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.AuthMode
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.Step
 import com.vpn0wn.android.widget.VpsTopologyView
 import java.io.File
-import java.util.Base64
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -54,6 +55,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -87,6 +89,83 @@ class VpsProvisioningLayoutTest {
     @Test fun credentialModesFitNormalText() = verifyCredentialLayout(1f)
 
     @Test fun credentialModesFitEnlargedText() = verifyCredentialLayout(2f)
+
+    @Test fun editorsKeepDescendersClearOfTheRuleAndExposeFocusAndDisabledStates() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        for (night in listOf("night", "notnight")) for (fontScale in listOf(1f, 2f)) {
+            RuntimeEnvironment.setQualifiers("en-ldltr-w320dp-h640dp-port-$night-mdpi")
+            RuntimeEnvironment.setFontScale(fontScale)
+            val fixture = provisioningLayoutFixture(folder, View.LAYOUT_DIRECTION_LTR)
+            try {
+                fixture.model.begin()
+                fixture.model.edit(fixture.model.draft.copy(host = "gjpqy", privateKey = "synthetic-key"))
+                settle()
+                measure(fixture.root, 320, 640)
+                val host = fixture.root.findViewById<EditText>(R.id.vpn0wn_vps_ssh_host)
+                val key = fixture.root.findViewById<EditText>(R.id.vpn0wn_vps_ssh_private_key)
+                assertEditorBorderStates(host, key)
+                assertEditorBorderStates(key, host)
+                val glyphs = Rect().also { host.paint.getTextBounds(host.text.toString(), 0, host.length(), it) }
+                val background = editorBackground(host)
+                try {
+                    val ruleColor = host.context.getColor(R.color.vpn0wn_signal_deep)
+                    val ruleTop = (0 until background.height).first { matchesTint(background.getPixel(background.width / 2, it), ruleColor) }
+                    val clearance = ruleTop - host.baseline - glyphs.bottom
+                    assertTrue("Descenders retain 4dp clearance from the rendered underline at ${fontScale}x: $clearance",
+                        clearance >= 4 * host.resources.displayMetrics.density)
+                } finally { background.recycle() }
+                saveCanvasPreview(host, "ssh-underline-$night-$fontScale")
+                assertTrue(key.requestFocus())
+                saveCanvasPreview(key, "ssh-boxed-$night-$fontScale")
+                assertTrue("Editor presentation opens no SSH", fixture.peer.connections.isEmpty())
+            } finally { fixture.close() }
+        }
+    }
+
+    @Test fun detectForwardingUsesLocalizedObservedStatesWithoutChangingTheObservation() = runTest {
+        Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+        for (locale in listOf("en", "fr")) for ((observation, expected) in listOf(
+            "0" to R.string.vpn0wn_restore_service_disabled,
+            "1" to R.string.vpn0wn_restore_service_enabled,
+            "unexpected" to R.string.vpn0wn_unknown,
+        )) {
+            RuntimeEnvironment.setQualifiers("$locale-ldltr-w320dp-h640dp-port-notnight-mdpi")
+            RuntimeEnvironment.setFontScale(1f)
+            val fixture = provisioningLayoutFixture(folder, View.LAYOUT_DIRECTION_LTR)
+            try {
+                fixture.peer.detectOutput = JSONObject().put("ok", true).put("os", "debian").put("version", "12")
+                    .put("supported", true).put("packageManager", "apt").put("firewall", "iptables")
+                    .put("wireGuardInstalled", false).put("configExists", false).put("interface", "wg0")
+                    .put("endpoint", "").put("listenPort", "").put("cidr", "").put("ipv4Forwarding", observation).toString()
+                fixture.model.begin()
+                fixture.model.edit(fixture.model.draft.copy(host = "198.51.100.42", authMode = AuthMode.PASSWORD,
+                    password = "synthetic-layout-password".toCharArray()))
+                requireNotNull(fixture.model.detect()).join()
+                requireNotNull(fixture.model.confirmHostTrust(requireNotNull(fixture.model.state.value.hostTrustConfirmation))).join()
+                settle()
+                measure(fixture.root, 320, 640)
+                assertEquals(Step.DETECT, fixture.model.state.value.step)
+                assertEquals(observation, fixture.model.state.value.detect?.ipv4Forwarding)
+                val label = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_label_ip_forwarding).uppercase(Locale.ROOT))
+                val value = descendants(label.parent as View).filterIsInstance<TextView>().single { it !== label }
+                assertEquals(fixture.activity.getString(expected), value.text.toString())
+                assertTextFits(value)
+                val toolsStatus = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_tools_absent))
+                assertTextFits(toolsStatus)
+                for (line in 0 until toolsStatus.layout.lineCount)
+                    assertEquals("Runtime verification qualifier stays visible", 0, toolsStatus.layout.getEllipsisCount(line))
+                if ((locale == "en" && observation == "0") || (locale == "fr" && observation == "1")) {
+                    settlePreview(fixture.root, 320, 640)
+                    assertPreviewConfiguration(fixture.root, locale, "notnight", 1f, View.LAYOUT_DIRECTION_LTR)
+                    assertReachable(value, descendants(fixture.root).filterIsInstance<ScrollView>().single())
+                    saveCanvasPreview(fixture.root, "ssh-context-detect-$locale-$observation")
+                }
+                assertFalse("Presentation never dispatches installation or user creation", fixture.peer.commands.any {
+                    it.contains("./'install.sh'") || it.contains("./'add-peer.sh'")
+                })
+            } finally { fixture.close() }
+        }
+    }
 
     @Test fun sshCredentialsStayMaskedAfterNativeSingleLineSetupAndModeChanges() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
@@ -150,25 +229,72 @@ class VpsProvisioningLayoutTest {
 
     @Test fun peerHeadersKeepLogicalEdgesAndSpaceAtEnlargedText() = verifyPeerHeaders(2f)
 
-    @Test fun serverDetailsKeepOsReleaseOutOfEngineRows() = runTest {
+    @Test fun serverDetailsKeepObservedEngineValuesAndMarkUnavailableActions() = runTest {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
-        val fixture = provisioningLayoutFixture(folder, View.LAYOUT_DIRECTION_LTR)
-        try {
-            val server = VpsDeployMapper.fromStored(resources, VpsDeployFixtureData.storedServers().first(), VpsDeployFixtureData.NOW)
-            val factory = VpsProvisioningFragment::class.java.getDeclaredMethod("detailScreen", VpsDeployServer::class.java)
-                .apply { isAccessible = true }
-            val detail = factory.invoke(fixture.fragment, server) as View
-            val engineLabels = descendants(detail).filterIsInstance<TextView>().filter {
-                it.text.toString() == fixture.activity.getString(R.string.vpn0wn_label_engine).uppercase(Locale.ROOT)
-            }.toList()
-            assertEquals("Health and network engine rows", 2, engineLabels.size)
-            for (label in engineLabels) {
-                val values = descendants(label.parent as View).filterIsInstance<TextView>().filter { it !== label }
-                    .map { it.text.toString() }.toList()
-                assertEquals("No OS release presented as engine version", listOf(server.engine), values)
+        for (enlarged in listOf(false, true)) {
+            val locale = if (enlarged) "fr" else "en"
+            val night = if (enlarged) "night" else "notnight"
+            val width = if (enlarged) 640 else 320
+            val height = if (enlarged) 320 else 640
+            val fontScale = if (enlarged) 2f else 1f
+            val direction = if (enlarged) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
+            RuntimeEnvironment.setQualifiers("$locale-${if (enlarged) "ldrtl" else "ldltr"}-w${width}dp-h${height}dp-${if (enlarged) "land" else "port"}-$night-mdpi")
+            RuntimeEnvironment.setFontScale(fontScale)
+            val fixture = provisioningLayoutFixture(folder, direction)
+            try {
+                val stored = VpsDeployFixtureData.storedServers().first()
+                Vpn0wnApplication.getVpsServerStore().upsert(stored)
+                settle()
+                val server = VpsDeployMapper.fromStored(resources, stored, VpsDeployFixtureData.NOW)
+                val factory = VpsProvisioningFragment::class.java.getDeclaredMethod("detailScreen", VpsDeployServer::class.java)
+                    .apply { isAccessible = true }
+                val detail = factory.invoke(fixture.fragment, server) as View
+                fixture.root.removeAllViews()
+                fixture.root.addView(detail)
+                settlePreview(fixture.root, width, height)
+                assertPreviewConfiguration(fixture.root, locale, night, fontScale, direction)
+                val scroll = descendants(detail).filterIsInstance<ScrollView>().single()
+                val engineLabels = descendants(detail).filterIsInstance<TextView>().filter {
+                    it.text.toString() == fixture.activity.getString(R.string.vpn0wn_label_engine).uppercase(Locale.ROOT)
+                }.toList()
+                assertEquals("Health and network engine rows", 2, engineLabels.size)
+                for (label in engineLabels) {
+                    val values = descendants(label.parent as View).filterIsInstance<TextView>().filter { it !== label }
+                        .map { it.text.toString() }.toList()
+                    assertEquals("No OS release presented as engine version", listOf(server.engine), values)
+                }
+                for (resource in listOf(R.string.vpn0wn_action_repair, R.string.vpn0wn_action_terminal,
+                    R.string.vpn0wn_action_uninstall)) {
+                    val action = text(detail, fixture.activity.getString(resource)).parent as View
+                    assertUnavailableAction(action)
+                    assertEquals(1, descendants(action).filterIsInstance<TextView>().count {
+                        it.text.toString() == fixture.activity.getString(R.string.vpn0wn_action_unavailable)
+                    })
+                    for (value in descendants(action).filterIsInstance<TextView>()) assertTextFits(value)
+                    assertReachable(action, scroll)
+                }
+                val repair = text(detail, fixture.activity.getString(R.string.vpn0wn_action_repair)).parent as View
+                assertReachable(if (enlarged) repair.parent as View else repair.parent.parent as View, scroll)
+                saveCanvasPreview(fixture.root, "ssh-context-detail-$locale-$night-actions")
+                if (enlarged) {
+                    val terminal = text(detail, fixture.activity.getString(R.string.vpn0wn_action_terminal)).parent as View
+                    assertReachable(terminal.parent as View, scroll)
+                    saveCanvasPreview(fixture.root, "ssh-context-detail-$locale-$night-actions-lower")
+                }
+                for (resource in listOf(R.string.vpn0wn_reuse_saved_ssh, R.string.vpn0wn_clear_saved_ssh)) {
+                    val label = text(detail, fixture.activity.getString(resource))
+                    assertTextFits(label)
+                    val action = clickableAncestor(label)
+                    assertAccessibleAction(action, android.widget.Button::class.java.name)
+                    assertReachable(action, scroll)
+                }
+                val access = clickableAncestor(text(detail, fixture.activity.getString(R.string.vpn0wn_reuse_saved_ssh))).parent as View
+                assertReachable(access, scroll)
+                saveCanvasPreview(fixture.root, "ssh-context-detail-$locale-$night-access")
+                assertTrue("Unavailable actions open no SSH", fixture.peer.connections.isEmpty())
+            } finally {
+                fixture.close()
             }
-        } finally {
-            fixture.close()
         }
     }
 
@@ -394,6 +520,15 @@ class VpsProvisioningLayoutTest {
                         settle()
                         measure(root, width, height)
                         val scroll = descendants(root).filterIsInstance<ScrollView>().single()
+                        val capture = (fontScale == 1f && width == 320 && direction == "ldltr") ||
+                            (fontScale == 2f && width == 640 && direction == "ldrtl")
+                        val captureName = "ssh-context-$locale-$night-${width}x$height-${fontScale}x-$direction"
+                        if (capture && password && fontScale == 1f) {
+                            settlePreview(root, width, height)
+                            assertPreviewConfiguration(root, locale, night, fontScale, requestedDirection)
+                            scroll.scrollTo(0, 0)
+                            saveCanvasPreview(root, "$captureName-top")
+                        }
                         val keyTab = text(root, activity.getString(R.string.vpn0wn_auth_ssh_key), clickable = true)
                         val passwordTab = text(root, activity.getString(R.string.vpn0wn_auth_password), clickable = true)
                         assertEquals("Aligned authentication segments", keyTab.height, passwordTab.height)
@@ -411,10 +546,15 @@ class VpsProvisioningLayoutTest {
                         assertTextFits(noteView)
                         assertReachable(noteView, scroll)
                         if (!password) {
-                            val picker = text(root, activity.getString(R.string.vpn0wn_pick_key_file).uppercase(Locale.ROOT), clickable = true)
+                            val picker = text(root, activity.getString(R.string.vpn0wn_pick_key_file).uppercase(Locale.ROOT))
                             assertTextFits(picker)
-                            assertAccessibleAction(picker, android.widget.Button::class.java.name)
+                            assertUnavailableAction(picker)
                             assertReachable(picker, scroll)
+                            val guidance = text(root, activity.getString(R.string.vpn0wn_key_file_picker_pending))
+                            assertTextFits(guidance)
+                            assertReachable(guidance, scroll)
+                            val key = root.findViewById<EditText>(R.id.vpn0wn_vps_ssh_private_key)
+                            assertTrue("Manual PEM entry remains available", key.isEnabled && key.onCheckIsTextEditor())
                         }
                         val restoredHost = descendants(root).filterIsInstance<EditText>().single {
                             it.hint.toString() == activity.getString(R.string.vpn0wn_host_placeholder)
@@ -434,6 +574,21 @@ class VpsProvisioningLayoutTest {
                         assertTextFits(next)
                         assertAccessibleAction(next, android.widget.Button::class.java.name)
                         assertInside(next, root)
+                        if (capture) {
+                            settlePreview(root, width, height)
+                            assertPreviewConfiguration(root, locale, night, fontScale, requestedDirection)
+                            val field = root.findViewById<EditText>(if (password) R.id.vpn0wn_vps_ssh_password else R.id.vpn0wn_vps_ssh_private_key)
+                            val visibleHeight = minOf(field.height, scroll.height - scroll.paddingTop - scroll.paddingBottom)
+                            assertTrue("Credential area has a usable viewport", visibleHeight > 0)
+                            field.requestRectangleOnScreen(Rect(0, 0, field.width, visibleHeight), true)
+                            val visible = Rect()
+                            assertTrue("Credential area is on screen", field.getLocalVisibleRect(visible))
+                            assertEquals("Credential left edge is visible", 0, visible.left)
+                            assertEquals("Credential right edge is visible", field.width, visible.right)
+                            assertEquals("Credential top is visible", 0, visible.top)
+                            assertTrue("Requested credential area is visible", visible.bottom >= visibleHeight)
+                            saveCanvasPreview(root, "$captureName-${if (password) "password" else "key"}")
+                        }
                     }
                     assertTrue(text(root, activity.getString(R.string.vpn0wn_continue), clickable = true).performClick())
                     settle()
@@ -443,12 +598,12 @@ class VpsProvisioningLayoutTest {
                     assertTrue("Invalid credentials never open SSH", fixture.peer.connections.isEmpty())
                     assertStageLayout(fixture, Step.SSH, fontScale)
 
-                    root.findViewById<EditText>(R.id.vpn0wn_vps_ssh_fingerprint).setText(
-                        "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(ByteArray(32) { it.toByte() }))
                     assertTrue(text(root, activity.getString(R.string.vpn0wn_auth_password), clickable = true).performClick())
                     settle()
                     root.findViewById<EditText>(R.id.vpn0wn_vps_ssh_password).setText("synthetic-layout-password")
                     clickAction(fixture, R.string.vpn0wn_continue)
+                    val confirmation = fixture.model.state.first { !it.busy && it.hostTrustConfirmation != null }.hostTrustConfirmation
+                    requireNotNull(fixture.model.confirmHostTrust(requireNotNull(confirmation))).join()
                     fixture.model.state.first { !it.busy && it.detect != null }
                     settle()
                     measure(root, width, height)
@@ -577,6 +732,60 @@ class VpsProvisioningLayoutTest {
         }
     }
 
+    private fun assertUnavailableAction(view: View) {
+        assertFalse("Unavailable action is disabled before tapping", view.isEnabled)
+        assertFalse("Unavailable action has no callback", view.hasOnClickListeners())
+        val node = view.createAccessibilityNodeInfo()
+        try {
+            assertEquals(android.widget.Button::class.java.name, node.className.toString())
+            assertFalse("Unavailable state is accessible", node.isEnabled)
+            assertFalse("Unavailable action offers no accessible click", node.isClickable)
+        } finally { node.recycle() }
+    }
+
+    private fun assertEditorBorderStates(field: EditText, other: EditText) {
+        assertTrue(other.requestFocus())
+        assertFalse(field.hasFocus())
+        assertEditorBorderColor(field, R.color.vpn0wn_rule_strong)
+        assertTrue(field.requestFocus())
+        assertEditorBorderColor(field, R.color.vpn0wn_signal_deep)
+        field.isEnabled = false
+        try { assertEditorBorderColor(field, R.color.vpn0wn_rule) } finally { field.isEnabled = true }
+        assertTrue(other.requestFocus())
+    }
+
+    private fun assertEditorBorderColor(field: EditText, colorResource: Int) {
+        val background = editorBackground(field)
+        try {
+            val expected = field.context.getColor(colorResource)
+            val pixels = IntArray(background.width * background.height)
+            background.getPixels(pixels, 0, background.width, 0, 0, background.width, background.height)
+            assertTrue("Rendered editor border reflects focus=${field.hasFocus()}, enabled=${field.isEnabled}; " +
+                "expected=${expected.toUInt().toString(16)}, painted=${pixels.filter { it != 0 }.distinct().take(8).map { it.toUInt().toString(16) }}",
+                pixels.any { matchesTint(it, expected) })
+        } finally { background.recycle() }
+    }
+
+    private fun matchesTint(pixel: Int, expected: Int): Boolean {
+        val alpha = Color.alpha(pixel)
+        if (alpha < 64) return false
+        // Native translucent antialiasing rounds premultiplied channels before the bitmap readback.
+        val tolerance = kotlin.math.ceil(255.0 / alpha).toInt()
+        return kotlin.math.abs(Color.red(pixel) - Color.red(expected)) <= tolerance &&
+            kotlin.math.abs(Color.green(pixel) - Color.green(expected)) <= tolerance &&
+            kotlin.math.abs(Color.blue(pixel) - Color.blue(expected)) <= tolerance
+    }
+
+    private fun editorBackground(field: EditText): Bitmap {
+        field.jumpDrawablesToCurrentState()
+        return Bitmap.createBitmap(field.width, field.height, Bitmap.Config.ARGB_8888).also {
+            requireNotNull(field.background).apply {
+                setBounds(0, 0, field.width, field.height)
+                draw(Canvas(it))
+            }
+        }
+    }
+
     private fun assertTrackerFitsAndIsReachable(root: View, activeStage: Int) {
         val tracker = descendants(root).filterIsInstance<HorizontalScrollView>().single()
         val row = tracker.getChildAt(0) as ViewGroup
@@ -655,6 +864,27 @@ class VpsProvisioningLayoutTest {
             val directory = File("../.artifacts/canvas-font-previews").apply { mkdirs() }
             File(directory, "$name.png").outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
         } finally { bitmap.recycle() }
+    }
+
+    private fun TestScope.settlePreview(root: View, width: Int, height: Int) {
+        var drawReady = false
+        repeat(3) {
+            measure(root, width, height)
+            settle()
+            drawReady = !root.viewTreeObserver.dispatchOnPreDraw()
+        }
+        assertTrue("Final native layout can draw", drawReady)
+        assertEquals(width, root.width)
+        assertEquals(height, root.height)
+    }
+
+    private fun assertPreviewConfiguration(root: View, locale: String, night: String, fontScale: Float, direction: Int) {
+        val configuration = root.resources.configuration
+        assertEquals("Actual preview locale", locale, configuration.locales[0].language)
+        assertEquals("Actual preview font scale", fontScale, configuration.fontScale)
+        assertEquals("Actual preview root direction", direction, root.layoutDirection)
+        assertEquals("Actual preview theme", if (night == "night") Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO,
+            configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK)
     }
 
     private fun measure(view: View, width: Int, height: Int) {

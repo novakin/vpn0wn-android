@@ -486,6 +486,7 @@ class VpsFreshRestoreWorkflowTest {
     }
 
     private suspend fun ready(): VpsProvisioningViewModel = model().also { model ->
+        store.trustHost("198.51.100.42", 22, VpsRestoreFixture.pin)
         unlock(model)
         assertTrue(model.beginRestoreFromInspection())
         model.edit(model.draft.copy(host = "198.51.100.42", endpoint = PLAN.endpoint, port = PLAN.port,

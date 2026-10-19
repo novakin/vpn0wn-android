@@ -26,7 +26,6 @@ import com.vpn0wn.android.model.TunnelTestEnvironment
 import com.vpn0wn.android.provisioning.VpsPlanningTestPeer
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel
 import com.vpn0wn.android.provisioning.VpsProvisioningViewModel.AuthMode
-import java.util.Base64
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -128,11 +127,11 @@ class VpsNavigationTest {
                 }
                 val peer = VpsPlanningTestPeer().apply { blockDetect = CompletableDeferred() }
                 val model = injectModel(fixture, peer)
+                Vpn0wnApplication.getVpsServerStore().trustHost("198.51.100.42", 22, peer.discoveredFingerprint)
                 fixture.home.requireView().findViewById<View>(R.id.home_servers).performClick()
                 settle(fixture)
                 model.begin()
-                model.edit(model.draft.copy(host = "198.51.100.42", authMode = AuthMode.PASSWORD,
-                    fingerprint = "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(ByteArray(32) { it.toByte() })))
+                model.edit(model.draft.copy(host = "198.51.100.42", authMode = AuthMode.PASSWORD))
                 model.edit(model.draft.copy(password = "synthetic-navigation-password".toCharArray()))
                 val password = model.draft.password
                 val check = requireNotNull(model.detect())

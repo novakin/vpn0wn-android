@@ -214,10 +214,15 @@ class VpsFreshRestoreLayoutTest {
         requireNotNull(fixture.model.inspectBackup(VpsBackupDocument(fixture.activity.contentResolver, VpsBackupInputProvider.URI), source.PASSWORD.toCharArray())).join()
         assertTrue(fixture.model.beginRestoreFromInspection())
         fixture.peer.restorePlan = source.PLAN
+        fixture.peer.discoveredFingerprint = VpsRestoreFixture.pin
         fixture.model.edit(fixture.model.draft.copy(host = "198.51.100.42", endpoint = source.PLAN.endpoint, port = source.PLAN.port,
-            fingerprint = VpsRestoreFixture.pin, authMode = VpsProvisioningViewModel.AuthMode.PASSWORD))
+            authMode = VpsProvisioningViewModel.AuthMode.PASSWORD))
         fixture.model.edit(fixture.model.draft.copy(password = "synthetic-ssh-password".toCharArray()))
         requireNotNull(fixture.model.detect()).join()
+        val trust = requireNotNull(fixture.model.state.value.hostTrustConfirmation)
+        assertEquals(VpsRestoreFixture.pin, trust.fingerprint)
+        assertTrue("Destination discovery precedes authenticated restore access", fixture.peer.connections.isEmpty())
+        requireNotNull(fixture.model.confirmHostTrust(trust)).join()
         requireNotNull(fixture.model.checkRestore()).join()
         fixture.model.reviewApply()
         settle()

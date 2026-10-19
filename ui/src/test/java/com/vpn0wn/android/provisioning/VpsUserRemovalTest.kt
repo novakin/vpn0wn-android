@@ -162,15 +162,29 @@ class VpsUserRemovalTest {
         assertNotNull(profiles().load(server(), SERVER_KEY, CLIENT_KEY))
     }
 
-    @Test fun changedSavedPinAfterReviewRejectsBeforeWriterOrJournal() = runTest {
+    @Test fun clearedAccessCannotReplaceTrustedPinOrDispatchReviewedRemoval() = runTest {
         val model = ready()
         val confirmation = prepare(model)
-        store.saveCredential(server(), OTHER_PIN, VpsCredential.Password("replacement".toCharArray()))
+        val current = server()
+        val connections = peer.connections.size
+        val commands = peer.commands.size
+        val profileBytes = profileFile.readBytes()
+        store.clearCredential(current.id)
+        val replacement = runCatching {
+            store.saveCredential(current, OTHER_PIN, VpsCredential.Password("replacement".toCharArray()))
+        }.exceptionOrNull()
+        assertTrue(replacement is VpsServerStore.CredentialConflictException)
+        assertEquals(PIN, store.trustedHostFingerprint(current.host, current.sshPort))
+        assertNull(store.loadConnection(current))
         requireNotNull(model.confirmRemoveUser(confirmation)).join()
-        assertEquals(Problem.CONNECTION_CHANGED, model.state.value.problem)
+        assertEquals(Problem.ACCESS_MISSING, model.state.value.problem)
+        assertEquals(connections, peer.connections.size)
+        assertEquals(commands, peer.commands.size)
+        assertTrue(peer.discoveries.isEmpty())
         assertTrue(removeCommands().isEmpty())
-        assertNull(store.pendingRemove(server()))
-        assertNotNull(profiles().load(server(), SERVER_KEY, CLIENT_KEY))
+        assertNull(store.pendingRemove(current))
+        assertArrayEquals(profileBytes, profileFile.readBytes())
+        assertNotNull(profiles().load(current, SERVER_KEY, CLIENT_KEY))
     }
 
     @Test fun guardedServerOrPeerRejectionClearsOnlyItsUnmutatedIntent() = runTest {
@@ -452,7 +466,7 @@ class VpsUserRemovalTest {
                 assertEquals(PIN, connection.hostKeyFingerprint)
             } finally { (connection.credential as VpsCredential.Password).clear() }
             if (fingerprint == PIN) assertEquals(VpsProvisioningViewModel.SavedAccess.SAVED, model.state.value.savedAccess)
-            else assertEquals(Problem.REMOVE_PENDING, model.state.value.problem)
+            else assertEquals(Problem.CONNECTION_CHANGED, model.state.value.problem)
         }
         peer.statusOutput = status(false)
         requireNotNull(model.reconcileRemoveUser(original)).join()

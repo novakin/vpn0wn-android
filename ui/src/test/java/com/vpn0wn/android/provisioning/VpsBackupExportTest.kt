@@ -164,12 +164,13 @@ class VpsBackupExportTest {
         assertNull(model.state.value.problem)
     }
 
-    @Test fun pinReplacementDuringSnapshotRefusesPublication() = runTest {
+    @Test fun clearedAccessDuringSnapshotRefusesPublication() = runTest {
         val selected = ready()
         peer.blockBackup = CompletableDeferred()
-        val operation = requireNotNull(model.exportBackup(selected, password()) { fail("Pin was replaced") })
+        val operation = requireNotNull(model.exportBackup(selected, password()) { fail("Saved access was cleared") })
         peer.backupEntered.await()
-        store.saveCredential(selected, OTHER_PIN, VpsCredential.Password("replacement-ssh-password".toCharArray()))
+        store.clearCredential(selected.id)
+        assertEquals(PIN, store.trustedHostFingerprint(selected.host, selected.sshPort))
         peer.blockBackup!!.complete(Unit)
         operation.join()
         assertEquals(VpsProvisioningViewModel.Problem.CONNECTION_CHANGED, model.state.value.problem)
@@ -256,7 +257,6 @@ class VpsBackupExportTest {
 
     private companion object {
         val PIN = "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(ByteArray(32) { it.toByte() })
-        val OTHER_PIN = "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(ByteArray(32) { (it + 1).toByte() })
     }
 }
 

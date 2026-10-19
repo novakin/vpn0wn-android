@@ -194,7 +194,7 @@ class VpsLocalEndpointWorkflowTest {
         } finally { fixture.close() }
     }
 
-    @Test fun changedPinAfterReviewIsRejectedBeforeAnotherRemoteRead() = runTest {
+    @Test fun clearedAccessAfterReviewIsRejectedBeforeAnotherRemoteRead() = runTest {
         val fixture = fixture()
         try {
             val stored = prepare(fixture)
@@ -202,7 +202,9 @@ class VpsLocalEndpointWorkflowTest {
             val tunnel = Vpn0wnApplication.getTunnelManager().create("phone-local", previous)
             review(fixture)
             confirm(fixture)
-            Vpn0wnApplication.getVpsServerStore().saveCredential(stored, fingerprint(1), VpsCredential.Password("synthetic-new".toCharArray()))
+            val store = Vpn0wnApplication.getVpsServerStore()
+            store.clearCredential(stored.id)
+            assertEquals(fingerprint(0), store.trustedHostFingerprint(stored.host, stored.sshPort))
             AppDataTransferSettingsTest.Authentication.callbacks.single()(BiometricAuthenticator.Result.Success(null))
             finish(fixture)
             assertSame(previous, tunnel.peekConfig())

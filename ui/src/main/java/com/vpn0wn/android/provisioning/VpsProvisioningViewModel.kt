@@ -34,7 +34,7 @@ import kotlinx.coroutines.withContext
 class VpsProvisioningViewModel internal constructor(
     application: Application,
     private val store: VpsServerStore,
-    factory: RemoteShellClientFactory,
+    private val factory: RemoteShellClientFactory,
     private val nowEpochSeconds: () -> Long = { TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis()) },
     private val profiles: VpsUserProfileStore = VpsUserProfileStore(application),
 ) : AndroidViewModel(application) {
@@ -63,6 +63,7 @@ class VpsProvisioningViewModel internal constructor(
         val replacement: VpsRestoreReplacement? = null)
 
     data class InstallConfirmation(val plan: VpsPlanResult, val ssh: VpsEndpoint, val fingerprint: String, val server: StoredVpsServer)
+    data class HostTrustConfirmation(val ssh: VpsEndpoint, val fingerprint: String)
     data class AddUserConfirmation(val server: StoredVpsServer, val ssh: VpsEndpoint, val fingerprint: String,
         val serverPublicKey: String, val request: VpsAddPeerRequest)
     data class RemoveUserConfirmation(val server: StoredVpsServer, val attempt: PendingVpsRemove)
@@ -91,6 +92,7 @@ class VpsProvisioningViewModel internal constructor(
         val serverId: String? = null,
         val step: Step = Step.SSH,
         val busy: Boolean = false,
+        val hostTrustConfirmation: HostTrustConfirmation? = null,
         val usingSavedAccess: Boolean = false,
         val savedAccess: SavedAccess = SavedAccess.NONE,
         val detect: VpsDetectResult? = null,
@@ -1286,7 +1288,8 @@ class VpsProvisioningViewModel internal constructor(
             if (next.password !== draft.password) next.password.fill('\u0000')
             return
         }
-        val sshChanged = next.host != draft.host || next.sshPort != draft.sshPort || next.user != draft.user ||
+        val hostChanged = next.host != draft.host || next.sshPort != draft.sshPort
+        val sshChanged = hostChanged || next.user != draft.user ||
             next.fingerprint != draft.fingerprint || next.authMode != draft.authMode || next.privateKey != draft.privateKey ||
             next.passphrase != draft.passphrase || next.password !== draft.password
         if (next.endpoint != draft.endpoint) endpointOverridden = next.endpoint.isNotBlank()
@@ -1301,6 +1304,7 @@ class VpsProvisioningViewModel internal constructor(
             }
             else -> next.copy(privateKey = "", passphrase = "")
         }
+        if (hostChanged) draft = draft.copy(fingerprint = "")
         if (sshChanged) invalidateVerification()
         mutableState.value = mutableState.value.copy(
             usingSavedAccess = mutableState.value.usingSavedAccess && !sshChanged,
@@ -1331,8 +1335,53 @@ class VpsProvisioningViewModel internal constructor(
 
     fun detect(): Job? = operate {
         invalidateVerification()
+        if (!mutableState.value.usingSavedAccess && !prepareHostTrust()) return@operate
+        detectCurrent()
+    }
+
+    private suspend fun prepareHostTrust(): Boolean {
+        val endpoint = draftEndpoint()
+        if (draft.authMode == AuthMode.PASSWORD && draft.password.isEmpty() ||
+            draft.authMode == AuthMode.KEY && draft.privateKey.isBlank()) throw invalidInput()
+        val known = store.trustedHostFingerprint(endpoint.host, endpoint.port)
+        if (known != null) {
+            if (draft.fingerprint.isNotBlank() && draft.fingerprint != known)
+                throw VpsServerStore.CredentialConflictException()
+            draft = draft.copy(fingerprint = known)
+            return true
+        }
+        val fingerprint = factory.discoverHostKey(endpoint.host, endpoint.port)
+        currentCoroutineContext().ensureActive()
+        JschRemoteShellClientFactory.decodeHostFingerprint(fingerprint)
+        if (mutableState.value.active && draftEndpoint() == endpoint) {
+            draft = draft.copy(fingerprint = fingerprint)
+            mutableState.value = mutableState.value.copy(hostTrustConfirmation = HostTrustConfirmation(endpoint, fingerprint))
+        }
+        return false
+    }
+
+    fun dismissHostTrustConfirmation() {
+        mutableState.value = mutableState.value.copy(hostTrustConfirmation = null)
+    }
+
+    fun confirmHostTrust(confirmation: HostTrustConfirmation): Job? {
+        if (mutableState.value.busy || !mutableState.value.active || mutableState.value.step != Step.SSH ||
+            mutableState.value.hostTrustConfirmation !== confirmation) return null
+        return operate {
+            dismissHostTrustConfirmation()
+            if (draftEndpoint() != confirmation.ssh || draft.fingerprint != confirmation.fingerprint)
+                throw VpsServerStore.CredentialConflictException()
+            store.trustHost(confirmation.ssh.host, confirmation.ssh.port, confirmation.fingerprint)
+            currentCoroutineContext().ensureActive()
+            detectCurrent()
+        }
+    }
+
+    private suspend fun detectCurrent() {
+        currentCoroutineContext().ensureActive()
+        if (!mutableState.value.active) return
         mutableState.value = mutableState.value.copy(detect = null, plan = null, step = Step.SSH, recovery = null, recoveryOwner = null)
-        val connection = connection() ?: return@operate
+        val connection = connection() ?: return
         try {
             val result = client.detect(connection)
             currentCoroutineContext().ensureActive()
@@ -1595,7 +1644,10 @@ class VpsProvisioningViewModel internal constructor(
                 ?.copy(plan = null, outcome = RestoreOutcome.UNCERTAIN))
     }
 
-    fun cancelOperation() { operation?.cancel() }
+    fun cancelOperation() {
+        dismissHostTrustConfirmation()
+        operation?.cancel()
+    }
 
     fun clearSavedAccess(savedServer: StoredVpsServer): Job? = operate(requireActive = false) {
         withContext(NonCancellable) {
@@ -1731,14 +1783,11 @@ class VpsProvisioningViewModel internal constructor(
                 connectionUnavailable(Problem.STORAGE_FAILED)
             }
         }
-        try {
-            InetAddresses.parse(draft.host.trim())
-        } catch (_: ParseException) {
-            throw invalidInput()
-        }
-        JschRemoteShellClientFactory.decodeHostFingerprint(draft.fingerprint.trim())
-        val port = draft.sshPort.toIntOrNull()?.takeIf { it in 1..MAX_PORT } ?: throw invalidInput()
-        if (draft.user.isBlank()) throw invalidInput()
+        val endpoint = draftEndpoint()
+        val fingerprint = store.trustedHostFingerprint(endpoint.host, endpoint.port)
+            ?: throw VpsServerStore.CredentialConflictException()
+        if (draft.fingerprint.isNotBlank() && draft.fingerprint != fingerprint)
+            throw VpsServerStore.CredentialConflictException()
         val credential = when (draft.authMode) {
             AuthMode.PASSWORD -> {
                 if (draft.password.isEmpty()) throw invalidInput()
@@ -1749,7 +1798,14 @@ class VpsProvisioningViewModel internal constructor(
                 VpsCredential.PrivateKey(draft.privateKey, draft.passphrase.ifEmpty { null })
             }
         }
-        return VpsConnection(VpsEndpoint(draft.host.trim(), port, draft.user.trim()), credential, false, draft.fingerprint.trim())
+        return VpsConnection(endpoint, credential, false, fingerprint)
+    }
+
+    private fun draftEndpoint(): VpsEndpoint {
+        val port = draft.sshPort.toIntOrNull() ?: throw invalidInput()
+        val host = SshHost.parse(draft.host, port)
+        if (draft.user.isBlank()) throw invalidInput()
+        return VpsEndpoint(draft.host.trim(), host.port, draft.user.trim())
     }
 
     private fun installRequest(): VpsInstallRequest {
@@ -1818,6 +1874,7 @@ class VpsProvisioningViewModel internal constructor(
     }
 
     private fun invalidateVerification() {
+        dismissHostTrustConfirmation()
         installConfirmation = null
         persistedDetection = null
         verifiedEndpoint = null

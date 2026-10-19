@@ -8,6 +8,7 @@ import com.jcraft.jsch.HostKey
 import com.jcraft.jsch.HostKeyRepository
 import com.jcraft.jsch.JSch
 import com.jcraft.jsch.JSchException
+import com.jcraft.jsch.JSchUnknownHostKeyException
 import com.jcraft.jsch.KeyPair
 import com.jcraft.jsch.Session
 import com.jcraft.jsch.SftpException
@@ -37,6 +38,7 @@ import kotlinx.coroutines.supervisorScope
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 
@@ -44,17 +46,45 @@ class JschRemoteShellClientFactory internal constructor(private val socketCreato
     constructor() : this(::Socket)
 
     override fun create(connection: VpsConnection): RemoteShellClient {
-        val address = try {
-            InetAddresses.parse(connection.endpoint.host)
-        } catch (_: ParseException) {
-            throw invalidInput("SSH requires a numeric IPv4 or IPv6 address")
-        }
-        if (connection.endpoint.port !in MIN_PORT..MAX_PORT || connection.endpoint.user.isBlank())
-            throw invalidInput("SSH endpoint is invalid")
+        val address = address(connection.endpoint.host, connection.endpoint.port)
+        if (connection.endpoint.user.isBlank()) throw invalidInput("SSH endpoint is invalid")
         if (connection.maxAuthAttempts < 1) throw invalidInput("SSH auth attempt limit is invalid")
         val fingerprint = connection.hostKeyFingerprint ?: throw invalidInput("SSH host fingerprint is required")
         val pin = decodeHostFingerprint(fingerprint)
-        return GuardedRemoteShellClient(JschRemoteShellClient(connection, address, pin, socketCreator))
+        return GuardedRemoteShellClient(JschRemoteShellClient(connection.endpoint, address, socketCreator, connection, pin))
+    }
+
+    // Teardown must retain original cancellation or defects when socket/session closure also fails.
+    @Suppress("TooGenericExceptionCaught", "ThrowingExceptionFromFinally")
+    override suspend fun discoverHostKey(host: String, port: Int): String {
+        val address = address(host, port)
+        val client = JschRemoteShellClient(VpsEndpoint(host, port, ""), address, socketCreator)
+        var failure: Throwable? = null
+        return try {
+            withTimeoutOrNull(GuardedRemoteShellClient.DEFAULT_TIMEOUT_MILLIS) { client.discoverHostKey() }
+                ?: throw ProvisioningException("SSH host-key discovery timed out")
+        } catch (problem: Throwable) {
+            failure = problem
+            throw problem
+        } finally {
+            try {
+                client.close()
+            } catch (cleanup: Throwable) {
+                if (failure == null) throw cleanup
+                if (cleanup !== failure) failure.addSuppressed(cleanup)
+            }
+        }
+    }
+
+    private fun address(host: String, port: Int): InetAddress {
+        val address = try {
+            InetAddresses.parse(host)
+        } catch (_: ParseException) {
+            throw invalidInput("SSH requires a numeric IPv4 or IPv6 address")
+        }
+        if (port !in MIN_PORT..MAX_PORT)
+            throw invalidInput("SSH endpoint is invalid")
+        return address
     }
 
     companion object {
@@ -79,10 +109,11 @@ class JschRemoteShellClientFactory internal constructor(private val socketCreato
 }
 
 private class JschRemoteShellClient(
-    private val connection: VpsConnection,
+    private val endpoint: VpsEndpoint,
     private val address: InetAddress,
-    private val pin: ByteArray,
     private val socketCreator: () -> Socket,
+    private val connection: VpsConnection? = null,
+    private val pin: ByteArray? = null,
 ) : RemoteShellClient {
     private val operationMutex = Mutex()
     private val closed = AtomicBoolean()
@@ -93,6 +124,18 @@ private class JschRemoteShellClient(
     private val threads = mutableListOf<Thread>()
     private val jsch = JSch()
     private var session: Session? = null
+
+    suspend fun discoverHostKey(): String = operate {
+        val host = address.hostAddress ?: throw ProvisioningException("SSH address is unavailable")
+        val repository = DiscoveredHostKey(host, endpoint.port)
+        val created = createSession(repository)
+        try {
+            created.connect(GuardedRemoteShellClient.DEFAULT_TIMEOUT_MILLIS.toInt())
+            throw ProvisioningException("SSH discovery did not stop before authentication")
+        } catch (failure: JSchUnknownHostKeyException) {
+            repository.fingerprint ?: throw failure
+        }
+    }
 
     override suspend fun execute(command: String): ProvisioningCommandOutput = execute(command) {}
 
@@ -236,10 +279,20 @@ private class JschRemoteShellClient(
         checkOpen()
         session?.let { if (it.isConnected) return it else throw ProvisioningException("SSH connection closed") }
         val host = address.hostAddress ?: throw ProvisioningException("SSH address is unavailable")
-        val created = jsch.getSession(connection.endpoint.user, host, connection.endpoint.port)
+        val authentication = requireNotNull(connection)
+        val created = createSession(PinnedHostKey(host, endpoint.port, requireNotNull(pin)))
+        created.setConfig("MaxAuthTries", authentication.maxAuthAttempts.toString())
+        configureCredential(created, authentication.credential)
+        created.connect(GuardedRemoteShellClient.DEFAULT_TIMEOUT_MILLIS.toInt())
+        return created
+    }
+
+    private fun createSession(hostKeys: HostKeyRepository): Session {
+        checkOpen()
+        val host = address.hostAddress ?: throw ProvisioningException("SSH address is unavailable")
+        val created = jsch.getSession(endpoint.user, host, endpoint.port)
         session = created
         created.setConfig("StrictHostKeyChecking", "yes")
-        created.setConfig("MaxAuthTries", connection.maxAuthAttempts.toString())
         created.setConfig("server_host_key", HOST_KEYS)
         // Optional BC classes must not widen the transport's signature probes.
         created.setConfig("CheckSignatures", HOST_KEYS)
@@ -249,7 +302,7 @@ private class JschRemoteShellClient(
         created.setConfig("cipher.s2c", CIPHERS)
         created.setConfig("mac.c2s", MACS)
         created.setConfig("mac.s2c", MACS)
-        created.setHostKeyRepository(PinnedHostKey(host, connection.endpoint.port, pin))
+        created.setHostKeyRepository(hostKeys)
         created.setSocketFactory(object : SocketFactory {
             override fun createSocket(host: String, port: Int): Socket {
                 val owned = socketCreator()
@@ -258,7 +311,7 @@ private class JschRemoteShellClient(
                     owned.close()
                     throw IOException("SSH client is closed")
                 }
-                owned.connect(InetSocketAddress(address, connection.endpoint.port), GuardedRemoteShellClient.DEFAULT_TIMEOUT_MILLIS.toInt())
+                owned.connect(InetSocketAddress(address, endpoint.port), GuardedRemoteShellClient.DEFAULT_TIMEOUT_MILLIS.toInt())
                 return owned
             }
             override fun getInputStream(socket: Socket): InputStream = socket.getInputStream()
@@ -274,13 +327,11 @@ private class JschRemoteShellClient(
                 synchronized(threads) { threads.add(thread) }
             }
         }
-        configureCredential(created)
-        created.connect(GuardedRemoteShellClient.DEFAULT_TIMEOUT_MILLIS.toInt())
         return created
     }
 
-    private fun configureCredential(created: Session) {
-        when (val credential = connection.credential) {
+    private fun configureCredential(created: Session, credential: VpsCredential) {
+        when (credential) {
             is VpsCredential.Password -> {
                 created.setConfig("PreferredAuthentications", "password")
                 val bytes = Charsets.UTF_8.encode(java.nio.CharBuffer.wrap(credential.value))
@@ -382,6 +433,27 @@ private class JschRemoteShellClient(
         private val MODE = Regex("^0?[0-7]{3}$")
         private val SUPPORTED_KEY_TYPES = setOf(KeyPair.RSA, KeyPair.ECDSA)
     }
+}
+
+private class DiscoveredHostKey(host: String, port: Int) : HostKeyRepository {
+    private val expectedHost = if (port == 22) host else "[$host]:$port"
+    var fingerprint: String? = null
+        private set
+
+    override fun check(host: String, key: ByteArray): Int {
+        if (host != expectedHost) return HostKeyRepository.CHANGED
+        val digest = MessageDigest.getInstance("SHA-256").digest(key)
+        fingerprint = "SHA256:" + Base64.encodeToString(digest, Base64.NO_WRAP or Base64.NO_PADDING)
+        // Strict rejection ends JSch's verified key exchange before even userauth-none sends a username.
+        return HostKeyRepository.NOT_INCLUDED
+    }
+
+    override fun getKnownHostsRepositoryID(): String = "vpn0wn host discovery"
+    override fun getHostKey(): Array<HostKey> = emptyArray()
+    override fun getHostKey(host: String?, type: String?): Array<HostKey> = emptyArray()
+    override fun add(hostkey: HostKey?, ui: UserInfo?) = throw UnsupportedOperationException("SSH discovery cannot trust a key")
+    override fun remove(host: String?, type: String?) = throw UnsupportedOperationException("SSH discovery cannot change trust")
+    override fun remove(host: String?, type: String?, key: ByteArray?) = throw UnsupportedOperationException("SSH discovery cannot change trust")
 }
 
 private class PinnedHostKey(host: String, port: Int, private val pin: ByteArray) : HostKeyRepository {

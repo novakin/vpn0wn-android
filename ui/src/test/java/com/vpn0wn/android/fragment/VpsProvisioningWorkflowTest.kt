@@ -90,6 +90,51 @@ import org.robolectric.shadows.ShadowEnvironment
 @Config(application = Application::class, sdk = [28])
 @OptIn(ExperimentalCoroutinesApi::class)
 internal class VpsProvisioningWorkflowTest : VpsProvisioningWorkflowFixture() {
+    @Test fun firstConnectionShowsFullIdentityAndWaitsForTrust() = runTest {
+        val fixture = fixture()
+        try {
+            fillAccess(fixture, trusted = false)
+            requireNotNull(fixture.model.detect()).join()
+            settle()
+            val dialog = ShadowDialog.getLatestDialog() as AlertDialog
+            assertTrue(dialog.isShowing)
+            val message = dialog.findViewById<TextView>(android.R.id.message)!!.text.toString()
+            assertTrue(message.contains("198.51.100.42:22"))
+            assertTrue(message.contains(PROFILE_PIN))
+            assertEquals(fixture.activity.getString(R.string.vpn0wn_ssh_trust_and_connect),
+                dialog.getButton(DialogInterface.BUTTON_POSITIVE).text.toString())
+            assertTrue(fixture.peer.connections.isEmpty())
+            dialog.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            fixture.model.state.first { !it.busy && it.detect != null }
+            settle()
+            assertEquals(1, fixture.peer.connections.size)
+            assertEquals(PROFILE_PIN, Vpn0wnApplication.getVpsServerStore().trustedHostFingerprint("198.51.100.42", 22))
+        } finally { fixture.close() }
+    }
+
+    @Test fun dismissedAndDestroyedTrustDialogsCannotSendCredentials() = runTest {
+        val fixture = fixture()
+        try {
+            fillAccess(fixture, trusted = false)
+            requireNotNull(fixture.model.detect()).join()
+            settle()
+            val cancelled = ShadowDialog.getLatestDialog() as AlertDialog
+            cancelled.getButton(DialogInterface.BUTTON_NEGATIVE).performClick()
+            settle()
+            cancelled.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            assertNull(fixture.model.state.value.hostTrustConfirmation)
+            requireNotNull(fixture.model.detect()).join()
+            settle()
+            val detached = ShadowDialog.getLatestDialog() as AlertDialog
+            fixture.controller.recreate()
+            settle()
+            detached.getButton(DialogInterface.BUTTON_POSITIVE).performClick()
+            settle()
+            assertTrue(fixture.peer.connections.isEmpty())
+            assertNull(Vpn0wnApplication.getVpsServerStore().trustedHostFingerprint("198.51.100.42", 22))
+        } finally { fixture.close() }
+    }
+
     @Test
     @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun localizedInstallProgressFitsExistingNativeTerminalAcrossSupportedOutput() = runTest {
@@ -102,6 +147,7 @@ internal class VpsProvisioningWorkflowTest : VpsProvisioningWorkflowFixture() {
                 val fixture = fixture()
                 try {
                     fixture.model.begin()
+                    Vpn0wnApplication.getVpsServerStore().trustHost("198.51.100.42", 22, PROFILE_PIN)
                     fixture.model.edit(fixture.model.draft.copy(host = "198.51.100.42", fingerprint = PROFILE_PIN,
                         authMode = VpsProvisioningViewModel.AuthMode.PASSWORD, password = PASSWORD.toCharArray()))
                     requireNotNull(fixture.model.detect()).join()
@@ -263,8 +309,8 @@ internal class VpsProvisioningWorkflowTest : VpsProvisioningWorkflowFixture() {
             fixture.model.back()
             settle()
             input(fixture.root, fixture.activity.getString(R.string.vpn0wn_host_placeholder)).setText("203.0.113.9")
-            input(fixture.root, "SHA256:…").setText("SHA256:" + Base64.getEncoder().withoutPadding()
-                .encodeToString(ByteArray(32) { (it + 1).toByte() }))
+            Vpn0wnApplication.getVpsServerStore().trustHost("203.0.113.9", 22,
+                "SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(ByteArray(32) { (it + 1).toByte() }))
             click(fixture, R.string.vpn0wn_continue)
             fixture.model.state.first { !it.busy && it.detect != null }
             assertEquals(VpsProvisioningViewModel.Problem.STORAGE_CONFLICT, fixture.model.state.value.problem)
@@ -2051,12 +2097,12 @@ internal class VpsProvisioningWorkflowTest : VpsProvisioningWorkflowFixture() {
         }
     }
 
-    private fun TestScope.fillAccess(fixture: Fixture) {
+    private suspend fun TestScope.fillAccess(fixture: Fixture, trusted: Boolean = true) {
+        if (trusted) Vpn0wnApplication.getVpsServerStore().trustHost("198.51.100.42", 22, PROFILE_PIN)
         val add = text(fixture.root, fixture.activity.getString(R.string.vpn0wn_add_server).removePrefix("+ ").trim())
         clickableAncestor(add).performClick()
         settle()
         input(fixture.root, fixture.activity.getString(R.string.vpn0wn_host_placeholder)).setText("198.51.100.42")
-        input(fixture.root, "SHA256:…").setText("SHA256:" + Base64.getEncoder().withoutPadding().encodeToString(ByteArray(32) { it.toByte() }))
         click(fixture, R.string.vpn0wn_auth_password)
         input(fixture.root, fixture.activity.getString(R.string.vpn0wn_password_placeholder)).setText(PASSWORD)
     }

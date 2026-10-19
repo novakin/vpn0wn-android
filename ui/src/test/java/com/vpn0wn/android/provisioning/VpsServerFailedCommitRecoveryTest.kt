@@ -114,7 +114,7 @@ class VpsServerFailedCommitRecoveryTest {
     private fun credentialIds(file: VpsCredentialFile): Set<String> {
         val bytes = requireNotNull(file.read())
         val records = try { VpsCredentialRecords.decode(bytes) } finally { bytes.fill(0) }
-        return try { records.keys.toSet() } finally { VpsCredentialRecords.clear(records) }
+        return try { records.credentials.keys.toSet() } finally { VpsCredentialRecords.clear(records) }
     }
 
     private fun server(id: String) = StoredVpsServer(

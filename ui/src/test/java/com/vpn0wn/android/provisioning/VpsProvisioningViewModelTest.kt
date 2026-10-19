@@ -52,6 +52,7 @@ class VpsProvisioningViewModelTest {
     private lateinit var credentialFile: File
     private lateinit var credentialStorage: VpsCredentialFile
     private lateinit var store: VpsServerStore
+    private val credentialKey = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
     private val owners = mutableListOf<ViewModelStore>()
     private val modelJobs = mutableListOf<Job>()
     private val peer = VpsPlanningTestPeer()
@@ -62,7 +63,7 @@ class VpsProvisioningViewModelTest {
         scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         preferences = PreferenceDataStoreFactory.create(scope = scope) { File(folder.root, "settings.preferences_pb") }
         credentialFile = File(folder.root, "credentials")
-        credentialStorage = credentialFileForTest(credentialFile)
+        credentialStorage = credentialFileForTest(credentialFile, credentialKey)
         store = VpsServerStore(preferences, credentialStorage)
     }
 
@@ -89,7 +90,7 @@ class VpsProvisioningViewModelTest {
         val check = requireNotNull(model.detect())
         peer.detectEntered.await()
         assertTrue(store.servers.first().isEmpty())
-        assertFalse(credentialFile.exists())
+        assertEquals(pin, store.trustedHostFingerprint("198.51.100.42", 22))
         peer.blockDetect!!.complete(Unit)
         check.join()
 
@@ -109,6 +110,127 @@ class VpsProvisioningViewModelTest {
         assertEquals("Draft(redacted)", model.draft.toString())
     }
 
+    @Test fun firstHostRequiresExplicitConfirmationBeforeAnyAuthenticatedClient() = runTest {
+        val model = untrustedModel()
+        requireNotNull(model.detect()).join()
+        val confirmation = requireNotNull(model.state.value.hostTrustConfirmation)
+        assertEquals(VpsEndpoint("198.51.100.42", 22, "root"), confirmation.ssh)
+        assertEquals(pin, confirmation.fingerprint)
+        assertTrue(peer.connections.isEmpty())
+        assertTrue(peer.commands.isEmpty())
+        assertNull(store.trustedHostFingerprint("198.51.100.42", 22))
+        assertNull(model.confirmHostTrust(confirmation.copy()))
+        requireNotNull(model.confirmHostTrust(confirmation)).join()
+        assertEquals(pin, store.trustedHostFingerprint("198.51.100.42", 22))
+        assertEquals(Step.DETECT, model.state.value.step)
+        assertEquals(pin, peer.connections.single().hostKeyFingerprint)
+        assertNull(model.confirmHostTrust(confirmation))
+    }
+
+    @Test fun authenticationFailureKeepsAcceptedTrustAndNextWizardDoesNotPromptAgain() = runTest {
+        val first = untrustedModel()
+        requireNotNull(first.detect()).join()
+        peer.failure = ProvisioningException("synthetic authentication failure")
+        requireNotNull(first.confirmHostTrust(requireNotNull(first.state.value.hostTrustConfirmation))).join()
+        assertEquals(Problem.CONNECTION_FAILED, first.state.value.problem)
+        assertEquals(pin, store.trustedHostFingerprint("198.51.100.42", 22))
+        assertTrue(store.servers.first().isEmpty())
+        val second = untrustedModel()
+        second.edit(second.draft.copy(user = "another-user"))
+        peer.failure = null
+        requireNotNull(second.detect()).join()
+        assertEquals(1, peer.discoveries.size)
+        assertNull(second.state.value.hostTrustConfirmation)
+        assertEquals(Step.DETECT, second.state.value.step)
+    }
+
+    @Test fun cancelledEditedAndAbandonedConfirmationsNeverAuthenticate() = runTest {
+        for (retire in listOf<(VpsProvisioningViewModel) -> Unit>(
+            { it.dismissHostTrustConfirmation() }, { it.edit(it.draft.copy(host = "203.0.113.9")) },
+            { it.edit(it.draft.copy(sshPort = "2222")) }, { it.edit(it.draft.copy(user = "another-user")) },
+            { it.leave() }, { it.begin() }, { it.cancelOperation() },
+        )) {
+            val model = untrustedModel()
+            requireNotNull(model.detect()).join()
+            val confirmation = requireNotNull(model.state.value.hostTrustConfirmation)
+            retire(model)
+            assertNull(model.confirmHostTrust(confirmation))
+        }
+        assertTrue(peer.connections.isEmpty())
+        assertNull(store.trustedHostFingerprint("198.51.100.42", 22))
+    }
+
+    @Test fun concurrentTrustChangeBlocksConfirmationWithoutAuthentication() = runTest {
+        val model = untrustedModel()
+        requireNotNull(model.detect()).join()
+        val confirmation = requireNotNull(model.state.value.hostTrustConfirmation)
+        store.trustHost("198.51.100.42", 22, fingerprint(1))
+        requireNotNull(model.confirmHostTrust(confirmation)).join()
+        assertEquals(Problem.CONNECTION_CHANGED, model.state.value.problem)
+        assertTrue(peer.connections.isEmpty())
+        assertEquals(fingerprint(1), store.trustedHostFingerprint("198.51.100.42", 22))
+    }
+
+    @Test fun failedTrustWriteNeverSendsCredentialsOrClaimsAcceptedTrust() = runTest {
+        val failingFile = VpsCredentialFile(credentialFile, { credentialKey }, output = { throw IOException("synthetic write failure") }, stat = { it.exists() })
+        val model = model(VpsServerStore(preferences, failingFile))
+        model.begin()
+        model.edit(model.draft.copy(host = "198.51.100.42", authMode = AuthMode.PASSWORD,
+            password = "synthetic-password".toCharArray()))
+        requireNotNull(model.detect()).join()
+        requireNotNull(model.confirmHostTrust(requireNotNull(model.state.value.hostTrustConfirmation))).join()
+        assertEquals(Problem.STORAGE_FAILED, model.state.value.problem)
+        assertNull(model.state.value.hostTrustConfirmation)
+        assertTrue(peer.connections.isEmpty())
+        assertNull(store.trustedHostFingerprint("198.51.100.42", 22))
+        assertTrue(store.servers.first().isEmpty())
+    }
+
+    @Test fun cancelledDiscoveryCannotPublishTrustOrStartAuthentication() = runTest {
+        val model = untrustedModel()
+        peer.blockDiscovery = CompletableDeferred()
+        val operation = requireNotNull(model.detect())
+        runCurrent()
+        model.cancelOperation()
+        operation.join()
+        peer.blockDiscovery!!.complete(Unit)
+        assertEquals(Problem.CANCELLED, model.state.value.problem)
+        assertNull(model.state.value.hostTrustConfirmation)
+        assertTrue(peer.connections.isEmpty())
+        assertNull(store.trustedHostFingerprint("198.51.100.42", 22))
+    }
+
+    @Test fun draftFingerprintNeverAuthorizesUnknownHost() = runTest {
+        val model = untrustedModel()
+        model.edit(model.draft.copy(fingerprint = fingerprint(1)))
+        requireNotNull(model.detect()).join()
+        assertEquals(pin, model.state.value.hostTrustConfirmation?.fingerprint)
+        assertTrue(peer.connections.isEmpty())
+        assertNull(store.trustedHostFingerprint("198.51.100.42", 22))
+    }
+
+    @Test fun correctingSavedIpv6CredentialsPreservesTheExactFleetEndpoint() = runTest {
+        val server = StoredVpsServer(id = "ipv6", name = "saved-ipv6", host = "2001:db8::42", sshPort = 22, sshUser = "root",
+            endpoint = "", listenPort = "", cidr = "", dns = "")
+        store.upsert(server)
+        store.saveCredential(server, pin, VpsCredential.Password("old-password".toCharArray()))
+        val model = model()
+        requireNotNull(model.reuse(server)).join()
+        model.enterCredentials()
+        model.edit(model.draft.copy(authMode = AuthMode.PASSWORD, password = "corrected-password".toCharArray()))
+        requireNotNull(model.detect()).join()
+        assertNull(model.state.value.problem)
+        assertEquals(SavedAccess.SAVED, model.state.value.savedAccess)
+        val saved = store.servers.first().single()
+        assertEquals("2001:db8::42", saved.host)
+        assertEquals("ipv6", saved.id)
+        val connection = requireNotNull(store.loadConnection(saved))
+        try {
+            assertEquals("corrected-password", (connection.credential as VpsCredential.Password).value.concatToString())
+        } finally { (connection.credential as? VpsCredential.Password)?.clear() }
+        assertTrue(peer.discoveries.isEmpty())
+    }
+
     @Test fun rejectedHostOrAuthenticationDoesNotSaveOrAdvance() = runTest {
         val model = model()
         ready(model)
@@ -119,7 +241,7 @@ class VpsProvisioningViewModelTest {
         assertNull(model.state.value.detect)
         assertNull(model.plan())
         assertTrue(store.servers.first().isEmpty())
-        assertFalse(credentialFile.exists())
+        assertEquals(pin, store.trustedHostFingerprint("198.51.100.42", 22))
         assertFalse(model.state.value.toString().contains("synthetic-secret-failure"))
         assertEquals(1, peer.closes.get())
     }
@@ -137,6 +259,7 @@ class VpsProvisioningViewModelTest {
     }
 
     @Test fun capturesKeyPassphraseAndPinInProtectedRecord() = runTest {
+        store.trustHost("198.51.100.42", 22, pin)
         val model = model()
         model.begin()
         model.edit(model.draft.copy(host = "198.51.100.42", fingerprint = pin,
@@ -151,9 +274,8 @@ class VpsProvisioningViewModelTest {
         assertFalse(credentialFile.readBytes().toString(Charsets.ISO_8859_1).contains("synthetic-key-passphrase"))
     }
 
-    @Test fun missingNoncanonicalPinHostnameAndInvalidPortsRejectBeforeTransport() = runTest {
+    @Test fun hostnameAndInvalidPortsRejectBeforeTransport() = runTest {
         for (change in listOf<(VpsProvisioningViewModel.Draft) -> VpsProvisioningViewModel.Draft>(
-            { it.copy(fingerprint = "") }, { it.copy(fingerprint = pin + "=") },
             { it.copy(host = "vpn.example") }, { it.copy(sshPort = "0") }, { it.copy(sshPort = "65536") },
         )) {
             val model = model()
@@ -196,6 +318,7 @@ class VpsProvisioningViewModelTest {
         val model = model()
         ready(model)
         model.edit(model.draft.copy(host = "2001:db8::42"))
+        store.trustHost("2001:db8::42", 22, pin)
         requireNotNull(model.detect()).join()
         val endpoint = model.draft.endpoint
         assertEquals("[2001:db8::42]", endpoint)
@@ -345,17 +468,19 @@ class VpsProvisioningViewModelTest {
         assertEquals(1, peer.connections.size)
     }
 
-    @Test fun changedSavedPinBetweenDetectionAndPlanRequiresNewDetect() = runTest {
+    @Test fun savedPinReplacementIsRefusedBeforeItCanChangeTheReviewedPlanIdentity() = runTest {
         val model = detected()
         val saved = store.servers.first().single()
         val reuse = model()
         requireNotNull(reuse.reuse(saved)).join()
-        store.saveCredential(saved, fingerprint(1), VpsCredential.Password("replacement".toCharArray()))
+        val failure = runCatching { store.saveCredential(saved, fingerprint(1), VpsCredential.Password("replacement".toCharArray())) }.exceptionOrNull()
+        assertTrue(failure is VpsServerStore.CredentialConflictException)
         requireNotNull(reuse.plan()).join()
-        assertEquals(Problem.CONNECTION_CHANGED, reuse.state.value.problem)
-        assertEquals(Step.SSH, reuse.state.value.step)
-        assertNull(reuse.state.value.detect)
-        assertEquals(2, peer.connections.size)
+        assertNull(reuse.state.value.problem)
+        assertEquals(Step.PLAN, reuse.state.value.step)
+        assertEquals(pin, peer.connections.last().hostKeyFingerprint)
+        assertEquals(pin, store.trustedHostFingerprint(saved.host, saved.sshPort))
+        assertEquals(3, peer.connections.size)
         model.leave()
     }
 
@@ -371,8 +496,7 @@ class VpsProvisioningViewModelTest {
     }
 
     @Test fun failedCredentialWriteRetainsActualDetectAndReportsMetadataOnly() = runTest {
-        val key = KeyGenerator.getInstance("AES").apply { init(256) }.generateKey()
-        val failingFile = VpsCredentialFile(credentialFile, { key }, output = { throw IOException("synthetic-storage-secret") }, stat = { it.exists() })
+        val failingFile = VpsCredentialFile(credentialFile, { credentialKey }, output = { throw IOException("synthetic-storage-secret") }, stat = { it.exists() })
         val model = model(VpsServerStore(preferences, failingFile))
         ready(model)
         requireNotNull(model.detect()).join()
@@ -381,7 +505,7 @@ class VpsProvisioningViewModelTest {
         assertEquals(SavedAccess.METADATA_ONLY, model.state.value.savedAccess)
         assertEquals(Problem.STORAGE_FAILED, model.state.value.problem)
         assertEquals(1, store.servers.first().size)
-        assertFalse(credentialFile.exists())
+        assertEquals(pin, store.trustedHostFingerprint("198.51.100.42", 22))
         assertFalse(model.state.value.toString().contains("synthetic-storage-secret"))
     }
 
@@ -390,14 +514,14 @@ class VpsProvisioningViewModelTest {
             override val data = preferences.data
             override suspend fun updateData(transform: suspend (Preferences) -> Preferences): Preferences = throw IOException("synthetic-metadata-secret")
         }
-        val model = model(VpsServerStore(failingPreferences, credentialFileForTest(credentialFile)))
+        val model = model(VpsServerStore(failingPreferences, credentialStorage))
         ready(model)
         requireNotNull(model.detect()).join()
         assertNotNull(model.state.value.detect)
         assertEquals(SavedAccess.UNKNOWN, model.state.value.savedAccess)
         assertEquals(Problem.STORAGE_FAILED, model.state.value.problem)
         assertTrue(store.servers.first().isEmpty())
-        assertFalse(credentialFile.exists())
+        assertEquals(pin, store.trustedHostFingerprint("198.51.100.42", 22))
     }
 
     @Test fun cancellationDrainsRemoteAndRejectsLateResultWithoutSaving() = runTest {
@@ -439,7 +563,7 @@ class VpsProvisioningViewModelTest {
                 return updated
             }
         }
-        val blockingStore = VpsServerStore(blockingPreferences, credentialFileForTest(credentialFile))
+        val blockingStore = VpsServerStore(blockingPreferences, credentialStorage)
         val model = model(blockingStore)
         ready(model)
         val check = requireNotNull(model.detect())
@@ -680,6 +804,12 @@ class VpsProvisioningViewModelTest {
 
     private suspend fun detected(): VpsProvisioningViewModel = model().also { ready(it); requireNotNull(it.detect()).join() }
 
+    private fun untrustedModel() = model().also {
+        it.begin()
+        it.edit(it.draft.copy(host = "198.51.100.42", authMode = AuthMode.PASSWORD,
+            password = "synthetic-password".toCharArray()))
+    }
+
     private fun model(
         serverStore: VpsServerStore = store,
         now: () -> Long = { 1_710_000_012L },
@@ -690,7 +820,9 @@ class VpsProvisioningViewModelTest {
         owners.add(ViewModelStore().apply { put("owner", model) })
     }
 
-    private fun ready(model: VpsProvisioningViewModel) {
+    private suspend fun ready(model: VpsProvisioningViewModel) {
+        store.trustHost("198.51.100.42", 22, pin)
+        store.trustHost("203.0.113.9", 22, pin)
         model.begin()
         model.edit(model.draft.copy(host = "198.51.100.42", fingerprint = pin, authMode = AuthMode.PASSWORD))
         model.edit(model.draft.copy(password = "synthetic-password".toCharArray()))
