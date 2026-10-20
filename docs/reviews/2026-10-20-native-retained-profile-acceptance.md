@@ -40,7 +40,7 @@ Seven successful configured-PIN authentications and seven real pinned JSch sessi
 
 Cleanup removes owned outputs/tunnel/package, restores PIN/lock/settings and reverse mappings, verifies absent VPN service/TUN and settled peer workers/listeners, then normally stops the owned emulator. All original receipts are retained.
 
-An earlier root launch command failed its review-scope check before creating a guest because a PowerShell alias shadowed the root hash helper. Its exit-1 log remains preserved; correcting root admission did not change reviewed harness or product inputs.
+An earlier root launch command failed its review-scope check before creating a guest. Root attributed the rejected admission to a PowerShell alias shadowing its hash helper; independent review confirmed the pre-guest rejection without replaying that diagnosis. Its exit-1 log remains preserved; correcting root admission did not change reviewed harness or product inputs.
 
 ## Independent review and retained evidence
 
