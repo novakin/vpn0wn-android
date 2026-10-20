@@ -1,6 +1,6 @@
 # AmneziaWG native lifecycle and traffic acceptance — #76
 
-Last updated: 2026-10-19 (Europe/Paris).
+Last updated: 2026-10-20 (Europe/Paris).
 
 ## Scope and status
 
@@ -9,6 +9,8 @@ Last updated: 2026-10-19 (Europe/Paris).
 This document records existing evidence; it adds no product changes or runtime execution. The [configuration/native ownership contract](../backend-contracts.md#optional-amneziawg-configuration-and-native-ownership--76) and [QA record](../qa-test-plan.md#optional-amneziawg-controls--76) retain the separate source, host handshake/traffic, artifact and broader Android acceptance boundaries.
 
 The later [A2 retry1 traffic cohort](#api24-a2-retry1-traffic--2026-10-19) is separately accepted below. The A4 source, artifact, observations, failures and limits retain their original scope.
+
+The separate [API36 A2 traffic cohort](#api36-a2-traffic--2026-10-20) extends the local platform matrix below; it does not widen either earlier cohort.
 
 ## Tested source and artifact
 
@@ -127,3 +129,54 @@ Evidence stays under ignored `.artifacts/continuation-20261019-awg-next/`; the s
 | `runs/run-20261019-164044-bcb1ad/cleanup.json` | `5be1691eda9c386ac659831f6795be815a7b61198b5addcade09c233a92c33ae` |
 
 This proves only the named local Android/official-peer traffic and wrong-H1 matrix. Physical/external-server interoperability, network loss, rebind traffic, selected-Network hostname/lockdown behavior, observed protection returns/timing, recovery triggers, cancellation, nonzero S4/header protection, all field combinations, other ABIs/platforms, installed UI/accessibility, cross-app/release delivery, distribution obligations, DPI, performance and battery remain open. All execution gates are closed. The documentation PR owns later review/checks and publication; this cohort itself establishes no release or live-server deployment.
+
+## API36 A2 traffic — 2026-10-20
+
+The fresh API36 x86_64 A2 cohort passes the same bounded matching/wrong-H1/matching traffic matrix through production Application, TunnelManager, GoBackend and VpnService. Nine native stages and all eleven host cleanup/preservation checks pass. Independent ultra runtime review, including separate consent/command/cleanup review, passes without unresolved findings. No product behavior changed; #76 and parent #72 remain open.
+
+### API36 source, artifact and observer
+
+| Binding | Tested identity |
+| --- | --- |
+| Product source / tree | `ad03dda6ad0023b151ec42f856efb755076b89bb` / `a78485cab54b89cc69b412496215aed2f8a19d7e` |
+| A2 isolated APK | 19,751,811 bytes; SHA256 `314e18ba9a1207b211673f92c9e72b69334474a42c2908ba06594f0c30c97928` |
+| Package / platform | `local.vpn0wn.awg76trafficprobe.debug`; Android 16/API36, x86_64; minimum API24 retained |
+| Peer | Same independently audited official v3.1.20260828 B3 Windows peer and binary recorded in the API24 traffic cohort |
+| Runtime attempt | `run-20261020-210935-f5cd90`; controller exit 0 in 259,615 ms |
+
+The frozen product source is unchanged from the accepted API24 traffic cohort. Against integration base `0de597c8`, its only non-Markdown differences are the unrelated retained-profile export MIME correction and regression test. This is isolated-probe compatibility evidence, not a test of the shipping APK or every change on current master. The peer, fixed field values, app-only route and numeric outer endpoint are unchanged; no DNS, default route, keepalive, explicit client ListenPort, automation or recovery policy was added.
+
+Android 10+ [restricts app access to `/proc/net`](https://developer.android.com/about/versions/10/privacy/changes#proc-net-filesystem). The API36 probe therefore uses the public API34+ [`UiAutomation.executeShellCommandRwe`](https://developer.android.com/reference/android/app/UiAutomation#executeShellCommandRwe(java.lang.String)) instrumentation API for the fixed read-only commands `cat /proc/net/udp` and `cat /proc/net/udp6`. It requires empty stderr and recognized, valid tables, then matches the actual UAPI port against its own socket-descriptor inodes, ordinary app UID and unique family entries, including required IPv4. Every returned descriptor closes. This is a shell observer; product execution retains its ordinary UID, without root or adopted shell permission identity. The API supplies no child exit status, so none is claimed. Source ownership and public-SDK checks do not substitute for the actual runtime observations below.
+
+The corrected build and static APK auditor both exit 0. Independent ultra artifact review verifies compiled observer/API guards, manifest owners, signer, alignment, source-exact notices and packaged native provenance. Compared with accepted API24 A2, only `classes11.dex` and `libwg-go.so` differ in the ZIP. Native executable sections match exactly; generated sources match in 242 of 244 files, with only build-output paths differing in `go.mod` and `overlay.json`. Remaining native differences resolve to build-path metadata, including module-info string length 1006 to 1008. No native behavior change is inferred from those byte differences.
+
+### API36 observations and cleanup
+
+Actual Android system consent identified the isolated package; the observed positive control was tapped without pregrant or injected results. Installed APK copies before execution and during cleanup match the audited APK. The production application runs under an ordinary app UID.
+
+| Fresh activation | H1 | Handshake | Native RX / TX bytes | Application result |
+| --- | --- | --- | --- | --- |
+| Matching before | 101 | Fresh authenticated handshake | 556 / 722 | Exact framed response; matching peer request |
+| Wrong H1 | 201 | None; timestamp 0 | 0 / 356 | Bounded socket timeout; no peer HTTP request |
+| Matching after | 101 | Fresh authenticated handshake | 652 / 722 | Exact framed response; matching peer request |
+
+Native counters include protocol packets and are not throughput measurements. Each activation passes UP, traffic observation and DOWN. Every DOWN confirms native handle retirement, exact service/TUN/socket release, unchanged saved bytes and immediate app-side IPv4 port reuse. Returning H1 to 101 starts a fresh activation; it does not exercise automatic recovery or rebind traffic.
+
+The private and terminal results agree. All 103 controller command receipts are settled and output-drained; the traffic-evidence checker exits 0. All eleven cleanup facts pass: peer stop and UDP release; package/process/service/UID-owned UDP absence; baseline restoration; owned emulator stop and port release; shared-owner preservation; unchanged source/inputs. The separate observed consent action is retained with its XML and actual command result. Later host readback corroborates released target ports and unchanged shared ADB. Personal phones and live VPS systems were not used.
+
+Baseline equality covers the seven recorded fields. Shared-process creation/path preservation is supported by the reviewed controller's inline checks and cleanup receipts; a separate full after-process inventory was not recorded. The 103 drained receipts cover controller commands, not the separately redirected emulator/peer streams or manual consent action. The peer's normal stop and exit 0 have separate evidence.
+
+### API36 failures, evidence and remaining limits
+
+The inherited app-side UDP-table reader was rejected before execution on the newer platform. The first replacement used `Os.getsockoptInt`, which is absent from the public Android SDK: API36 A1 compilation failed with exit 1 and emitted no accepted APK. A premature root exit-0 record was incorrect; the subsequently invoked auditor rejected the missing APK. The invalid record, actual exit-1 correction and failed audit remain retained. A2 replaces only the test observer and uses separate successful build/artifact/runtime evidence; it does not reclassify A1. The first A2 artifact-binding guard expected a generic status string and rejected the auditor's valid `STATIC_APK_CHECKS_PASS`; correcting the guard admitted the already audited bytes. No product fix resulted from these harness corrections.
+
+Evidence remains under ignored `.artifacts/continuation-20261020-awg-api36/`, with this run under `runs/run-20261020-210935-f5cd90/`. Input, artifact and runtime reviews retain separate scopes. Raw profiles, keys, challenge values, UDP tables and host inventories remain outside source distribution. All execution gates are closed.
+
+| Retained API36 record, relative to that evidence root | SHA256 |
+| --- | --- |
+| `independent-runtime-a2-ultra-review.md` | `d018f99268bfcc3c44bd298e9b97efb77ca854eb6127a3a6a58ae13abc339784` |
+| `independent-runtime-a2-ultra-review.json` | `e366a5a6311c50b0037cec1f1354926e153746cc91893c8465f143ded1922c0c` |
+| `runs/run-20261020-210935-f5cd90/acceptance.json` | `600993720bdb1a28ed9e044ea98e005778eb82bb0d6095b9c08b483bc9570185` |
+| `runs/run-20261020-210935-f5cd90/cleanup.json` | `5be1691eda9c386ac659831f6795be815a7b61198b5addcade09c233a92c33ae` |
+
+This cohort adds one local API36 x86_64 compatibility result. Physical/external-server interoperability, network loss/rebind, selected-Network hostname/lockdown behavior, observed protection returns/timing, recovery/cancellation, nonzero S4/header protection, wider fields/ABIs, installed UI/accessibility, distribution/release, DPI, performance and battery remain open. No production-readiness or complete #76 acceptance follows.
