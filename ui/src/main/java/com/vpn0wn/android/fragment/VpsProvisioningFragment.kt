@@ -1928,7 +1928,7 @@ class VpsProvisioningFragment : BaseFragment() {
         val prefixLength = Tunnel.NAME_MAX_LENGTH - timestamp.length - 1
         val fileName = "${profile.name.take(prefixLength)}-$timestamp.conf"
         try {
-            val path = downloadsFileSaver.save(fileName, "text/plain", false) { stream ->
+            val path = downloadsFileSaver.save(fileName, "application/octet-stream", false) { stream ->
                 if (profileAction !== action || AdminKnobs.disableConfigExport)
                     throw CancellationException("Profile export is no longer authorized")
                 stream.write(bytes)

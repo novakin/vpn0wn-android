@@ -53,7 +53,7 @@ internal class VpsProfileExportRestrictionWorkflowTest : VpsProvisioningWorkflow
             assertEquals(1, output.deletes)
             assertEquals(0L, output.bytesAtDeletion)
             assertFalse(output.file.exists())
-            assertTrue(output.name!!.endsWith(".conf"))
+            assertTrue("Export filename: ${output.name}", output.name!!.endsWith(".conf"))
             assertEquals(2, profileStatusCommands(fixture))
         } finally { fixture.close() }
     }
@@ -81,7 +81,7 @@ internal class VpsProfileExportWorkflowTest : VpsProvisioningWorkflowFixture() {
                 finishProfileAction(fixture)
                 val exportedName = requireNotNull(output.name)
                 val tunnelName = exportedName.removeSuffix(".conf")
-                assertTrue(exportedName.endsWith(".conf"))
+                assertTrue("Export filename: $exportedName", exportedName.endsWith(".conf"))
                 assertFalse(Tunnel.isNameInvalid(tunnelName))
                 assertTrue(tunnelName.length <= Tunnel.NAME_MAX_LENGTH)
                 assertEquals(VpsProfileFixture.profile().payload(), output.file.readText())
@@ -109,7 +109,12 @@ private class ProfileOutputProvider(val file: File) : ContentProvider() {
     override fun getType(uri: Uri) = "application/x-wireguard-profile"
     override fun insert(uri: Uri, values: ContentValues?): Uri {
         inserts++
-        name = values!!.getAsString(MediaStore.MediaColumns.DISPLAY_NAME)
+        // A real Downloads provider may append an extension to match the requested MIME type.
+        val outputFile = Class.forName("android.os.FileUtils")
+            .getMethod("buildUniqueFile", File::class.java, String::class.java, String::class.java)
+            .invoke(null, file.parentFile, values!!.getAsString(MediaStore.MediaColumns.MIME_TYPE),
+                values.getAsString(MediaStore.MediaColumns.DISPLAY_NAME)) as File
+        name = outputFile.name
         return Uri.parse("content://media/external/downloads/1")
     }
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor {
