@@ -1,6 +1,6 @@
 # Operations and recovery
 
-Last updated: 2026-10-19 (Europe/Paris).
+Last updated: 2026-10-20 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -215,7 +215,7 @@ The 2026-10-19 source candidate uses Android DNS on the explicitly selected publ
 
 Owned startup resolves configured hostnames before creating native transport. Later handover retains the runtime endpoint; only a fresh exhausted handshake cycle can re-resolve the affected peer within the existing finite recovery budget. Android's answer order supplies one candidate, preferring an answer different from the failed address. No probe establishes which answer works. Failure, cancellation or stale ownership never counts as healthy VPN access.
 
-Disable keeps VPN ON and returns sockets to Android. Without an explicit owned Network, hostname recovery retains the existing numeric endpoint and may need manual reconnect after a hostname change. Blocking Android DNS may delay cancellation settlement; an expected lookup failure reports that the VPN server name could not be resolved and preserves the transport. It consumes a backend request but no charged transport attempt or cooldown; a later exhaustion can retry within the four-request cap. Four failures require manual reconnect for a fresh activation budget. Installed lockdown/DNS/IPv4/IPv6/handover evidence remains pending under [the contract and QA limits](backend-contracts.md#selected-network-hostname-recovery--7374).
+Disable keeps VPN ON and returns sockets to Android. Without an explicit owned Network, hostname recovery retains the existing numeric endpoint and may need manual reconnect after a hostname change. Blocking Android DNS may delay cancellation settlement; an expected lookup failure reports that the VPN server name could not be resolved and preserves the transport. It consumes a backend request but no charged transport attempt or cooldown; a later exhaustion can retry within the four-request cap. Four failures require manual reconnect for a fresh activation budget. The [scoped API36 bootstrap/canary record](reviews/2026-10-19-hostname-lockdown-bootstrap-acceptance.md) supplies separate native/packet evidence on controlled Wi-Fi. Original checker failure and corrected offline reanalysis remain distinct. Natural recovery, external IPv4/IPv6, handover and wider installed acceptance remain under [the contract and QA limits](backend-contracts.md#selected-network-hostname-recovery--7374).
 
 ### Activation recovery readouts — #73
 
