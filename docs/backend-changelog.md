@@ -1,12 +1,14 @@
 # Backend & Functional Changelog
 
-Last updated: 2026-10-20 (Europe/Paris).
+Last updated: 2026-10-21 (Europe/Paris).
 
 Tracks non-UI changes: backend logic, data layer, permissions, networking, build config, and any functional behavior changes. Separate from `ui-redesign-roadmap.md` which covers visual/layout work only.
 
 ---
 
 ## In Progress
+
+- **Authenticated hostname recovery under lockdown — #73/#75 (2026-10-21, Europe/Paris):** the [API36 recovery/cancellation record](reviews/2026-10-21-hostname-recovery-lockdown-acceptance.md) records a fresh isolated API36 run using production manager/backend/native owners: natural hostname/numeric exhaustion, retained-session/TUN/port socket replacement, exact authenticated traffic, and held-DNS manual cancellation without admission/resurrection. Native policy and ordinary-UID DNS/HTTP controls pass before/during/after lockdown; all 18 cleanup fields pass with no errors. Earlier harness failures retain their outcomes. Product source is unchanged; physical/external paths, handover and the full policy matrix remain open.
 
 - **Current importer and endpoint-bootstrap acceptance — #71/#73/#75 (2026-10-20 review of 2026-10-19 runs, Europe/Paris):** separate [importer transaction evidence](reviews/2026-10-19-native-importer-transaction-acceptance.md) passes three failure/cancellation cases, cold-process readback and eleven cleanup checks. The [API36 hostname/lockdown record](reviews/2026-10-19-hostname-lockdown-bootstrap-acceptance.md) retains ten passing native stages, ordinary-UID before/blocked/after controls and sixteen cleanup checks, while preserving its original decoder failure and separately reviewed raw-packet reanalysis. Product source is unchanged. Full migration, natural hostname recovery, external paths and the complete policy matrix remain open.
 

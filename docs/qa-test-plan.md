@@ -1,6 +1,6 @@
 # vpn0wn QA Test Plan
 
-Last updated: 2026-10-20 (Europe/Paris).
+Last updated: 2026-10-21 (Europe/Paris).
 
 This document tracks the automated and manual QA coverage required for the vpn0wn Android redesign.
 
@@ -14,7 +14,7 @@ Focused backend/chooser/controller/automation and recovery-layout checks pass 13
 
 Independent source and native-view reviews are satisfied within this local scope. Fresh Settings output shows hostname membership and the existing actions. DNS-result output is complete in English at 320×640, French at 320×640/200% text, and RTL at 640×320/200%, with no native outcome or fabricated transport readiness. Day/night captures retain the same fixed palette. Enlarged French/RTL Settings captures omit the changed helper, and the final French chooser capture is scrolled; assertions independently verify every choice is reachable with a 48dp target. These synthetic views do not establish installed dialog geometry, IME or TalkBack speech. No fonts, tokens, layout or view owner changes.
 
-The separate [API36 startup/lockdown record](reviews/2026-10-19-hostname-lockdown-bootstrap-acceptance.md) covers selected-Network DNS and a bounded ordinary-UID canary, with original failed aggregate and corrected offline reanalysis kept distinct. External resolver paths, family reachability, natural network change, Android resolver cancellation latency and physical/OEM acceptance remain open. No DPI, battery, speed or full #73/#74/#75 closure follows from this source slice.
+The separate [API36 startup/lockdown record](reviews/2026-10-19-hostname-lockdown-bootstrap-acceptance.md) covers selected-Network DNS and a bounded ordinary-UID canary, with original failed aggregate and corrected offline reanalysis kept distinct. The 2026-10-21 [API36 recovery/cancellation record](reviews/2026-10-21-hostname-recovery-lockdown-acceptance.md) adds a fresh passing run: 30 native stages, natural hostname/numeric exhaustion, one admitted socket refresh per activation with retained session/TUN/port and authenticated HTTP, zero endpoint-name DNS in the numeric window, held-DNS cancellation without admission/resurrection, fresh authenticated activation and all 18 cleanup checks. Independent runtime review is recorded in that report; no product source changes. External resolver paths, family reachability, natural network change, Android resolver cancellation latency and physical/OEM acceptance remain open. No DPI, battery, speed or full #73/#74/#75 closure follows from this source slice.
 
 ## Test Layers
 
@@ -759,7 +759,7 @@ The test now joins only new application children from the synthetic UP transitio
 
 ## Android system VPN policy acceptance
 
-The [#75](https://github.com/novakin/vpn0wn-android/issues/75) setup/status slice requires source controls separately from device/system-policy and packet proof. [Operations](operations.md#android-system-vpn-settings) owns support/setup; [backend contracts](backend-contracts.md#android-system-vpn-policy-observation) owns unchanged routing, selected endpoint-only bootstrap DNS with [scoped API36 bootstrap/canary evidence](reviews/2026-10-19-hostname-lockdown-bootstrap-acceptance.md) and wider installed/packet gates, and the [selected #74 policy and delivered first source slice](backend-contracts.md#planned-network-automation--74). PR acceptance records actual executions; the requirements below are not a passing runtime report.
+The [#75](https://github.com/novakin/vpn0wn-android/issues/75) setup/status slice requires source controls separately from device/system-policy and packet proof. [Operations](operations.md#android-system-vpn-settings) owns support/setup; [backend contracts](backend-contracts.md#android-system-vpn-policy-observation) owns unchanged routing, selected endpoint-only bootstrap DNS with [scoped API36 bootstrap/canary evidence](reviews/2026-10-19-hostname-lockdown-bootstrap-acceptance.md), later [natural recovery/cancellation evidence](reviews/2026-10-21-hostname-recovery-lockdown-acceptance.md) and wider installed/packet gates, and the [selected #74 policy and delivered first source slice](backend-contracts.md#planned-network-automation--74). PR acceptance records actual executions; the requirements below are not a passing runtime report.
 
 - Extend existing Settings/backend lifecycle fixtures: API 24/28 omit tile setup without skipping the policy row and never call policy getters; API 29+ reports observed flags; missing service access and inconsistent flags remain unknown; kernel mode is unsupported without getter calls. Check checked-read failure/denial, administrator restriction and click recheck, missing/denied Settings launch and truthful feedback.
 - Exercise foreground-return refresh alongside the live API 33 tile observer and membership changes, pause/destruction/cancellation, stale completion rejection and runtime-defect/Error propagation. Verify the row is nonpersistent and neither status refresh nor navigation starts a VPN service, requests VPN authorization or changes system policy, profiles or routes. Preserve existing native controls and backend lifecycle regressions.
