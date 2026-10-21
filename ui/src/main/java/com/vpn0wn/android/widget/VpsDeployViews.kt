@@ -12,26 +12,27 @@ import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
+import android.text.TextPaint
+import android.text.TextUtils
 import android.view.View
 import android.view.animation.LinearInterpolator
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.core.content.res.ResourcesCompat
-import com.google.zxing.BarcodeFormat
-import com.google.zxing.EncodeHintType
-import com.google.zxing.WriterException
-import com.google.zxing.common.BitMatrix
-import com.google.zxing.qrcode.QRCodeWriter
-import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import com.vpn0wn.android.R
 import com.vpn0wn.android.provisioning.VpsDeployServer
 import com.vpn0wn.android.provisioning.VpsDeployServerStatus
 
 class VpsTopologyView(context: Context) : View(context) {
     private val density = resources.displayMetrics.density
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val paint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+        fontFeatureSettings = "ss01, zero, tnum"
+    }
     private val monoTypeface = ResourcesCompat.getFont(context, R.font.jetbrains_mono_regular) ?: Typeface.MONOSPACE
+    private val deviceSublabel = context.getString(R.string.vpn0wn_hint_device).lowercase()
+    private val wanSublabel = context.getString(R.string.vpn0wn_node_internet)
+    private var serverSublabel = ""
     private var server: VpsDeployServer? = null
     private var phase = 0f
     private val animator = ValueAnimator.ofFloat(0f, 1f).apply {
@@ -46,8 +47,14 @@ class VpsTopologyView(context: Context) : View(context) {
 
     fun bind(server: VpsDeployServer) {
         this.server = server
+        fitText()
         syncAnimator()
         invalidate()
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        fitText()
     }
 
     override fun onAttachedToWindow() {
@@ -72,9 +79,9 @@ class VpsTopologyView(context: Context) : View(context) {
         paint.color = color(R.color.vpn0wn_rule)
         val gridStep = dp(12)
         for (x in 0..w.toInt() step gridStep) {
-            for (y in 0..(h * 0.64f).toInt() step gridStep) canvas.drawPoint(x.toFloat(), y.toFloat(), paint)
+            for (y in 0..h.toInt() step gridStep) canvas.drawPoint(x.toFloat(), y.toFloat(), paint)
         }
-        val y = h * 0.32f
+        val y = h * 0.5f
         val xs = listOf(w * 0.12f, w * 0.5f, w * 0.88f)
         val lineColor = color(if (server.status == VpsDeployServerStatus.ATTENTION) R.color.vpn0wn_error else if (server.status == VpsDeployServerStatus.ONLINE) R.color.vpn0wn_signal_deep else R.color.vpn0wn_rule_strong)
         paint.color = lineColor
@@ -91,21 +98,22 @@ class VpsTopologyView(context: Context) : View(context) {
         paint.pathEffect = DashPathEffect(dash, rightPhase)
         canvas.drawLine(xs[1] + dp(28), y, xs[2] - dp(24), y, paint)
         paint.pathEffect = null
-        node(canvas, xs[0], y, context.getString(R.string.vpn0wn_node_device), context.getString(R.string.vpn0wn_hint_device).lowercase(), server.status == VpsDeployServerStatus.ONLINE, R.color.vpn0wn_signal_deep, false)
-        node(canvas, xs[1], y, context.getString(R.string.vpn0wn_node_vps), server.name, server.status != VpsDeployServerStatus.OFFLINE, server.status.colorRes, true)
-        node(canvas, xs[2], y, context.getString(R.string.vpn0wn_node_wan), context.getString(R.string.vpn0wn_node_internet), server.status == VpsDeployServerStatus.ONLINE, R.color.vpn0wn_signal_deep, false)
-        val top = h * 0.66f
-        val cellW = w / 3f
-        listOf(context.getString(R.string.vpn0wn_label_server) to server.name, context.getString(R.string.vpn0wn_label_endpoint) to server.endpoint, context.getString(R.string.vpn0wn_metric_cidr) to server.cidr).forEachIndexed { index, pair ->
-            paint.style = Paint.Style.FILL
-            paint.typeface = monoTypeface
-            paint.textSize = dp(9).toFloat()
-            paint.color = color(R.color.vpn0wn_ink_3)
-            canvas.drawText(pair.first, cellW * index + dp(10), top + dp(18), paint)
-            paint.textSize = dp(12).toFloat()
-            paint.color = color(R.color.vpn0wn_ink)
-            canvas.drawText(pair.second, cellW * index + dp(10), top + dp(38), paint)
-        }
+        node(canvas, xs[0], y, context.getString(R.string.vpn0wn_node_device), deviceSublabel, server.status == VpsDeployServerStatus.ONLINE, R.color.vpn0wn_signal_deep, false)
+        node(canvas, xs[1], y, context.getString(R.string.vpn0wn_node_vps), serverSublabel, server.status != VpsDeployServerStatus.OFFLINE, server.status.colorRes, true)
+        node(canvas, xs[2], y, context.getString(R.string.vpn0wn_node_wan), wanSublabel, server.status == VpsDeployServerStatus.ONLINE, R.color.vpn0wn_signal_deep, false)
+    }
+
+    // Keep the existing diagram geometry and avoid text-fitting allocations during animation.
+    @Suppress("MagicNumber")
+    private fun fitText() {
+        val server = server ?: return
+        paint.typeface = monoTypeface
+        paint.textSize = dp(7).toFloat()
+        val center = width * 0.5f
+        val leftEdge = width * 0.12f + paint.measureText(deviceSublabel) / 2f
+        val rightEdge = width * 0.88f - paint.measureText(wanSublabel) / 2f
+        val nameWidth = (2f * (minOf(center - leftEdge, rightEdge - center) - dp(8))).coerceAtLeast(0f)
+        serverSublabel = TextUtils.ellipsize(server.name, paint, nameWidth, TextUtils.TruncateAt.END).toString()
     }
 
     // Local layout/drawing dimensions and paint values preserve the visual specification.
@@ -150,60 +158,6 @@ class VpsTopologyView(context: Context) : View(context) {
     }
 }
 
-class VpsQrCodeView(context: Context) : View(context) {
-    private val density = resources.displayMetrics.density
-    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
-    private val qrWriter = QRCodeWriter()
-    private var matrix: BitMatrix? = null
-
-    fun bind(value: String) {
-        matrix = try {
-            qrWriter.encode(
-                value,
-                BarcodeFormat.QR_CODE,
-                QR_SIZE,
-                QR_SIZE,
-                mapOf(
-                    EncodeHintType.ERROR_CORRECTION to ErrorCorrectionLevel.M,
-                    EncodeHintType.MARGIN to 1,
-                ),
-            )
-        } catch (_: WriterException) {
-            null
-        }
-        invalidate()
-    }
-
-    // Local layout/drawing dimensions and paint values preserve the visual specification.
-    @Suppress("MagicNumber")
-    override fun onDraw(canvas: Canvas) {
-        val pad = dp(16).toFloat()
-        val matrix = matrix
-        paint.style = Paint.Style.FILL
-        paint.color = Color.rgb(249, 251, 255)
-        canvas.drawRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), dp(8).toFloat(), dp(8).toFloat(), paint)
-        if (matrix == null) return
-        val cell = minOf((width - pad * 2) / matrix.width, (height - pad * 2) / matrix.height)
-        val leftOffset = (width - cell * matrix.width) / 2f
-        val topOffset = (height - cell * matrix.height) / 2f
-        paint.color = Color.rgb(13, 25, 42)
-        for (row in 0 until matrix.height) {
-            for (col in 0 until matrix.width) {
-                if (!matrix[col, row]) continue
-                val left = leftOffset + col * cell
-                val top = topOffset + row * cell
-                canvas.drawRoundRect(RectF(left, top, left + cell - 1, top + cell - 1), 2f, 2f, paint)
-            }
-        }
-    }
-
-    private fun dp(value: Int) = (value * density).toInt()
-
-    private companion object {
-        private const val QR_SIZE = 29
-    }
-}
-
 class VpsTerminalStreamView(context: Context) : TextView(context) {
     private var lines = emptyList<String>()
     private var visible = 0
@@ -219,6 +173,7 @@ class VpsTerminalStreamView(context: Context) : TextView(context) {
 
     init {
         typeface = ResourcesCompat.getFont(context, R.font.jetbrains_mono_regular) ?: Typeface.MONOSPACE
+        fontFeatureSettings = "ss01, zero, tnum"
         // Literal typography and spacing belong to this terminal presentation.
         @Suppress("MagicNumber")
         val terminalTextSize = 10f

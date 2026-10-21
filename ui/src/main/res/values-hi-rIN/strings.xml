@@ -14,8 +14,8 @@
         <item quantity="other">%d टनलस का चयन किया गया</item>
     </plurals>
     <plurals name="import_partial_success">
-        <item quantity="one">आयातित %d %d टनल</item>
-        <item quantity="other">आयातित %d %d टनलस</item>
+        <item quantity="one">आयातित टनल: %1$d / %2$d</item>
+        <item quantity="other">आयातित टनल: %1$d / %2$d</item>
     </plurals>
     <plurals name="import_total_success">
         <item quantity="one">आयातित %d टनल</item>
@@ -60,11 +60,11 @@
     <string name="add_peer">पीयर जोड़ें</string>
     <string name="addresses">एड्रेससैस</string>
     <string name="applications">ऍप्लिकेशन्स</string>
-    <string name="allow_remote_control_intents_summary_off">बाहरी ऐप्स टनल्स को चालू नहीं कर सकते (अनुशंसित)</string>
-    <string name="allow_remote_control_intents_summary_on">बाहरी ऐप्स टनल्स को चालू कर सकते है (एडवांस्ड)</string>
+    <string name="allow_remote_control_intents_summary_off">बाहरी ऐप्स टनल्स को चालू या बंद नहीं कर सकते (अनुशंसित)</string>
+    <string name="allow_remote_control_intents_summary_on">बाहरी ऐप्स टनल्स को चालू या बंद कर सकते है (एडवांस्ड)</string>
     <string name="allow_remote_control_intents_title">रिमोट कंट्रोल ऐप्स की अनुमति दें</string>
     <string name="allowed_ips">अनुमत आईपी</string>
-    <string name="bad_config_explanation_pka">: सकारात्मक होना चाहिए और 65535 से अधिक नहीं होना चाहिए</string>
+    <string name="bad_config_explanation_pka">: 0–65535</string>
     <string name="bad_config_explanation_positive_number">: सकारात्मक होना चाहिए</string>
     <string name="bad_config_explanation_udp_port">: एक वैध यूडीपी पोर्ट नंबर होना चाहिए</string>
     <string name="bad_config_reason_invalid_key">अमान्य चाबी</string>
@@ -74,7 +74,7 @@
     <string name="bad_config_reason_missing_section">छूटा हुआ भाग</string>
     <string name="bad_config_reason_syntax_error">वक्य रचना त्रुटि</string>
     <string name="bad_config_reason_unknown_attribute">अज्ञात एट्रिब्यूट</string>
-    <string name="bad_config_reason_unknown_section">अज्ञात एट्रिब्यूट </string>
+    <string name="bad_config_reason_unknown_section">अज्ञात अनुभाग</string>
     <string name="bad_config_reason_value_out_of_range">मूल्य सीमा से बाहर</string>
     <string name="bad_extension_error">फ़ाइल .conf या .zip होनी चाहिए</string>
     <string name="error_no_qr_found">छवि में क्यूआर कोड नहीं मिला</string>
@@ -102,10 +102,10 @@
     <string name="dns_servers">डीएनएस सर्वर</string>
     <string name="edit">संपादित करें</string>
     <string name="endpoint">अंतिम</string>
-    <string name="error_down">टनल को लाने में त्रुटि: %s</string>
+    <string name="error_down">टनल बंद करने में त्रुटि: %s</string>
     <string name="error_fetching_apps">ऐप्स सूची लाने में त्रुटि: %s</string>
     <string name="error_root">कृपया रूट एक्सेस प्राप्त करें और पुनः प्रयास करें</string>
-    <string name="error_up">टनल को लाने में त्रुटि: %s</string>
+    <string name="error_up">टनल चालू करने में त्रुटि: %s</string>
     <string name="exclude_private_ips">निजी आईपी को छोड़ दें</string>
     <string name="generate_new_private_key">नई प्राइवेट की उत्पन्न करें</string>
     <string name="generic_error">अज्ञात “%s” त्रुटि</string>
@@ -154,12 +154,12 @@
     <string name="no_tunnels_error">कोई टनल मौजूद नहीं है</string>
     <string name="parse_error_generic">पाठ</string>
     <string name="parse_error_inet_address">आईपी पता</string>
-    <string name="parse_error_inet_endpoint">समाप्त</string>
+    <string name="parse_error_inet_endpoint">एंडपॉइंट</string>
     <string name="parse_error_inet_network">आईपी नेटवर्क</string>
     <string name="parse_error_integer">संख्या</string>
     <string name="parse_error_reason">%1$s “%2$s” को पार्स नहीं कर सकता</string>
     <string name="peer">पीयर</string>
-    <string name="permission_description">वायरगार्ड टनल्स को नियंत्रित करना, टनल्स को सक्षम और अक्षम करना, संभवतः इंटरनेट ट्रैफ़िक को गलत तरीके से अक्षम करना है</string>
+    <string name="permission_description">WireGuard टनल्स को नियंत्रित करना, उन्हें इच्छानुसार सक्षम और अक्षम करना तथा संभावित रूप से इंटरनेट ट्रैफ़िक को गलत दिशा में भेजना</string>
     <string name="permission_label">वायरगार्ड टनलस को नियंत्रित करें</string>
     <string name="persistent_keepalive">लगातार जिंदा रहो</string>
     <string name="pre_shared_key">प्री-शेयर्ड कीस</string>
@@ -180,12 +180,12 @@
     <string name="toggle_all">सबको स्विच करे</string>
     <string name="toggle_error">वायरगार्ड टनल टॉगल करने में त्रुटि: %s</string>
     <string name="tools_installer_already">wg और wg-quick पहले से इंस्टॉल हैं</string>
-    <string name="tools_installer_failure">कमांड-लाइन टूल स्थापित करने में असमर्थ (कोई रूट नहीं)</string>
+    <string name="tools_installer_failure">कमांड-लाइन टूल स्थापित करने में असमर्थ (रूट एक्सेस नहीं है?)</string>
     <string name="tools_installer_initial">स्क्रिप्टिंग के लिए वैकल्पिक उपकरण स्थापित करें</string>
     <string name="tools_installer_initial_magisk">Magisk मॉड्यूल के रूप में स्क्रिप्टिंग के लिए वैकल्पिक उपकरण स्थापित करें</string>
-    <string name="tools_installer_success_magisk">wg और wg-quick को मैजिक मॉड्यूल के रूप में स्थापित किया गया है (रिबूट आवश्यक)</string>
+    <string name="tools_installer_success_magisk">wg और wg-quick को Magisk मॉड्यूल के रूप में स्थापित किया गया है (रिबूट आवश्यक)</string>
     <string name="tools_installer_title">कमांड लाइन उपकरण स्थापित करें</string>
-    <string name="tools_installer_working">Wg और wg-quick इंस्टॉल करना</string>
+    <string name="tools_installer_working">wg और wg-quick इंस्टॉल करना</string>
     <string name="tools_unavailable_error">आवश्यक उपकरण अनुपलब्ध हैं</string>
     <string name="transfer">स्थानांतरण</string>
     <string name="tun_create_error">ट्यून डिवाइस बनाने में असमर्थ</string>
@@ -198,7 +198,7 @@
     <string name="tunnel_on_error">टनल चालू करने में असमर्थ (wgTurnOn लौटा %d)</string>
     <string name="tunnel_rename_error">टनल का नाम बदलने में असमर्थ: %s</string>
     <string name="tunnel_rename_success">सफलतापूर्वक टनल का नाम बदलकर “%s” कर दिया गया</string>
-    <string name="type_name_go_userspace">userspace पे जाए </string>
+    <string name="type_name_go_userspace">Go यूज़रस्पेस</string>
     <string name="type_name_kernel_module">कर्नेल मॉड्यूल</string>
     <string name="unknown_error">अज्ञात त्रुटि</string>
     <string name="version_summary">%1$s बैकएंड %2$s</string>

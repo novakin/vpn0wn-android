@@ -10,6 +10,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.MotionEvent
 import android.widget.TextView
+import android.widget.LinearLayout
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.appcompat.app.AppCompatActivity
 import androidx.databinding.DataBindingUtil
@@ -24,6 +25,7 @@ import com.vpn0wn.crypto.Key
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import java.util.concurrent.TimeUnit
 import java.io.File
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
@@ -43,6 +45,7 @@ import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.shadows.ShadowChoreographer
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import org.robolectric.Shadows.shadowOf
@@ -179,16 +182,23 @@ class HomeSelectionTest {
         selectAll(f)
         confirm(f)
         deletion(f.fragment).join()
-        runCurrent()
-        layout(f.binding)
-        shadowOf(Looper.getMainLooper()).idle()
-        assertEquals(listOf("bravo", "charlie"), f.env.store.deleteAttempts)
-        assertEquals(setOf("bravo"), f.env.store.configs.keys.toSet())
-        assertEquals(Tunnel.State.UP, active.state)
-        assertTrue(row(f.binding, 0).isActivated)
-        assertTrue(f.binding.selectionDelete.isEnabled)
-        assertEquals(View.GONE, f.binding.createFab.visibility)
-        assertTrue(message(f.binding).contains("Removed 1 of 2 selected tunnels. 1 remain."))
+        val choreographerWasPaused = ShadowChoreographer.isPaused()
+        // Automatic synthetic animation frames can advance past the Snackbar timeout during layout.
+        ShadowChoreographer.setPaused(true)
+        try {
+            runCurrent()
+            layout(f.binding)
+            shadowOf(Looper.getMainLooper()).idle()
+            assertEquals(listOf("bravo", "charlie"), f.env.store.deleteAttempts)
+            assertEquals(setOf("bravo"), f.env.store.configs.keys.toSet())
+            assertEquals(Tunnel.State.UP, active.state)
+            assertTrue(row(f.binding, 0).isActivated)
+            assertTrue(f.binding.selectionDelete.isEnabled)
+            assertEquals(View.GONE, f.binding.createFab.visibility)
+            assertTrue(message(f.binding).contains("Removed 1 of 2 selected tunnels. 1 remain."))
+        } finally {
+            ShadowChoreographer.setPaused(choreographerWasPaused)
+        }
     }
 
     @Test fun completeDeletionExitsSelectionAndKeepsUnselectedConfig() = runHomeTest {
@@ -343,6 +353,74 @@ class HomeSelectionTest {
     }
 
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun nativeHomeStatusKeepsLocalizedWordsTogetherAtCompactLargeText() = runHomeTest {
+        val originalQualifiers = RuntimeEnvironment.getQualifiers()
+        val originalScale = RuntimeEnvironment.getApplication().resources.configuration.fontScale
+        val originalLocale = Locale.getDefault()
+        val cases = listOf(
+            Preview("compact-fr", 320, 640, 2f, "fr", false),
+            Preview("normal-fr", 411, 800, 1f, "fr", false),
+            Preview("short-landscape-fr", 562, 292, 2f, "fr", false),
+            Preview("wide-fr", 640, 320, 2f, "fr", false),
+            Preview("compact-rtl", 320, 640, 2f, "ar", false)
+        )
+        try {
+            for (base in cases) for (night in listOf(false, true)) {
+                val case = base.copy(name = "${base.name}-${if (night) "night" else "day"}", night = night)
+                val rtl = case.locale == "ar"
+                val direction = if (rtl) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
+                RuntimeEnvironment.setQualifiers("${case.locale}-${if (rtl) "ldrtl" else "ldltr"}-w${case.width}dp-h${case.height}dp-${if (case.width > case.height) "land" else "port"}-${if (night) "night" else "notnight"}-mdpi")
+                RuntimeEnvironment.setFontScale(case.scale)
+                RuntimeEnvironment.setQualifiers(if (rtl) "+ldrtl" else "+ldltr")
+                val f = host("bravo")
+                try {
+                    layout(f.binding, case.width, case.height)
+                    val configuration = f.binding.root.resources.configuration
+                    assertEquals(case.name, case.width, configuration.screenWidthDp)
+                    assertEquals(case.name, case.height, configuration.screenHeightDp)
+                    assertEquals(case.name, if (case.width > case.height) android.content.res.Configuration.ORIENTATION_LANDSCAPE else
+                        android.content.res.Configuration.ORIENTATION_PORTRAIT, configuration.orientation)
+                    assertEquals(case.name, case.locale, configuration.locales[0].language)
+                    assertEquals(case.name, case.scale, configuration.fontScale)
+                    assertEquals(case.name, direction, configuration.layoutDirection)
+                    assertEquals(case.name, direction, f.binding.root.layoutDirection)
+                    assertEquals(case.name, if (night) android.content.res.Configuration.UI_MODE_NIGHT_YES else
+                        android.content.res.Configuration.UI_MODE_NIGHT_NO, configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK)
+                    val stacked = case.name.startsWith("compact")
+                    assertEquals(case.name, if (stacked) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL, f.binding.homeStatusContainer.orientation)
+                    assertEquals(case.name, if (stacked) View.GONE else View.VISIBLE, f.binding.homeStatusDivider.visibility)
+                    val connection = f.binding.homeConnectionGroup
+                    val endpoint = f.binding.homeEndpointGroup
+                    for (group in listOf(connection, endpoint)) {
+                        val params = group.layoutParams as LinearLayout.LayoutParams
+                        assertEquals(case.name, if (stacked) ViewGroup.LayoutParams.MATCH_PARENT else 0, params.width)
+                        assertEquals(case.name, if (stacked) 0f else 1f, params.weight)
+                    }
+                    if (stacked) {
+                        assertTrue(case.name, connection.bottom <= endpoint.top)
+                        assertEquals(case.name, 0, connection.paddingEnd)
+                        assertEquals(case.name, 0, endpoint.paddingStart)
+                    } else {
+                        val density = connection.resources.displayMetrics.density
+                        assertEquals(case.name, (12 * density).toInt(), connection.paddingEnd)
+                        assertEquals(case.name, (14 * density).toInt(), endpoint.paddingStart)
+                        assertTrue(case.name, kotlin.math.abs(connection.width - endpoint.width) <= 1)
+                    }
+                    assertWordsStayTogether(f.binding.homeConnectionLabel, case.name)
+                    assertWordsStayTogether(f.binding.homeEndpointLabel, case.name)
+                    assertEndpointLayout(f.binding, case.name)
+                    assertFullyVisible(f.binding.createFab, "${case.name}: fixed Add")
+                    save(f.binding.root, "status-${case.name}")
+                } finally { f.env.close() }
+            }
+        } finally {
+            RuntimeEnvironment.setQualifiers(originalQualifiers)
+            RuntimeEnvironment.setFontScale(originalScale)
+            Locale.setDefault(originalLocale)
+        }
+    }
+
+    @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun nativeHomeAndConfirmationFitThemesLandscapeLargeTextAndRtl() = runHomeTest {
         for (case in homePreviewCases()) {
             val direction = if (case.locale == "ar") "ldrtl" else "ldltr"
@@ -364,10 +442,11 @@ class HomeSelectionTest {
                 layout(f.binding, case.width, case.height)
                 assertEquals(Tunnel.State.UP, f.binding.tunnels!!["charlie"]!!.state)
                 assertEquals("198.51.100.42", f.binding.homeEndpointHost.text.toString())
-                val targets = listOf(f.binding.homeSearch, f.binding.homeLogs, f.binding.homeSettings)
+                val targets = listOf(f.binding.homeSearch, f.binding.homeServers, f.binding.homeLogs, f.binding.homeSettings)
                 val targetBounds = targets.map { target ->
                     assertTrue("${case.name}: Home action width", target.width >= 48 * target.resources.displayMetrics.density)
                     assertTrue("${case.name}: Home action height", target.height >= 48 * target.resources.displayMetrics.density)
+                    assertFullyVisible(target, "${case.name}: Home action")
                     Rect().also { target.getGlobalVisibleRect(it) }
                 }
                 for (index in 1 until targetBounds.size) {
@@ -469,6 +548,57 @@ class HomeSelectionTest {
                 controllers.remove(f.controller)
             }
         }
+    }
+
+    @Test @Config(sdk = [34]) @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun emptyHomeGroupCentersInTheVisibleViewport() = runHomeTest {
+        for (case in homePreviewCases().filter { it.height > it.width }) {
+            val direction = if (case.locale == "ar") "ldrtl" else "ldltr"
+            val night = if (case.night) "night" else "notnight"
+            RuntimeEnvironment.setQualifiers("${case.locale}-$direction-w${case.width}dp-h${case.height}dp-port-$night")
+            RuntimeEnvironment.setFontScale(case.scale)
+            val f = host()
+            try {
+                f.binding.homeAppBar.setExpanded(true, false)
+                layout(f.binding, case.width, case.height)
+                layout(f.binding, case.width, case.height)
+                assertEmptyStateCentered(f.binding, "${case.name}-expanded")
+
+                dragHomeHeader(f.binding, f.binding.homeAppBar.height / 2f)
+                layout(f.binding, case.width, case.height)
+                layout(f.binding, case.width, case.height)
+                assertTrue("${case.name}: partial header offset", f.binding.homeAppBar.top < 0)
+                assertTrue("${case.name}: header remains partly visible", f.binding.homeAppBar.bottom > 0)
+                assertEmptyStateCentered(f.binding, "${case.name}-partial")
+
+                f.binding.homeAppBar.setExpanded(false, false)
+                layout(f.binding, case.width, case.height)
+                layout(f.binding, case.width, case.height)
+                assertEmptyStateCentered(f.binding, "${case.name}-collapsed")
+            } finally {
+                f.controller.pause().stop().destroy()
+                controllers.remove(f.controller)
+            }
+        }
+    }
+
+    @Test @Config(sdk = [34]) @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun emptyHomeCentersWhenBindingArrivesAfterInitialLayout() = runHomeTest {
+        RuntimeEnvironment.setQualifiers("en-ldltr-w320dp-h640dp-port-notnight")
+        RuntimeEnvironment.setFontScale(1f)
+        val f = host()
+        val content = f.binding.logoPlaceholder.parent as LinearLayout
+        val appBar = f.binding.homeAppBar
+        BindingAdapters.setHomeEmptyAppBar(content, appBar, null)
+        layout(f.binding)
+        assertTrue(appBar.isLaidOut)
+        assertFalse(appBar.isLayoutRequested)
+        BindingAdapters.setHomeEmptyAppBar(content, null, appBar)
+        assertTrue("late binding initializes padding without a header gesture",
+            content.paddingBottom > content.paddingTop)
+        layout(f.binding)
+        layout(f.binding)
+        assertEmptyStateCentered(f.binding, "late-binding-expanded")
     }
 
     @Test @Config(sdk = [34]) @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -610,6 +740,8 @@ class HomeSelectionTest {
     @Test fun homeHeaderActionsKeepExistingNavigationAndDisabledSearch() = runHomeTest {
         val f = host("bravo")
         assertFalse(f.binding.homeSearch.isEnabled)
+        for (button in listOf(f.binding.homeServers, f.binding.homeLogs, f.binding.homeSettings))
+            assertTrue("Enabled header action has native feedback", requireNotNull(button.background).isStateful)
         assertEquals("vpnøwn · 1 configured", f.binding.homeHeaderSummary.text.toString().replace('\u00a0', ' '))
         assertEquals("vpn0wn · 1 configured", f.binding.homeHeaderSummary.contentDescription.toString())
         f.binding.homeLogs.performClick()
@@ -684,6 +816,18 @@ class HomeSelectionTest {
         }
     }
 
+    private fun assertWordsStayTogether(view: TextView, name: String) {
+        assertFullyVisible(view, name)
+        val text = view.text.toString()
+        val textLayout = requireNotNull(view.layout)
+        assertEquals("$name: complete label", text.length, textLayout.getLineEnd(textLayout.lineCount - 1))
+        for (word in Regex("[\\p{L}\\p{M}]+").findAll(text)) {
+            assertEquals("$name: complete word ${word.value}", textLayout.getLineForOffset(word.range.first),
+                textLayout.getLineForOffset(word.range.last))
+        }
+        for (line in 0 until textLayout.lineCount) assertEquals("$name: no hidden label", 0, textLayout.getEllipsisCount(line))
+    }
+
     private fun textViews(view: View): List<TextView> {
         val texts = mutableListOf<TextView>()
         if (view is TextView) texts += view
@@ -708,11 +852,28 @@ class HomeSelectionTest {
         assertEquals("$name complete height", view.height, bounds.height())
     }
 
-    private fun dragHomeHeader(binding: TunnelListFragmentBinding) {
+    private fun assertEmptyStateCentered(binding: TunnelListFragmentBinding, name: String) {
+        val viewport = Rect().also { assertTrue(binding.homeEmptyScroll.getGlobalVisibleRect(it)) }
+        val artwork = Rect().also { assertTrue(binding.logoPlaceholder.getGlobalVisibleRect(it)) }
+        val guidance = Rect().also { assertTrue(binding.homeEmptyPlaceholder.getGlobalVisibleRect(it)) }
+        assertFullyVisible(binding.logoPlaceholder, "$name: empty artwork")
+        assertFullyVisible(binding.homeEmptyPlaceholder, "$name: empty guidance")
+        assertEquals("$name: horizontally centered artwork", viewport.centerX(), artwork.centerX())
+        val guidanceLayout = binding.homeEmptyPlaceholder.layout
+        for (line in 0 until guidanceLayout.lineCount) {
+            assertEquals("$name: centered guidance line $line", guidanceLayout.width / 2f,
+                (guidanceLayout.getLineLeft(line) + guidanceLayout.getLineRight(line)) / 2f, 1f)
+        }
+        assertEquals("$name: vertically centered empty group", viewport.exactCenterY(),
+            (artwork.top + guidance.bottom) / 2f, 1f)
+        assertFullyVisible(binding.createFab, "$name: fixed Add")
+        save(binding.root, "empty-centered-$name")
+    }
+
+    private fun dragHomeHeader(binding: TunnelListFragmentBinding, distance: Float = binding.homeAppBar.height * 2f) {
         val container = binding.homeScrollContainer
         val density = container.resources.displayMetrics.density
         val startY = minOf(binding.homeAppBar.bottom, container.height) - 8 * density
-        val distance = binding.homeAppBar.height * 2f
         val downTime = SystemClock.uptimeMillis()
         fun dispatch(action: Int, elapsed: Long, y: Float) {
             val event = MotionEvent.obtain(downTime, downTime + elapsed, action, container.width / 2f, y, 0)

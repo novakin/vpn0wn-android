@@ -21,8 +21,14 @@ import com.vpn0wn.android.model.ObservableTunnel
 import com.vpn0wn.android.model.TunnelTestEnvironment
 import com.vpn0wn.android.widget.TunnelThroughputView
 import com.vpn0wn.config.Config
+import com.vpn0wn.config.InetAddresses
+import com.vpn0wn.config.InetNetwork
+import com.vpn0wn.config.Interface
+import com.vpn0wn.config.Peer
 import com.vpn0wn.crypto.Key
+import com.vpn0wn.crypto.KeyPair
 import java.util.Locale
+import java.util.Optional
 import java.io.File
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -62,8 +68,147 @@ class BindingAdaptersTest {
     }
 
     @Test
+    fun typedTextAdaptersPreserveCompleteIpv6OrderAndNullElements() {
+        val view = TextView(context)
+        val networks = listOf(InetNetwork.parse("192.0.2.2/32"), null, InetNetwork.parse("2001:db8::2/128"))
+        val addresses = listOf(InetAddresses.parse("192.0.2.2"), null, InetAddresses.parse("2001:db8::2"))
+        val networkText = "192.0.2.2/32, null, 2001:db8:0:0:0:0:0:2/128"
+        val addressText = "192.0.2.2, null, 2001:db8:0:0:0:0:0:2"
+        assertEquals(networkText, BindingAdapters.inetNetworksText(networks))
+        BindingAdapters.setInetNetworkSetText(view, networks)
+        assertEquals(networkText, view.text.toString())
+        assertEquals(addressText, BindingAdapters.inetAddressesText(addresses))
+        BindingAdapters.setInetAddressSetText(view, addresses)
+        assertEquals(addressText, view.text.toString())
+        val strings = listOf("corp.example", null, "office.example")
+        assertEquals("corp.example, null, office.example", BindingAdapters.stringsText(strings))
+        BindingAdapters.setStringSetText(view, strings)
+        assertEquals("corp.example, null, office.example", view.text.toString())
+        BindingAdapters.setInetNetworkSetText(view, null)
+        assertEquals("", view.text.toString())
+        BindingAdapters.setInetAddressSetText(view, emptyList())
+        assertEquals("", view.text.toString())
+        BindingAdapters.setStringSetText(view, null)
+        assertEquals("", view.text.toString())
+    }
+
+    @Test
+    fun optionalTextPreservesEmptySetterAndExplicitUnknownMarker() {
+        val view = TextView(context)
+        BindingAdapters.setOptionalText(view, Optional.of(51820))
+        assertEquals("51820", view.text.toString())
+        assertEquals("51820", BindingAdapters.optionalText(Optional.of(51820), "—"))
+        for (missing in listOf(null, Optional.empty<Int>())) {
+            BindingAdapters.setOptionalText(view, missing)
+            assertEquals("", view.text.toString())
+            assertEquals("", BindingAdapters.optionalText(missing, ""))
+            assertEquals("—", BindingAdapters.optionalText(missing, "—"))
+        }
+    }
+
+    @Test
+    fun detailPluralFormattingPreservesLocaleCountsAndUnavailablePeer() {
+        val pair = KeyPair(Key.fromBytes(ByteArray(32)))
+        val empty = Config.Builder().setInterface(Interface.Builder().setKeyPair(pair).build()).build()
+        val excluded = Config.Builder().setInterface(Interface.Builder().setKeyPair(pair)
+            .excludeApplication("com.example.first").excludeApplication("com.example.second").build()).build()
+        val included = Config.Builder().setInterface(Interface.Builder().setKeyPair(pair)
+            .includeApplication("com.example.first").build()).build()
+        for (language in listOf("en", "fr", "ar")) {
+            val configuration = Configuration(context.resources.configuration).apply { setLocale(Locale.forLanguageTag(language)) }
+            val localized = context.createConfigurationContext(configuration)
+            for ((config, resource, count) in listOf(
+                Triple(null, R.plurals.n_included_applications, 0),
+                Triple(empty, R.plurals.n_excluded_applications, 0),
+                Triple(excluded, R.plurals.n_excluded_applications, 2),
+                Triple(included, R.plurals.n_included_applications, 1))) {
+                assertEquals("$language applications", localized.resources.getQuantityString(resource, count, count),
+                    BindingAdapters.applicationsText(localized, config))
+                val labelResource = if (resource == R.plurals.n_excluded_applications) {
+                    R.plurals.set_excluded_applications
+                } else {
+                    R.plurals.set_included_applications
+                }
+                assertEquals("$language application label", localized.resources.getQuantityString(labelResource, count, count),
+                    BindingAdapters.applicationsLabel(localized, config))
+            }
+            for (seconds in listOf(0, 1, 25)) {
+                val peer = Peer.Builder().setPublicKey(pair.publicKey).setPersistentKeepalive(seconds).build()
+                assertEquals("$language keepalive $seconds", localized.resources.getQuantityString(
+                    R.plurals.persistent_keepalive_seconds_unit, seconds, seconds), BindingAdapters.persistentKeepaliveText(localized, peer))
+            }
+            assertEquals("", BindingAdapters.persistentKeepaliveText(localized, null))
+        }
+    }
+
+    @Test
+    fun frenchRouteAndPeerBadgesLocalizeOnlyMissingConfiguration() {
+        val configuration = Configuration(context.resources.configuration).apply { setLocale(Locale.FRENCH) }
+        val localized = context.createConfigurationContext(configuration)
+        val pair = KeyPair(Key.fromBytes(ByteArray(32)))
+        val local = Interface.Builder().setKeyPair(pair).addAddress(InetNetwork.parse("192.0.2.2/32")).build()
+        val peer = Peer.Builder().setPublicKey(pair.publicKey).parseEndpoint("vpn.example:51820").build()
+        val profile = Config.Builder().setInterface(local).addPeer(peer).build()
+
+        assertEquals("AUCUN PAIR", BindingAdapters.tunnelPeerBadge(localized, null))
+        assertEquals("adresse en attente -> point de terminaison en attente", BindingAdapters.tunnelRoute(localized, null))
+        assertEquals("192.0.2.2/32 -> point de terminaison en attente",
+            BindingAdapters.tunnelRoute(localized, Config.Builder().setInterface(local).build()))
+        assertEquals("AUCUNE PSK", BindingAdapters.tunnelPeerBadge(localized, profile))
+        assertEquals("192.0.2.2/32 -> vpn.example:51820", BindingAdapters.tunnelRoute(localized, profile))
+        val withPsk = Config.Builder().setInterface(local).addPeer(Peer.Builder().setPublicKey(pair.publicKey)
+            .setPreSharedKey(Key.fromBytes(ByteArray(32) { 1 })).build()).build()
+        assertEquals("PSK", BindingAdapters.tunnelPeerBadge(localized, withPsk))
+    }
+
+    @Test
     fun emptyHomeHeaderKeepsWordmarkAndConfiguredCount() {
         assertEquals("vpnøwn · 0 configured", BindingAdapters.homeHeaderSummary(context, emptyList()))
+    }
+
+    @Test
+    fun homeHeaderUsesLocaleQuantitiesWithoutLosingBrandOrUnknownState() = runTest {
+        val env = TunnelTestEnvironment(folder.root, backgroundScope)
+        val profile = Config.Builder().setInterface(Interface.Builder().setKeyPair(KeyPair()).build()).build()
+        val tunnels = List(2) { index ->
+            ObservableTunnel(env.manager, "header-$index", profile, Tunnel.State.DOWN)
+        }
+        val cases = listOf(
+            Locale.ENGLISH to listOf("0 configured", "1 configured", "2 configured"),
+            Locale.FRENCH to listOf("0 configuré", "1 configuré", "2 configurés")
+        )
+        for ((locale, labels) in cases) {
+            val localized = context.createConfigurationContext(Configuration(context.resources.configuration).apply {
+                setLocale(locale)
+            })
+            for (count in 0..2) {
+                val inventory = tunnels.take(count)
+                val expected = "vpnøwn · ${labels[count]}"
+                assertEquals("$locale/$count owner", expected, BindingAdapters.homeHeaderSummary(localized, inventory))
+                val header = TextView(localized)
+                BindingAdapters.setHomeHeaderTunnels(header, inventory)
+                assertEquals("$locale/$count visible", expected, header.text.toString().replace('\u00a0', ' '))
+                assertEquals("$locale/$count accessible", expected.replace('ø', '0'), header.contentDescription.toString())
+                val text = header.text as Spanned
+                val artwork = text.getSpans(0, text.length, ImageSpan::class.java).single()
+                assertEquals(0, text.getSpanStart(artwork))
+                assertEquals(6, text.getSpanEnd(artwork))
+            }
+            assertEquals("vpnøwn", BindingAdapters.homeHeaderSummary(localized, null))
+            val unknownHeader = TextView(localized)
+            BindingAdapters.setHomeHeaderTunnels(unknownHeader, null)
+            assertEquals("vpnøwn", unknownHeader.text.toString())
+            assertEquals("vpn0wn", unknownHeader.contentDescription.toString())
+        }
+    }
+
+    @Test
+    fun unavailableHomeInventoryKeepsBrandWithoutClaimingZeroConfigured() {
+        assertEquals("vpnøwn", BindingAdapters.homeHeaderSummary(context, null))
+        val header = TextView(context)
+        BindingAdapters.setHomeHeaderTunnels(header, null)
+        assertEquals("vpnøwn", header.text.toString())
+        assertEquals("vpn0wn", header.contentDescription.toString())
     }
 
     @Test
@@ -117,6 +262,35 @@ class BindingAdaptersTest {
         }
         assertTrue("Expected rendered ink", rows.isNotEmpty())
         return (rows.first() + rows.last()) / 2f
+    }
+
+    @Test
+    fun homeStatusLocalizesMissingCipherWithoutChangingPeerIdentityOrStateColor() {
+        val pair = KeyPair(Key.fromBytes(ByteArray(32)))
+        val local = Interface.Builder().setKeyPair(pair).build()
+        val empty = Config.Builder().setInterface(local).build()
+        val peer = Peer.Builder().setPublicKey(pair.publicKey).build()
+        val withPeer = Config.Builder().setInterface(local).addPeer(peer).build()
+        val withPsk = Config.Builder().setInterface(local).addPeer(Peer.Builder().setPublicKey(pair.publicKey)
+            .setPreSharedKey(Key.fromBytes(ByteArray(32) { 1 })).build()).build()
+        val configs = listOf(null, empty, withPeer, withPsk)
+        for ((locale, missing) in listOf(Locale.ENGLISH to "unbound", Locale.FRENCH to "sans pair")) {
+            val localized = context.createConfigurationContext(Configuration(context.resources.configuration).apply {
+                setLocale(locale)
+            })
+            val expected = listOf(missing, missing, "ChaCha20", "ChaCha20 + PSK")
+            for ((index, config) in configs.withIndex()) {
+                val view = TextView(localized)
+                BindingAdapters.setTunnelStatusTunnel(view, null, Tunnel.State.DOWN, null, config)
+                val status = localized.getString(R.string.vpn0wn_tunnel_status_inactive)
+                val text = view.text as Spanned
+                assertEquals("$locale/$index", "$status · ${expected[index]}", text.toString())
+                val color = text.getSpans(0, text.length, ForegroundColorSpan::class.java).single()
+                assertEquals(0, text.getSpanStart(color))
+                assertEquals(status.length, text.getSpanEnd(color))
+                assertEquals(localized.getColor(R.color.vpn0wn_ink_3), color.foregroundColor)
+            }
+        }
     }
 
     @Test
@@ -186,10 +360,10 @@ class BindingAdaptersTest {
         val frenchView = TextView(french)
         BindingAdapters.setHomeHandshakeStatistics(frenchView, snapshot)
         assertEquals("il y a 14s", frenchView.text.toString())
-        assertEquals("vpnøwn · 0 configurés", BindingAdapters.homeHeaderSummary(french, emptyList()))
+        assertEquals("vpnøwn · 0 configuré", BindingAdapters.homeHeaderSummary(french, emptyList()))
         val frenchHeader = TextView(french)
         BindingAdapters.setHomeHeaderTunnels(frenchHeader, emptyList())
-        assertEquals("vpn0wn · 0 configurés", frenchHeader.contentDescription.toString())
+        assertEquals("vpn0wn · 0 configuré", frenchHeader.contentDescription.toString())
     }
 
     @Test

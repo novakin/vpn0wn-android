@@ -67,7 +67,7 @@
     <string name="bad_config_context">%1$s\'s %2$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%1$s in %2$s</string>
-    <string name="bad_config_explanation_pka">: moet positief zijn en niet meer dan 65535</string>
+    <string name="bad_config_explanation_pka">: 0–65535</string>
     <string name="bad_config_explanation_positive_number">: Moet positief zijn</string>
     <string name="bad_config_explanation_udp_port">: Moet een geldig UDP poortnummer zijn</string>
     <string name="bad_config_reason_invalid_key">Ongeldige sleutel</string>
@@ -163,7 +163,7 @@
     <string name="multiple_tunnels_summary_on">Meerdere tunnels kunnen tegelijkertijd actief zijn</string>
     <string name="multiple_tunnels_title">Meerdere gelijktijdige tunnels toestaan</string>
     <string name="name">Naam</string>
-    <string name="no_config_error">Probeer een tunnel zonder configuratie te starten</string>
+    <string name="no_config_error">Er is geprobeerd een tunnel zonder configuratie te starten</string>
     <string name="no_configs_error">Geen configuraties gevonden</string>
     <string name="no_tunnels_error">Geen tunnels gedefinieerd</string>
     <string name="parse_error_generic">string</string>
@@ -175,7 +175,7 @@
     <string name="peer">Peer</string>
     <string name="permission_description">beheer WireGuard tunnels, zet tunnels naar keuze aan en uit, en misleid mogelijk het Internetverkeer</string>
     <string name="permission_label">WireGuard tunnels beheren</string>
-    <string name="persistent_keepalive">Voortdurende verbindingstest</string>
+    <string name="persistent_keepalive">Periodieke keepalive</string>
     <string name="pre_shared_key">Gedeelde sleutel</string>
     <string name="pre_shared_key_enabled">ingeschakeld</string>
     <string name="private_key">Privésleutel</string>

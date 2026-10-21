@@ -32,6 +32,13 @@ jobs:
           persist-credentials: false
       - name: Run offline VPS harness checks
         run: python3 -m unittest discover -s scripts/tests -p 'test_vps_integration_test.py'
+      - name: Check native Go runtime preparation
+        run: python3 -m unittest discover -s scripts/tests -p 'test_go_runtime_preparation.py'
+      - name: Check translation archive handling
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libarchive-tools libxml2-utils
+          python3 -m unittest discover -s scripts/tests -p 'test_translation_import.py'
       - name: Set up Java
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
@@ -49,6 +56,8 @@ jobs:
         run: ./gradlew :ui:testReleaseUnitTest --tests com.vpn0wn.android.ApplicationBackendLifecycleTest --console=plain
       - name: Run native UAPI lifecycle checks
         run: bash tunnel/tools/libwg-go/test-host.sh
+      - name: Check kernel cleanup identity
+        run: python3 -m unittest discover -s scripts/tests -p 'test_wg_quick_cleanup.py'
       - name: Retain check reports
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

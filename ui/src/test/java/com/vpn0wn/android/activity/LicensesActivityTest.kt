@@ -91,7 +91,7 @@ class LicensesActivityTest {
         val unsplitText = TextView(activity).apply { text = payload }
         assertEquals(ACCESSIBILITY_TEXT_LIMIT, unsplitText.createAccessibilityNodeInfo().text.length)
         val texts = notices(activity)
-        assertEquals(29, texts.size)
+        assertEquals(35, texts.size)
         val accessibleTexts = texts.map { text ->
             assertTrue(text.text.length < ACCESSIBILITY_TEXT_LIMIT)
             val accessibleText = text.createAccessibilityNodeInfo().text.toString()
@@ -106,8 +106,22 @@ class LicensesActivityTest {
         assertTrue(termuxNotice.contains("GNU GENERAL PUBLIC LICENSE"))
         assertEquals(payload.substring(payload.indexOf("Termux elf-cleaner — host build helper\n"), payload.indexOf("Sora brand wordmark\n")), termuxNotice)
         val soraNotice = activity.assets.open("licenses/sora-OFL.txt").bufferedReader().use { it.readText() }
-        assertTrue(accessibleTexts.last().startsWith("Sora brand wordmark\n"))
-        assertTrue(accessibleTexts.last().contains(soraNotice.lineSequence().joinToString("\n") { it.trimEnd() }.trim()))
+        val soraText = accessibleTexts.single { it.startsWith("Sora brand wordmark\n") }
+        assertTrue(soraText.contains(soraNotice.lineSequence().joinToString("\n") { it.trimEnd() }.trim()))
+        val bionicNotice = activity.assets.open("licenses/bionic-crt-bsd-2-clause.txt").bufferedReader().use { it.readText() }
+        val bionicTitle = "Android Bionic CRT startup objects — DataStore shared counter (NDK r20)"
+        assertEquals("$bionicTitle\n${"=".repeat(bionicTitle.length)}\n${bionicNotice.trimEnd()}", accessibleTexts.single { it.startsWith(bionicTitle) }.trimEnd())
+        for ((title, asset) in listOf(
+            "JSch SSH client — com.github.mwiede:jsch:2.28.8" to "jsch-BSD.txt",
+            "JSch bundled JZlib" to "jsch-JZlib-BSD.txt",
+            "JSch bundled jBCrypt" to "jsch-jBCrypt-ISC.txt",
+            "Bouncy Castle lightweight crypto — org.bouncycastle:bcprov-jdk15to18:1.86" to "bouncycastle-MIT.txt",
+            "AmneziaWG Go — github.com/amnezia-vpn/amneziawg-go/v3:v3.1.20260828" to "amneziawg-go-MIT.txt",
+        )) {
+            val original = activity.assets.open("licenses/$asset").bufferedReader().use { it.readText() }
+            val complete = original.lineSequence().joinToString("\n") { it.trimEnd() }.trim()
+            assertEquals("$title\n${"=".repeat(title.length)}\n$complete", accessibleTexts.single { it.startsWith(title) }.trimEnd())
+        }
     }
 
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)

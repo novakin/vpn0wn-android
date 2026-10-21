@@ -54,7 +54,7 @@
     <string name="bad_config_context">錯誤設定: %1$s 的 %2$s</string>
     <string name="bad_config_context_top_level">頂層錯誤設定: %s</string>
     <string name="bad_config_error">設定有誤: %1$s 在 %2$s</string>
-    <string name="bad_config_explanation_pka">: 必須是不大於 65535 的正整數</string>
+    <string name="bad_config_explanation_pka">: 0–65535</string>
     <string name="bad_config_explanation_positive_number">: 必須是正整數</string>
     <string name="bad_config_explanation_udp_port">: 必須是一個有效的 UDP 埠號</string>
     <string name="bad_config_reason_invalid_key">無效的密鑰</string>
@@ -179,7 +179,7 @@
     <string name="select_all">全選</string>
     <string name="settings">設定</string>
     <string name="shell_exit_status_read_error">Shell 無法讀取停止狀態</string>
-    <string name="shell_marker_count_error">殼牌預計有 4 個標記，但收到了 %d</string>
+    <string name="shell_marker_count_error">Shell 預期有 4 個標記，但收到了 %d</string>
     <string name="shell_start_error">Shell 啟動失敗: %d</string>
     <string name="success_application_will_restart">成功。 應用程式即將重新啟動…</string>
     <string name="toggle_all">切換全部</string>
@@ -220,12 +220,12 @@
     <string name="version_title">vpn0wn 於 Android 版本 %s</string>
     <string name="vpn_not_authorized_error">使用者未授權 VPN 服務</string>
     <string name="vpn_start_error">無法開啟 Android VPN 服務</string>
-    <string name="zip_export_error">無法匯入通道: %s</string>
+    <string name="zip_export_error">無法匯出通道: %s</string>
     <string name="zip_export_success">儲存到「%s」</string>
     <string name="zip_export_summary">Zip 檔將被儲存到「下載」資料夾內</string>
     <string name="zip_export_title">匯出通道設定至 zip 檔</string>
-    <string name="biometric_prompt_zip_exporter_title">驗證匯出的通道</string>
-    <string name="biometric_prompt_private_key_title">驗證私鑰</string>
+    <string name="biometric_prompt_zip_exporter_title">驗證身分以匯出通道</string>
+    <string name="biometric_prompt_private_key_title">驗證身分以檢視私鑰</string>
     <string name="biometric_auth_error">驗證失敗</string>
     <string name="biometric_auth_error_reason">驗證失敗: %s</string>
 

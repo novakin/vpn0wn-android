@@ -22,9 +22,10 @@ public interface Backend {
     /**
      * Enumerate names of currently-running tunnels.
      *
-     * @return The set of running tunnel names.
+     * @return The set of running tunnel names; empty only after a successful observation.
+     * @throws Exception Exception raised when retrieving running tunnel names.
      */
-    Set<String> getRunningTunnelNames();
+    Set<String> getRunningTunnelNames() throws Exception;
 
     /**
      * Get the state of a tunnel.

@@ -306,6 +306,21 @@ class ToolsInstallerTest {
     }
 
     @Test
+    fun failedFinalLabelAndCleanupCannotReconcileAsSuccessfulStaging() {
+        fixture.executable(File(fixture.commands, "chcon"),
+            "#!/bin/sh\ncase \"${'$'}2\" in */wg-quick) exit 1;; esac\nexit 0\n")
+        fixture.wrap("rm", "exit 1")
+        assertEquals(ToolsInstaller.ERROR, fixture.installer.install())
+        assertTrue(File(fixture.module, "system/xbin/wg-quick").isFile)
+        fixture.executable(File(fixture.commands, "chcon"), "#!/bin/sh\nexit 0\n")
+        fixture.wrap("rm")
+        fixture.clearWrites()
+        fixture.assertBlockedAndUnchanged()
+        assertFalse(File(fixture.module, "module.prop").exists())
+        assertFalse(File(fixture.module, "auto_mount").exists())
+    }
+
+    @Test
     fun successfulStagingIsReconciledWithoutAnotherWrite() {
         assertEquals(ToolsInstaller.NO or ToolsInstaller.MAGISK, fixture.installer.areInstalled())
         assertEquals(File(fixture.local, "wg").path, fixture.shell.backendToolPath)

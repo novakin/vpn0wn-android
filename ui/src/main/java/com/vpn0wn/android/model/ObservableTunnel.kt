@@ -13,6 +13,7 @@ import com.vpn0wn.android.BR
 import com.vpn0wn.android.backend.Backend
 import com.vpn0wn.android.backend.HandshakeObservation
 import com.vpn0wn.android.backend.HandshakeSession
+import com.vpn0wn.android.backend.RecoveryResult
 import com.vpn0wn.android.backend.Statistics
 import com.vpn0wn.android.backend.Tunnel
 import com.vpn0wn.android.databinding.Keyed
@@ -48,6 +49,7 @@ class ObservableTunnel internal constructor(
     }
 
     fun onNameChanged(name: String): String {
+        configGeneration++
         this.name = name
         notifyPropertyChanged(BR.name)
         return name
@@ -92,6 +94,9 @@ class ObservableTunnel internal constructor(
 
     private var cachedConfig = config
 
+    internal var configGeneration = 0L
+        private set
+
     @get:Bindable
     // The asynchronous getter handles the generic ConfigStore/Backend contract.
     @Suppress("TooGenericExceptionCaught")
@@ -129,6 +134,7 @@ class ObservableTunnel internal constructor(
 
     fun onConfigChanged(config: Config?): Config? {
         if (config === cachedConfig) return config
+        configGeneration++
         this.config = config
         notifyPropertyChanged(BR.config)
         return config
@@ -147,6 +153,53 @@ class ObservableTunnel internal constructor(
     private val handshakeSession = AtomicReference<HandshakeSession?>()
     private var cachedHandshakeSession: HandshakeSession? = null
     private var cachedHandshakeDiagnostics: Map<Key, PeerHandshakeDiagnostics>? = null
+    private var cachedRecoverySession: HandshakeSession? = null
+    private var cachedRecoverySnapshot: RecoverySnapshot? = null
+
+    data class RecoverySnapshot(
+        val confirmedAdmissions: Int,
+        val chargedAttempts: Int,
+        val backendEntries: Int,
+        val unknownSettlements: Int,
+        val requestPending: Boolean,
+        val automaticRecoveryDisabled: Boolean,
+        val lastTriggerPeer: Key?,
+        val lastRequestPeer: Key?,
+        val lastRequestElapsedRealtimeMillis: Long?,
+        val lastOutcome: RecoveryResult.Outcome?,
+        val status: RecoveryStatus,
+        val failureCategory: RecoveryFailureCategory?,
+        val transportState: RecoveryTransportState,
+        val powerState: RecoveryPowerState,
+        val lastResultRecordedElapsedRealtimeMillis: Long? = null,
+    )
+
+    enum class RecoveryStatus {
+        IDLE, PENDING, REQUESTED, BUSY_DEFERRED, COMPLETED, DROPPED_BUSY,
+        DROPPED_COOLDOWN, DROPPED_ATTEMPT_LIMIT, DROPPED_ENTRY_LIMIT, DROPPED_DOZE,
+        DISABLED, CANCELLED, FAILED, OBSOLETE
+    }
+
+    enum class RecoveryFailureCategory { CANCELLED, INTERRUPTED, DNS_RESOLUTION, IO, SERVICE_UNAVAILABLE, DEFECT }
+    enum class RecoveryTransportState { UNKNOWN, READY, UNAVAILABLE }
+    enum class RecoveryPowerState { UNKNOWN, NOT_DEEP_IDLE, DEEP_IDLE }
+
+    internal val activeHandshakeSession: HandshakeSession?
+        get() = handshakeSession.get()?.takeIf { it.isActive }
+
+    @get:Bindable
+    val recoverySnapshot: RecoverySnapshot?
+        get() = cachedRecoverySnapshot.takeIf {
+            val current = activeHandshakeSession
+            current != null && current === cachedRecoverySession
+        }
+
+    internal fun onRecoverySnapshotChanged(session: HandshakeSession, snapshot: RecoverySnapshot) {
+        if (activeHandshakeSession !== session) return
+        cachedRecoverySession = session
+        cachedRecoverySnapshot = snapshot
+        notifyPropertyChanged(BR.recoverySnapshot)
+    }
 
     @get:Bindable
     val handshakeDiagnostics: Map<Key, PeerHandshakeDiagnostics>?
@@ -169,6 +222,7 @@ class ObservableTunnel internal constructor(
                     cachedHandshakeDiagnostics = emptyMap()
                     notifyPropertyChanged(BR.handshakeDiagnostics)
                 }
+                manager.onHandshakeSessionAccepted(this@ObservableTunnel, session)
             }
         } else if (handshakeSession.compareAndSet(session, null)) {
             applicationScope.launch(Dispatchers.Main) {
@@ -196,11 +250,19 @@ class ObservableTunnel internal constructor(
             cachedHandshakeSession = session
             cachedHandshakeDiagnostics = diagnostics + (observation.peer() to peer)
             notifyPropertyChanged(BR.handshakeDiagnostics)
+            if (observation.event() == HandshakeObservation.Event.EXHAUSTED)
+                manager.onHandshakeExhausted(this@ObservableTunnel, observation)
         }
     }
 
     private fun clearHandshakeDiagnostics() {
+        manager.onHandshakeSessionRetired(this)
         cachedHandshakeSession = null
+        cachedRecoverySession = null
+        if (cachedRecoverySnapshot != null) {
+            cachedRecoverySnapshot = null
+            notifyPropertyChanged(BR.recoverySnapshot)
+        }
         if (cachedHandshakeDiagnostics == null) return
         cachedHandshakeDiagnostics = null
         notifyPropertyChanged(BR.handshakeDiagnostics)

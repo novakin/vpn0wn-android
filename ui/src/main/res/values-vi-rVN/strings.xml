@@ -54,7 +54,7 @@
     <string name="bad_config_context">%1$s / %2$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%1$s trong %2$s</string>
-    <string name="bad_config_explanation_pka">: Phải là số dương và không lớn hơn 65535</string>
+    <string name="bad_config_explanation_pka">: 0–65535</string>
     <string name="bad_config_explanation_positive_number">Giá trị phải là số dương</string>
     <string name="bad_config_explanation_udp_port">: Phải là port UDP hợp lý</string>
     <string name="bad_config_reason_invalid_key">Khoá không hợp lệ</string>
@@ -74,7 +74,7 @@
     <string name="config_exists_error">Cấu hình cho \"%s\" đã tồn tại</string>
     <string name="config_file_exists_error">File cấu hình cho \"%s\" đã tồn tại</string>
     <string name="config_not_found_error">Không tìm thấy file cấu hình \"%s\"</string>
-    <string name="config_rename_error">Không thể xóa file cấu hình \"%s\"</string>
+    <string name="config_rename_error">Không thể đổi tên file cấu hình \"%s\"</string>
     <string name="config_save_error">Không thể lưu cấu hình cho \"%1$s\": %2$s</string>
     <string name="config_save_success">Đã lưu cấu hình thành công cho \"%s\"</string>
     <string name="create_activity_title">Tạo ra Wireguard VPN</string>
@@ -83,8 +83,8 @@
     <string name="create_empty">Làm lại từ đầu</string>
     <string name="create_from_file">Nhập từ file hoặc archive</string>
     <string name="create_from_qr_code">Quét mã QR</string>
-    <string name="create_output_dir_error">Không thể tạo tập tin xuất ra</string>
-    <string name="create_temp_dir_error">Không thế tạo local binary directory</string>
+    <string name="create_output_dir_error">Không thể tạo thư mục đầu ra</string>
+    <string name="create_temp_dir_error">Không thể tạo thư mục tạm cục bộ</string>
     <string name="create_tunnel">Tạo VPN</string>
     <string name="copied_to_clipboard">%s đã sao chép vào bộ nhớ tạm</string>
     <string name="dark_theme_summary_off">Đang sử dụng ánh sáng (ngày)</string>

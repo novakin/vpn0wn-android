@@ -80,16 +80,16 @@
     <string name="bad_config_context">%2$s pentru %1$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%1$s în %2$s</string>
-    <string name="bad_config_explanation_pka">: Trebuie să fie pozitiv și nu mai mare decât 65535</string>
+    <string name="bad_config_explanation_pka">: 0–65535</string>
     <string name="bad_config_explanation_positive_number">: Trebuie să fie pozitiv</string>
     <string name="bad_config_explanation_udp_port">: Trebuie să fie un număr de port UDP valid</string>
     <string name="bad_config_reason_invalid_key">Cheie invalidă</string>
     <string name="bad_config_reason_invalid_number">Număr invalid</string>
     <string name="bad_config_reason_invalid_value">Valoare invalidă</string>
-    <string name="bad_config_reason_missing_attribute">Atribuit lipsă</string>
+    <string name="bad_config_reason_missing_attribute">Atribut lipsă</string>
     <string name="bad_config_reason_missing_section">Secțiune lipsă</string>
     <string name="bad_config_reason_syntax_error">Eroare de sintaxă</string>
-    <string name="bad_config_reason_unknown_attribute">Atribuit necunoscut</string>
+    <string name="bad_config_reason_unknown_attribute">Atribut necunoscut</string>
     <string name="bad_config_reason_unknown_section">Secțiune necunoscută</string>
     <string name="bad_config_reason_value_out_of_range">Valoare în afara intervalului</string>
     <string name="bad_extension_error">Fișierul trebuie să fie .conf sau .zip</string>
@@ -271,11 +271,13 @@
     <string name="vpn0wn_selection_status_empty">0 SELECTATE</string>
     <string name="vpn0wn_selection_status_count">%1$d DIN %2$d SELECTATE</string>
     <plurals name="vpn0wn_selection_title">
-        <item quantity="one">%d SELECTATE</item>
+        <item quantity="one">%d SELECTAT</item>
+        <item quantity="few">%d SELECTATE</item>
         <item quantity="other">%d SELECTATE</item>
     </plurals>
     <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">șterge %d tunel?</item>
-        <item quantity="other">șterge %d tuneluri?</item>
+        <item quantity="few">șterge %d tuneluri?</item>
+        <item quantity="other">șterge %d de tuneluri?</item>
     </plurals>
 </resources>

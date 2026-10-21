@@ -10,10 +10,12 @@ import com.vpn0wn.config.BadConfigException
 import android.content.Context
 import android.app.Activity
 import android.content.Intent
+import android.content.res.Configuration
 import android.os.Bundle
 import android.text.InputType
 import android.util.Log
 import android.view.LayoutInflater
+import android.view.Gravity
 import android.view.Menu
 import android.view.MenuInflater
 import android.view.MenuItem
@@ -22,9 +24,11 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
+import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.core.os.BundleCompat
 import androidx.core.view.MenuProvider
+import androidx.core.view.descendants
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.snackbar.Snackbar
@@ -48,12 +52,10 @@ import kotlinx.coroutines.launch
  */
 class TunnelEditorFragment : BaseFragment(), MenuProvider {
     private var haveShownKeys = false
+    private var authenticationRequest: Any? = null
     private var binding: TunnelEditorFragmentBinding? = null
     private var tunnel: ObservableTunnel? = null
-
-    private fun onConfigLoaded(config: Config) {
-        binding?.config = ConfigProxy(config)
-    }
+    private var restoredTunnelName: String? = null
 
     private fun onConfigSaved(savedTunnel: Tunnel, throwable: Throwable?) {
         val ctx = activity ?: Application.get()
@@ -87,6 +89,30 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
             isNew = selectedTunnel == null
             executePendingBindings()
             privateKeyRegenButton.setOnClickListener { config?.`interface`?.generateKeyPair() }
+            val configuration = resources.configuration
+            if (configuration.orientation == Configuration.ORIENTATION_PORTRAIT &&
+                configuration.screenWidthDp < COMPACT_WINDOW_WIDTH_DP && configuration.fontScale >= ENLARGED_FONT_SCALE) {
+                editorInterfacePortRow.orientation = LinearLayout.VERTICAL
+                for (row in listOf(editorListenPortRow, editorMtuRow)) {
+                    row.layoutParams = (row.layoutParams as LinearLayout.LayoutParams).apply {
+                        width = ViewGroup.LayoutParams.MATCH_PARENT
+                        weight = 0f
+                    }
+                }
+                editorInterfacePortDivider.layoutParams = editorInterfacePortDivider.layoutParams.apply {
+                    height = width
+                    width = ViewGroup.LayoutParams.MATCH_PARENT
+                }
+                editorApplicationsRow.orientation = LinearLayout.VERTICAL
+                editorApplicationsContent.layoutParams = (editorApplicationsContent.layoutParams as LinearLayout.LayoutParams).apply {
+                    width = ViewGroup.LayoutParams.MATCH_PARENT
+                    weight = 0f
+                }
+                setExcludedApplications.layoutParams = (setExcludedApplications.layoutParams as LinearLayout.LayoutParams).apply {
+                    gravity = Gravity.END
+                    topMargin = resources.getDimensionPixelSize(R.dimen.normal_margin)
+                }
+            }
         }
         return binding?.root
     }
@@ -98,6 +124,9 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
 
     override fun onDestroyView() {
         activity?.window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        haveShownKeys = false
+        authenticationRequest = null
+        restoredTunnelName = null
         binding = null
         super.onDestroyView()
     }
@@ -234,7 +263,7 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
 
     override fun onSaveInstanceState(outState: Bundle) {
         binding?.let { outState.putParcelable(KEY_LOCAL_CONFIG, it.config) }
-        outState.putString(KEY_ORIGINAL_NAME, tunnel?.name)
+        outState.putString(KEY_ORIGINAL_NAME, tunnel?.name ?: restoredTunnelName)
         super.onSaveInstanceState(outState)
     }
 
@@ -244,13 +273,21 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
         oldTunnel: ObservableTunnel?,
         newTunnel: ObservableTunnel?
     ) {
+        val restoreDraft = newTunnel != null && newTunnel.name == restoredTunnelName
+        restoredTunnelName = null
+        resetKeyAuthorization()
         tunnel = newTunnel
-        binding?.isNew = newTunnel == null
-        if (binding == null) return
-        binding!!.config = ConfigProxy()
+        val ownerBinding = binding ?: return
+        ownerBinding.isNew = newTunnel == null
+        if (restoreDraft) {
+            if (ownerBinding.name == null) ownerBinding.name = newTunnel!!.name
+            return
+        }
+        val loadingConfig = ConfigProxy()
+        ownerBinding.config = loadingConfig
         if (newTunnel != null) {
-            binding!!.name = newTunnel.name
-            lifecycleScope.launch {
+            ownerBinding.name = newTunnel.name
+            viewLifecycleOwner.lifecycleScope.launch {
                 val config = try {
                     newTunnel.getConfigAsync()
                 } catch (e: CancellationException) {
@@ -259,10 +296,13 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
                     Log.w(TAG, "Failed to load selected tunnel config: ${e.javaClass.simpleName}")
                     return@launch
                 }
-                onConfigLoaded(config)
+                if (binding === ownerBinding && tunnel === newTunnel && ownerBinding.config === loadingConfig) {
+                    resetKeyAuthorization()
+                    ownerBinding.config = ConfigProxy(config)
+                }
             }
         } else {
-            binding!!.name = ""
+            ownerBinding.name = ""
         }
     }
 
@@ -329,50 +369,106 @@ class TunnelEditorFragment : BaseFragment(), MenuProvider {
                 ?: return
             val originalName = savedInstanceState.getString(KEY_ORIGINAL_NAME)
             val t = tunnel
-            if (t != null && t.name != originalName) onSelectedTunnelChanged(null, t) else binding.config = config
+            if (t != null && t.name != originalName) {
+                onSelectedTunnelChanged(null, t)
+            } else {
+                restoredTunnelName = originalName
+                binding.config = config
+            }
         }
         super.onViewStateRestored(savedInstanceState)
     }
 
-    private var showingAuthenticator = false
-
     fun onKeyClick(view: View) = onKeyFocusChange(view, true)
 
     fun onKeyFocusChange(view: View, isFocused: Boolean) {
-        if (!isFocused || showingAuthenticator) return
+        if (!isFocused) return
         val edit = view as? EditText ?: return
-        if (edit.inputType == InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD) return
+        val ownerBinding = binding ?: return
+        if (!isCurrentKeyView(ownerBinding, edit)) return
+        if (AdminKnobs.disableConfigExport) {
+            resetKeyAuthorization()
+            return
+        }
+        if (authenticationRequest != null) return
+        if (edit.inputType == KEY_VISIBLE_INPUT_TYPE) return
         if (!haveShownKeys && edit.text.isNotEmpty()) {
-            if (AdminKnobs.disableConfigExport) return
-            showingAuthenticator = true
-            BiometricAuthenticator.authenticate(R.string.biometric_prompt_private_key_title, this) {
-                showingAuthenticator = false
-                when (it) {
-                    is BiometricAuthenticator.Result.Success, is BiometricAuthenticator.Result.NoAuthenticationConfigured -> {
-                        haveShownKeys = true
-                        showPrivateKey(edit)
-                    }
-
-                    is BiometricAuthenticator.Result.Failure -> {
-                        binding?.let { b ->
-                            Snackbar.make(b.mainContainer, it.message, Snackbar.LENGTH_SHORT).vpn0wnStyle().show()
+            val request = Any()
+            val ownerConfig = ownerBinding.config
+            val ownerTunnel = tunnel
+            authenticationRequest = request
+            try {
+                BiometricAuthenticator.authenticate(R.string.biometric_prompt_private_key_title, this) {
+                    if (authenticationRequest !== request) return@authenticate
+                    if (it is BiometricAuthenticator.Result.Failure && it.code == null) {
+                        if (isCurrentKeyView(ownerBinding, edit)) {
+                            Snackbar.make(ownerBinding.mainContainer, it.message, Snackbar.LENGTH_SHORT).vpn0wnStyle().show()
                         }
+                        return@authenticate
                     }
+                    authenticationRequest = null
+                    if (!isCurrentKeyView(ownerBinding, edit) || tunnel !== ownerTunnel || ownerBinding.config !== ownerConfig) {
+                        return@authenticate
+                    }
+                    if (AdminKnobs.disableConfigExport) {
+                        resetKeyAuthorization()
+                        return@authenticate
+                    }
+                    when (it) {
+                        is BiometricAuthenticator.Result.Success, is BiometricAuthenticator.Result.NoAuthenticationConfigured -> {
+                            haveShownKeys = true
+                            showPrivateKey(edit)
+                        }
 
-                    is BiometricAuthenticator.Result.Cancelled -> {}
+                        is BiometricAuthenticator.Result.Failure -> {
+                            Snackbar.make(ownerBinding.mainContainer, it.message, Snackbar.LENGTH_SHORT).vpn0wnStyle().show()
+                        }
+
+                        is BiometricAuthenticator.Result.Cancelled -> {}
+                    }
                 }
+            } catch (failure: RuntimeException) {
+                if (authenticationRequest === request) authenticationRequest = null
+                throw failure
             }
         } else {
             showPrivateKey(edit)
         }
     }
 
+    private fun isCurrentKeyView(ownerBinding: TunnelEditorFragmentBinding, edit: EditText) =
+        binding === ownerBinding && viewLifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED) &&
+            ownerBinding.mainContainer.descendants.any { it === edit }
+
+    private fun resetKeyAuthorization() {
+        haveShownKeys = false
+        authenticationRequest = null
+        binding?.mainContainer?.descendants?.filterIsInstance<EditText>()?.filter {
+            it.id == R.id.private_key_text || it.id == R.id.pre_shared_key_text
+        }?.forEach {
+            setKeyInputType(it, KEY_MASKED_INPUT_TYPE)
+        }
+    }
+
     private fun showPrivateKey(edit: EditText) {
         activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-        edit.inputType = InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
+        setKeyInputType(edit, KEY_VISIBLE_INPUT_TYPE)
+    }
+
+    private fun setKeyInputType(edit: EditText, inputType: Int) {
+        // TextView replaces custom fonts when changing password variations.
+        val typeface = edit.typeface
+        edit.inputType = inputType
+        edit.typeface = typeface
     }
 
     companion object {
+        private const val COMPACT_WINDOW_WIDTH_DP = 600
+        private const val ENLARGED_FONT_SCALE = 1.5f
+        private const val KEY_MASKED_INPUT_TYPE = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or
+            InputType.TYPE_TEXT_VARIATION_PASSWORD
+        private const val KEY_VISIBLE_INPUT_TYPE = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS or
+            InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD
         private const val KEY_LOCAL_CONFIG = "local_config"
         private const val KEY_ORIGINAL_NAME = "original_name"
         private const val TAG = "vpn0wn/TunnelEditorFragment"

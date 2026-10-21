@@ -93,7 +93,7 @@
     <string name="bad_config_context">%2$s в %1$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%1$s в %2$s</string>
-    <string name="bad_config_explanation_pka">: Значение должно быть больше нуля, но меньше 65535</string>
+    <string name="bad_config_explanation_pka">: Значение должно быть от 0 до 65535 (0 отключает keepalive)</string>
     <string name="bad_config_explanation_positive_number">: Значение должно быть больше нуля</string>
     <string name="bad_config_explanation_udp_port">: Должен быть допустимым UDP-портом</string>
     <string name="bad_config_reason_invalid_key">Неправильный ключ</string>
@@ -176,7 +176,7 @@
     <string name="logcat_error">Не удалось запустить logcat: </string>
     <string name="module_enabler_disabled_summary">Экспериментальный модуль ядра может улучшить производительность</string>
     <string name="module_enabler_disabled_title">Включить бэкэнд модуля ядра</string>
-    <string name="module_enabler_enabled_summary">Пользовательское пространство немного медленнее и улучшает стабильность</string>
+    <string name="module_enabler_enabled_summary">Более медленный бэкенд в пользовательском пространстве может улучшить стабильность</string>
     <string name="module_enabler_enabled_title">Отключить бэкэнд модуля ядра</string>
     <string name="module_installer_error">Что-то пошло не так. Пожалуйста, попробуйте еще раз</string>
     <string name="module_installer_initial">Экспериментальный модуль ядра может улучшить производительность</string>
@@ -288,10 +288,14 @@
     <string name="vpn0wn_selection_status_count">%1$d ИЗ %2$d ВЫБРАНО</string>
     <plurals name="vpn0wn_selection_title">
         <item quantity="one">%d ВЫБРАНО</item>
+        <item quantity="few">%d ВЫБРАНО</item>
+        <item quantity="many">%d ВЫБРАНО</item>
         <item quantity="other">%d ВЫБРАНО</item>
     </plurals>
     <plurals name="vpn0wn_delete_sheet_title">
         <item quantity="one">удалить %d туннель?</item>
+        <item quantity="few">удалить %d туннеля?</item>
+        <item quantity="many">удалить %d туннелей?</item>
         <item quantity="other">удалить %d туннелей?</item>
     </plurals>
 </resources>

@@ -22,6 +22,8 @@ import (
 	"strings"
 	"unsafe"
 
+	awgdevice "github.com/amnezia-vpn/amneziawg-go/v3/device"
+	awgtun "github.com/amnezia-vpn/amneziawg-go/v3/tun"
 	"golang.org/x/sys/unix"
 	"golang.zx2c4.com/wireguard/android/androidbind"
 	"golang.zx2c4.com/wireguard/android/uapiserver"
@@ -74,7 +76,7 @@ func init() {
 }
 
 //export wgTurnOn
-func wgTurnOn(interfaceName string, tunFd int32, settings string, context *C.struct_wg_context, env *C.JNIEnv) int32 {
+func wgTurnOn(interfaceName string, tunFd int32, settings string, context *C.struct_wg_context, env *C.JNIEnv, capture *C.struct_wg_capture, amnezia C.int) int32 {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	tag := cstring("vpn0wn/GoBackend/" + interfaceName)
@@ -83,45 +85,64 @@ func wgTurnOn(interfaceName string, tunFd int32, settings string, context *C.str
 		Errorf:   AndroidLogger{level: C.ANDROID_LOG_ERROR, tag: tag}.Printf,
 	}
 
-	tun, name, err := tun.CreateUnmonitoredTUNFromFD(int(tunFd))
-	if err != nil {
-		unix.Close(int(tunFd))
-		C.wgFreeContext(env, context)
-		logger.Errorf("CreateUnmonitoredTUNFromFD: %v", err)
-		return -1
-	}
-
-	logger.Verbosef("Attaching to interface %v", name)
 	bind := androidbind.New(func(base conn.Bind, socketCount int) error {
 		return androidbind.ProtectSockets(base, socketCount, func(fd int) bool {
 			return C.wgProtectSocket(context, C.int(fd)) != 0
 		})
 	}, func() bool { return C.wgServiceActive(context) != 0 })
-	bind.SetHandshakeObserver(func(peer [32]byte, event int, retry bool, endpoint string) {
+	if capture != nil {
+		bind.SetInitialCapture(capturedTransport(context, capture, true))
+	}
+	bind.SetHandshakeObserver(func(peer [32]byte, event int, retry bool, endpoint string, episode uint64) {
 		isRetry := C.int(0)
 		if retry {
 			isRetry = 1
 		}
-		C.wgHandshakeObservation(context, (*C.char)(unsafe.Pointer(&peer[0])), C.int(event), isRetry, cstring(endpoint))
+		C.wgHandshakeObservation(context, (*C.char)(unsafe.Pointer(&peer[0])), C.int(event), isRetry, cstring(endpoint), C.jlong(episode))
 	})
-	device := device.NewDevice(tun, bind, logger)
-	handle := &TunnelHandle{device: device, bind: bind, context: context}
+	var engine tunnelDevice
+	var name string
+	var err error
+	if amnezia != 0 {
+		var nativeTun awgtun.Device
+		nativeTun, name, err = awgtun.CreateUnmonitoredTUNFromFD(int(tunFd))
+		if err == nil {
+			engine = awgdevice.NewDevice(nativeTun, androidbind.Amnezia{Bind: bind}, &awgdevice.Logger{
+				Verbosef: logger.Verbosef, Errorf: logger.Errorf,
+			})
+		}
+	} else {
+		var nativeTun tun.Device
+		nativeTun, name, err = tun.CreateUnmonitoredTUNFromFD(int(tunFd))
+		if err == nil {
+			engine = device.NewDevice(nativeTun, bind, logger)
+		}
+	}
+	if err != nil {
+		unix.Close(int(tunFd))
+		bind.Shutdown()
+		C.wgFreeContext(env, context)
+		logger.Errorf("CreateUnmonitoredTUNFromFD: %v", err)
+		return -1
+	}
+	logger.Verbosef("Attaching to interface %v", name)
+	handle := &TunnelHandle{device: engine, bind: bind, context: context}
 
-	err = device.IpcSet(settings)
+	err = engine.IpcSet(settings)
 	if err != nil {
 		handle.close(env)
 		logger.Errorf("IpcSet: %v", err)
 		return -1
 	}
-	device.DisableSomeRoamingForBrokenMobileSemantics()
+	engine.DisableSomeRoamingForBrokenMobileSemantics()
 
-	uapi, err := uapiserver.Listen(name, device.IpcHandle)
+	uapi, err := uapiserver.Listen(name, engine.IpcHandle)
 	handle.uapi = uapi
 	if err != nil {
 		logger.Errorf("UAPI listen: %v", err)
 	}
 
-	err = device.Up()
+	err = engine.Up()
 	if err != nil {
 		logger.Errorf("Unable to bring up device: %v", err)
 		handle.close(env)
@@ -140,6 +161,101 @@ func wgTurnOn(interfaceName string, tunFd int32, settings string, context *C.str
 		return -1
 	}
 	return id
+}
+
+func capturedTransport(context *C.struct_wg_context, capture *C.struct_wg_capture, available bool) *androidbind.Capture {
+	return &androidbind.Capture{
+		Available: available,
+		Prepare: func(base conn.Bind, count int) error {
+			return androidbind.ProtectSockets(base, count, func(fd int) bool {
+				return C.wgPrepareCapturedSocket(context, capture, C.int(fd)) != 0
+			})
+		},
+		Publish: func(generation uint64) error {
+			if C.wgReportCapturedTransport(context, capture, C.jlong(generation), 1) == 0 {
+				return errors.New("transport reporting failed")
+			}
+			return nil
+		},
+		Empty: func(generation uint64) error {
+			if C.wgReportCapturedTransport(context, capture, C.jlong(generation), 0) == 0 {
+				return errors.New("transport empty reporting failed")
+			}
+			return nil
+		},
+		Confirm: func(generation uint64) error {
+			if C.wgConfirmCapturedTransport(context, capture, C.jlong(generation)) == 0 {
+				return errors.New("transport publication retired")
+			}
+			return nil
+		},
+		Release: func() { C.wgReleaseCapture(context, capture) },
+	}
+}
+
+//export wgTransport
+func wgTransport(tunnelHandle int32, expected C.jlong, capture *C.struct_wg_capture, available C.int, env *C.JNIEnv) C.jlong {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	handle := tunnelHandles.acquire(tunnelHandle)
+	if handle == nil {
+		C.wgFreeCapture(env, capture)
+		return 131
+	}
+	defer handle.queries.Done()
+	if C.wgServiceActive(handle.context) == 0 {
+		C.wgFreeCapture(env, capture)
+		C.wgRethrowException(env, handle.context)
+		return C.jlong(handle.bind.Generation()<<8 | 131)
+	}
+	installed := false
+	next := capturedTransport(handle.context, capture, available != 0)
+	defer func() {
+		if !installed {
+			next.Release()
+		}
+	}()
+	err := handle.device.RebindTransport(func() error {
+		var err error
+		installed, err = handle.bind.ReplaceCapture(uint64(expected), next)
+		return err
+	})
+	outcome := 4
+	if errors.Is(err, unix.EBUSY) {
+		outcome = 1
+	} else if errors.Is(err, androidbind.ErrObsolete) {
+		outcome = 2
+	} else if err != nil {
+		outcome = 5
+	}
+	if handle.bind.IsStopped() {
+		outcome = 3
+	}
+	if C.wgServiceActive(handle.context) == 0 {
+		outcome |= 128
+	}
+	if C.wgRethrowException(env, handle.context) != 0 {
+		outcome |= 128
+	}
+	return C.jlong(handle.bind.Generation()<<8 | uint64(outcome))
+}
+
+//export wgTransportSnapshot
+func wgTransportSnapshot(tunnelHandle int32) C.jlong {
+	handle := tunnelHandles.acquire(tunnelHandle)
+	if handle == nil {
+		return 0
+	}
+	defer handle.queries.Done()
+	generation, ready := handle.bind.Snapshot()
+	result := generation << 2
+	if ready {
+		result |= 1
+	}
+	if C.wgContextHealthy(handle.context) != 0 {
+		result |= 2
+	}
+	return C.jlong(result)
 }
 
 //export wgTurnOff
@@ -202,6 +318,44 @@ func wgRebind(tunnelHandle int32, env *C.JNIEnv) int32 {
 		return -int32(unix.EIO)
 	}
 	return 0
+}
+
+const recoveryContextUnavailable = 1 << 8
+
+//export wgRecover
+func wgRecover(tunnelHandle int32, publicKey *C.char, episode C.jlong, endpoint, replacement string, expected C.jlong, env *C.JNIEnv, caller C.jobject) int32 {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	handle := tunnelHandles.acquire(tunnelHandle)
+	if handle == nil {
+		return device.RecoveryUnavailable | recoveryContextUnavailable
+	}
+	defer handle.queries.Done()
+	if C.wgRethrowException(env, handle.context) != 0 || C.wgServiceActive(handle.context) == 0 {
+		C.wgRethrowException(env, handle.context)
+		return device.RecoveryUnavailable | recoveryContextUnavailable
+	}
+	var key [32]byte
+	copy(key[:], unsafe.Slice((*byte)(unsafe.Pointer(publicKey)), len(key)))
+	callerException := false
+	result := handle.device.Recover(key, uint64(episode), endpoint, replacement, func() bool {
+		return expected < 0 || handle.bind.Generation() == uint64(expected)
+	}, func() bool {
+		interrupted := C.wgCallerInterrupted(env, caller)
+		callerException = interrupted < 0
+		return interrupted != 0
+	})
+	if callerException {
+		return int32(result) | recoveryContextUnavailable
+	}
+	if C.wgRethrowException(env, handle.context) != 0 {
+		return int32(result) | recoveryContextUnavailable
+	}
+	if handle.bind.IsStopped() || result == device.RecoveryUnavailable || C.wgServiceActive(handle.context) == 0 {
+		C.wgRethrowException(env, handle.context)
+		return int32(result) | recoveryContextUnavailable
+	}
+	return int32(result)
 }
 
 //export wgVersion

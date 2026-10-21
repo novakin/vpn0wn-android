@@ -5,25 +5,33 @@
 package com.vpn0wn.android.provisioning
 
 import java.io.IOException
-import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 
 interface RemoteShellClient {
     suspend fun execute(command: String): ProvisioningCommandOutput
+    suspend fun execute(command: String, onProgress: (VpsInstallProgress) -> Unit): ProvisioningCommandOutput = execute(command)
     suspend fun upload(path: String, content: String, mode: String = "0700"): ProvisioningCommandOutput
+    suspend fun close()
 }
 
 interface RemoteShellClientFactory {
     fun create(connection: VpsConnection): RemoteShellClient
+    suspend fun discoverHostKey(host: String, port: Int): String =
+        throw ProvisioningException("SSH host-key discovery is unavailable")
 }
 
 class GuardedRemoteShellClient(
     private val delegate: RemoteShellClient,
     private val timeoutMillis: Long = DEFAULT_TIMEOUT_MILLIS,
 ) : RemoteShellClient {
+    override suspend fun close() = delegate.close()
+
     override suspend fun execute(command: String): ProvisioningCommandOutput = guard("Remote command timed out", "Remote command failed") {
         delegate.execute(command)
     }
+
+    override suspend fun execute(command: String, onProgress: (VpsInstallProgress) -> Unit): ProvisioningCommandOutput =
+        guard("Remote command timed out", "Remote command failed") { delegate.execute(command, onProgress) }
 
     override suspend fun upload(path: String, content: String, mode: String): ProvisioningCommandOutput = guard("Remote upload timed out", "Remote upload failed") {
         delegate.upload(path, content, mode)
@@ -31,9 +39,8 @@ class GuardedRemoteShellClient(
 
     private suspend fun guard(timeoutMessage: String, failureMessage: String, block: suspend () -> ProvisioningCommandOutput): ProvisioningCommandOutput {
         return try {
-            withTimeout(timeoutMillis) { block() }
-        } catch (e: TimeoutCancellationException) {
-            throw ProvisioningException(timeoutMessage, cause = e)
+            withTimeoutOrNull(timeoutMillis) { block() }
+                ?: throw ProvisioningException(timeoutMessage)
         } catch (e: IOException) {
             throw ProvisioningException("$failureMessage: ${e.message.orEmpty()}".trim(), cause = e)
         }
@@ -48,6 +55,10 @@ class GuardedRemoteShellClientFactory(
     private val delegate: RemoteShellClientFactory,
     private val timeoutMillis: Long = GuardedRemoteShellClient.DEFAULT_TIMEOUT_MILLIS,
 ) : RemoteShellClientFactory {
+    override suspend fun discoverHostKey(host: String, port: Int): String =
+        withTimeoutOrNull(timeoutMillis) { delegate.discoverHostKey(host, port) }
+            ?: throw ProvisioningException("SSH host-key discovery timed out")
+
     override fun create(connection: VpsConnection): RemoteShellClient {
         if (!connection.trustHostKey && connection.hostKeyFingerprint.isNullOrBlank())
             throw ProvisioningException("SSH host fingerprint is required when host-key trust is disabled")

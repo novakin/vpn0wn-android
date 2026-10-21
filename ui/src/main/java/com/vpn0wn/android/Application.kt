@@ -16,7 +16,6 @@ import android.os.StrictMode.VmPolicy
 import android.util.Log
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStoreFile
 import com.vpn0wn.android.backend.Backend
@@ -28,6 +27,7 @@ import com.vpn0wn.android.util.RootShell
 import com.vpn0wn.android.util.ToolsInstaller
 import com.vpn0wn.android.util.UserKnobs
 import com.vpn0wn.android.util.applicationScope
+import com.vpn0wn.android.util.createPreferencesDataStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -44,6 +44,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import java.lang.ref.WeakReference
 import java.util.Locale
+import com.vpn0wn.android.provisioning.VpsCredentialFile
+import com.vpn0wn.android.provisioning.VpsServerStore
+import com.vpn0wn.android.provisioning.VpsUserProfileStore
 
 class Application : android.app.Application() {
     private val futureBackend = CompletableDeferred<Backend>()
@@ -53,6 +56,8 @@ class Application : android.app.Application() {
     private lateinit var preferencesDataStore: DataStore<Preferences>
     private lateinit var toolsInstaller: ToolsInstaller
     private lateinit var tunnelManager: TunnelManager
+    private lateinit var vpsServerStore: VpsServerStore
+    private lateinit var vpsUserProfileStore: VpsUserProfileStore
 
     override fun attachBaseContext(context: Context) {
         super.attachBaseContext(context)
@@ -88,7 +93,17 @@ class Application : android.app.Application() {
         }
         if (backend == null) {
             backend = GoBackend(applicationContext)
-            GoBackend.setAlwaysOnCallback { get().applicationScope.launch { get().tunnelManager.restoreState(true) } }
+            GoBackend.setAlwaysOnCallback {
+                get().applicationScope.launch {
+                    try {
+                        get().tunnelManager.restoreState(true)
+                    } catch (failure: IOException) {
+                        Log.e(TAG, "Failed to restore always-on tunnel state", failure)
+                    } catch (failure: RootShellException) {
+                        Log.e(TAG, "Failed to restore always-on tunnel state", failure)
+                    }
+                }
+            }
         }
         return backend
     }
@@ -100,7 +115,9 @@ class Application : android.app.Application() {
         super.onCreate()
         rootShell = RootShell(applicationContext)
         toolsInstaller = ToolsInstaller(applicationContext, rootShell)
-        preferencesDataStore = PreferenceDataStoreFactory.create { applicationContext.preferencesDataStoreFile("settings") }
+        preferencesDataStore = createPreferencesDataStore(applicationContext.preferencesDataStoreFile("settings"))
+        vpsServerStore = VpsServerStore(preferencesDataStore, VpsCredentialFile(applicationContext))
+        vpsUserProfileStore = VpsUserProfileStore(applicationContext)
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             runBlocking {
                 AppCompatDelegate.setDefaultNightMode(if (UserKnobs.darkTheme.first()) AppCompatDelegate.MODE_NIGHT_YES else AppCompatDelegate.MODE_NIGHT_NO)
@@ -166,6 +183,9 @@ class Application : android.app.Application() {
         fun getToolsInstaller() = get().toolsInstaller
 
         fun getTunnelManager() = get().tunnelManager
+
+        fun getVpsServerStore() = get().vpsServerStore
+        fun getVpsUserProfileStore() = get().vpsUserProfileStore
 
         fun getCoroutineScope() = get().coroutineScope
     }

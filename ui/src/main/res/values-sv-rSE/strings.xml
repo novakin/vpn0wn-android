@@ -67,7 +67,7 @@
     <string name="bad_config_context">%1$s\'s %2$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%1$s i %2$s</string>
-    <string name="bad_config_explanation_pka">: Måste vara positivt och högst 65535</string>
+    <string name="bad_config_explanation_pka">: 0–65535</string>
     <string name="bad_config_explanation_positive_number">: Måste vara positivt</string>
     <string name="bad_config_explanation_udp_port">: Måste vara ett giltigt UDP-portnummer</string>
     <string name="bad_config_reason_invalid_key">Ogiltig nyckel</string>

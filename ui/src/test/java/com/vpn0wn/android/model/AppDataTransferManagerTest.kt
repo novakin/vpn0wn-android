@@ -10,11 +10,16 @@ import com.vpn0wn.android.backend.Tunnel
 import com.vpn0wn.android.configStore.ConfigStore
 import com.vpn0wn.android.provisioning.StoredVpsServer
 import com.vpn0wn.android.provisioning.VpsServerStore
+import com.vpn0wn.android.provisioning.VpsCredential
 import com.vpn0wn.android.util.AppDataTransfer
 import com.vpn0wn.android.util.UserKnobs
 import com.vpn0wn.config.Config as TunnelConfig
 import java.io.File
 import java.io.IOException
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.util.zip.ZipInputStream
+import org.json.JSONObject
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CompletableDeferred
@@ -32,6 +37,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -73,7 +79,7 @@ class AppDataTransferManagerTest {
             it[stringPreferencesKey("updater_newer_version_consented")] = "source-consent"
         }
         val server = server("source-server")
-        VpsServerStore(sourcePreferences).upsert(server)
+        com.vpn0wn.android.Application.getVpsServerStore().upsert(server)
         val archive = source.manager.exportAppData()
 
         val destination = environment(folder.newFolder("destination"))
@@ -161,7 +167,7 @@ class AppDataTransferManagerTest {
         assertSame(original, env.store.configs["existing"])
         assertEquals(Tunnel.State.UP, existing.state)
         assertEquals(Tunnel.State.DOWN, imported!!.state)
-        assertEquals(listOf(server("one")), VpsServerStore(preferencesStore()).servers.first())
+        assertEquals(listOf(server("one")), com.vpn0wn.android.Application.getVpsServerStore().servers.first())
         assertTrue(env.store.deleteAttempts.isEmpty())
     }
 
@@ -187,8 +193,8 @@ class AppDataTransferManagerTest {
         val env = environment()
         val existing = server("same")
         val unrelated = server("unrelated")
-        VpsServerStore(preferencesStore()).upsert(existing)
-        VpsServerStore(preferencesStore()).upsert(unrelated)
+        com.vpn0wn.android.Application.getVpsServerStore().upsert(existing)
+        com.vpn0wn.android.Application.getVpsServerStore().upsert(unrelated)
         UserKnobs.setRunningTunnels(setOf("new", "orphan"))
         val before = preferencesStore().data.first()
 
@@ -210,7 +216,7 @@ class AppDataTransferManagerTest {
         val existing = server("existing")
         val shared = server("shared")
         val imported = server("imported")
-        val store = VpsServerStore(preferencesStore())
+        val store = com.vpn0wn.android.Application.getVpsServerStore()
         store.upsert(existing)
         store.upsert(shared)
 
@@ -507,6 +513,7 @@ class AppDataTransferManagerTest {
     @Test
     fun startupRestoreSnapshotCannotActivateProfileImportedDuringSavedStateRead() = runTest {
         val env = environment()
+        env.manager.getTunnels()
         val dataStore = preferencesStore()
         UserKnobs.setRunningTunnels(setOf("new", "orphan"))
         val readingRestore = CompletableDeferred<Unit>()
@@ -518,18 +525,21 @@ class AppDataTransferManagerTest {
                 reads++
                 if (reads == 2) {
                     readingRestore.complete(Unit)
-                    finishRestoreRead.await()
+                    // A real clock releases admitted import work if fixture read ordering regresses.
+                    withContext(Dispatchers.IO) {
+                        withTimeout(TimeUnit.SECONDS.toMillis(5)) { finishRestoreRead.await() }
+                    }
                 }
                 emit(snapshot)
             }
         }
         setApplicationField(env, "preferencesDataStore", delayedStore)
-        env.manager.getTunnels()
+        val restoring = async { env.manager.restoreState(true) }
         readingRestore.await()
         try {
             assertEquals(1, env.manager.importAppData(archive(mapOf("new" to TunnelTestEnvironment.profile()))))
             finishRestoreRead.complete(Unit)
-            loadingJob(env.manager).join()
+            restoring.await()
 
             assertEquals(Tunnel.State.DOWN, env.manager.getTunnels()["new"]!!.state)
             assertTrue(env.backend.getRunningTunnelNames().isEmpty())
@@ -578,7 +588,7 @@ class AppDataTransferManagerTest {
             }
         }
         setApplicationField(env, "preferencesDataStore", delayedStore)
-        old.setNameAsync("renamed")
+        val renaming = async { old.setNameAsync("renamed") }
         writingSelection.await()
         val importing = async {
             env.manager.importAppData(archive(mapOf("new" to TunnelTestEnvironment.profile()), selection = "new"))
@@ -586,8 +596,9 @@ class AppDataTransferManagerTest {
         try {
             runCurrent()
             assertFalse(importing.isCompleted)
-            assertEquals(setOf("renamed"), env.store.configs.keys)
+            assertFalse(env.store.configs.containsKey("new"))
             finishSelectionWrite.complete(Unit)
+            assertEquals("renamed", renaming.await())
             assertEquals(1, importing.await())
             runCurrent()
 
@@ -599,6 +610,82 @@ class AppDataTransferManagerTest {
         }
     }
 
+    @Test
+    fun orphanedSshCredentialRejectsImportBeforeRestoreMarkersOrProfileWrites() = runTest {
+        val env = environment()
+        val fleet = com.vpn0wn.android.Application.getVpsServerStore()
+        val server = server("orphan")
+        fleet.upsert(server)
+        val pin = "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        fleet.saveCredential(server, pin, VpsCredential.Password("synthetic-orphan-password".toCharArray()))
+        preferencesStore().edit {
+            it[VpsServerStore.SERVERS] = "[]"
+            it[UserKnobs.RUNNING_TUNNELS] = setOf("new", "kept-marker")
+        }
+        val before = preferencesStore().data.first().asMap()
+        val ciphertext = File(folder.root, "credentials").readBytes()
+
+        expectFailure<VpsServerStore.CredentialConflictException> {
+            env.manager.importAppData(archive(mapOf("new" to TunnelTestEnvironment.profile()), servers = listOf(server)))
+        }
+
+        assertEquals(before, preferencesStore().data.first().asMap())
+        assertTrue(env.store.configs.isEmpty())
+        org.junit.Assert.assertArrayEquals(ciphertext, File(folder.root, "credentials").readBytes())
+    }
+
+    @Test
+    fun identicalFleetImportRetainsLocalCredentialsButTransferContainsNoSshMaterial() = runTest {
+        val env = environment()
+        val fleet = com.vpn0wn.android.Application.getVpsServerStore()
+        val first = server("password")
+        val second = server("key")
+        val pin = "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        val password = "synthetic-transfer-ssh-password"
+        val pem = "synthetic-transfer-ssh-private-key"
+        val passphrase = "synthetic-transfer-ssh-passphrase"
+        fleet.upsert(first)
+        fleet.upsert(second)
+        fleet.saveCredential(first, pin, VpsCredential.Password(password.toCharArray()))
+        fleet.saveCredential(second, pin, VpsCredential.PrivateKey(pem, passphrase))
+        val ciphertext = File(folder.root, "credentials").readBytes()
+        assertEquals(0, env.manager.importAppData(archive(servers = listOf(first, second))))
+        org.junit.Assert.assertArrayEquals(ciphertext, File(folder.root, "credentials").readBytes())
+        val loaded = requireNotNull(fleet.loadConnection(first)).credential as VpsCredential.Password
+        try { assertEquals(password, loaded.value.concatToString()) } finally { loaded.clear() }
+        assertEquals(pem, (fleet.loadConnection(second)!!.credential as VpsCredential.PrivateKey).pem)
+
+        val output = ByteArrayOutputStream()
+        AppDataTransfer.write(env.manager.exportAppData(), output)
+        val contents = mutableListOf<String>()
+        ZipInputStream(ByteArrayInputStream(output.toByteArray())).use { zip ->
+            while (zip.nextEntry != null) contents += zip.readBytes().toString(Charsets.UTF_8)
+        }
+        val text = contents.joinToString()
+        for (secret in listOf(password, pem, passphrase, pin)) assertFalse(text.contains(secret))
+        val manifest = JSONObject(contents.single())
+        val servers = manifest.getJSONArray("servers")
+        assertEquals(16, servers.getJSONObject(0).length())
+        assertEquals(16, servers.getJSONObject(1).length())
+    }
+
+    @Test
+    fun unreadableCredentialVaultDoesNotBlockOrdinaryProfileTransfer() = runTest {
+        val env = environment()
+        env.manager.create("kept", TunnelTestEnvironment.profile())
+        val server = server("kept")
+        val fleet = com.vpn0wn.android.Application.getVpsServerStore()
+        fleet.upsert(server)
+        fleet.saveCredential(server, "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", VpsCredential.Password("synthetic".toCharArray()))
+        File(folder.root, "credentials").writeText("unreadable ciphertext")
+        val before = File(folder.root, "credentials").readBytes()
+
+        assertEquals(setOf("kept"), env.manager.exportAppData().profiles.keys)
+        assertEquals(1, env.manager.importAppData(archive(mapOf("new" to TunnelTestEnvironment.profile(51821)), servers = listOf(server))))
+        assertEquals(setOf("kept", "new"), env.store.configs.keys)
+        org.junit.Assert.assertArrayEquals(before, File(folder.root, "credentials").readBytes())
+    }
+
     private fun TestScope.environment(directory: File = folder.root): TunnelTestEnvironment {
         Dispatchers.setMain(StandardTestDispatcher(testScheduler))
         return TunnelTestEnvironment(directory, backgroundScope)
@@ -607,6 +694,11 @@ class AppDataTransferManagerTest {
     private fun preferencesStore() = com.vpn0wn.android.Application.getPreferencesDataStore()
 
     private fun setApplicationField(env: TunnelTestEnvironment, name: String, value: Any) {
+        if (name == "preferencesDataStore") {
+            @Suppress("UNCHECKED_CAST")
+            env.replacePreferences(value as DataStore<Preferences>)
+            return
+        }
         com.vpn0wn.android.Application::class.java.getDeclaredField(name)
             .apply { isAccessible = true }.set(env.application, value)
     }

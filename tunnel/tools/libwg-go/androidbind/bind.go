@@ -17,15 +17,75 @@ import (
 )
 
 type Bind struct {
-	lifecycle sync.Mutex
-	mu        sync.Mutex
-	ready     conn.Bind
-	stopped   bool
-	warmup    atomic.Bool
-	protect   func(conn.Bind, int) error
-	active    func() bool
-	newBind   func() conn.Bind
-	observe   func([32]byte, int, bool, string)
+	lifecycle    sync.Mutex
+	mu           sync.Mutex
+	ready        conn.Bind
+	stopped      bool
+	warmup       atomic.Bool
+	protect      func(conn.Bind, int) error
+	active       func() bool
+	newBind      func() conn.Bind
+	observe      func([32]byte, int, bool, string, uint64)
+	capture      *Capture
+	readyCapture *Capture
+	generation   uint64
+}
+
+// Capture belongs to one serialized transport operation and every family opened by it.
+type Capture struct {
+	Prepare   func(conn.Bind, int) error
+	Publish   func(uint64) error
+	Confirm   func(uint64) error
+	Empty     func(uint64) error
+	Release   func()
+	Available bool
+}
+
+var ErrObsolete = errors.New("obsolete transport generation")
+
+func (b *Bind) Generation() uint64 {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.generation
+}
+
+func (b *Bind) Snapshot() (uint64, bool) {
+	b.lifecycle.Lock()
+	defer b.lifecycle.Unlock()
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.generation, !b.stopped && b.ready != nil
+}
+
+// ReplaceCapture runs inside the device IPC owner, before old captured I/O closes.
+func (b *Bind) ReplaceCapture(expected uint64, capture *Capture) (bool, error) {
+	b.lifecycle.Lock()
+	defer b.lifecycle.Unlock()
+	b.mu.Lock()
+	if b.stopped || b.generation != expected {
+		b.mu.Unlock()
+		return false, ErrObsolete
+	}
+	previous := b.capture
+	b.generation++
+	b.capture = capture
+	b.mu.Unlock()
+	if err := b.closeReady(); err != nil {
+		if previous != nil && previous.Release != nil {
+			previous.Release()
+		}
+		return true, err
+	}
+	if previous != nil && previous.Release != nil {
+		previous.Release()
+	}
+	return true, nil
+}
+
+func (b *Bind) SetInitialCapture(capture *Capture) {
+	b.mu.Lock()
+	b.capture = capture
+	b.mu.Unlock()
 }
 
 const (
@@ -36,18 +96,18 @@ const (
 	HandshakeExhausted
 )
 
-func (b *Bind) SetHandshakeObserver(observe func([32]byte, int, bool, string)) {
+func (b *Bind) SetHandshakeObserver(observe func([32]byte, int, bool, string, uint64)) {
 	b.mu.Lock()
 	b.observe = observe
 	b.mu.Unlock()
 }
 
-func (b *Bind) ObserveHandshake(peer [32]byte, event int, retry bool, endpoint string) {
+func (b *Bind) ObserveHandshake(peer [32]byte, event int, retry bool, endpoint string, episode uint64) {
 	b.mu.Lock()
 	observe, stopped := b.observe, b.stopped
 	b.mu.Unlock()
 	if observe != nil && !stopped {
-		observe(peer, event, retry, endpoint)
+		observe(peer, event, retry, endpoint, episode)
 	}
 }
 
@@ -64,7 +124,7 @@ func (b *Bind) Open(port uint16) ([]conn.ReceiveFunc, uint16, error) {
 	b.lifecycle.Lock()
 	defer b.lifecycle.Unlock()
 	b.mu.Lock()
-	stopped, opened := b.stopped, b.ready != nil
+	stopped, opened, capture, generation := b.stopped, b.ready != nil, b.capture, b.generation
 	b.mu.Unlock()
 	if stopped {
 		return nil, 0, net.ErrClosed
@@ -72,22 +132,60 @@ func (b *Bind) Open(port uint16) ([]conn.ReceiveFunc, uint16, error) {
 	if opened {
 		return nil, 0, conn.ErrBindAlreadyOpen
 	}
+	b.mu.Lock()
+	b.generation++
+	generation = b.generation
+	b.mu.Unlock()
+	if capture != nil && !capture.Available {
+		if capture.Empty != nil {
+			capture.Empty(generation)
+		}
+		return nil, 0, net.ErrClosed
+	}
 	base := b.newBind()
 	fns, actual, err := base.Open(port)
 	if err == nil {
-		err = b.protect(base, len(fns))
+		if capture != nil {
+			err = capture.Prepare(base, len(fns))
+		} else {
+			err = b.protect(base, len(fns))
+		}
 	}
 	if err != nil {
 		base.Close()
+		if capture != nil && capture.Empty != nil {
+			capture.Empty(generation)
+		}
 		return nil, 0, err
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if b.stopped || !b.active() {
+	if b.stopped || b.generation != generation || b.capture != capture || !b.active() {
 		base.Close()
 		return nil, 0, net.ErrClosed
 	}
+	if capture != nil {
+		if err := capture.Publish(generation); err != nil {
+			base.Close()
+			if capture.Empty != nil {
+				capture.Empty(generation)
+			}
+			return nil, 0, err
+		}
+	}
 	b.ready = base
+	b.readyCapture = capture
+	if capture != nil && capture.Confirm != nil {
+		if err := capture.Confirm(generation); err != nil {
+			b.ready = nil
+			b.readyCapture = nil
+			base.Close()
+			if capture.Empty != nil {
+				capture.Empty(generation)
+			}
+			return nil, 0, err
+		}
+	}
 	return fns, actual, nil
 }
 
@@ -100,10 +198,18 @@ func (b *Bind) Close() error {
 func (b *Bind) closeReady() error {
 	b.mu.Lock()
 	base := b.ready
+	capture, generation := b.readyCapture, b.generation
 	b.ready = nil
+	b.readyCapture = nil
 	b.mu.Unlock()
 	if base != nil {
-		return base.Close()
+		err := base.Close()
+		if capture != nil && capture.Empty != nil {
+			if reportErr := capture.Empty(generation); err == nil {
+				err = reportErr
+			}
+		}
+		return err
 	}
 	return nil
 }
@@ -113,7 +219,17 @@ func (b *Bind) Shutdown() error {
 	b.mu.Lock()
 	b.stopped = true
 	b.mu.Unlock()
-	return b.Close()
+	err := b.Close()
+	b.lifecycle.Lock()
+	b.mu.Lock()
+	capture := b.capture
+	b.capture = nil
+	b.mu.Unlock()
+	b.lifecycle.Unlock()
+	if capture != nil && capture.Release != nil {
+		capture.Release()
+	}
+	return err
 }
 
 func (b *Bind) IsStopped() bool {

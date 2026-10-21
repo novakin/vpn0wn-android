@@ -5,7 +5,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=common.sh
 . "$SCRIPT_DIR/common.sh"
 
-[[ -r "$WG_CONF" ]] || fail_json "not_installed" "$WG_CONF does not exist." 72
+require_root
+require_owned_config
+lock_interface
+require_owned_config
+validate_peer_markers || fail_json "invalid_config" "Peer metadata is ambiguous." 73
 
 endpoint=$(conf_value ENDPOINT || true)
 cidr=$(conf_value TUNNL_CIDR || true)
@@ -14,6 +18,55 @@ listen_port=$(grep -m1 -E '^ListenPort = ' "$WG_CONF" | awk '{print $3}' || true
 running=null
 if observe_runtime; then
   running=$RUNTIME_RUNNING
+fi
+
+server_public_key=""
+server_private_key=$(awk '$1 == "PrivateKey" {print $3; exit}' "$WG_CONF")
+if [[ -n "$server_private_key" ]] && configured_public_key=$(wg_public_key_from_private "$server_private_key" 2>/dev/null) &&
+    [[ "$configured_public_key" =~ ^[A-Za-z0-9+/]{42}[AEIMQUYcgkosw048]=$ ]]; then
+  if [[ "$running" == false ]]; then
+    server_public_key=$configured_public_key
+  elif [[ "$running" == true ]]; then
+    live_public_key=$(wg show "$WG_IFACE" public-key 2>/dev/null) || live_public_key=""
+    if [[ "$live_public_key" == "$configured_public_key" ]]; then
+      server_public_key=$configured_public_key
+    fi
+  fi
+fi
+server_public_key_json=null
+if [[ -n "$server_public_key" ]]; then
+  server_public_key_json=$(json_string "$server_public_key")
+fi
+
+peer_keys_json() {
+  local inventory=$1 key result='[' separator=''
+  local -A seen=()
+  while IFS= read -r key; do
+    [[ -n "$key" ]] || continue
+    (require_public_key "$key") >/dev/null 2>&1 || return 1
+    [[ -z "${seen[$key]+set}" ]] || return 1
+    seen[$key]=1
+    result+="$separator$(json_string "$key")"
+    separator=','
+  done <<< "$inventory"
+  printf '%s]' "$result"
+}
+
+configured_peer_keys_json=null
+if configured_peer_keys=$(configured_peer_public_keys "$WG_CONF"); then
+  configured_peer_keys_json=$(peer_keys_json "$configured_peer_keys") || configured_peer_keys_json=null
+fi
+
+runtime_peer_keys_json=null
+if [[ "$running" == false ]]; then
+  runtime_peer_keys_json='[]'
+elif [[ "$running" == true ]] && runtime_peer_keys=$(wg show "$WG_IFACE" peers 2>/dev/null); then
+  runtime_peer_keys_json=$(peer_keys_json "$runtime_peer_keys") || runtime_peer_keys_json=null
+fi
+
+revoked_archives_json=null
+if read_revoked_archive_inventory; then
+  revoked_archives_json=$(revoked_archive_inventory_json)
 fi
 
 dump=""
@@ -31,13 +84,17 @@ json_counter() {
   fi
 }
 
-printf '{"ok":true,"interface":%s,"running":%s,"endpoint":%s,"listenPort":%s,"cidr":%s,"dns":%s,"peers":[' \
+printf '{"ok":true,"interface":%s,"running":%s,"endpoint":%s,"listenPort":%s,"cidr":%s,"dns":%s,"serverPublicKey":%s,"runtimePeerPublicKeys":%s,"configuredPeerPublicKeys":%s,"revokedArchives":%s,"peers":[' \
   "$(json_string "$WG_IFACE")" \
   "$running" \
   "$(json_string "$endpoint")" \
   "$(json_string "$listen_port")" \
   "$(json_string "$cidr")" \
-  "$(json_string "$dns")"
+  "$(json_string "$dns")" \
+  "$server_public_key_json" \
+  "$runtime_peer_keys_json" \
+  "$configured_peer_keys_json" \
+  "$revoked_archives_json"
 
 first=true
 awk '

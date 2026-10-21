@@ -12,8 +12,6 @@
 
         <import type="com.vpn0wn.android.widget.KeyInputFilter" />
 
-        <import type="com.vpn0wn.android.databinding.BindingAdapters" />
-
         <variable
             name="collection"
             type="androidx.databinding.ObservableList&lt;com.vpn0wn.android.viewmodel.PeerProxy&gt;" />
@@ -70,7 +68,7 @@
                     android:nextFocusDown="@id/public_key_text"
                     android:nextFocusForward="@id/public_key_text"
                     android:onClick="@{() -> item.unbind()}"
-                    android:text="remove"
+                    android:text="@string/vpn0wn_remove_peer"
                     android:textColor="@color/vpn0wn_error" />
             </LinearLayout>
 
@@ -81,12 +79,12 @@
 
                 <TextView
                     style="@style/Vpn0wnConfigRowLabel"
-                    android:text="PUBLIC KEY" />
+                    android:text="@string/public_key" />
 
                 <EditText
                     android:id="@+id/public_key_text"
                     style="@style/Vpn0wnEditorField"
-                    android:hint="paste base64 key"
+                    android:hint="@string/vpn0wn_paste_base64_key"
                     android:imeOptions="actionNext"
                     android:inputType="textNoSuggestions|textVisiblePassword"
                     android:nextFocusUp="@id/delete"
@@ -108,7 +106,7 @@
 
                 <TextView
                     style="@style/Vpn0wnConfigRowLabel"
-                    android:text="PRESHARED KEY" />
+                    android:text="@string/pre_shared_key" />
 
                 <EditText
                     android:id="@+id/pre_shared_key_text"
@@ -137,12 +135,12 @@
 
                 <TextView
                     style="@style/Vpn0wnConfigRowLabel"
-                    android:text="ENDPOINT" />
+                    android:text="@string/endpoint" />
 
                 <EditText
                     android:id="@+id/endpoint_text"
                     style="@style/Vpn0wnEditorField"
-                    android:hint="host:port"
+                    android:hint="@string/vpn0wn_endpoint_hint"
                     android:imeOptions="actionNext"
                     android:inputType="textNoSuggestions|textVisiblePassword"
                     android:nextFocusUp="@id/pre_shared_key_text"
@@ -163,7 +161,7 @@
 
                 <TextView
                     style="@style/Vpn0wnConfigRowLabel"
-                    android:text="ALLOWED IPs" />
+                    android:text="@string/allowed_ips" />
 
                 <EditText
                     android:id="@+id/allowed_ips_text"
@@ -201,18 +199,18 @@
 
                 <TextView
                     style="@style/Vpn0wnConfigRowLabel"
-                    android:text="PERSISTENT KEEPALIVE" />
+                    android:text="@string/persistent_keepalive" />
 
                 <EditText
                     android:id="@+id/persistent_keepalive_text"
                     style="@style/Vpn0wnEditorField"
                     android:hint="@string/hint_optional_discouraged"
                     android:imeOptions="actionNext"
-                    android:inputType="number"
                     android:nextFocusUp="@id/selected_checkbox"
                     android:nextFocusDown="@id/endpoint_text"
                     android:nextFocusForward="@id/endpoint_text"
-                    android:text="@={item.persistentKeepalive}" />
+                    android:text="@={item.persistentKeepalive}"
+                    app:amneziaKeepalive="@{item.amnezia}" />
             </LinearLayout>
 
         </LinearLayout>

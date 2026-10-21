@@ -36,6 +36,7 @@ class OfflineHost:
         self.tools = False
         self.packages = "not-installed"
         self.peers = {}
+        self.revoked = []
         self.live_keys = set()
         self.upload = False
         self.artifacts = "preexisting-artifacts" in self.faults
@@ -106,12 +107,16 @@ class OfflineHost:
             payload = {"name": name, "publicKey": key, "config": CONFIG, "nested": {"privateKey": PRIVATE_KEY}}
         elif script in ("revoke-peer.sh", "remove-peer.sh"):
             name = args[args.index("--name") + 1]
+            self.require(args[args.index("--expected-public-key") + 1] == self.peers[name])
             key = self.peers.pop(name)
             if f"{script}-live-residue" not in self.faults:
                 self.live_keys.remove(key)
-            payload = {"name": name, "removed": True, "revoked": script == "revoke-peer.sh", "archive": CONFIG}
+            if script == "revoke-peer.sh":
+                self.revoked.append({"archiveName": f"{name}.conf.ABC123", "config": f"# BEGIN_PEER {name}\n[Peer]\nPublicKey = {key}\nPresharedKey = {PSK}\n# END_PEER {name}\n"})
+            payload = {"name": name, "publicKey": key, "removed": True, "revoked": script == "revoke-peer.sh", "archive": CONFIG}
         elif script == "backup.sh":
-            payload = {"interface": "wg0", "config": CONFIG, "revokedCount": "1"}
+            payload = {"interface": "wg0", "config": CONFIG, "revokedCount": "1", "snapshotVersion": 1,
+                       "capturedAtUtc": "2026-10-16T00:00:00Z", "revoked": self.revoked}
         elif script == "uninstall.sh":
             purge = "--purge-packages" in args
             self.config = "uninstall-config-residue" in self.faults
@@ -231,9 +236,15 @@ class HarnessTest(unittest.TestCase):
             ("revoke-peer.sh", {"name": "wrong"}), ("revoke-peer.sh", {"removed": False}),
             ("revoke-peer.sh", {"revoked": 1}), ("remove-peer.sh", {"removed": "true"}),
             ("remove-peer.sh", {"revoked": True}), ("remove-peer.sh", {"name": "wrong"}),
+            ("revoke-peer.sh", {"publicKey": "stale-key"}), ("remove-peer.sh", {"publicKey": None}),
             ("backup.sh", {"interface": "wrong"}), ("backup.sh", {"config": None}),
             ("backup.sh", {"config": ""}), ("backup.sh", {"revokedCount": "0"}),
-            ("backup.sh", {"revokedCount": 1}), ("uninstall.sh", {"packagesPurged": 1}),
+            ("backup.sh", {"revokedCount": 1}), ("backup.sh", {"snapshotVersion": True}),
+            ("backup.sh", {"snapshotVersion": 2}), ("backup.sh", {"capturedAtUtc": "2026-02-30T00:00:00Z"}),
+            ("backup.sh", {"revoked": []}), ("backup.sh", {"revoked": [CONFIG]}),
+            ("backup.sh", {"revoked": [{"archiveName": "../alice.conf", "config": CONFIG}]}),
+            ("backup.sh", {"revoked": [{"archiveName": "android-test-1.conf.ABC123", "config": CONFIG}]}),
+            ("uninstall.sh", {"packagesPurged": 1}),
             ("uninstall.sh", {"uninstalled": 1}),
         ]
         for script, override in cases:

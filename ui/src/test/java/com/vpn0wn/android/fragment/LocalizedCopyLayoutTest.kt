@@ -1,0 +1,697 @@
+/* SPDX-License-Identifier: Apache-2.0 */
+package com.vpn0wn.android.fragment
+
+import android.app.Application
+import android.content.ClipboardManager
+import android.content.res.Configuration
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.Rect
+import android.os.Looper
+import android.text.InputType
+import android.text.Layout
+import android.view.View
+import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.widget.ScrollView
+import android.widget.LinearLayout
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.res.ResourcesCompat
+import androidx.databinding.DataBindingUtil
+import com.vpn0wn.android.R
+import com.vpn0wn.android.backend.Statistics
+import com.vpn0wn.android.backend.Tunnel
+import com.vpn0wn.android.databinding.LogViewerActivityBinding
+import com.vpn0wn.android.databinding.TunnelDetailFragmentBinding
+import com.vpn0wn.android.databinding.TunnelDetailPeerBinding
+import com.vpn0wn.android.databinding.TunnelEditorFragmentBinding
+import com.vpn0wn.android.databinding.TunnelEditorPeerBinding
+import com.vpn0wn.android.model.ObservableTunnel
+import com.vpn0wn.android.model.TunnelTestEnvironment
+import com.vpn0wn.android.viewmodel.ConfigProxy
+import com.vpn0wn.config.Config as TunnelConfig
+import com.vpn0wn.config.Interface
+import com.vpn0wn.config.Peer
+import com.vpn0wn.crypto.Key
+import com.vpn0wn.crypto.KeyPair
+import java.io.File
+import java.util.Locale
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import org.junit.runner.RunWith
+import org.robolectric.Robolectric
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+import org.robolectric.util.ReflectionHelpers
+
+@RunWith(RobolectricTestRunner::class)
+@Config(application = Application::class, sdk = [28])
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+class LocalizedCopyLayoutTest {
+    @get:Rule val folder = TemporaryFolder()
+
+    @Test fun amneziaEditorKeepaliveRangeAndZeroRemainComplete() = previews(keepalivePreviews()) { activity, case ->
+        val fragment = TunnelEditorFragment()
+        activity.supportFragmentManager.beginTransaction().add(android.R.id.content, fragment).commitNow()
+        val binding = requireNotNull(DataBindingUtil.getBinding<TunnelEditorFragmentBinding>(fragment.requireView()))
+        binding.isNew = true
+        try {
+            for ((name, value) in keepaliveValues()) {
+                val config = ConfigProxy(keepaliveProfile(value))
+                binding.config = config
+                binding.executePendingBindings()
+                layout(binding.root, case)
+                assertConfiguration(binding.root, case)
+                val peer = requireNotNull(DataBindingUtil.getBinding<TunnelEditorPeerBinding>(binding.peersLayout.getChildAt(0)))
+                val field = peer.persistentKeepaliveText
+                assertEquals(value, field.text.toString())
+                assertEquals(InputType.TYPE_CLASS_TEXT, field.inputType and InputType.TYPE_MASK_CLASS)
+                assertTrue("AWG ranges disable suggestions", field.inputType and InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS != 0)
+                assertEquals(EditorInfo.IME_ACTION_NEXT, field.imeOptions and EditorInfo.IME_MASK_ACTION)
+                reveal(field, binding.root, case)
+                assertTrue("AWG keepalive accepts native focus", field.requestFocus())
+                field.setText("")
+                val connection = requireNotNull(field.onCreateInputConnection(EditorInfo()))
+                assertTrue("Native input connection accepts the complete range", connection.commitText(value, 1))
+                binding.executePendingBindings()
+                assertEquals(value, config.resolve().peers.single().amneziaKeepalive.get())
+                layout(binding.root, case)
+                reveal(field, binding.root, case)
+                capture(binding.root, case, "editor-$name", "awg-keepalive-previews")
+                assertTextFits(field)
+                assertMono(field, R.font.jetbrains_mono_regular)
+                val node = field.createAccessibilityNodeInfo()
+                try {
+                    assertTrue("AWG keepalive remains editable", node.isEditable)
+                    assertEquals(value, node.text.toString())
+                } finally { node.recycle() }
+                field.clearFocus()
+            }
+            val ordinary = ConfigProxy(keepaliveProfile("25", amnezia = false))
+            binding.config = ordinary
+            binding.executePendingBindings()
+            layout(binding.root, case)
+            val peer = requireNotNull(DataBindingUtil.getBinding<TunnelEditorPeerBinding>(binding.peersLayout.getChildAt(0)))
+            val field = peer.persistentKeepaliveText
+            assertEquals(InputType.TYPE_CLASS_NUMBER, field.inputType and InputType.TYPE_MASK_CLASS)
+            reveal(field, binding.root, case)
+            assertTrue(field.requestFocus())
+            field.setText("")
+            assertTrue(requireNotNull(field.onCreateInputConnection(EditorInfo())).commitText("26", 1))
+            binding.executePendingBindings()
+            assertEquals(26, ordinary.resolve().peers.single().persistentKeepalive.get().toInt())
+            layout(binding.root, case)
+            reveal(field, binding.root, case)
+            capture(binding.root, case, "editor-wireguard-numeric", "awg-keepalive-previews")
+            assertTextFits(field)
+            assertMono(field, R.font.jetbrains_mono_regular)
+        } finally { binding.unbind() }
+    }
+
+    @Test fun amneziaDetailKeepaliveRangeAndDisabledRemainCompleteAndCopyable() = runTest {
+        val environment = TunnelTestEnvironment(folder.root, backgroundScope)
+        try {
+            previews(keepalivePreviews()) { activity, case ->
+                val binding = TunnelDetailFragmentBinding.inflate(activity.layoutInflater)
+                activity.setContentView(binding.root)
+                try {
+                    for ((name, value) in keepaliveValues()) {
+                        val profile = keepaliveProfile(value)
+                        binding.config = profile
+                        binding.tunnel = ObservableTunnel(environment.manager, "synthetic", profile, Tunnel.State.DOWN)
+                        binding.executePendingBindings()
+                        layout(binding.root, case)
+                        assertConfiguration(binding.root, case)
+                        val peer = requireNotNull(DataBindingUtil.getBinding<TunnelDetailPeerBinding>(binding.peersLayout.getChildAt(0)))
+                        val row = peer.persistentKeepaliveRow
+                        val text = peer.persistentKeepaliveText
+                        val expected = if (value == "0") activity.getString(R.string.persistent_keepalive_disabled)
+                            else activity.getString(R.string.persistent_keepalive_range_seconds, value)
+                        assertEquals(View.VISIBLE, row.visibility)
+                        assertEquals(expected, text.text.toString())
+                        reveal(row, binding.root, case)
+                        capture(binding.root, case, "detail-$name", "awg-keepalive-previews")
+                        assertTextFits(text)
+                        assertMono(text, R.font.jetbrains_mono_medium)
+                        assertTarget(row)
+                        val description = "${activity.getString(R.string.persistent_keepalive)}: $expected"
+                        val node = row.createAccessibilityNodeInfo()
+                        try {
+                            assertTrue("Keepalive copy remains accessible", node.isClickable)
+                            assertEquals(description, node.contentDescription.toString())
+                        } finally { node.recycle() }
+                        assertTrue(row.performClick())
+                        val clipboard = activity.getSystemService(ClipboardManager::class.java)
+                        val clip = requireNotNull(clipboard.primaryClip)
+                        assertEquals(expected, clip.getItemAt(0).text.toString())
+                        assertEquals(description, clip.description.label.toString())
+                    }
+                } finally { binding.unbind() }
+            }
+        } finally { environment.close() }
+    }
+
+    private fun keepalivePreviews() = listOf(
+        Preview("awg-en-compact", locale = "en", width = 320, height = 640, scale = 1f),
+        Preview("awg-fr-large", locale = "fr", width = 320, height = 640, scale = 2f),
+        Preview("awg-ar-rtl-short-large", locale = "ar", width = 640, height = 320, scale = 2f, rtl = true),
+    )
+
+    private fun keepaliveValues() = listOf("range" to "20-30", "disabled" to "0", "maximum" to "4294967294-4294967295")
+
+    private fun keepaliveProfile(value: String, amnezia: Boolean = true): TunnelConfig = TunnelConfig.parse("""
+        [Interface]
+        ${if (amnezia) "Protocol = AmneziaWG" else ""}
+        PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+        Address = 192.0.2.2/32
+        [Peer]
+        PublicKey = AQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+        Endpoint = 198.51.100.42:51820
+        AllowedIPs = 0.0.0.0/0, ::/0
+        PersistentKeepalive = $value
+    """.trimIndent().reader().buffered())
+
+    @Test fun editorLabelsAndNativeFieldsRemainReachable() = previews(largeText = true) { activity, case ->
+        val fragment = TunnelEditorFragment()
+        activity.supportFragmentManager.beginTransaction().add(android.R.id.content, fragment).commitNow()
+        val binding = requireNotNull(DataBindingUtil.getBinding<TunnelEditorFragmentBinding>(fragment.requireView()))
+        val config = ConfigProxy().apply { addPeer() }
+        binding.config = config
+        binding.isNew = true
+        binding.executePendingBindings()
+        try {
+            layout(binding.root, case)
+            assertConfiguration(binding.root, case)
+            capture(binding.root, case, "editor-top")
+            reveal(binding.editorInterfaceTitle, binding.root, case)
+            assertTextFits(binding.editorInterfaceTitle)
+            assertMono(binding.editorInterfaceTitle, R.font.jetbrains_mono_medium)
+            assertTrue("Interface title and local-side hint do not overlap", if (case.rtl) {
+                binding.editorInterfaceHint.right <= binding.editorInterfaceTitle.left
+            } else {
+                binding.editorInterfaceTitle.right <= binding.editorInterfaceHint.left
+            })
+            for (label in listOf(R.string.vpn0wn_local_side, R.string.name, R.string.private_key, R.string.public_key,
+                R.string.addresses, R.string.dns_servers, R.string.listen_port, R.string.applications,
+                R.string.pre_shared_key, R.string.endpoint, R.string.allowed_ips, R.string.persistent_keepalive)) {
+                labels(binding.root, label, case)
+            }
+            for (button in listOf(binding.editorSaveButton, binding.privateKeyRegenButton,
+                binding.setExcludedApplications, binding.addPeerButton)) {
+                reveal(button, binding.root, case)
+                assertTarget(button)
+                assertTextFits(button)
+            }
+            if (case.scale == 1f) {
+                assertEquals("Normal Save target keeps its approved height", MINIMUM_TARGET_DP, binding.editorSaveButton.height)
+            }
+            val peer = requireNotNull(DataBindingUtil.getBinding<TunnelEditorPeerBinding>(binding.peersLayout.getChildAt(0)))
+            assertEquals(activity.getString(R.string.vpn0wn_paste_base64_key), peer.publicKeyText.hint.toString())
+            assertEquals(activity.getString(R.string.vpn0wn_endpoint_hint), peer.endpointText.hint.toString())
+            assertEquals(activity.getString(R.string.vpn0wn_remove_peer), peer.delete.text.toString())
+            reveal(peer.delete, binding.root, case)
+            assertTarget(peer.delete)
+            assertTextFits(peer.delete)
+            for (field in listOf(binding.interfaceNameText, binding.dnsServersText, peer.endpointText,
+                peer.allowedIpsText, peer.persistentKeepaliveText)) {
+                reveal(field, binding.root, case)
+                assertTrue("Native field accepts focus", field.requestFocus())
+                assertMono(field, R.font.jetbrains_mono_regular)
+                val node = field.createAccessibilityNodeInfo()
+                try { assertTrue("Native field remains editable", node.isEditable) } finally { node.recycle() }
+                field.clearFocus()
+            }
+            binding.interfaceNameText.setText("synthetic")
+            peer.endpointText.setText("198.51.100.42:51820")
+            peer.persistentKeepaliveText.setText(SYNTHETIC_KEEPALIVE_SECONDS.toString())
+            binding.executePendingBindings()
+            assertEquals("synthetic", binding.name)
+            assertEquals("198.51.100.42:51820", config.peers.single().endpoint)
+            assertEquals(InputType.TYPE_CLASS_NUMBER, peer.persistentKeepaliveText.inputType)
+            assertEquals(EditorInfo.IME_ACTION_NEXT, peer.persistentKeepaliveText.imeOptions and EditorInfo.IME_MASK_ACTION)
+            assertEquals(SYNTHETIC_KEEPALIVE_SECONDS.toString(), config.peers.single().persistentKeepalive)
+            peer.persistentKeepaliveText.setText("")
+            binding.executePendingBindings()
+            assertEquals("", config.peers.single().persistentKeepalive)
+            reveal(binding.setExcludedApplications, binding.root, case)
+            capture(binding.root, case, "editor-applications")
+            reveal(peer.persistentKeepaliveText, binding.root, case)
+            assertEquals(activity.getString(R.string.hint_optional_discouraged), peer.persistentKeepaliveText.hint.toString())
+            val hintLayout = ReflectionHelpers.getField<Layout>(peer.persistentKeepaliveText, "mHintLayout")
+            assertEquals(peer.persistentKeepaliveText.hint.toString(), hintLayout.text.toString())
+            if (case.scale == 2f && case.width == 320) {
+                assertTrue("Largest-text native hint wraps completely", hintLayout.lineCount > 1)
+            }
+            assertTextFits(peer.persistentKeepaliveText, hintLayout)
+            capture(binding.root, case, "editor-peer")
+        } finally { binding.unbind() }
+    }
+
+    @Test fun editorApplicationSummariesAndConfigureRemainComplete() = previews(listOf(
+        Preview("applications-en-normal", locale = "en", width = 320, height = 640, scale = 1f),
+        Preview("applications-fr-normal", locale = "fr", width = 320, height = 640, scale = 1f),
+        Preview("applications-en-large", locale = "en", width = 320, height = 640, scale = 2f),
+        Preview("applications-fr-large", locale = "fr", width = 320, height = 640, scale = 2f),
+        Preview("applications-en-rtl-large", locale = "en", width = 320, height = 640, scale = 2f, rtl = true),
+        Preview("applications-fr-rtl-large", locale = "fr", width = 320, height = 640, scale = 2f, rtl = true),
+        Preview("applications-en-short", locale = "en", width = 640, height = 320, scale = 1f),
+        Preview("applications-fr-rtl-short", locale = "fr", width = 640, height = 320, scale = 1f, rtl = true),
+        Preview("applications-en-short-large", locale = "en", width = 640, height = 320, scale = 2f),
+        Preview("applications-fr-rtl-short-large", locale = "fr", width = 640, height = 320, scale = 2f, rtl = true),
+    )) { activity, case ->
+        val fragment = TunnelEditorFragment()
+        activity.supportFragmentManager.beginTransaction().add(android.R.id.content, fragment).commitNow()
+        val binding = requireNotNull(DataBindingUtil.getBinding<TunnelEditorFragmentBinding>(fragment.requireView()))
+        val config = ConfigProxy()
+        binding.config = config
+        val selections = listOf(
+            ApplicationSelection("all"),
+            ApplicationSelection("excluded-one", excluded = 1),
+            ApplicationSelection("excluded-many", excluded = 3),
+            ApplicationSelection("included-one", included = 1),
+            ApplicationSelection("included-many", included = 3),
+            ApplicationSelection("zero"),
+        )
+        try {
+            for (selection in selections) {
+                config.`interface`.excludedApplications.apply {
+                    clear()
+                    addAll((0 until selection.excluded).map { "com.example.excluded$it" })
+                }
+                config.`interface`.includedApplications.apply {
+                    clear()
+                    addAll((0 until selection.included).map { "com.example.included$it" })
+                }
+                binding.executePendingBindings()
+                layout(binding.root, case)
+                assertConfiguration(binding.root, case)
+                val expected = when {
+                    selection.included > 0 -> activity.resources.getQuantityString(
+                        R.plurals.set_included_applications, selection.included, selection.included)
+                    selection.excluded > 0 -> activity.resources.getQuantityString(
+                        R.plurals.set_excluded_applications, selection.excluded, selection.excluded)
+                    else -> activity.getString(R.string.all_applications)
+                }
+                assertEquals(expected, binding.editorApplicationsSummary.text.toString())
+                reveal(binding.editorApplicationsRow, binding.root, case)
+                for (label in listOf(binding.editorApplicationsLabel, binding.editorApplicationsSummary)) {
+                    assertFullyVisible(label)
+                    assertTextFits(label)
+                    assertMono(label, R.font.jetbrains_mono_regular)
+                }
+                val summaryLayout = requireNotNull(binding.editorApplicationsSummary.layout)
+                for (line in 0 until summaryLayout.lineCount - 1) {
+                    val end = summaryLayout.getLineEnd(line)
+                    assertTrue("Applications summary keeps words whole: $expected",
+                        end in 1 until expected.length && (expected[end - 1].isWhitespace() || expected[end].isWhitespace()))
+                }
+                val button = binding.setExcludedApplications
+                assertFullyVisible(button)
+                assertTarget(button)
+                assertTextFits(button)
+                assertMono(button, R.font.jetbrains_mono_medium)
+                assertTrue("Configure keeps its native action", button.hasOnClickListeners())
+                val touchMode = button.isInTouchMode
+                val focused = if (touchMode) button.requestFocusFromTouch() else button.requestFocus()
+                assertTrue("Configure accepts native focus; touchMode=$touchMode, focusableInTouchMode=${button.isFocusableInTouchMode}", focused)
+                assertTrue("Configure receives native View focus", button.isFocused)
+                assertSame("Configure owns focus in the rendered tree", button, button.rootView.findFocus())
+                button.clearFocus()
+                val summaryBounds = Rect().also { binding.editorApplicationsSummary.getGlobalVisibleRect(it) }
+                val actionBounds = Rect().also { button.getGlobalVisibleRect(it) }
+                assertFalse("Summary and Configure do not overlap", Rect.intersects(summaryBounds, actionBounds))
+                if (case.width < case.height && case.scale >= 1.5f) {
+                    assertEquals(LinearLayout.VERTICAL, binding.editorApplicationsRow.orientation)
+                    assertEquals(activity.resources.getDimensionPixelSize(R.dimen.normal_margin), button.top - binding.editorApplicationsContent.bottom)
+                    if (case.rtl) {
+                        assertEquals("RTL Configure keeps the logical end inset", binding.editorApplicationsRow.paddingLeft, button.left)
+                    } else {
+                        assertEquals("LTR Configure keeps the logical end inset",
+                            binding.editorApplicationsRow.width - binding.editorApplicationsRow.paddingRight, button.right)
+                    }
+                } else {
+                    assertEquals("Normal and short rows keep the approved horizontal layout", LinearLayout.HORIZONTAL, binding.editorApplicationsRow.orientation)
+                }
+                layout(binding.root, case)
+                assertFullyVisible(binding.editorApplicationsRow)
+                capture(binding.root, case, "editor-applications-${selection.name}")
+            }
+        } finally { binding.unbind() }
+    }
+
+    @Test fun editorListenPortHintAndNumericBindingRemainComplete() = previews(listOf(
+        Preview("ports-en-normal", locale = "en", width = 320, height = 640, scale = 1f),
+        Preview("ports-fr-normal", locale = "fr", width = 320, height = 640, scale = 1.3f),
+        Preview("ports-en-large", locale = "en", width = 320, height = 640, scale = 2f),
+        Preview("ports-fr-large", locale = "fr", width = 320, height = 640, scale = 2f),
+        Preview("ports-en-rtl-large", locale = "en", width = 320, height = 640, scale = 2f, rtl = true),
+        Preview("ports-fr-rtl-large", locale = "fr", width = 320, height = 640, scale = 2f, rtl = true),
+        Preview("ports-en-short", locale = "en", width = 640, height = 320, scale = 1f),
+        Preview("ports-fr-rtl-short", locale = "fr", width = 640, height = 320, scale = 1.3f, rtl = true),
+        Preview("ports-en-short-large", locale = "en", width = 640, height = 320, scale = 2f),
+        Preview("ports-fr-rtl-short-large", locale = "fr", width = 640, height = 320, scale = 2f, rtl = true),
+    )) { activity, case ->
+        val fragment = TunnelEditorFragment()
+        activity.supportFragmentManager.beginTransaction().add(android.R.id.content, fragment).commitNow()
+        val binding = requireNotNull(DataBindingUtil.getBinding<TunnelEditorFragmentBinding>(fragment.requireView()))
+        val config = ConfigProxy()
+        binding.config = config
+        binding.executePendingBindings()
+        try {
+            layout(binding.root, case)
+            assertConfiguration(binding.root, case)
+            val field = binding.listenPortText
+            assertEquals("", field.text.toString())
+            assertEquals(activity.getString(R.string.hint_random), field.hint.toString())
+            assertEquals(InputType.TYPE_CLASS_NUMBER, field.inputType)
+            assertEquals(EditorInfo.IME_ACTION_NEXT, field.imeOptions and EditorInfo.IME_MASK_ACTION)
+            assertEquals(R.id.public_key_text, field.nextFocusUpId)
+            assertEquals(R.id.mtu_text, field.nextFocusDownId)
+            assertEquals(R.id.dns_servers_text, field.nextFocusForwardId)
+            assertEquals(activity.getString(R.string.hint_automatic), binding.mtuText.hint.toString())
+            assertEquals(InputType.TYPE_CLASS_NUMBER, binding.mtuText.inputType)
+            assertEquals(EditorInfo.IME_ACTION_DONE, binding.mtuText.imeOptions and EditorInfo.IME_MASK_ACTION)
+            reveal(binding.editorInterfacePortRow, binding.root, case)
+            for (input in listOf(field, binding.mtuText)) {
+                assertMono(input, R.font.jetbrains_mono_regular)
+                assertTrue("Native numeric field remains operable", input.isEnabled && input.isClickable && input.isFocusable)
+                val hint = ReflectionHelpers.getField<Layout>(input, "mHintLayout")
+                assertEquals(input.hint.toString(), hint.text.toString())
+                assertEquals("Numeric hint keeps its complete word on one line", 1, hint.lineCount)
+                assertTextFits(input, hint)
+                val node = input.createAccessibilityNodeInfo()
+                try { assertTrue("Native numeric field remains editable", node.isEditable) } finally { node.recycle() }
+            }
+            val row = binding.editorInterfacePortRow
+            val divider = binding.editorInterfacePortDivider
+            if (case.width < case.height && case.scale >= 1.5f) {
+                assertEquals(LinearLayout.VERTICAL, row.orientation)
+                assertEquals(row.width, binding.editorListenPortRow.width)
+                assertEquals(row.width, binding.editorMtuRow.width)
+                assertEquals(binding.editorListenPortRow.bottom, divider.top)
+                assertEquals(divider.bottom, binding.editorMtuRow.top)
+                assertEquals(row.width, divider.width)
+                assertEquals("Stacked rows retain the existing 1dp divider", 1, divider.height)
+            } else {
+                assertEquals("Normal and short screens keep the approved split row", LinearLayout.HORIZONTAL, row.orientation)
+                assertEquals(1f, (binding.editorListenPortRow.layoutParams as LinearLayout.LayoutParams).weight, 0f)
+                assertEquals(1f, (binding.editorMtuRow.layoutParams as LinearLayout.LayoutParams).weight, 0f)
+                assertEquals("Split rows retain the existing 1dp divider", 1, divider.width)
+                assertTrue("Split row keeps equal field allocation",
+                    kotlin.math.abs(binding.editorListenPortRow.width - binding.editorMtuRow.width) <= 1)
+            }
+            assertFullyVisible(row)
+            capture(binding.root, case, "editor-ports-empty")
+            val focused = if (field.isInTouchMode) field.requestFocusFromTouch() else field.requestFocus()
+            assertTrue("ListenPort accepts native focus", focused)
+            assertSame("ListenPort owns native focus", field, field.rootView.findFocus())
+            field.setText(SYNTHETIC_PORT.toString())
+            binding.executePendingBindings()
+            assertEquals(SYNTHETIC_PORT.toString(), config.`interface`.listenPort)
+            layout(binding.root, case)
+            assertTextFits(field)
+            capture(binding.root, case, "editor-ports-valid")
+            field.setText("")
+            binding.executePendingBindings()
+            assertEquals("", config.`interface`.listenPort)
+            layout(binding.root, case)
+            val clearedHint = ReflectionHelpers.getField<Layout>(field, "mHintLayout")
+            assertEquals(activity.getString(R.string.hint_random), clearedHint.text.toString())
+            assertEquals(1, clearedHint.lineCount)
+            assertTextFits(field, clearedHint)
+            capture(binding.root, case, "editor-ports-cleared")
+            config.`interface`.listenPort = SYNTHETIC_PORT.toString()
+            binding.executePendingBindings()
+            assertEquals("Model port updates still reach the native field", SYNTHETIC_PORT.toString(), field.text.toString())
+            assertEquals(InputType.TYPE_CLASS_NUMBER, field.inputType)
+            assertEquals("", config.`interface`.mtu)
+        } finally { binding.unbind() }
+    }
+
+    @Test fun detailLabelsAndCompleteApplicationPhrasesFit() = runTest {
+        val environment = TunnelTestEnvironment(folder.root, backgroundScope)
+        try {
+            previews { activity, case ->
+                val profile = profile()
+                val binding = TunnelDetailFragmentBinding.inflate(activity.layoutInflater)
+                val tunnel = ObservableTunnel(environment.manager, "synthetic", profile, Tunnel.State.UP)
+                tunnel.onStatisticsChanged(statistics(profile.peers.single().publicKey))
+                binding.config = profile
+                binding.tunnel = tunnel
+                activity.setContentView(binding.root)
+                binding.executePendingBindings()
+                try {
+                    layout(binding.root, case)
+                    assertConfiguration(binding.root, case)
+                    capture(binding.root, case, "detail-top")
+                    for (label in listOf(R.string.vpn0wn_tunnel_topology, R.string.vpn0wn_download, R.string.vpn0wn_upload,
+                        R.string.name, R.string.public_key, R.string.addresses,
+                        R.string.dns_servers, R.string.dns_search_domains, R.string.listen_port, R.string.allowed_ips,
+                        R.string.persistent_keepalive)) {
+                        labels(binding.root, label, case)
+                    }
+                    val phrase = activity.resources.getQuantityString(R.plurals.set_excluded_applications, 1, 1)
+                    val applicationLabel = descendants(binding.applicationsRow).filterIsInstance<TextView>()
+                        .single { it.text.toString() == phrase }
+                    reveal(applicationLabel, binding.root, case)
+                    assertTextFits(applicationLabel)
+                    assertMono(applicationLabel, R.font.jetbrains_mono_regular)
+                    reveal(binding.dnsSearchDomainsRow, binding.root, case)
+                    capture(binding.root, case, "detail-dns")
+                    val peer = requireNotNull(DataBindingUtil.getBinding<TunnelDetailPeerBinding>(binding.peersLayout.getChildAt(0)))
+                    assertEquals(activity.getString(R.string.vpn0wn_peer_title, "01"), peer.peerTitle.text.toString())
+                    for (row in listOf(binding.applicationsRow, peer.allowedIpsRow, peer.persistentKeepaliveRow)) {
+                        reveal(row, binding.root, case)
+                        assertTarget(row)
+                    }
+                    capture(binding.root, case, "detail-peer")
+                } finally { binding.unbind() }
+            }
+        } finally { environment.close() }
+    }
+
+    @Test fun logsKeepTranslatedFilterAndTechnicalLevelCodes() = previews { activity, case ->
+        val binding = LogViewerActivityBinding.inflate(activity.layoutInflater)
+        activity.setContentView(binding.root)
+        layout(binding.root, case)
+        assertConfiguration(binding.root, case)
+        labels(binding.root, R.string.vpn0wn_log_stream_subtitle, case)
+        val title = descendants(binding.root).filterIsInstance<TextView>()
+            .single { it.text.toString() == activity.getString(R.string.log_viewer_title) }
+        assertFullyVisible(title)
+        assertTextFits(title)
+        assertMono(title, R.font.jetbrains_mono_medium)
+        assertTextFits(binding.liveToggle)
+        assertEquals(activity.getString(R.string.vpn0wn_filter_all), binding.filterAll.text.toString())
+        reveal(binding.filterAll, binding.root, case)
+        assertTextFits(binding.filterAll)
+        assertEquals("DEBUG", binding.filterDebug.text.toString())
+        assertEquals("INFO", binding.filterInfo.text.toString())
+        assertEquals("WARN", binding.filterWarn.text.toString())
+        assertEquals("ERROR", binding.filterError.text.toString())
+        for (button in listOf(binding.backButton, binding.refreshButton, binding.shareButton, binding.liveToggle)) {
+            assertTarget(button)
+            assertFullyVisible(button)
+        }
+        capture(binding.root, case, "logs")
+    }
+
+    private fun previews(largeText: Boolean = false, check: (AppCompatActivity, Preview) -> Unit) {
+        val standardCases = listOf(
+            Preview("en-compact", locale = "en", width = 320, height = 640, scale = 1f),
+            Preview("fr-compact", locale = "fr", width = 320, height = 640, scale = 1.3f),
+            Preview("fr-short", locale = "fr", width = 640, height = 320, scale = 1.3f),
+            Preview("fr-rtl-compact", locale = "fr", width = 320, height = 640, scale = 1.3f, rtl = true),
+            Preview("fr-rtl-short", locale = "fr", width = 640, height = 320, scale = 1.3f, rtl = true),
+        )
+        val cases = if (largeText) standardCases + standardCases.map { it.copy(name = "${it.name}-large", scale = 2f) }
+            else standardCases
+        previews(cases, check)
+    }
+
+    private fun previews(cases: List<Preview>, check: (AppCompatActivity, Preview) -> Unit) {
+        val originalQualifiers = RuntimeEnvironment.getQualifiers()
+        val originalFontScale = RuntimeEnvironment.getApplication().resources.configuration.fontScale
+        val originalDirection = RuntimeEnvironment.getApplication().resources.configuration.layoutDirection
+        val originalLocale = Locale.getDefault()
+        try {
+            for (preview in cases) for (night in listOf(false, true)) {
+                val case = preview.copy(night = night)
+                val orientation = if (case.width > case.height) "land" else "port"
+                RuntimeEnvironment.setQualifiers("${case.locale}-w${case.width}dp-h${case.height}dp-$orientation-${if (night) "night" else "notnight"}-mdpi")
+                RuntimeEnvironment.setFontScale(case.scale)
+                // Robolectric reapplies locale direction when font configuration changes.
+                RuntimeEnvironment.setQualifiers(if (case.rtl) "+ldrtl" else "+ldltr")
+                val controller = Robolectric.buildActivity(AppCompatActivity::class.java)
+                controller.get().setTheme(R.style.AppTheme)
+                controller.setup()
+                controller.get().supportActionBar?.hide()
+                try { check(controller.get(), case) } finally { controller.pause().stop().destroy() }
+            }
+        } finally {
+            RuntimeEnvironment.setQualifiers(originalQualifiers)
+            RuntimeEnvironment.setFontScale(originalFontScale)
+            RuntimeEnvironment.setQualifiers(if (originalDirection == View.LAYOUT_DIRECTION_RTL) "+ldrtl" else "+ldltr")
+            Locale.setDefault(originalLocale)
+        }
+    }
+
+    private fun assertConfiguration(root: View, case: Preview) {
+        val config = root.resources.configuration
+        assertEquals(case.locale, config.locales[0].language)
+        assertEquals(case.scale, config.fontScale, 0f)
+        val direction = if (case.rtl) View.LAYOUT_DIRECTION_RTL else View.LAYOUT_DIRECTION_LTR
+        assertEquals("Effective resource direction", direction, config.layoutDirection)
+        assertEquals("Inherited native direction", direction, root.layoutDirection)
+        assertEquals(if (case.night) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO,
+            config.uiMode and Configuration.UI_MODE_NIGHT_MASK)
+        assertEquals("Requested window width", case.width, root.rootView.width)
+        assertEquals("Requested window height", case.height, root.rootView.height)
+        assertEquals(case.width, root.width)
+        assertEquals(case.height, root.height)
+    }
+
+    private fun labels(root: View, resource: Int, case: Preview) {
+        val value = root.context.getString(resource)
+        val labels = descendants(root).filterIsInstance<TextView>().filter { it.text.toString() == value && it.isShown }.toList()
+        assertTrue("Rendered label exists: $value", labels.isNotEmpty())
+        for (label in labels) {
+            reveal(label, root, case)
+            assertTextFits(label)
+            assertMono(label, R.font.jetbrains_mono_regular)
+        }
+    }
+
+    private fun reveal(view: View, root: View, case: Preview) {
+        view.requestRectangleOnScreen(Rect(0, 0, view.width, view.height), true)
+        layout(root, case)
+        assertFullyVisible(view)
+    }
+
+    private fun assertFullyVisible(view: View) {
+        val visible = Rect()
+        val reachable = view.getGlobalVisibleRect(visible)
+        val position = IntArray(2).also(view::getLocationInWindow)
+        val bounds = Rect(position[0], position[1], position[0] + view.width, position[1] + view.height)
+        val scroll = generateSequence(view.parent as? View) { it.parent as? View }.filterIsInstance<ScrollView>()
+            .joinToString { "${it.width}x${it.height}@scrollY=${it.scrollY}" }
+        val diagnostic = "${view.javaClass.simpleName} id=${view.id} text=${(view as? TextView)?.text}; " +
+            "bounds=$bounds visible=$visible decor=${view.rootView.width}x${view.rootView.height} scroll=$scroll"
+        assertTrue("Native content is reachable; $diagnostic", reachable)
+        assertEquals("Complete visible width; $diagnostic", view.width, visible.width())
+        assertEquals("Complete visible height; $diagnostic", view.height, visible.height())
+    }
+
+    private fun assertTarget(view: View) {
+        val minimum = MINIMUM_TARGET_DP * view.resources.displayMetrics.density
+        assertTrue("Native target remains operable", view.isEnabled && view.isClickable && view.isFocusable)
+        assertTrue("Android target width", view.width >= minimum)
+        assertTrue("Android target height", view.height >= minimum)
+    }
+
+    private fun assertMono(view: TextView, font: Int) {
+        assertEquals(ResourcesCompat.getFont(view.context, font), view.typeface)
+        assertEquals("ss01, zero, tnum", view.fontFeatureSettings)
+    }
+
+    private fun assertTextFits(view: TextView, text: Layout = requireNotNull(view.layout)) {
+        val width = view.width - view.compoundPaddingLeft - view.compoundPaddingRight
+        val height = view.height - view.compoundPaddingTop - view.compoundPaddingBottom
+        assertTrue("Complete label: ${text.text}", text.lineCount > 0 && text.getLineEnd(text.lineCount - 1) == text.text.length)
+        assertTrue("Complete label height: ${text.text}", text.height <= height)
+        for (line in 0 until text.lineCount) {
+            assertEquals("No label truncation: ${text.text}", 0, text.getEllipsisCount(line))
+            assertTrue("Label stays within content width: ${text.text}",
+                text.getLineLeft(line) - view.scrollX >= -INK_TOLERANCE_PX && text.getLineRight(line) - view.scrollX <= width + INK_TOLERANCE_PX)
+        }
+        val bitmap = Bitmap.createBitmap(text.width + INK_MARGIN_PX * 2, text.height + INK_MARGIN_PX * 2, Bitmap.Config.ARGB_8888)
+        try {
+            val canvas = Canvas(bitmap)
+            canvas.translate(INK_MARGIN_PX.toFloat() - view.scrollX, INK_MARGIN_PX.toFloat() - view.scrollY)
+            text.draw(canvas)
+            val pixels = IntArray(bitmap.width * bitmap.height)
+            bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+            assertTrue("Native label paints glyphs: ${text.text}", pixels.any { it ushr ALPHA_SHIFT != 0 })
+            assertTrue("Painted glyphs stay within the field: ${text.text}", pixels.indices.all {
+                if (pixels[it] ushr ALPHA_SHIFT == 0) true else {
+                    val x = it % bitmap.width - INK_MARGIN_PX
+                    val y = it / bitmap.width - INK_MARGIN_PX
+                    x >= -INK_TOLERANCE_PX && x < width + INK_TOLERANCE_PX && y >= -INK_TOLERANCE_PX && y < height + INK_TOLERANCE_PX
+                }
+            })
+        } finally { bitmap.recycle() }
+    }
+
+    private fun layout(root: View, case: Preview) {
+        val viewport = root.rootView
+        var ready = false
+        repeat(LAYOUT_PASSES) {
+            viewport.measure(View.MeasureSpec.makeMeasureSpec(case.width, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(case.height, View.MeasureSpec.EXACTLY))
+            viewport.layout(0, 0, viewport.measuredWidth, viewport.measuredHeight)
+            ready = !viewport.viewTreeObserver.dispatchOnPreDraw()
+            shadowOf(Looper.getMainLooper()).idle()
+        }
+        assertTrue("Settled native traversal permits drawing", ready)
+    }
+
+    private fun capture(root: View, case: Preview, name: String, directory: String? = null) {
+        assertConfiguration(root, case)
+        val project = File(requireNotNull(System.getProperty("user.dir"))).let { if (it.name == "ui") it.parentFile else it }
+        val output = directory?.let { File(project, ".artifacts/$it") }
+            ?: System.getenv("VPN0WN_LOCALIZED_COPY_OUTPUT")?.let(::File)
+            ?: File(project, ".artifacts/localized-copy-previews")
+        assertTrue("Preview output directory is available", output.isDirectory || output.mkdirs())
+        val bitmap = Bitmap.createBitmap(root.width, root.height, Bitmap.Config.ARGB_8888)
+        try {
+            root.draw(Canvas(bitmap))
+            File(output, "${case.name}-${if (case.night) "night" else "day"}-$name.png").outputStream().use {
+                assertTrue(bitmap.compress(Bitmap.CompressFormat.PNG, 100, it))
+            }
+        } finally { bitmap.recycle() }
+    }
+
+    private fun descendants(root: View): Sequence<View> = sequence {
+        yield(root)
+        if (root is ViewGroup) for (index in 0 until root.childCount) yieldAll(descendants(root.getChildAt(index)))
+    }
+
+    private fun profile(): TunnelConfig = TunnelConfig.Builder()
+        .setInterface(Interface.Builder().setKeyPair(KeyPair(Key.fromBytes(ByteArray(KEY_LENGTH))))
+            .parseAddresses("192.0.2.2/32").parseDnsServers("1.1.1.1").addDnsSearchDomain("corp.example")
+            .setListenPort(SYNTHETIC_PORT).excludeApplication("com.example.synthetic").build())
+        .addPeer(Peer.Builder().setPublicKey(Key.fromBytes(ByteArray(KEY_LENGTH) { 1 }))
+            .parseEndpoint("198.51.100.42:51820").parseAllowedIPs("0.0.0.0/0, ::/0")
+            .setPersistentKeepalive(SYNTHETIC_KEEPALIVE_SECONDS).build()).build()
+
+    private fun statistics(key: Key): Statistics {
+        val snapshot = Statistics::class.java.getDeclaredConstructor().apply { isAccessible = true }.newInstance()
+        Statistics::class.java.getDeclaredMethod("add", Key::class.java, Long::class.javaPrimitiveType,
+            Long::class.javaPrimitiveType, Long::class.javaPrimitiveType).apply { isAccessible = true }
+            .invoke(snapshot, key, 0L, 0L, System.currentTimeMillis())
+        return snapshot
+    }
+
+    private data class Preview(val name: String, val locale: String, val width: Int, val height: Int, val scale: Float,
+        val rtl: Boolean = false, val night: Boolean = false)
+
+    private data class ApplicationSelection(val name: String, val excluded: Int = 0, val included: Int = 0)
+
+    private companion object {
+        const val MINIMUM_TARGET_DP = 48
+        const val LAYOUT_PASSES = 3
+        const val INK_MARGIN_PX = 20
+        const val INK_TOLERANCE_PX = 1
+        const val ALPHA_SHIFT = 24
+        const val KEY_LENGTH = 32
+        const val SYNTHETIC_PORT = 51820
+        const val SYNTHETIC_KEEPALIVE_SECONDS = 25
+    }
+}

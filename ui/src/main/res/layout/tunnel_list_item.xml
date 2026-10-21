@@ -123,7 +123,7 @@
                 android:layout_marginTop="3dp"
                 android:ellipsize="end"
                 android:maxLines="1"
-                android:text="@{BindingAdapters.tunnelRoute(item.config)}"
+                android:text="@{BindingAdapters.tunnelRoute(context, item.config)}"
                 android:textSize="11sp"
                 tools:text="172.20.4.18/24 -> gw.example.ro:51820" />
         </LinearLayout>

@@ -50,6 +50,7 @@ import com.vpn0wn.android.databinding.TvTunnelListItemBinding
 import com.vpn0wn.android.model.ObservableTunnel
 import com.vpn0wn.android.util.ErrorMessages
 import com.vpn0wn.android.util.QuantityFormatter
+import com.vpn0wn.android.util.RootShell.RootShellException
 import com.vpn0wn.android.util.TunnelImporter
 import com.vpn0wn.android.util.UserKnobs
 import com.vpn0wn.android.util.applicationScope
@@ -58,6 +59,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.io.IOException
 
 class TvMainActivity : AppCompatActivity() {
     private val tunnelFileImportResultLauncher = registerForActivityResult(object : ActivityResultContracts.OpenDocument() {
@@ -132,8 +134,17 @@ class TvMainActivity : AppCompatActivity() {
         }
         super.onCreate(savedInstanceState)
         binding = TvActivityBinding.inflate(layoutInflater)
+        Application.getTunnelManager().onActivityCreated()
         lifecycleScope.launch {
-            binding.tunnels = Application.getTunnelManager().getTunnels()
+            binding.tunnels = try {
+                Application.getTunnelManager().getTunnels()
+            } catch (failure: IOException) {
+                reportInventoryFailure(failure)
+                return@launch
+            } catch (failure: RootShellException) {
+                reportInventoryFailure(failure)
+                return@launch
+            }
             if (binding.tunnels?.isEmpty() == true)
                 binding.importButton.requestFocus()
             else
@@ -266,6 +277,12 @@ class TvMainActivity : AppCompatActivity() {
                 delay(TimeUnit.SECONDS.toMillis(1))
             }
         }
+    }
+
+    private fun reportInventoryFailure(failure: Exception) {
+        val message = getString(R.string.error_prepare, ErrorMessages[failure])
+        Log.e(TAG, message, failure)
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
     }
 
     private var pendingNavigation: File? = null

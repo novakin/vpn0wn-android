@@ -20,6 +20,7 @@ import com.vpn0wn.util.NonNullForAll;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -60,23 +61,20 @@ public final class WgQuickBackend implements Backend {
     }
 
     @Override
-    public synchronized Set<String> getRunningTunnelNames() {
+    public synchronized Set<String> getRunningTunnelNames() throws Exception {
         final List<String> output = new ArrayList<>();
-        // Don't throw an exception here or nothing will show up in the UI.
-        try {
-            toolsInstaller.ensureToolsAvailable();
-            if (rootShell.run(output, "wg show interfaces") != 0 || output.isEmpty())
-                return Collections.emptySet();
-        } catch (final Exception e) {
-            Log.w(TAG, "Unable to enumerate running tunnels", e);
+        toolsInstaller.ensureToolsAvailable();
+        final int result = rootShell.run(output, "wg show interfaces");
+        if (result != 0)
+            throw new IOException("Unable to enumerate running tunnels: wg exited with code " + result);
+        if (output.isEmpty() || output.get(0).isEmpty())
             return Collections.emptySet();
-        }
         // wg puts all interface names on the same line. Split them into separate elements.
         return Set.of(output.get(0).split(" "));
     }
 
     @Override
-    public State getState(final Tunnel tunnel) {
+    public State getState(final Tunnel tunnel) throws Exception {
         return getRunningTunnelNames().contains(tunnel.getName()) ? State.UP : State.DOWN;
     }
 
@@ -126,6 +124,8 @@ public final class WgQuickBackend implements Backend {
 
     @Override
     public synchronized State setState(final Tunnel tunnel, State state, @Nullable final Config config) throws Exception {
+        if (state != State.DOWN && config != null && config.getInterface().getAmneziaSettings().isPresent())
+            throw new BackendException(Reason.AMNEZIA_REQUIRES_USERSPACE);
         final State originalState = getState(tunnel);
         final Config originalConfig = runningConfigs.get(tunnel);
         final Map<Tunnel, Config> runningConfigsSnapshot = new HashMap<>(runningConfigs);

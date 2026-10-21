@@ -20,9 +20,11 @@ Optional:
 
 from __future__ import annotations
 
+import datetime
 import json
 import os
 import pathlib
+import re
 import shlex
 import subprocess
 import sys
@@ -197,9 +199,10 @@ def install_cycle(label: str, final: bool = False) -> None:
     require_postcondition(f"{label}-add-peer-1-key", isinstance(peer1.get("publicKey"), str) and bool(peer1["publicKey"]))
     check_sync(f"{label}-sync-after-peer-1", {"android-test-1": peer1["publicKey"]})
 
-    revoke = run_json(f"{label}-revoke-peer-1", f"{q(REMOTE_DIR + '/revoke-peer.sh')} --name android-test-1")
+    revoke = run_json(f"{label}-revoke-peer-1", f"{q(REMOTE_DIR + '/revoke-peer.sh')} --name android-test-1 --expected-public-key {q(peer1['publicKey'])}")
     require_postcondition(f"{label}-revoke-peer-1", revoke.get("removed") is True and revoke.get("revoked") is True)
     require_postcondition(f"{label}-revoke-peer-1-name", revoke.get("name") == "android-test-1")
+    require_postcondition(f"{label}-revoke-peer-1-key", revoke.get("publicKey") == peer1["publicKey"])
     check_sync(f"{label}-sync-after-revoke-1", {})
 
     peer2 = run_json(f"{label}-add-peer-2", f"{q(REMOTE_DIR + '/add-peer.sh')} --name android-test-2 --dns {q(DNS)}")
@@ -207,15 +210,29 @@ def install_cycle(label: str, final: bool = False) -> None:
     require_postcondition(f"{label}-add-peer-2-key", isinstance(peer2.get("publicKey"), str) and bool(peer2["publicKey"]))
     check_sync(f"{label}-sync-after-peer-2", {"android-test-2": peer2["publicKey"]})
 
-    remove = run_json(f"{label}-remove-peer-2", f"{q(REMOTE_DIR + '/remove-peer.sh')} --name android-test-2")
+    remove = run_json(f"{label}-remove-peer-2", f"{q(REMOTE_DIR + '/remove-peer.sh')} --name android-test-2 --expected-public-key {q(peer2['publicKey'])}")
     require_postcondition(f"{label}-remove-peer-2", remove.get("removed") is True and remove.get("revoked") is False)
     require_postcondition(f"{label}-remove-peer-2-name", remove.get("name") == "android-test-2")
+    require_postcondition(f"{label}-remove-peer-2-key", remove.get("publicKey") == peer2["publicKey"])
     check_sync(f"{label}-sync-after-remove-2", {})
 
     backup = run_json(f"{label}-backup", f"{q(REMOTE_DIR + '/backup.sh')}")
     require_postcondition(f"{label}-backup-interface", backup.get("interface") == "wg0")
     require_postcondition(f"{label}-backup-config", isinstance(backup.get("config"), str) and bool(backup["config"]))
     require_postcondition(f"{label}-backup-revoked-count", backup.get("revokedCount") == "1")
+    require_postcondition(f"{label}-backup-version", type(backup.get("snapshotVersion")) is int and backup["snapshotVersion"] == 1)
+    captured_at = backup.get("capturedAtUtc")
+    try:
+        valid_date = isinstance(captured_at, str) and datetime.datetime.strptime(captured_at, "%Y-%m-%dT%H:%M:%SZ").strftime("%Y-%m-%dT%H:%M:%SZ") == captured_at
+    except ValueError:
+        valid_date = False
+    require_postcondition(f"{label}-backup-date", valid_date)
+    revoked = backup.get("revoked")
+    require_postcondition(f"{label}-backup-revoked", isinstance(revoked, list) and len(revoked) == 1 and isinstance(revoked[0], dict))
+    archive_name = revoked[0].get("archiveName")
+    require_postcondition(f"{label}-backup-revoked-name", isinstance(archive_name, str) and re.fullmatch(r"android-test-1\.conf\.[A-Za-z0-9]{6}", archive_name) is not None)
+    archived_config = revoked[0].get("config")
+    require_postcondition(f"{label}-backup-revoked-config", isinstance(archived_config, str) and f"PublicKey = {peer1['publicKey']}" in archived_config.splitlines())
     log(f"{label}-backup")
 
 

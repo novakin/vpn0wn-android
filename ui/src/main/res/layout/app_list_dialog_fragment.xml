@@ -9,8 +9,6 @@
 
     <data>
 
-        <import type="android.view.View" />
-
         <import type="com.vpn0wn.android.model.ApplicationData" />
 
         <variable
@@ -55,7 +53,6 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 android:indeterminate="true"
-                android:visibility="@{appData.isEmpty() ? View.VISIBLE : View.GONE}"
                 tools:visibility="gone" />
 
             <androidx.recyclerview.widget.RecyclerView

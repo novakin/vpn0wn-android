@@ -21,7 +21,8 @@
         <item name="android:statusBarColor">@color/vpn0wn_paper_2</item>
         <item name="android:navigationBarColor">@color/vpn0wn_paper</item>
         <item name="colorControlHighlight">@color/vpn0wn_paper_3</item>
-        <item name="fontFamily">@font/inter_tight</item>
+        <!-- AppCompat's support family otherwise overrides local android:fontFamily roles. -->
+        <item name="fontFamily">@null</item>
         <item name="android:fontFamily">@font/inter_tight</item>
         <item name="android:windowLightStatusBar">@bool/light_status_bar</item>
     </style>
@@ -150,9 +151,9 @@
         <item name="android:textSize">11sp</item>
     </style>
 
-    <style name="Vpn0wnEmptyStateText" parent="Vpn0wnMonoValueText">
+    <style name="Vpn0wnEmptyStateText" parent="Vpn0wnHomeSecondaryText">
         <item name="android:textColor">@color/vpn0wn_ink_2</item>
-        <item name="android:textSize">20sp</item>
+        <item name="android:textSize">14sp</item>
     </style>
 
     <style name="Vpn0wnDetailRow">

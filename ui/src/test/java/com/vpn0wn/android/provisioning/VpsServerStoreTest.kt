@@ -34,7 +34,7 @@ class VpsServerStoreTest {
         scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
         val file = File(System.getProperty("java.io.tmpdir"), "vps-store-${System.nanoTime()}.preferences_pb")
         val dataStore = PreferenceDataStoreFactory.create(scope = scope) { file }
-        store = VpsServerStore(dataStore)
+        store = VpsServerStore(dataStore, credentialFileForTest(File(file.parentFile, file.name + ".credentials")))
     }
 
     @After
@@ -97,7 +97,7 @@ class VpsServerStoreTest {
         store.upsert(server)
 
         store.updateStatus(
-            id = "ams-01",
+            expected = server,
             status = VpsServerStatus(
                 interfaceName = "wg0",
                 running = true,
@@ -121,6 +121,63 @@ class VpsServerStoreTest {
             ),
             store.servers.first().single(),
         )
+    }
+
+    @Test
+    fun delayedStatusCannotRestoreRemovedOrReplaceChangedServer() = runBlocking {
+        val expected = storedServer(id = "ams-01")
+        val unrelated = storedServer(id = "unrelated")
+        store.upsert(expected)
+        store.upsert(unrelated)
+        store.remove(expected.id)
+        expectChanged { store.updateStatus(expected, status("203.0.113.20"), 1710000000L) }
+        assertEquals(listOf(unrelated), store.servers.first())
+        val replacement = expected.copy(host = "198.51.100.99")
+        store.upsert(replacement)
+        expectChanged { store.updateStatus(expected, status("203.0.113.20"), 1710000000L) }
+        assertEquals(setOf(unrelated, replacement), store.servers.first().toSet())
+    }
+
+    @Test
+    fun emptyStoppedObservationClearsOldVpnMetadataWithoutChangingSshIdentity() = runBlocking {
+        val expected = storedServer(id = "ams-01", endpoint = "vpn.example", listenPort = "51821")
+        val unrelated = storedServer(id = "unrelated")
+        store.upsert(expected)
+        store.upsert(unrelated)
+        val observed = status("").copy(running = false, listenPort = "")
+
+        store.updateStatus(expected, observed, 1710000001L)
+
+        val saved = store.servers.first().single { it.id == expected.id }
+        assertEquals("", saved.endpoint)
+        assertEquals("", saved.listenPort)
+        assertEquals(expected.host, saved.host)
+        assertEquals(expected.sshPort, saved.sshPort)
+        assertEquals(expected.sshUser, saved.sshUser)
+        assertEquals(false, saved.running)
+        assertEquals(unrelated, store.servers.first().single { it.id == unrelated.id })
+    }
+
+    @Test
+    fun statusCommitRejectsNewerObservationAndPreservesCurrentMetadata() = runBlocking {
+        val expected = storedServer(id = "ams-01")
+        store.upsert(expected)
+        val committed = store.updateStatus(expected, status("203.0.113.20"), 1710000001L)
+        expectChanged { store.updateStatus(expected, status("203.0.113.21"), 1710000000L) }
+        assertEquals(committed, store.servers.first().single())
+        store.upsert(committed.copy(name = "updated display"))
+        expectChanged { store.updateStatus(committed, status("203.0.113.22"), 1710000002L) }
+        assertEquals("updated display", store.servers.first().single().name)
+        assertEquals("203.0.113.20", store.servers.first().single().endpoint)
+    }
+
+    private suspend fun expectChanged(action: suspend () -> Unit) {
+        try {
+            action()
+            throw AssertionError("Expected current server conflict")
+        } catch (_: VpsServerStore.ServerChangedException) {
+            Unit
+        }
     }
 
     @Test
@@ -170,7 +227,7 @@ class VpsServerStoreTest {
 
         val jobs = listOf(
             launch { store.upsert(storedServer(id = "fra-01")) },
-            launch { store.updateStatus("ams-01", status(endpoint = "203.0.113.99"), 1710000001L) },
+            launch { store.updateStatus(base, status(endpoint = "203.0.113.99"), 1710000001L) },
             launch { store.remove("missing") },
             launch { store.upsert(storedServer(id = "nyc-01")) },
         )
@@ -187,7 +244,7 @@ class VpsServerStoreTest {
         val server = storedServer(id = "ams-01")
         store.upsert(server)
         for (running in listOf(true, false, null)) {
-            store.updateStatus(server.id, status("203.0.113.10").copy(running = running), 1710000000L)
+            store.updateStatus(store.servers.first().single(), status("203.0.113.10").copy(running = running), 1710000000L)
             assertEquals(running, store.servers.first().single().running)
         }
         store.upsert(server.copy(id = "other", running = true))

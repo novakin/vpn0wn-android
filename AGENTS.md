@@ -1,6 +1,6 @@
 # vpn0wn — WireGuard Android fork
 
-Last updated: 2026-10-11 (Europe/Paris).
+Last updated: 2026-10-16 (Europe/Paris).
 
 ## Source of Truth — Prompt Instructions
 
@@ -28,6 +28,8 @@ vpn0wn ports the engineering-console UI in `.design/` onto WireGuard Android and
 2. Read README, the improvement plan and the owning guide. Read the UI roadmap for UI work and backend changelog for functional work; read both when the task spans both. For tracked work, read the relevant live issue/PR discussion, acceptance, approval and dependencies; disclose unavailable GitHub state instead of inferring no work or permission.
 3. Define the smallest useful outcome, compatibility requirements and acceptance checks. Trace the failing layer before editing.
 4. For UI work, read the relevant `.design/*.jsx`, identify the exact component/prop and check existing `ui/src/main/res/values/colors.xml` and `styles.xml` tokens first.
+
+For every UI/UX task, read and apply every relevant available UI/UX skill, preserving approved references, fonts and native Android conventions. Follow the [UI/UX review workflow](docs/development.md#uiux-review-workflow), including an explicit evidence-based satisfaction verdict, corrections and remaining limits.
 
 The JSX prototype owns visual intent, not runtime truth. Never treat demo data, rendered screens or planned actions as working integration.
 
@@ -68,9 +70,10 @@ Record consequential architecture decisions in `docs/architecture.md` and operat
 
 - For an explicitly authorized ongoing goal, follow the named phase scope, acceptance and merge gates in `docs/improvement-plan.md`. Autonomous merging applies only to that authorized scope after independent review and required checks cover the final head. Track concrete new findings as issues; do not silently add them to the goal. APK, device and live-operation boundaries still apply.
 - The improvement plan owns priorities and bounded action states; issues own actionable acceptance, approval and dependencies; PRs own current change-specific acceptance. Link them instead of creating a competing backlog.
+- Every PR references its owning issue(s), including partial, documentation and maintenance slices. Reuse existing owners for bounded follow-ups; create an issue only for distinct untracked work. A named request or plan action adds context and does not replace the issue reference.
 - During the authorized GitHub workflow, check for duplicates and create/update an issue for concrete unresolved work. Include observed/expected behavior, impact, bounded scope, approval/dependencies and observable acceptance. Do not create speculative work or a separate issue for each small fix completed within the current PR.
 - Default new issues/PRs to `novakin`; preserve deliberate existing assignments and unrelated labels. Use existing repository labels matching scope. Read current fields, prefer additive changes and verify the write/readback; metadata belongs in GitHub fields, not duplicated mutable prose. Report rejected/unverified fields.
-- Use a closing PR-description keyword only when merge into the default branch fulfils the issue's full acceptance boundary. Use a non-closing reference for partial work or separate operational proof. Verify the Development link and actual post-merge issue state, or disclose the access limit; a reference or closed unmerged PR is not delivery.
+- Use a closing PR-description keyword only when merge into the default branch fulfils the issue's full acceptance boundary. For partial work or separate operational proof, use `Related to #N` and `#N remains open`; negation does not neutralize closing-keyword syntax. Verify the actual Development relationship and issue state after PR-body changes, before merge and after merge, or disclose the access limit; a reference or closed unmerged PR is not delivery.
 - Keep substantive historical assessments in `docs/reviews/` with scope, revision, evidence, findings/resolution and limits. Routine self-review/CI acceptance stays in the PR. Never commit raw chat, private reasoning, credentials or host reports.
 - If GitHub is unavailable, disclose current action status as unverified and retain an explicitly unpublished handoff. Issue/template metadata and an earlier unrelated approval do not authorize new operations.
 
@@ -95,7 +98,7 @@ Record consequential architecture decisions in `docs/architecture.md` and operat
 - For documentation-only changes, check local links, fences, examples, source claims and consistency with `AGENTS.md`. Do not run unrelated runtime operations merely to update prose.
 - Use `Invoke-CodexQuiet` for noisy commands. Retain current-task and failed-task logs under ignored `.artifacts/codex-command-logs`; inspect failures progressively. Report status or at most 40 relevant failure lines.
 - Follow contribution/merge instructions and templates in `docs/development.md`. Commit only intentional files; preserve the user's existing index. Do not amend, rebase, reset or force-push unless requested.
-- Every PR, including drafts and API-created PRs, needs a meaningful description based on `.github/PULL_REQUEST_TEMPLATE.md`: problem/result, linked issue or action, scope/compatibility, actual verification and remaining limits. Review the complete final diff and filled description before publication; update title/body when scope changes and remove stale prompts.
+- Every PR, including drafts and API-created PRs, needs a meaningful description based on `.github/PULL_REQUEST_TEMPLATE.md`: problem/result, owning issue references and relevant plan/action context, scope/compatibility, actual verification and remaining limits. Review the complete final diff and filled description before publication; update title/body when scope changes and remove stale prompts.
 - Keep one current PR acceptance record: reviewed head, tested revision/environment and CI run when applicable, checks/results/skips, honest author self-review verdict, independent review findings/resolution, documentation impact and unresolved issue links. Reassess the affected delta after edits. Self-review is not independent approval or permission to merge; prior results retain their original scope. Do not commit prose merely to embed its own final SHA or newest routine CI count.
 - Set and verify actual GitHub metadata under the work-tracking rules. Before reporting publication complete, confirm published revision, changed-file scope, issue/PR state and applicable checks. Existing CI may run automatically; a workflow file does not prove execution or enforcement, and Server-Audit's CI is not part of this project.
 - Use an account-linked author/committer identity and verify published commits map to the intended GitHub account. Resolve historical email association without rewriting history when possible.
@@ -153,8 +156,9 @@ docs/               architecture, development, operations, backend contracts, pl
 - State: `vpn0wn_warn`, `vpn0wn_error`
 
 **Fonts:**
-- UI labels, titles: `@font/inter_tight`
-- Data, keys, values, monospace fields: `@font/jetbrains_mono_regular` or `jetbrains_mono_medium`
+- General UI prose and controls use `@font/inter_tight` where the owning approved component specifies it.
+- Technical labels, section/deploy titles, tunnel/server names and data use their existing Mono component styles. Preserve explicit JSX/style exceptions; do not replace these roles wholesale with Inter Tight.
+- Reuse `jetbrains_mono_regular` and actual `jetbrains_mono_medium` assets with shared `ss01, zero, tnum` features. Do not synthesize bold where the approved role specifies regular or medium.
 
 **Styles** (`res/values/styles.xml`):
 - `Vpn0wnLabelText` — 10sp mono caps, ink_3 (field labels, section prefixes)

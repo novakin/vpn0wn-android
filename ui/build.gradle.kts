@@ -71,7 +71,7 @@ android {
             isIncludeAndroidResources = true
             isReturnDefaultValues = true
             all {
-                it.maxHeapSize = "1g"
+                it.maxHeapSize = "2g"
             }
         }
     }
@@ -97,6 +97,8 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.google.material)
+    implementation(libs.bcprov)
+    implementation(libs.jsch)
     implementation(libs.zxing.android.embedded)
     implementation(libs.kotlinx.coroutines.android)
     coreLibraryDesugaring(libs.desugarJdkLibs)
@@ -105,6 +107,8 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
+    testImplementation(libs.sshd.core)
+    testImplementation(libs.sshd.sftp)
 }
 
 tasks.withType<JavaCompile>().configureEach {
@@ -113,7 +117,9 @@ tasks.withType<JavaCompile>().configureEach {
 }
 
 tasks.withType<Test>().configureEach {
-    maxHeapSize = "1g"
+    maxHeapSize = "2g"
+    // Robolectric retains SDK sandboxes and asset maps across test classes.
+    forkEvery = 1
 }
 
 detekt {

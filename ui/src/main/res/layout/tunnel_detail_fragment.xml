@@ -11,8 +11,6 @@
 
         <import type="com.vpn0wn.android.databinding.BindingAdapters" />
 
-        <import type="com.vpn0wn.android.util.ClipboardUtils" />
-
         <variable
             name="fragment"
             type="com.vpn0wn.android.fragment.TunnelDetailFragment" />
@@ -45,18 +43,19 @@
 
             <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="32dp"
+                android:layout_height="wrap_content"
                 android:gravity="center_vertical"
+                android:minHeight="48dp"
                 android:orientation="horizontal">
 
                 <androidx.appcompat.widget.AppCompatImageButton
                     android:id="@+id/detail_back_button"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:background="@android:color/transparent"
-                    android:contentDescription="@string/cancel"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:background="?attr/selectableItemBackground"
+                    android:contentDescription="@string/vpn0wn_navigate_back"
                     android:onClick="@{fragment::onBackPressed}"
-                    android:padding="4dp"
+                    android:padding="12dp"
                     app:srcCompat="@drawable/ic_vpn0wn_chevron_left"
                     app:tint="@color/vpn0wn_ink_2" />
 
@@ -77,7 +76,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:gravity="bottom"
+                android:gravity="center_vertical"
                 android:orientation="horizontal">
 
                 <TextView
@@ -92,13 +91,13 @@
 
                 <androidx.appcompat.widget.AppCompatImageButton
                     android:id="@+id/detail_edit_button"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
                     android:layout_marginStart="8dp"
-                    android:background="@android:color/transparent"
+                    android:background="?attr/selectableItemBackground"
                     android:contentDescription="@string/edit"
                     android:onClick="@{fragment::onEditPressed}"
-                    android:padding="7dp"
+                    android:padding="15dp"
                     app:srcCompat="@drawable/ic_action_edit"
                     app:tint="@color/vpn0wn_ink_2" />
             </LinearLayout>
@@ -149,7 +148,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginEnd="8dp"
                             android:layout_weight="1"
-                            android:text="FIG.01 - TUNNEL TOPOLOGY" />
+                            android:text="@string/vpn0wn_tunnel_topology" />
 
                         <TextView
                             style="@style/Vpn0wnLabelText"
@@ -187,7 +186,7 @@
                             android:layout_weight="1"
                             android:ellipsize="end"
                             android:maxLines="1"
-                            android:text="@{BindingAdapters.tunnelRoute(config)}"
+                            android:text="@{BindingAdapters.tunnelRoute(context, config)}"
                             tools:text="172.20.4.18/24 -> gw.example.ro:51820" />
 
                         <TextView
@@ -195,7 +194,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginStart="10dp"
-                            android:text="@{BindingAdapters.tunnelPeerBadge(config)}"
+                            android:text="@{BindingAdapters.tunnelPeerBadge(context, config)}"
                             android:textColor="@color/vpn0wn_signal_deep"
                             tools:text="PSK" />
                     </LinearLayout>
@@ -286,7 +285,7 @@
                             style="@style/Vpn0wnLabelText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="↓ DOWNLOAD" />
+                            android:text="@string/vpn0wn_download" />
 
                         <TextView
                             style="@style/Vpn0wnMonoValueText"
@@ -323,7 +322,7 @@
                             style="@style/Vpn0wnLabelText"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="↑ UPLOAD" />
+                            android:text="@string/vpn0wn_upload" />
 
                         <TextView
                             style="@style/Vpn0wnMonoValueText"
@@ -395,85 +394,105 @@
                     android:orientation="vertical">
 
                     <LinearLayout
+                        android:id="@+id/interface_name_row"
                         style="@style/Vpn0wnDetailRow"
-                        android:orientation="vertical">
+                        android:contentDescription="@{@string/tunnel_name + `: ` + (tunnel == null ? `` : tunnel.name)}"
+                        android:foreground="?attr/selectableItemBackground"
+                        android:minHeight="48dp"
+                        android:orientation="vertical"
+                        app:copyText="@{tunnel.name}">
 
                         <TextView
                             style="@style/Vpn0wnConfigRowLabel"
-                            android:text="NAME" />
+                            android:text="@string/name" />
 
                         <TextView
                             android:id="@+id/interface_name_text"
                             style="@style/Vpn0wnConfigRowValue"
-                            android:onClick="@{ClipboardUtils::copyTextView}"
                             android:text="@{tunnel.name}"
                             tools:text="office-ro" />
                     </LinearLayout>
 
                     <LinearLayout
+                        android:id="@+id/public_key_row"
                         style="@style/Vpn0wnDetailRow"
-                        android:orientation="vertical">
+                        android:contentDescription="@string/public_key"
+                        android:foreground="?attr/selectableItemBackground"
+                        android:minHeight="48dp"
+                        android:orientation="vertical"
+                        app:copyText="@{config.interface.keyPair.publicKey.toBase64}">
 
                         <TextView
                             style="@style/Vpn0wnConfigRowLabel"
-                            android:text="PUBLIC KEY" />
+                            android:text="@string/public_key" />
 
                         <TextView
                             android:id="@+id/public_key_text"
                             style="@style/Vpn0wnConfigRowValue"
                             android:maxLines="1"
-                            android:onClick="@{ClipboardUtils::copyTextView}"
                             android:text="@{BindingAdapters.shortKey(config.interface.keyPair.publicKey.toBase64)}"
                             tools:text="wOs2…BVkA" />
                     </LinearLayout>
 
                     <LinearLayout
+                        android:id="@+id/addresses_row"
                         style="@style/Vpn0wnDetailRow"
+                        android:contentDescription="@{@string/addresses + `: ` + BindingAdapters.inetNetworksText(config.interface.addresses)}"
+                        android:foreground="?attr/selectableItemBackground"
+                        android:minHeight="48dp"
                         android:orientation="vertical"
-                        android:visibility="@{config.interface.addresses.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}">
+                        android:visibility="@{config.interface.addresses.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
+                        app:copyText="@{BindingAdapters.inetNetworksText(config.interface.addresses)}">
 
                         <TextView
                             style="@style/Vpn0wnConfigRowLabel"
-                            android:text="ADDRESSES" />
+                            android:text="@string/addresses" />
 
                         <TextView
                             android:id="@+id/addresses_text"
                             style="@style/Vpn0wnConfigRowValue"
-                            android:onClick="@{ClipboardUtils::copyTextView}"
                             android:text="@{config.interface.addresses}"
                             tools:text="172.20.4.18/24" />
                     </LinearLayout>
 
                     <LinearLayout
+                        android:id="@+id/dns_servers_row"
                         style="@style/Vpn0wnDetailRow"
+                        android:contentDescription="@{@string/dns_servers + `: ` + BindingAdapters.inetAddressesText(config.interface.dnsServers)}"
+                        android:foreground="?attr/selectableItemBackground"
+                        android:minHeight="48dp"
                         android:orientation="vertical"
-                        android:visibility="@{config.interface.dnsServers.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}">
+                        android:visibility="@{config.interface.dnsServers.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
+                        app:copyText="@{BindingAdapters.inetAddressesText(config.interface.dnsServers)}">
 
                         <TextView
                             style="@style/Vpn0wnConfigRowLabel"
-                            android:text="DNS SERVERS" />
+                            android:text="@string/dns_servers" />
 
                         <TextView
                             android:id="@+id/dns_servers_text"
                             style="@style/Vpn0wnConfigRowValue"
-                            android:onClick="@{ClipboardUtils::copyTextView}"
                             android:text="@{config.interface.dnsServers}"
                             tools:text="1.1.1.1" />
                     </LinearLayout>
 
                     <LinearLayout
+                        android:id="@+id/dns_search_domains_row"
                         style="@style/Vpn0wnDetailRow"
+                        android:contentDescription="@{@string/dns_search_domains + `: ` + BindingAdapters.stringsText(config.interface.dnsSearchDomains)}"
+                        android:foreground="?attr/selectableItemBackground"
+                        android:minHeight="48dp"
                         android:orientation="vertical"
-                        android:visibility="@{config.interface.dnsSearchDomains.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}">
+                        android:visibility="@{config.interface.dnsSearchDomains.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
+                        app:copyText="@{BindingAdapters.stringsText(config.interface.dnsSearchDomains)}">
 
                         <TextView
                             style="@style/Vpn0wnConfigRowLabel"
-                            android:text="DNS SEARCH DOMAINS" />
+                            android:text="@string/dns_search_domains" />
 
                         <TextView
                             android:id="@+id/dns_search_domains_text"
                             style="@style/Vpn0wnConfigRowValue"
-                            android:onClick="@{ClipboardUtils::copyTextView}"
                             android:text="@{config.interface.dnsSearchDomains}"
                             tools:text="corp.example" />
                     </LinearLayout>
@@ -486,28 +505,37 @@
                         android:orientation="horizontal">
 
                         <LinearLayout
+                            android:id="@+id/listen_port_row"
                             style="@style/Vpn0wnDetailRow"
                             android:layout_width="0dp"
                             android:layout_weight="1"
-                            android:orientation="vertical">
+                            android:contentDescription="@{@string/listen_port + `: ` + BindingAdapters.optionalText(config.interface.listenPort, `—`)}"
+                            android:foreground="?attr/selectableItemBackground"
+                            android:minHeight="48dp"
+                            android:orientation="vertical"
+                            app:copyText="@{BindingAdapters.optionalText(config.interface.listenPort, `—`)}">
 
                             <TextView
                                 style="@style/Vpn0wnConfigRowLabel"
-                                android:text="LISTEN PORT" />
+                                android:text="@string/listen_port" />
 
                             <TextView
                                 android:id="@+id/listen_port_text"
                                 style="@style/Vpn0wnConfigRowValue"
-                                android:onClick="@{ClipboardUtils::copyTextView}"
-                                android:text="@{config.interface.listenPort.isPresent() ? config.interface.listenPort.get().toString() : `—`}"
+                                android:text="@{BindingAdapters.optionalText(config.interface.listenPort, `—`)}"
                                 tools:text="51820" />
                         </LinearLayout>
 
                         <LinearLayout
+                            android:id="@+id/mtu_row"
                             style="@style/Vpn0wnDetailRow"
                             android:layout_width="0dp"
                             android:layout_weight="1"
-                            android:orientation="vertical">
+                            android:contentDescription="@{@string/mtu + `: ` + BindingAdapters.optionalText(config.interface.mtu, `—`)}"
+                            android:foreground="?attr/selectableItemBackground"
+                            android:minHeight="48dp"
+                            android:orientation="vertical"
+                            app:copyText="@{BindingAdapters.optionalText(config.interface.mtu, `—`)}">
 
                             <TextView
                                 style="@style/Vpn0wnConfigRowLabel"
@@ -516,28 +544,31 @@
                             <TextView
                                 android:id="@+id/mtu_text"
                                 style="@style/Vpn0wnConfigRowValue"
-                                android:onClick="@{ClipboardUtils::copyTextView}"
-                                android:text="@{config.interface.mtu.isPresent() ? config.interface.mtu.get().toString() : `—`}"
+                                android:text="@{BindingAdapters.optionalText(config.interface.mtu, `—`)}"
                                 tools:text="1420" />
                         </LinearLayout>
                     </LinearLayout>
 
                     <LinearLayout
+                        android:id="@+id/applications_row"
                         style="@style/Vpn0wnDetailRow"
+                        android:contentDescription="@{@string/applications + `: ` + BindingAdapters.applicationsText(context, config)}"
+                        android:foreground="?attr/selectableItemBackground"
+                        android:minHeight="48dp"
                         android:orientation="vertical"
                         android:visibility="@{config.interface.includedApplications.isEmpty() &amp;&amp; config.interface.excludedApplications.isEmpty() ? android.view.View.GONE : android.view.View.VISIBLE}"
+                        app:copyText="@{BindingAdapters.applicationsText(context, config)}"
                         tools:visibility="visible">
 
                         <TextView
                             style="@style/Vpn0wnConfigRowLabel"
-                            android:text="@{config.interface.excludedApplications.isEmpty() ? `INCLUDED APPS · ` + config.interface.includedApplications.size() : `EXCLUDED APPS · ` + config.interface.excludedApplications.size()}"
+                            android:text="@{BindingAdapters.applicationsLabel(context, config)}"
                             tools:text="EXCLUDED APPS · 2" />
 
                         <TextView
                             android:id="@+id/applications_text"
                             style="@style/Vpn0wnConfigRowValue"
-                            android:onClick="@{ClipboardUtils::copyTextView}"
-                            android:text="@{config.interface.includedApplications.isEmpty() ? @plurals/n_excluded_applications(config.interface.excludedApplications.size(), config.interface.excludedApplications.size()) : @plurals/n_included_applications(config.interface.includedApplications.size(), config.interface.includedApplications.size())}"
+                            android:text="@{BindingAdapters.applicationsText(context, config)}"
                             tools:text="2 excluded" />
                     </LinearLayout>
                 </LinearLayout>
@@ -591,6 +622,251 @@
                 app:detailPeerDiagnostics="@{tunnel.handshakeDiagnostics}"
                 app:detailPeerState="@{tunnel.state}"
                 tools:ignore="UselessLeaf" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    style="@style/Vpn0wnLabelText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="§03"
+                    android:textColor="@color/vpn0wn_rule_strong" />
+
+                <TextView
+                    android:id="@+id/recovery_title"
+                    style="@style/Vpn0wnMonoValueText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:text="@string/vpn0wn_recovery_title"
+                    android:textSize="13sp" />
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_marginStart="10dp"
+                    android:layout_weight="1"
+                    android:background="@color/vpn0wn_rule" />
+            </LinearLayout>
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/recovery_card"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                app:cardBackgroundColor="@color/vpn0wn_paper_2"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/vpn0wn_rule"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:id="@+id/recovery_card_content"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    app:recoverySnapshot="@{tunnel.recoverySnapshot}"
+                    app:recoveryDiagnostics="@{tunnel.handshakeDiagnostics}"
+                    app:recoveryConfig="@{config}"
+                    app:recoveryState="@{tunnel.state}">
+
+                    <LinearLayout
+                        style="@style/Vpn0wnDetailRow"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Vpn0wnConfigRowLabel"
+                            android:text="@string/vpn0wn_recovery_status_label" />
+
+                        <TextView
+                            android:id="@+id/recovery_status"
+                            style="@style/Vpn0wnMonoValueText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textSize="13sp"
+                            tools:text="@string/vpn0wn_recovery_unknown" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        style="@style/Vpn0wnDetailRow"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Vpn0wnConfigRowLabel"
+                            android:text="@string/vpn0wn_recovery_attempts_label" />
+
+                        <TextView
+                            android:id="@+id/recovery_counts_attempts"
+                            style="@style/Vpn0wnMonoValueText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textSize="13sp"
+                            tools:text="@string/vpn0wn_recovery_unknown" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        style="@style/Vpn0wnDetailRow"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Vpn0wnConfigRowLabel"
+                            android:text="@string/vpn0wn_recovery_admissions_label" />
+
+                        <TextView
+                            android:id="@+id/recovery_counts_admissions"
+                            style="@style/Vpn0wnMonoValueText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textSize="13sp"
+                            tools:text="@string/vpn0wn_recovery_unknown" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        style="@style/Vpn0wnDetailRow"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Vpn0wnConfigRowLabel"
+                            android:text="@string/vpn0wn_recovery_requests_label" />
+
+                        <TextView
+                            android:id="@+id/recovery_counts_requests"
+                            style="@style/Vpn0wnMonoValueText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textSize="13sp"
+                            tools:text="@string/vpn0wn_recovery_unknown" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        style="@style/Vpn0wnDetailRow"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Vpn0wnConfigRowLabel"
+                            android:text="@string/vpn0wn_recovery_uncertain_label" />
+
+                        <TextView
+                            android:id="@+id/recovery_counts_uncertain"
+                            style="@style/Vpn0wnMonoValueText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textSize="13sp"
+                            tools:text="@string/vpn0wn_recovery_unknown" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        style="@style/Vpn0wnDetailRow"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Vpn0wnConfigRowLabel"
+                            android:text="@string/vpn0wn_recovery_transport_label" />
+
+                        <TextView
+                            android:id="@+id/recovery_transport"
+                            style="@style/Vpn0wnMonoValueText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textSize="13sp"
+                            tools:text="@string/vpn0wn_recovery_unknown" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        style="@style/Vpn0wnDetailRow"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Vpn0wnConfigRowLabel"
+                            android:text="@string/vpn0wn_recovery_request_peer_label" />
+
+                        <TextView
+                            android:id="@+id/recovery_request_peer"
+                            style="@style/Vpn0wnMonoValueText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textSize="13sp"
+                            tools:text="@string/vpn0wn_recovery_unknown" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        style="@style/Vpn0wnDetailRow"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Vpn0wnConfigRowLabel"
+                            android:text="@string/vpn0wn_recovery_result_label" />
+
+                        <TextView
+                            android:id="@+id/recovery_result"
+                            style="@style/Vpn0wnMonoValueText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textSize="13sp"
+                            tools:text="@string/vpn0wn_recovery_unknown" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        style="@style/Vpn0wnDetailRow"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Vpn0wnConfigRowLabel"
+                            android:text="@string/vpn0wn_recovery_result_recorded_label" />
+
+                        <TextView
+                            android:id="@+id/recovery_result_recorded"
+                            style="@style/Vpn0wnMonoValueText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textSize="13sp"
+                            tools:text="@string/vpn0wn_recovery_unknown" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        style="@style/Vpn0wnDetailRow"
+                        android:orientation="vertical">
+
+                        <TextView
+                            style="@style/Vpn0wnConfigRowLabel"
+                            android:text="@string/vpn0wn_recovery_authentication_label" />
+
+                        <TextView
+                            android:id="@+id/recovery_authentication"
+                            style="@style/Vpn0wnMonoValueText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="2dp"
+                            android:textSize="13sp"
+                            tools:text="@string/vpn0wn_recovery_unknown" />
+                    </LinearLayout>
+
+                    <TextView
+                        android:id="@+id/recovery_scope"
+                        style="@style/Vpn0wnMonoSubText"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:paddingStart="14dp"
+                        android:paddingTop="10dp"
+                        android:paddingEnd="14dp"
+                        android:paddingBottom="10dp"
+                        android:text="@string/vpn0wn_recovery_scope" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
         </ScrollView>
     </LinearLayout>

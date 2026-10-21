@@ -26,11 +26,10 @@ data class VpsDeployServer(
     val name: String,
     val provider: String,
     val region: String,
-    val endpoint: String,
-    val port: Int,
+    val endpoint: String?,
+    val port: Int?,
     var status: VpsDeployServerStatus,
     val distro: String,
-    val version: String,
     val engine: String,
     val cidr: String,
     val dns: String,
@@ -38,7 +37,15 @@ data class VpsDeployServer(
     val lastSync: String,
     val health: List<VpsDeployHealthCheck>,
     val users: MutableList<VpsDeployUser> = mutableListOf(),
-)
+    val usersKnown: Boolean = false,
+) {
+    val endpointAddress: String?
+        get() {
+            if (endpoint == null || port == null) return null
+            val host = if (':' in endpoint && '[' !in endpoint && ']' !in endpoint) "[$endpoint]" else endpoint
+            return "$host:$port"
+        }
+}
 
 data class VpsDeployUser(
     val id: String,

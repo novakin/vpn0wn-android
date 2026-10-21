@@ -10,12 +10,14 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import android.content.Intent
+import android.content.res.Configuration
 import android.app.Activity
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
@@ -35,6 +37,7 @@ import com.vpn0wn.android.Application
 import com.vpn0wn.android.BR
 import com.vpn0wn.android.R
 import com.vpn0wn.android.activity.LogViewerActivity
+import com.vpn0wn.android.activity.MainActivity
 import com.vpn0wn.android.activity.SettingsActivity
 import com.vpn0wn.android.backend.Tunnel
 import com.vpn0wn.android.activity.TunnelCreatorActivity
@@ -45,6 +48,7 @@ import com.vpn0wn.android.model.ObservableTunnel
 import com.vpn0wn.android.model.TunnelManager
 import com.vpn0wn.android.util.ErrorMessages
 import com.vpn0wn.android.util.QrCodeFromFileScanner
+import com.vpn0wn.android.util.RootShell.RootShellException
 import com.vpn0wn.android.util.TunnelImporter
 import com.vpn0wn.android.util.vpn0wnStyle
 import com.vpn0wn.android.widget.MultiselectableRelativeLayout
@@ -152,6 +156,22 @@ class TunnelListFragment : BaseFragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+        val configuration = resources.configuration
+        if (configuration.orientation == Configuration.ORIENTATION_PORTRAIT &&
+            configuration.screenWidthDp < COMPACT_WINDOW_WIDTH_DP && configuration.fontScale >= ENLARGED_FONT_SCALE) {
+            binding?.apply {
+                homeStatusContainer.orientation = LinearLayout.VERTICAL
+                homeStatusDivider.visibility = View.GONE
+                for (group in listOf(homeConnectionGroup, homeEndpointGroup)) {
+                    group.layoutParams = (group.layoutParams as LinearLayout.LayoutParams).apply {
+                        width = ViewGroup.LayoutParams.MATCH_PARENT
+                        weight = 0f
+                    }
+                    group.setPaddingRelative(0, 0, 0, 0)
+                }
+                homeConnectionGroup.setPaddingRelative(0, 0, 0, resources.getDimensionPixelSize(R.dimen.normal_margin))
+            }
+        }
         backPressedCallback = requireActivity().onBackPressedDispatcher.addCallback(viewLifecycleOwner) {
             if (deleting) deleteJob?.cancel()
             else if (deleteSheet != null) deleteSheet?.dismiss()
@@ -229,11 +249,27 @@ class TunnelListFragment : BaseFragment() {
     override fun onSelectedTunnelChanged(oldTunnel: ObservableTunnel?, newTunnel: ObservableTunnel?) {
         val currentBinding = binding ?: return
         viewLifecycleOwner.lifecycleScope.launch {
-            val tunnels = Application.getTunnelManager().getTunnels()
+            val tunnels = loadTunnels() ?: return@launch
             if (binding !== currentBinding || selectionMode) return@launch
             if (newTunnel != null) viewForTunnel(newTunnel, tunnels)?.setSingleSelected(true)
             if (oldTunnel != null) viewForTunnel(oldTunnel, tunnels)?.setSingleSelected(false)
         }
+    }
+
+    private suspend fun loadTunnels() = try {
+        Application.getTunnelManager().getTunnels()
+    } catch (failure: IOException) {
+        reportInventoryFailure(failure)
+        null
+    } catch (failure: RootShellException) {
+        reportInventoryFailure(failure)
+        null
+    }
+
+    private fun reportInventoryFailure(failure: Exception) {
+        val message = getString(R.string.error_prepare, ErrorMessages[failure])
+        Log.e(TAG, message, failure)
+        showSnackbar(message)
     }
 
     override fun onViewStateRestored(savedInstanceState: Bundle?) {
@@ -243,7 +279,7 @@ class TunnelListFragment : BaseFragment() {
         selectionMode = savedInstanceState?.getBoolean(SELECTION_MODE) ?: selectionMode
         val restoredNames = savedInstanceState?.getStringArrayList(SELECTED_NAMES)
         viewLifecycleOwner.lifecycleScope.launch {
-            val tunnels = Application.getTunnelManager().getTunnels()
+            val tunnels = loadTunnels() ?: return@launch
             if (binding !== currentBinding) return@launch
             if (restoredNames != null) {
                 selectedTunnels.clear()
@@ -259,7 +295,11 @@ class TunnelListFragment : BaseFragment() {
                 binding.selected = item in selectedTunnels
                 binding.root.setOnClickListener {
                     if (!selectionMode) {
-                        selectedTunnel = item
+                        val mainActivity = activity as? MainActivity
+                        if (mainActivity != null)
+                            mainActivity.selectTunnel(item)
+                        else
+                            selectedTunnel = item
                     } else {
                         toggleItemSelection(item)
                     }
@@ -383,6 +423,10 @@ class TunnelListFragment : BaseFragment() {
         startActivity(Intent(requireContext(), SettingsActivity::class.java))
     }
 
+    fun onOpenServers(@Suppress("UNUSED_PARAMETER") view: View) {
+        (requireActivity() as MainActivity).openServers()
+    }
+
     private fun viewForTunnel(tunnel: ObservableTunnel, tunnels: List<*>): MultiselectableRelativeLayout? {
         return binding?.tunnelList?.findViewHolderForAdapterPosition(tunnels.indexOf(tunnel))?.itemView as? MultiselectableRelativeLayout
     }
@@ -461,7 +505,7 @@ class TunnelListFragment : BaseFragment() {
         val currentBinding = binding ?: return
         val selectionChanged = (currentBinding.selectionHeaderContainer.visibility == View.VISIBLE) != selectionMode
         currentBinding.homeHeaderContainer.visibility = if (selectionMode) View.GONE else View.VISIBLE
-        currentBinding.homeStatusContainer.visibility = if (selectionMode) View.GONE else View.VISIBLE
+        currentBinding.homeStatusContainer.visibility = if (selectionMode || currentBinding.tunnels == null) View.GONE else View.VISIBLE
         currentBinding.selectionHeaderContainer.visibility = if (selectionMode) View.VISIBLE else View.GONE
         currentBinding.selectionStatusContainer.visibility = if (selectionMode) View.VISIBLE else View.GONE
         currentBinding.createFab.visibility = if (selectionMode) View.GONE else View.VISIBLE
@@ -540,6 +584,8 @@ class TunnelListFragment : BaseFragment() {
     }
 
     companion object {
+        private const val COMPACT_WINDOW_WIDTH_DP = 600
+        private const val ENLARGED_FONT_SCALE = 1.5f
         private const val SELECTION_MODE = "SELECTION_MODE"
         private const val SELECTED_NAMES = "SELECTED_NAMES"
         private const val TAG = "vpn0wn/TunnelListFragment"

@@ -40,7 +40,8 @@ object ErrorMessages {
         BackendException.Reason.UNABLE_TO_START_VPN to R.string.vpn_start_error,
         BackendException.Reason.TUN_CREATION_ERROR to R.string.tun_create_error,
         BackendException.Reason.GO_ACTIVATION_ERROR_CODE to R.string.tunnel_on_error,
-        BackendException.Reason.DNS_RESOLUTION_FAILURE to R.string.tunnel_dns_failure
+        BackendException.Reason.DNS_RESOLUTION_FAILURE to R.string.tunnel_dns_failure,
+        BackendException.Reason.AMNEZIA_REQUIRES_USERSPACE to R.string.amnezia_requires_userspace
     )
     private val KFE_FORMAT_MAP = mapOf(
         Key.Format.BASE64 to R.string.key_length_explanation_base64,
@@ -124,6 +125,7 @@ object ErrorMessages {
             bce.location == BadConfigException.Location.LISTEN_PORT -> resources.getString(R.string.bad_config_explanation_udp_port)
             bce.location == BadConfigException.Location.MTU -> resources.getString(R.string.bad_config_explanation_positive_number)
             bce.location == BadConfigException.Location.PERSISTENT_KEEPALIVE -> resources.getString(R.string.bad_config_explanation_pka)
+            bce.location == BadConfigException.Location.AMNEZIA_KEEPALIVE -> resources.getString(R.string.bad_config_explanation_awg_pka)
             else -> ""
         }
     }

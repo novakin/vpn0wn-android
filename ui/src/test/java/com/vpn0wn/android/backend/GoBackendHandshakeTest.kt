@@ -68,6 +68,7 @@ class GoBackendHandshakeTest {
         BuilderShadow.descriptor = ParcelFileDescriptor.open(folder.newFile(), ParcelFileDescriptor.MODE_READ_WRITE)
         NativeShadow.startup = { _, _ -> 7 }
         NativeShadow.insideNative = false
+        NativeShadow.selectedAmnezia = false
     }
 
     @After fun tearDown() {
@@ -101,12 +102,36 @@ class GoBackendHandshakeTest {
         assertEquals(40L, observations.first().sequence())
     }
 
+    @Test fun amneziaUsesItsEngineAndRetainsSharedHandshakeAdmission() {
+        NativeShadow.startup = { owner, id -> capture(owner, id, peer, 4); 7 }
+        val amnezia = Config.parse(profile().toWgQuickString().replace("[Interface]",
+            "[Interface]\nProtocol = AmneziaWG\nJc = 0").byteInputStream())
+        backend.setState(tunnel, Tunnel.State.UP, amnezia)
+        shadowOf(Looper.getMainLooper()).idle()
+        assertTrue(NativeShadow.selectedAmnezia)
+        assertEquals(HandshakeObservation.Event.AUTHENTICATED, observations.single().event())
+        backend.setState(tunnel, Tunnel.State.DOWN, null)
+        service = Robolectric.buildService(GoBackend.VpnService::class.java).create().get()
+        BuilderShadow.descriptor = ParcelFileDescriptor.open(folder.newFile(), ParcelFileDescriptor.MODE_READ_WRITE)
+        NativeShadow.startup = { _, _ -> 7 }
+        backend.setState(tunnel, Tunnel.State.UP, profile())
+        assertFalse(NativeShadow.selectedAmnezia)
+    }
+
     @Test fun unsuccessfulStartupDiscardsEveryStagedObservation() {
         NativeShadow.startup = { owner, id -> capture(owner, id, peer, 4); -1 }
         assertThrows(BackendException::class.java) { backend.setState(tunnel, Tunnel.State.UP, profile()) }
         shadowOf(Looper.getMainLooper()).idle()
         assertTrue(sessions.isEmpty())
         assertTrue(observations.isEmpty())
+    }
+
+    @Test fun exhaustionRetainsNativeEpisodeDistinctFromCaptureSequence() {
+        NativeShadow.startup = { owner, id -> capture(owner, id, peer, 5, episode = 73); 7 }
+        backend.setState(tunnel, Tunnel.State.UP, profile())
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(73L, observations.single().exhaustedEpisode())
+        assertEquals(1L, observations.single().sequence())
     }
 
     @Test fun invalidNativeHostnameFailsStartupWithoutPublishingStagedState() {
@@ -201,10 +226,10 @@ class GoBackendHandshakeTest {
         AllowedIPs = 192.0.2.3/32
     """.trimIndent().byteInputStream())
 
-    private fun capture(owner: GoBackend.VpnService, id: Long, key: Key, event: Int, endpoint: String = "127.0.0.1:51820") {
+    private fun capture(owner: GoBackend.VpnService, id: Long, key: Key, event: Int, endpoint: String = "127.0.0.1:51820", episode: Long = 0) {
         GoBackend.VpnService::class.java.getDeclaredMethod("onNativeHandshakeObservation", Long::class.javaPrimitiveType,
-            ByteArray::class.java, Int::class.javaPrimitiveType, Boolean::class.javaPrimitiveType, String::class.java)
-            .apply { isAccessible = true }.invoke(owner, id, key.bytes, event, true, endpoint)
+            ByteArray::class.java, Int::class.javaPrimitiveType, Boolean::class.javaPrimitiveType, String::class.java, Long::class.javaPrimitiveType)
+            .apply { isAccessible = true }.invoke(owner, id, key.bytes, event, true, endpoint, episode)
     }
 
     @Implements(value = VpnService.Builder::class)
@@ -226,14 +251,31 @@ class GoBackendHandshakeTest {
         companion object {
             lateinit var startup: (GoBackend.VpnService, Long) -> Int
             var insideNative = false
+            var selectedAmnezia = false
             @Implementation @JvmStatic fun wgTurnOn(name: String, fd: Int, settings: String,
-                service: GoBackend.VpnService, thread: Thread, id: Long): Int {
+                service: GoBackend.VpnService, thread: Thread, id: Long, @org.robolectric.annotation.ClassName("com.vpn0wn.android.backend.GoBackend\$SocketCapture") capture: Any): Int {
+                selectedAmnezia = false
+                return start(name, fd, settings, service, thread, id, capture)
+            }
+            @Implementation @JvmStatic fun awgTurnOn(name: String, fd: Int, settings: String,
+                service: GoBackend.VpnService, thread: Thread, id: Long, @org.robolectric.annotation.ClassName("com.vpn0wn.android.backend.GoBackend\$SocketCapture") capture: Any): Int {
+                selectedAmnezia = true
+                assertTrue(settings.contains("jc=0\n"))
+                return start(name, fd, settings, service, thread, id, capture)
+            }
+            private fun start(name: String, fd: Int, settings: String, service: GoBackend.VpnService,
+                thread: Thread, id: Long, capture: Any): Int {
                 assertEquals("fixture", name)
                 assertTrue(settings.contains("listen_port=51820"))
                 assertSame(Thread.currentThread(), thread)
                 assertEquals(73, fd)
+                assertNotNull(capture)
                 insideNative = true
                 return try { startup(service, id) } finally { insideNative = false }
+            }
+            @Implementation @JvmStatic fun wgTransportSnapshot(handle: Int): Long {
+                assertEquals(7, handle)
+                return 2L
             }
             @Implementation @JvmStatic fun wgTurnOff(handle: Int) = assertEquals(7, handle)
             // Robolectric must retain the zero-argument JNI method shape.

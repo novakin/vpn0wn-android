@@ -18,6 +18,7 @@ import android.graphics.drawable.Drawable
 import android.graphics.drawable.GradientDrawable
 import android.os.SystemClock
 import android.text.InputFilter
+import android.text.InputType
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
@@ -36,16 +37,21 @@ import androidx.databinding.ObservableList
 import androidx.databinding.ViewDataBinding
 import androidx.databinding.adapters.ListenerUtil
 import androidx.fragment.app.Fragment
+import androidx.coordinatorlayout.widget.CoordinatorLayout
+import androidx.core.view.doOnLayout
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.appbar.AppBarLayout
 import com.google.android.material.card.MaterialCardView
 import com.vpn0wn.android.BR
 import com.vpn0wn.android.R
 import com.vpn0wn.android.backend.HandshakeObservation
+import com.vpn0wn.android.backend.RecoveryResult
 import com.vpn0wn.android.backend.Statistics
 import com.vpn0wn.android.backend.Tunnel
 import com.vpn0wn.android.databinding.ObservableKeyedRecyclerViewAdapter.RowConfigurationHandler
 import com.vpn0wn.android.model.ObservableTunnel
+import com.vpn0wn.android.util.ClipboardUtils
 import com.vpn0wn.android.util.QuantityFormatter
 import com.vpn0wn.android.widget.TunnelSignalView
 import com.vpn0wn.android.widget.TunnelThroughputView
@@ -66,6 +72,15 @@ import java.util.WeakHashMap
  * Static methods for use by generated code in the Android data binding library.
  */
 object BindingAdapters {
+    @JvmStatic
+    @BindingAdapter("copyText")
+    fun setCopyText(view: View, text: CharSequence?) {
+        val canCopy = view.isEnabled && !text.isNullOrEmpty()
+        view.setOnClickListener(if (canCopy) View.OnClickListener { ClipboardUtils.copyText(view, text) } else null)
+        view.isClickable = canCopy
+        view.isFocusable = canCopy
+    }
+
     @JvmStatic
     @BindingAdapter("tunnelSelectionInset")
     fun setTunnelSelectionInset(view: View, selecting: Boolean) {
@@ -242,6 +257,119 @@ object BindingAdapters {
     }
 
     @JvmStatic
+    @BindingAdapter("recoverySnapshot", "recoveryDiagnostics", "recoveryConfig", "recoveryState")
+    fun setRecoveryDiagnostics(
+        view: LinearLayout,
+        snapshot: ObservableTunnel.RecoverySnapshot?,
+        diagnostics: Map<Key, ObservableTunnel.PeerHandshakeDiagnostics>?,
+        config: Config?,
+        state: Tunnel.State?,
+    ) {
+        val context = view.context
+        val active = snapshot.takeIf { state == Tunnel.State.UP }
+        val unavailable = context.getString(R.string.vpn0wn_recovery_unavailable)
+        val counts = listOf(
+            R.id.recovery_counts_attempts to active?.chargedAttempts,
+            R.id.recovery_counts_admissions to active?.confirmedAdmissions,
+            R.id.recovery_counts_requests to active?.backendEntries,
+            R.id.recovery_counts_uncertain to active?.unknownSettlements,
+        )
+        for ((id, count) in counts) {
+            view.findViewById<TextView>(id).text = count?.let { context.getString(R.string.vpn0wn_recovery_count, it) } ?: unavailable
+        }
+        view.findViewById<TextView>(R.id.recovery_status).text = active?.let { recoveryStatus(context, it) } ?: unavailable
+        view.findViewById<TextView>(R.id.recovery_transport).setText(when (active?.transportState) {
+            ObservableTunnel.RecoveryTransportState.UNKNOWN -> R.string.vpn0wn_recovery_unknown
+            ObservableTunnel.RecoveryTransportState.READY -> R.string.vpn0wn_recovery_transport_ready
+            ObservableTunnel.RecoveryTransportState.UNAVAILABLE -> R.string.vpn0wn_recovery_transport_unavailable
+            null -> R.string.vpn0wn_recovery_unavailable
+        })
+        view.findViewById<TextView>(R.id.recovery_request_peer).text = recoveryRequestPeer(context, active, config)
+        view.findViewById<TextView>(R.id.recovery_result).text = active?.let { recoveryResult(context, it) } ?: unavailable
+        view.findViewById<TextView>(R.id.recovery_result_recorded).text = when {
+            active == null -> unavailable
+            active.lastResultRecordedElapsedRealtimeMillis == null -> context.getString(R.string.vpn0wn_recovery_time_unrecorded)
+            else -> context.getString(R.string.vpn0wn_recovery_uptime, active.lastResultRecordedElapsedRealtimeMillis)
+        }
+        view.findViewById<TextView>(R.id.recovery_authentication).text = recoveryAuthentication(context, active, diagnostics, config)
+    }
+
+    private fun recoveryStatus(context: Context, snapshot: ObservableTunnel.RecoverySnapshot): String {
+        val status = when (snapshot.status) {
+            ObservableTunnel.RecoveryStatus.IDLE -> R.string.vpn0wn_recovery_idle
+            ObservableTunnel.RecoveryStatus.PENDING -> R.string.vpn0wn_recovery_pending
+            ObservableTunnel.RecoveryStatus.REQUESTED -> R.string.vpn0wn_recovery_requested
+            ObservableTunnel.RecoveryStatus.BUSY_DEFERRED -> R.string.vpn0wn_recovery_busy_deferred
+            ObservableTunnel.RecoveryStatus.COMPLETED -> R.string.vpn0wn_recovery_completed
+            ObservableTunnel.RecoveryStatus.DROPPED_BUSY -> R.string.vpn0wn_recovery_dropped_busy
+            ObservableTunnel.RecoveryStatus.DROPPED_COOLDOWN -> R.string.vpn0wn_recovery_dropped_cooldown
+            ObservableTunnel.RecoveryStatus.DROPPED_ATTEMPT_LIMIT -> R.string.vpn0wn_recovery_dropped_attempt_limit
+            ObservableTunnel.RecoveryStatus.DROPPED_ENTRY_LIMIT -> R.string.vpn0wn_recovery_dropped_entry_limit
+            ObservableTunnel.RecoveryStatus.DROPPED_DOZE -> R.string.vpn0wn_recovery_dropped_doze
+            ObservableTunnel.RecoveryStatus.DISABLED -> R.string.vpn0wn_recovery_disabled
+            ObservableTunnel.RecoveryStatus.CANCELLED -> R.string.vpn0wn_recovery_cancelled
+            ObservableTunnel.RecoveryStatus.FAILED -> R.string.vpn0wn_recovery_failed
+            ObservableTunnel.RecoveryStatus.OBSOLETE -> R.string.vpn0wn_recovery_obsolete
+        }
+        val facts = mutableListOf(context.getString(status))
+        if (snapshot.requestPending) facts += context.getString(R.string.vpn0wn_recovery_pending_fact)
+        if (snapshot.automaticRecoveryDisabled) facts += context.getString(R.string.vpn0wn_recovery_disabled_fact)
+        return facts.joinToString("\n")
+    }
+
+    private fun recoveryResult(context: Context, snapshot: ObservableTunnel.RecoverySnapshot): String {
+        val outcome = when (snapshot.lastOutcome) {
+            RecoveryResult.Outcome.BUSY -> R.string.vpn0wn_recovery_result_busy
+            RecoveryResult.Outcome.OBSOLETE -> R.string.vpn0wn_recovery_result_obsolete
+            RecoveryResult.Outcome.UNAVAILABLE -> R.string.vpn0wn_recovery_result_unavailable
+            RecoveryResult.Outcome.TRANSPORT_FAILED -> R.string.vpn0wn_recovery_result_transport_failed
+            RecoveryResult.Outcome.INITIATION_STARTED -> R.string.vpn0wn_recovery_result_initiation_started
+            RecoveryResult.Outcome.INITIATION_SKIPPED -> R.string.vpn0wn_recovery_result_initiation_skipped
+            RecoveryResult.Outcome.INITIATION_FAILED -> R.string.vpn0wn_recovery_result_initiation_failed
+            RecoveryResult.Outcome.INITIATION_SEND_FAILED -> R.string.vpn0wn_recovery_result_send_failed
+            null -> null
+        }
+        val failure = when (snapshot.failureCategory) {
+            ObservableTunnel.RecoveryFailureCategory.CANCELLED -> R.string.vpn0wn_recovery_failure_cancelled
+            ObservableTunnel.RecoveryFailureCategory.INTERRUPTED -> R.string.vpn0wn_recovery_failure_interrupted
+            ObservableTunnel.RecoveryFailureCategory.DNS_RESOLUTION -> R.string.vpn0wn_recovery_failure_dns
+            ObservableTunnel.RecoveryFailureCategory.IO -> R.string.vpn0wn_recovery_failure_io
+            ObservableTunnel.RecoveryFailureCategory.SERVICE_UNAVAILABLE -> R.string.vpn0wn_recovery_failure_service
+            ObservableTunnel.RecoveryFailureCategory.DEFECT -> R.string.vpn0wn_recovery_failure_defect
+            null -> null
+        }
+        return listOfNotNull(outcome, failure).takeIf { it.isNotEmpty() }
+            ?.joinToString("\n") { context.getString(it) } ?: context.getString(R.string.vpn0wn_recovery_result_unrecorded)
+    }
+
+    private fun recoveryRequestPeer(context: Context, snapshot: ObservableTunnel.RecoverySnapshot?, config: Config?): String {
+        if (snapshot == null) return context.getString(R.string.vpn0wn_recovery_unavailable)
+        val key = snapshot.lastRequestPeer ?: return context.getString(R.string.vpn0wn_recovery_peer_unrecorded)
+        val peer = config?.peers?.withIndex()?.filter { it.value.publicKey == key }?.singleOrNull()
+            ?: return context.getString(R.string.vpn0wn_recovery_peer_unavailable)
+        return context.getString(R.string.vpn0wn_peer_title, String.format(context.resources.configuration.locales[0], "%02d", peer.index + 1))
+    }
+
+    private fun recoveryAuthentication(
+        context: Context,
+        snapshot: ObservableTunnel.RecoverySnapshot?,
+        diagnostics: Map<Key, ObservableTunnel.PeerHandshakeDiagnostics>?,
+        config: Config?,
+    ): String {
+        if (snapshot == null) return context.getString(R.string.vpn0wn_recovery_unavailable)
+        val key = snapshot.lastRequestPeer
+        val requestTime = snapshot.lastRequestElapsedRealtimeMillis
+        val peer = key?.let { diagnostics?.get(it) }
+        val authenticated = peer?.lastAuthenticated?.takeIf {
+            it.peer() == key && it.event() == HandshakeObservation.Event.AUTHENTICATED && it.session().isActive &&
+                it.session() === peer.lastObservation.session() && requestTime != null && it.elapsedRealtimeMillis() > requestTime &&
+                config?.peers?.count { configured -> configured.publicKey == key } == 1
+        }
+        return authenticated?.let { context.getString(R.string.vpn0wn_recovery_authenticated_later, it.elapsedRealtimeMillis()) }
+            ?: context.getString(R.string.vpn0wn_recovery_unknown)
+    }
+
+    @JvmStatic
     @BindingAdapter(requireAll = false, value = ["items", "layout", "configurationHandler"])
     fun <K, E : Keyed<out K>> setItems(
         view: RecyclerView,
@@ -294,25 +422,83 @@ object BindingAdapters {
     @JvmStatic
     @BindingAdapter("android:text")
     fun setOptionalText(view: TextView, text: Optional<*>?) {
-        view.text = text?.map { it.toString() }?.orElse("") ?: ""
+        view.text = optionalText(text, "")
     }
+
+    @JvmStatic
+    fun optionalText(text: Optional<*>?, emptyText: String): String = text?.map { it.toString() }?.orElse(emptyText) ?: emptyText
 
     @JvmStatic
     @BindingAdapter("android:text")
     fun setInetNetworkSetText(view: TextView, networks: Iterable<InetNetwork?>?) {
-        view.text = if (networks != null) Attribute.join(networks) else ""
+        view.text = inetNetworksText(networks)
     }
+
+    @JvmStatic
+    fun inetNetworksText(networks: Iterable<InetNetwork?>?): String = if (networks != null) Attribute.join(networks) else ""
 
     @JvmStatic
     @BindingAdapter("android:text")
     fun setInetAddressSetText(view: TextView, addresses: Iterable<InetAddress?>?) {
-        view.text = if (addresses != null) Attribute.join(addresses.map { it?.hostAddress }) else ""
+        view.text = inetAddressesText(addresses)
     }
+
+    @JvmStatic
+    fun inetAddressesText(addresses: Iterable<InetAddress?>?): String =
+        if (addresses != null) Attribute.join(addresses.map { it?.hostAddress }) else ""
 
     @JvmStatic
     @BindingAdapter("android:text")
     fun setStringSetText(view: TextView, strings: Iterable<String?>?) {
-        view.text = if (strings != null) Attribute.join(strings) else ""
+        view.text = stringsText(strings)
+    }
+
+    @JvmStatic
+    fun stringsText(strings: Iterable<String?>?): String = if (strings != null) Attribute.join(strings) else ""
+
+    @JvmStatic
+    fun applicationsText(context: Context, config: Config?): String {
+        val local = config?.getInterface()
+        val excluded = local?.includedApplications?.isEmpty() == true
+        val count = (if (excluded) local?.excludedApplications else local?.includedApplications)?.size ?: 0
+        val resource = if (excluded) R.plurals.n_excluded_applications else R.plurals.n_included_applications
+        return context.resources.getQuantityString(resource, count, count)
+    }
+
+    @JvmStatic
+    fun applicationsLabel(context: Context, config: Config?): String {
+        val local = config?.getInterface()
+        val excluded = local?.includedApplications?.isEmpty() == true
+        val count = (if (excluded) local?.excludedApplications else local?.includedApplications)?.size ?: 0
+        val resource = if (excluded) R.plurals.set_excluded_applications else R.plurals.set_included_applications
+        return context.resources.getQuantityString(resource, count, count)
+    }
+
+    @JvmStatic
+    fun persistentKeepaliveText(context: Context, peer: Peer?): String {
+        val amnezia = peer?.amneziaKeepalive?.orElse(null)
+        if (amnezia != null) {
+            val seconds = amnezia.toIntOrNull()
+            return when {
+                amnezia.split('-').all { it.toLong() == 0L } ->
+                    context.getString(R.string.persistent_keepalive_disabled)
+                seconds != null ->
+                    context.resources.getQuantityString(R.plurals.persistent_keepalive_seconds_unit, seconds, seconds)
+                else -> context.getString(R.string.persistent_keepalive_range_seconds, amnezia)
+            }
+        }
+        val seconds = peer?.persistentKeepalive?.orElse(0)
+        return if (seconds == null) "" else
+            context.resources.getQuantityString(R.plurals.persistent_keepalive_seconds_unit, seconds, seconds)
+    }
+
+    @JvmStatic
+    @BindingAdapter("amneziaKeepalive")
+    fun setKeepaliveInput(view: EditText, amnezia: Boolean) {
+        view.inputType = if (amnezia) InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            else InputType.TYPE_CLASS_NUMBER
+        // Changing input type restores single-line scrolling; apply wrapping afterward.
+        view.setSingleLine(false)
     }
 
     @JvmStatic
@@ -355,8 +541,10 @@ object BindingAdapters {
 
     @JvmStatic
     fun homeHeaderSummary(context: Context, tunnels: Iterable<ObservableTunnel>?): String {
-        return context.getString(R.string.vpn0wn_home_header_summary,
-            context.getString(R.string.vpn0wn_home_wordmark), tunnels?.count() ?: 0)
+        val wordmark = context.getString(R.string.vpn0wn_home_wordmark)
+        if (tunnels == null) return wordmark
+        val count = tunnels.count()
+        return context.resources.getQuantityString(R.plurals.vpn0wn_home_header_summary, count, wordmark, count)
     }
 
     @JvmStatic
@@ -377,6 +565,40 @@ object BindingAdapters {
     }
 
     @JvmStatic
+    @BindingAdapter("homeEmptyAppBar")
+    fun setHomeEmptyAppBar(view: LinearLayout, oldAppBar: AppBarLayout?, newAppBar: AppBarLayout?) {
+        if (oldAppBar === newAppBar) return
+        val padding = view.resources.getDimensionPixelSize(R.dimen.vpn0wn_home_empty_padding)
+        val listener = newAppBar?.let {
+            AppBarLayout.OnOffsetChangedListener { appBar, offset ->
+                // Material measures the scroll viewport with the header's still-hidden collapse space.
+                val bottomPadding = padding + (appBar.totalScrollRange + offset).coerceAtLeast(0)
+                if (view.paddingBottom != bottomPadding) {
+                    view.setPaddingRelative(view.paddingStart, view.paddingTop, view.paddingEnd, bottomPadding)
+                    if (view.isInLayout) {
+                        // Header layout dispatches offsets after this child's gravity calculation was measured.
+                        view.post { view.requestLayout() }
+                    }
+                }
+            }
+        }
+        val previous = ListenerUtil.trackListener(view, listener, R.id.vpn0wn_home_empty_offset_listener)
+        oldAppBar?.removeOnOffsetChangedListener(previous)
+        if (newAppBar != null) {
+            newAppBar.addOnOffsetChangedListener(listener)
+            newAppBar.doOnLayout { appBar ->
+                if (view.getTag(R.id.vpn0wn_home_empty_offset_listener) === listener) {
+                    val params = appBar.layoutParams as CoordinatorLayout.LayoutParams
+                    val behavior = params.behavior as AppBarLayout.Behavior
+                    listener?.onOffsetChanged(newAppBar, behavior.topAndBottomOffset)
+                }
+            }
+        } else {
+            view.setPaddingRelative(view.paddingStart, view.paddingTop, view.paddingEnd, padding)
+        }
+    }
+
+    @JvmStatic
     @BindingAdapter("homeHeaderTunnels")
     fun setHomeHeaderTunnels(view: TextView, tunnels: Iterable<ObservableTunnel>?) {
         val summary = homeHeaderSummary(view.context, tunnels)
@@ -387,7 +609,7 @@ object BindingAdapters {
         artwork.setBounds(0, 0, width, height)
         view.contentDescription = summary.replace('ø', '0')
         val countLabel = summary.substring(wordmark.length).trimStart().replace(' ', '\u00a0')
-        view.text = SpannableString("$wordmark $countLabel").apply {
+        view.text = SpannableString("$wordmark $countLabel".trimEnd()).apply {
             setSpan(HomeWordmarkSpan(artwork),
                 0, wordmark.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
@@ -569,15 +791,16 @@ object BindingAdapters {
     }
 
     @JvmStatic
-    fun tunnelPeerBadge(config: Config?): String {
-        val peer = config?.peers?.firstOrNull() ?: return "NO PEER"
-        return if (peer.preSharedKey.isPresent) "PSK" else "NO PSK"
+    fun tunnelPeerBadge(context: Context, config: Config?): String {
+        val peer = config?.peers?.firstOrNull() ?: return context.getString(R.string.vpn0wn_no_peer)
+        return if (peer.preSharedKey.isPresent) "PSK" else context.getString(R.string.vpn0wn_no_psk)
     }
 
     @JvmStatic
-    fun tunnelRoute(config: Config?): String {
-        val address = config?.`interface`?.addresses?.firstOrNull()?.toString() ?: "address pending"
-        val endpoint = config?.peers?.firstOrNull()?.endpoint?.map { it.toString() }?.orElse("endpoint pending") ?: "endpoint pending"
+    fun tunnelRoute(context: Context, config: Config?): String {
+        val address = config?.`interface`?.addresses?.firstOrNull()?.toString() ?: context.getString(R.string.vpn0wn_address_pending)
+        val endpoint = config?.peers?.firstOrNull()?.endpoint?.map { it.toString() }?.orElse(null)
+            ?: context.getString(R.string.vpn0wn_endpoint_pending)
         return "$address -> $endpoint"
     }
 
@@ -632,8 +855,8 @@ object BindingAdapters {
     }
 
     @JvmStatic
-    fun tunnelCipher(config: Config?): String {
-        val peer = config?.peers?.firstOrNull() ?: return "unbound"
+    fun tunnelCipher(context: Context, config: Config?): String {
+        val peer = config?.peers?.firstOrNull() ?: return context.getString(R.string.vpn0wn_cipher_unbound)
         return if (peer.preSharedKey.isPresent) "ChaCha20 + PSK" else "ChaCha20"
     }
 
@@ -721,7 +944,7 @@ object BindingAdapters {
             TunnelSignalView.TunnelMode.ERROR      -> R.color.vpn0wn_error
             TunnelSignalView.TunnelMode.DOWN       -> R.color.vpn0wn_ink_3
         })
-        view.text = SpannableString("$status · ${tunnelCipher(config)}").apply {
+        view.text = SpannableString("$status · ${tunnelCipher(view.context, config)}").apply {
             setSpan(ForegroundColorSpan(statusColor), 0, status.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         }
     }

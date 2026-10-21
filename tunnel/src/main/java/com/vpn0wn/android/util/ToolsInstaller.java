@@ -146,14 +146,14 @@ public final class ToolsInstaller {
         script.append("mkdir \"$module\" || exit ").append(BLOCKED).append("; ");
         script.append("trap 'rm -rf -- \"$module\"' EXIT; trap 'exit 1' INT TERM; ");
         script.append("mkdir -p \"$module_tools\" || exit 1; ");
-        script.append("printf %s ").append(quote(MODULE_METADATA)).append(" > \"$module/module.prop\" || exit 1; ");
-        script.append("touch \"$module/auto_mount\" || exit 1; ");
         for (final String name : EXECUTABLES) {
             script.append("cp ").append(quote(new File(localBinaryDir, name).getAbsolutePath()))
                     .append(" \"$module_tools/").append(name).append("\" || exit 1; ");
             script.append("chmod 755 \"$module_tools/").append(name).append("\" || exit 1; ");
             script.append("chcon 'u:object_r:system_file:s0' \"$module_tools/").append(name).append("\" || exit 1; ");
         }
+        script.append("printf %s ").append(quote(MODULE_METADATA)).append(" > \"$module/module.prop\" || exit 1; ");
+        script.append("touch \"$module/auto_mount\" || exit 1; ");
         script.append("staged_matches || exit 1; trap - INT TERM EXIT; exit ").append(YES | MAGISK).append("; )");
         return run(script.toString());
     }

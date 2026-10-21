@@ -22,15 +22,15 @@ class KeyInputFilter : InputFilter {
     ): CharSequence? {
         var replacement: SpannableStringBuilder? = null
         var rIndex = 0
-        val dLength = dest.length
+        val retainedLength = dest.length - (dEnd - dStart)
         for (sIndex in sStart until sEnd) {
             val c = source[sIndex]
-            val dIndex = dStart + (sIndex - sStart)
+            val dIndex = dStart + rIndex
             // Restrict characters to the base64 character set.
             // Ensure adding this character does not push the length over the limit.
             if ((dIndex + 1 < Key.Format.BASE64.length && isAllowed(c) ||
                         dIndex + 1 == Key.Format.BASE64.length && c == '=') &&
-                dLength + (sIndex - sStart) < Key.Format.BASE64.length
+                retainedLength + rIndex < Key.Format.BASE64.length
             ) {
                 ++rIndex
             } else {

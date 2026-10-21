@@ -24,6 +24,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import androidx.annotation.Nullable;
 
@@ -38,7 +40,9 @@ import androidx.annotation.Nullable;
 public final class Interface {
     private static final int MAX_UDP_PORT = 65535;
     private static final int MIN_UDP_PORT = 0;
+    private static final Pattern EMPTY_AMNEZIA_PACKET = Pattern.compile("(?i)(i[1-5])\\s*=\\s*");
 
+    private final Optional<AmneziaSettings> amneziaSettings;
     private final Set<InetNetwork> addresses;
     private final Set<InetAddress> dnsServers;
     private final Set<String> dnsSearchDomains;
@@ -50,6 +54,7 @@ public final class Interface {
 
     private Interface(final Builder builder) {
         // Defensively copy to ensure immutability even if the Builder is reused.
+        amneziaSettings = builder.amneziaSettings;
         addresses = Collections.unmodifiableSet(new LinkedHashSet<>(builder.addresses));
         dnsServers = Collections.unmodifiableSet(new LinkedHashSet<>(builder.dnsServers));
         dnsSearchDomains = Collections.unmodifiableSet(new LinkedHashSet<>(builder.dnsSearchDomains));
@@ -71,10 +76,22 @@ public final class Interface {
             throws BadConfigException {
         final Builder builder = new Builder();
         for (final CharSequence line : lines) {
+            if (AmneziaSettings.PROTOCOL_MARKER.contentEquals(line)) {
+                builder.parseProtocol("AmneziaWG");
+                continue;
+            }
+            final Matcher emptyPacket = EMPTY_AMNEZIA_PACKET.matcher(line);
+            if (emptyPacket.matches()) {
+                builder.parseAmneziaField(AmneziaSettings.Field.fromConfigName(emptyPacket.group(1)), "");
+                continue;
+            }
             final Attribute attribute = Attribute.parse(line).orElseThrow(() ->
                     new BadConfigException(Section.INTERFACE, Location.TOP_LEVEL,
                             Reason.SYNTAX_ERROR, line));
             switch (attribute.getKey().toLowerCase(Locale.ENGLISH)) {
+                case "protocol":
+                    builder.parseProtocol(attribute.getValue());
+                    break;
                 case "address":
                     builder.parseAddresses(attribute.getValue());
                     break;
@@ -97,8 +114,11 @@ public final class Interface {
                     builder.parsePrivateKey(attribute.getValue());
                     break;
                 default:
-                    throw new BadConfigException(Section.INTERFACE, Location.TOP_LEVEL,
-                            Reason.UNKNOWN_ATTRIBUTE, attribute.getKey());
+                    final AmneziaSettings.Field field = AmneziaSettings.Field.fromConfigName(attribute.getKey());
+                    if (field == null)
+                        throw new BadConfigException(Section.INTERFACE, Location.TOP_LEVEL,
+                                Reason.UNKNOWN_ATTRIBUTE, attribute.getKey());
+                    builder.parseAmneziaField(field, attribute.getValue());
             }
         }
         return builder.build();
@@ -109,7 +129,8 @@ public final class Interface {
         if (!(obj instanceof Interface))
             return false;
         final Interface other = (Interface) obj;
-        return addresses.equals(other.addresses)
+        return amneziaSettings.equals(other.amneziaSettings)
+                && addresses.equals(other.addresses)
                 && dnsServers.equals(other.dnsServers)
                 && dnsSearchDomains.equals(other.dnsSearchDomains)
                 && excludedApplications.equals(other.excludedApplications)
@@ -124,6 +145,10 @@ public final class Interface {
      *
      * @return a set of {@link InetNetwork}s
      */
+    public Optional<AmneziaSettings> getAmneziaSettings() {
+        return amneziaSettings;
+    }
+
     public Set<InetNetwork> getAddresses() {
         // The collection is already immutable.
         return addresses;
@@ -199,6 +224,7 @@ public final class Interface {
     @Override
     public int hashCode() {
         int hash = 1;
+        hash = 31 * hash + amneziaSettings.hashCode();
         hash = 31 * hash + addresses.hashCode();
         hash = 31 * hash + dnsServers.hashCode();
         hash = 31 * hash + excludedApplications.hashCode();
@@ -246,6 +272,7 @@ public final class Interface {
         listenPort.ifPresent(lp -> sb.append("ListenPort = ").append(lp).append('\n'));
         mtu.ifPresent(m -> sb.append("MTU = ").append(m).append('\n'));
         sb.append("PrivateKey = ").append(keyPair.getPrivateKey().toBase64()).append('\n');
+        amneziaSettings.ifPresent(settings -> sb.append(settings.toQuickString()));
         return sb.toString();
     }
 
@@ -259,11 +286,16 @@ public final class Interface {
         final StringBuilder sb = new StringBuilder();
         sb.append("private_key=").append(keyPair.getPrivateKey().toHex()).append('\n');
         listenPort.ifPresent(lp -> sb.append("listen_port=").append(lp).append('\n'));
+        amneziaSettings.ifPresent(settings -> sb.append(settings.toUserspaceString()));
         return sb.toString();
     }
 
     @SuppressWarnings("UnusedReturnValue")
     public static final class Builder {
+        private Optional<AmneziaSettings> amneziaSettings = Optional.empty();
+        private final AmneziaSettings.Builder amneziaBuilder = new AmneziaSettings.Builder();
+        private boolean amneziaFields;
+        @Nullable private Boolean amneziaProtocol;
         // Defaults to an empty set.
         private final Set<InetNetwork> addresses = new LinkedHashSet<>();
         // Defaults to an empty set.
@@ -280,6 +312,33 @@ public final class Interface {
         private Optional<Integer> listenPort = Optional.empty();
         // Defaults to not present.
         private Optional<Integer> mtu = Optional.empty();
+
+        public Builder parseProtocol(final String protocol) throws BadConfigException {
+            final boolean selected;
+            if ("AmneziaWG".equalsIgnoreCase(protocol))
+                selected = true;
+            else if ("WireGuard".equalsIgnoreCase(protocol))
+                selected = false;
+            else
+                throw new BadConfigException(Section.INTERFACE, Location.AMNEZIA_WG, Reason.INVALID_VALUE, "Protocol");
+            if (amneziaProtocol != null && amneziaProtocol != selected)
+                throw new BadConfigException(Section.INTERFACE, Location.AMNEZIA_WG, Reason.INVALID_VALUE, "Protocol");
+            amneziaProtocol = selected;
+            return this;
+        }
+
+        public Builder parseAmneziaField(final AmneziaSettings.Field field, final String value) throws BadConfigException {
+            amneziaBuilder.put(field, value);
+            amneziaFields = true;
+            return this;
+        }
+
+        public Builder setAmneziaSettings(final AmneziaSettings settings) throws BadConfigException {
+            parseProtocol("AmneziaWG");
+            for (final java.util.Map.Entry<AmneziaSettings.Field, String> entry : settings.getValues().entrySet())
+                parseAmneziaField(entry.getKey(), entry.getValue());
+            return this;
+        }
 
         public Builder addAddress(final InetNetwork address) {
             addresses.add(address);
@@ -318,6 +377,13 @@ public final class Interface {
             if (!includedApplications.isEmpty() && !excludedApplications.isEmpty())
                 throw new BadConfigException(Section.INTERFACE, Location.INCLUDED_APPLICATIONS,
                         Reason.INVALID_KEY, null);
+            if (amneziaFields || Boolean.TRUE.equals(amneziaProtocol)) {
+                if (Boolean.FALSE.equals(amneziaProtocol))
+                    throw new BadConfigException(Section.INTERFACE, Location.AMNEZIA_WG, Reason.INVALID_VALUE, "Protocol");
+                final AmneziaSettings settings = amneziaBuilder.build();
+                settings.validateMtu(mtu.orElse(1280));
+                amneziaSettings = Optional.of(settings);
+            }
             return new Interface(this);
         }
 
@@ -415,7 +481,7 @@ public final class Interface {
 
         public Builder setMtu(final int mtu) throws BadConfigException {
             if (mtu < 0)
-                throw new BadConfigException(Section.INTERFACE, Location.LISTEN_PORT,
+                throw new BadConfigException(Section.INTERFACE, Location.MTU,
                         Reason.INVALID_VALUE, String.valueOf(mtu));
             this.mtu = mtu == 0 ? Optional.empty() : Optional.of(mtu);
             return this;

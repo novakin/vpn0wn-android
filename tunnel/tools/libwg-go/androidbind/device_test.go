@@ -62,7 +62,7 @@ func TestQuietDeviceTracksTUNClosure(t *testing.T) {
 	}
 }
 
-func configPort(t *testing.T, d *device.Device) uint16 {
+func configPort(t *testing.T, d interface{ IpcGet() (string, error) }) uint16 {
 	t.Helper()
 	config, err := d.IpcGet()
 	if err != nil {
@@ -454,12 +454,12 @@ type observedBind struct {
 	conn.Bind
 	warmups     atomic.Int32
 	initiations atomic.Int32
-	handshake   func([32]byte, int, bool, string)
+	handshake   func([32]byte, int, bool, string, uint64)
 }
 
-func (b *observedBind) ObserveHandshake(peer [32]byte, event int, retry bool, endpoint string) {
+func (b *observedBind) ObserveHandshake(peer [32]byte, event int, retry bool, endpoint string, episode uint64) {
 	if b.handshake != nil {
-		b.handshake(peer, event, retry, endpoint)
+		b.handshake(peer, event, retry, endpoint, episode)
 	}
 }
 
@@ -488,7 +488,7 @@ func TestStandardPeerAuthenticatedLoopbackTraffic(t *testing.T) {
 	var observationMu sync.Mutex
 	var authenticated [][32]byte
 	var serverAuthenticated [][32]byte
-	bind.SetHandshakeObserver(func(peer [32]byte, event int, _ bool, endpoint string) {
+	bind.SetHandshakeObserver(func(peer [32]byte, event int, _ bool, endpoint string, _ uint64) {
 		if event == HandshakeAuthenticated {
 			observationMu.Lock()
 			authenticated = append(authenticated, peer)
@@ -498,7 +498,7 @@ func TestStandardPeerAuthenticatedLoopbackTraffic(t *testing.T) {
 	bind.newBind = func() conn.Bind { return observed }
 	client, clientTun, _ := quietDevice(t, bind)
 	serverBind := &observedBind{Bind: conn.NewStdNetBind()}
-	serverBind.handshake = func(peer [32]byte, event int, _ bool, endpoint string) {
+	serverBind.handshake = func(peer [32]byte, event int, _ bool, endpoint string, _ uint64) {
 		if event == HandshakeAuthenticated {
 			observationMu.Lock()
 			serverAuthenticated = append(serverAuthenticated, peer)

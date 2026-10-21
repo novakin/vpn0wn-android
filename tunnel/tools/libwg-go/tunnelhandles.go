@@ -11,15 +11,27 @@ import "C"
 
 import (
 	"math"
+	"net"
 	"sync"
 
 	"golang.zx2c4.com/wireguard/android/androidbind"
 	"golang.zx2c4.com/wireguard/android/uapiserver"
-	"golang.zx2c4.com/wireguard/device"
 )
 
+type tunnelDevice interface {
+	IpcSet(string) error
+	IpcGet() (string, error)
+	IpcHandle(net.Conn)
+	Up() error
+	Close()
+	DisableSomeRoamingForBrokenMobileSemantics()
+	Rebind() error
+	RebindTransport(func() error) error
+	Recover([32]byte, uint64, string, string, func() bool, func() bool) int
+}
+
 type TunnelHandle struct {
-	device  *device.Device
+	device  tunnelDevice
 	bind    *androidbind.Bind
 	uapi    *uapiserver.Server
 	context *C.struct_wg_context

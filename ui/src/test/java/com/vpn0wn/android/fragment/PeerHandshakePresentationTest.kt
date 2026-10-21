@@ -280,6 +280,96 @@ class PeerHandshakePresentationTest {
         assertSame(fixture.first.handshakeDiagnostics!![firstKey], binding(recreated.peersLayout).diagnostics)
     }
 
+    @Test fun recoveryBindingFollowsSelectionAndKeepsConfigFailureUnavailableAttribution() = runTest {
+        val fixture = fragmentFixture()
+        val firstSession = session()
+        val secondSession = session()
+        fixture.first.onHandshakeSessionChange(firstSession)
+        fixture.second.onHandshakeSessionChange(secondSession)
+        runCurrent()
+        fixture.first.onRecoverySnapshotChanged(firstSession, recoverySnapshot(firstKey, 1))
+        fixture.second.onRecoverySnapshotChanged(secondSession, recoverySnapshot(secondKey, 2))
+        fixture.binding.executePendingBindings()
+        assertEquals("1", fixture.binding.recoveryCountsAttempts.text.toString())
+        fixture.second.onConfigChanged(null)
+        environment.store.failLoadNames += "two"
+        fixture.fragment.onSelectedTunnelChanged(fixture.first, fixture.second)
+        configJob(fixture.fragment).join()
+        fixture.binding.executePendingBindings()
+        assertNull(fixture.binding.config)
+        assertEquals("2", fixture.binding.recoveryCountsAttempts.text.toString())
+        assertEquals(fixture.binding.root.context.getString(R.string.vpn0wn_recovery_peer_unavailable),
+            fixture.binding.recoveryRequestPeer.text.toString())
+        val callsBefore = environment.store.loadAttempts.size
+        fixture.first.onRecoverySnapshotChanged(firstSession, recoverySnapshot(firstKey, 3))
+        tunnelCallback(fixture.fragment).onPropertyChanged(fixture.first, BR.recoverySnapshot)
+        runCurrent()
+        fixture.binding.executePendingBindings()
+        assertSame(fixture.second, fixture.binding.tunnel)
+        assertEquals("2", fixture.binding.recoveryCountsAttempts.text.toString())
+        assertEquals(callsBefore, environment.store.loadAttempts.size)
+        fixture.fragment.onSelectedTunnelChanged(fixture.second, null)
+        fixture.binding.executePendingBindings()
+        assertEquals(fixture.binding.root.context.getString(R.string.vpn0wn_recovery_unavailable),
+            fixture.binding.recoveryCountsAttempts.text.toString())
+    }
+
+    @Test fun recoveryViewRecreationRetainsActivationRecordAndUnbindsDestroyedObserver() = runTest {
+        val fixture = fragmentFixture()
+        val session = session()
+        fixture.first.onHandshakeSessionChange(session)
+        runCurrent()
+        val original = recoverySnapshot(firstKey, 1)
+        fixture.first.onRecoverySnapshotChanged(session, original)
+        fixture.binding.executePendingBindings()
+        val manager = fixture.controller.get().supportFragmentManager
+        manager.beginTransaction().detach(fixture.fragment).commitNow()
+        val replacement = original.copy(chargedAttempts = 2, lastResultRecordedElapsedRealtimeMillis = 900)
+        fixture.first.onRecoverySnapshotChanged(session, replacement)
+        runCurrent()
+        fixture.binding.executePendingBindings()
+        assertEquals("1", fixture.binding.recoveryCountsAttempts.text.toString())
+        manager.beginTransaction().attach(fixture.fragment).commitNow()
+        stopStatsRefresh(fixture.fragment)
+        fixture.fragment.onSelectedTunnelChanged(null, fixture.first)
+        configJob(fixture.fragment).join()
+        val recreated = DataBindingUtil.getBinding<TunnelDetailFragmentBinding>(fixture.fragment.requireView())!!
+        recreated.executePendingBindings()
+        assertEquals("2", recreated.recoveryCountsAttempts.text.toString())
+        assertSame(replacement, fixture.first.recoverySnapshot)
+        assertEquals(recreated.root.context.getString(R.string.vpn0wn_recovery_uptime, 900), recreated.recoveryResultRecorded.text.toString())
+    }
+
+    @Test fun recoverySessionReplacementRejectsOldPublicationBeforeDelayedClearing() = runTest {
+        val fixture = fragmentFixture()
+        val old = session()
+        fixture.first.onHandshakeSessionChange(old)
+        runCurrent()
+        val oldSnapshot = recoverySnapshot(firstKey, 1)
+        fixture.first.onRecoverySnapshotChanged(old, oldSnapshot)
+        fixture.binding.executePendingBindings()
+        assertEquals("1", fixture.binding.recoveryCountsAttempts.text.toString())
+        retire(old)
+        assertNull(fixture.first.recoverySnapshot)
+        val current = session()
+        fixture.first.onHandshakeSessionChange(current)
+        fixture.first.onRecoverySnapshotChanged(old, oldSnapshot.copy(chargedAttempts = 9))
+        assertNull(fixture.first.recoverySnapshot)
+        runCurrent()
+        val fresh = recoverySnapshot(firstKey, 0).copy(lastRequestPeer = null, lastRequestElapsedRealtimeMillis = null,
+            lastResultRecordedElapsedRealtimeMillis = null)
+        fixture.first.onRecoverySnapshotChanged(current, fresh)
+        fixture.binding.executePendingBindings()
+        assertEquals("0", fixture.binding.recoveryCountsAttempts.text.toString())
+        fixture.first.onRecoverySnapshotChanged(old, oldSnapshot)
+        fixture.binding.executePendingBindings()
+        assertSame(fresh, fixture.first.recoverySnapshot)
+        fixture.first.setStateAsync(Tunnel.State.DOWN)
+        runCurrent()
+        fixture.binding.executePendingBindings()
+        assertEquals(fixture.binding.root.context.getString(R.string.vpn0wn_recovery_unavailable), fixture.binding.recoveryResult.text.toString())
+    }
+
     @Test @GraphicsMode(GraphicsMode.Mode.NATIVE)
     fun nativeDiagnosticsWrapAndRemainReachableAcrossThemesLanguagesAndFontScales() = runTest {
         environment = TunnelTestEnvironment(folder.root, backgroundScope)
@@ -417,6 +507,11 @@ class PeerHandshakePresentationTest {
     """.trimIndent().byteInputStream())
 
     private fun diagnostics(observation: HandshakeObservation) = ObservableTunnel.PeerHandshakeDiagnostics(observation)
+
+    private fun recoverySnapshot(key: Key, count: Int) = ObservableTunnel.RecoverySnapshot(
+        count, count, count, 0, false, false, key, key, 100, null, ObservableTunnel.RecoveryStatus.IDLE,
+        null, ObservableTunnel.RecoveryTransportState.UNKNOWN, ObservableTunnel.RecoveryPowerState.UNKNOWN, 200,
+    )
 
     private fun observation(
         session: HandshakeSession,

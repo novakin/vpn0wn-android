@@ -5,10 +5,14 @@
  */
 package com.vpn0wn.android.model
 
+import com.vpn0wn.android.Application
+
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.PowerManager
+import android.os.SystemClock
 import android.util.Log
 import android.widget.Toast
 import androidx.databinding.BaseObservable
@@ -21,26 +25,38 @@ import com.vpn0wn.android.Application.Companion.getPreferencesDataStore
 import com.vpn0wn.android.BR
 import com.vpn0wn.android.R
 import com.vpn0wn.android.backend.Backend
+import com.vpn0wn.android.backend.BackendException
+import com.vpn0wn.android.backend.GoBackend
+import com.vpn0wn.android.backend.HandshakeObservation
+import com.vpn0wn.android.backend.HandshakeSession
+import com.vpn0wn.android.backend.RecoveryResult
 import com.vpn0wn.android.backend.Statistics
 import com.vpn0wn.android.backend.Tunnel
 import com.vpn0wn.android.backend.WgQuickBackend
 import com.vpn0wn.android.configStore.ConfigStore
 import com.vpn0wn.android.databinding.ObservableSortedKeyedArrayList
 import com.vpn0wn.android.util.ErrorMessages
+import com.vpn0wn.android.util.RootShell.RootShellException
 import com.vpn0wn.android.util.AppDataTransfer
 import com.vpn0wn.android.util.UserKnobs
 import com.vpn0wn.android.util.applicationScope
 import com.vpn0wn.config.Config
+import com.vpn0wn.config.InetAddresses
+import com.vpn0wn.config.ParseException
+import com.vpn0wn.crypto.Key
+import java.io.IOException
+import java.net.Inet4Address
+import java.net.Inet6Address
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -54,18 +70,65 @@ import kotlinx.coroutines.withContext
  */
 class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     internal class NotManagedException : IllegalStateException("Tunnel is no longer managed")
+    class ConfigUpdateRejectedException : IllegalStateException("Reviewed tunnel changed or is not stopped")
+    class BackendSwitchPendingException : IllegalStateException("Backend switch awaits restart")
 
     private var tunnels = CompletableDeferred<ObservableSortedKeyedArrayList<String, ObservableTunnel>>()
     private var loadingJob: Job? = null
     private val operationLock = Mutex()
     private val context: Context = get()
+    internal val networkAutomation = NetworkAutomationController(this, context, applicationScope)
     private val tunnelMap: ObservableSortedKeyedArrayList<String, ObservableTunnel> = ObservableSortedKeyedArrayList(TunnelComparator)
     private var haveLoaded = false
+    private var activityRestoreRequested = false
     private var backendSwitchPending = false
     private var lastUsedPersistence: Job? = null
     private var selectedLastUsedTunnel: ObservableTunnel? = null
     private val statisticsScope = applicationScope
     private val statisticsRequests = mutableMapOf<ObservableTunnel, StatisticsRequest>()
+    private var recoveryActivation: RecoveryActivation? = null
+
+    private class RecoveryActivation(
+        val tunnel: ObservableTunnel,
+        val backend: GoBackend,
+        val session: HandshakeSession,
+    ) {
+        var generation = 0L
+        val handledEpisodes = mutableMapOf<Key, Long>()
+        var confirmedAdmissions = 0
+        var chargedAttempts = 0
+        var backendEntries = 0
+        var unknownSettlements = 0
+        var lastChargedAt: Long? = null
+        var disabled = false
+        var request: RecoveryRequest? = null
+        var lastTriggerPeer: Key? = null
+        var lastRequestPeer: Key? = null
+        var lastRequestAt: Long? = null
+        var lastOutcome: RecoveryResult.Outcome? = null
+        var lastResultRecordedAt: Long? = null
+        var status = ObservableTunnel.RecoveryStatus.IDLE
+        var failureCategory: ObservableTunnel.RecoveryFailureCategory? = null
+        var transportState = ObservableTunnel.RecoveryTransportState.UNKNOWN
+        var powerState = ObservableTunnel.RecoveryPowerState.UNKNOWN
+    }
+
+    private class RecoveryRequest(
+        val activation: RecoveryActivation,
+        val observation: HandshakeObservation,
+        val generation: Long,
+    ) {
+        lateinit var job: Job
+        @Volatile var started = false
+        var child: Deferred<Unit>? = null
+    }
+
+    private class RecoveryEntry(val requestedAt: Long) {
+        @Volatile var entered = false
+        @Volatile var enteredAt: Long? = null
+        @Volatile var result: RecoveryResult? = null
+        @Volatile var failure: Throwable? = null
+    }
 
     private class StatisticsRequest(
         val generation: Long,
@@ -91,7 +154,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
 
     private suspend fun <T> mutate(block: suspend () -> T): T = withContext(Dispatchers.Main.immediate) {
         operationLock.withLock {
-            check(!backendSwitchPending) { "Backend switch awaits restart" }
+            if (backendSwitchPending) throw BackendSwitchPendingException()
             // Once admitted, finish backend/store reconciliation before honouring caller cancellation.
             val result = withContext(NonCancellable) { block() }
             currentCoroutineContext().ensureActive()
@@ -99,8 +162,41 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         }
     }
 
+    internal suspend fun <T> automationAdmission(block: suspend () -> T): T = withContext(Dispatchers.Main.immediate) {
+        operationLock.withLock {
+            if (backendSwitchPending) throw BackendSwitchPendingException()
+            block()
+        }
+    }
+
+    internal suspend fun automationTarget(name: String): ObservableTunnel? = getTunnels()[name]
+
+    internal fun isAutomationTarget(tunnel: ObservableTunnel): Boolean = tunnelMap[tunnel.name] === tunnel
+
+    internal fun invalidateAutomationRecovery(): Job? {
+        val pending = recoveryActivation?.request?.job
+        invalidateRecovery()
+        return pending
+    }
+
+    internal suspend fun reconcileAutomation(selected: ObservableTunnel? = null, persistRunningIntent: Boolean = true) {
+        if (selected != null && isAutomationTarget(selected)) lastUsedTunnel = selected
+        refreshObservedStates()
+        if (persistRunningIntent) saveState()
+    }
+
+    internal suspend fun ordinaryAutomationTransition(tunnel: ObservableTunnel, state: Tunnel.State): Tunnel.State = changeTunnelState(tunnel, state)
+
     private fun requireManaged(tunnel: ObservableTunnel) {
         if (tunnelMap[tunnel.name] !== tunnel) throw NotManagedException()
+    }
+
+    private fun addRecoveryFailure(failure: Throwable, recovery: Throwable) {
+        if (failure === recovery) return
+        failure.addSuppressed(recovery)
+        // Coroutine stack recovery may unwrap a same-class copy at the next suspension boundary.
+        val cause = failure.cause
+        if (cause != null && cause.javaClass == failure.javaClass && cause !== recovery) cause.addSuppressed(recovery)
     }
 
     suspend fun create(name: String, config: Config): ObservableTunnel = mutate {
@@ -109,6 +205,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
             throw IllegalArgumentException(context.getString(R.string.tunnel_error_invalid_name))
         if (tunnelMap.containsKey(name))
             throw IllegalArgumentException(context.getString(R.string.tunnel_error_already_exists, name))
+        networkAutomation.fence(setOf(name))
         addToList(name, withContext(Dispatchers.IO) { configStore.create(name, config) }, Tunnel.State.DOWN)
     }
 
@@ -126,6 +223,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     @Suppress("TooGenericExceptionCaught")
     internal suspend fun importAppData(archive: AppDataTransfer.Archive): Int = mutate {
         withContext(Dispatchers.IO) { AppDataTransfer.validate(archive) }
+        if (archive.settings[UserKnobs.MULTIPLE_TUNNELS.name] == true) networkAutomation.requireDisabled()
         getTunnels()
         lastUsedPersistence?.join()
         val existingNames = tunnelMap.map { it.name }.toSet()
@@ -142,44 +240,44 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         if (selection != null && selection !in archive.profiles && !tunnelMap.containsKey(selection)) {
             throw AppDataTransfer.InvalidArchiveException()
         }
-        val preferencesStore = getPreferencesDataStore()
-        val restoreNames = preferencesStore.data.first()[UserKnobs.RUNNING_TUNNELS].orEmpty()
-        if (restoreNames.any { it in newProfiles }) {
-            // Commit stale-intent removal before files can survive a failed metadata commit and rollback.
-            preferencesStore.edit { preferences ->
-                AppDataTransfer.validateMetadata(archive, preferences)
-                AppDataTransfer.clearRestoreMarkers(preferences, newProfiles.keys)
-            }
-        }
-        val created = linkedMapOf<String, Config>()
-        try {
-            preferencesStore.edit { preferences ->
-                val servers = AppDataTransfer.validateMetadata(archive, preferences)
-                for ((name, config) in newProfiles) {
-                    created[name] = withContext(Dispatchers.IO) { configStore.create(name, config) }
-                }
-                AppDataTransfer.applyMetadata(archive, preferences, servers, created.keys)
-            }
-        } catch (failure: Throwable) {
-            var incomplete = false
-            for ((name, config) in created) {
-                try {
-                    withContext(Dispatchers.IO) { configStore.delete(name) }
-                } catch (recovery: Throwable) {
-                    incomplete = true
-                    failure.addSuppressed(recovery)
-                    // Coroutine stack recovery may unwrap a same-class copy at the next suspension boundary.
-                    val cause = failure.cause
-                    if (cause != null && cause.javaClass == failure.javaClass && cause !== recovery) cause.addSuppressed(recovery)
-                    addToList(name, config, Tunnel.State.DOWN)
+        Application.getVpsServerStore().withImportAdmission(archive.servers) {
+            networkAutomation.fence(newProfiles.keys)
+            val preferencesStore = getPreferencesDataStore()
+            val restoreNames = preferencesStore.data.first()[UserKnobs.RUNNING_TUNNELS].orEmpty()
+            if (restoreNames.any { it in newProfiles }) {
+                // Commit stale-intent removal before files can survive a failed metadata commit and rollback.
+                preferencesStore.edit { preferences ->
+                    AppDataTransfer.validateMetadata(archive, preferences)
+                    AppDataTransfer.clearRestoreMarkers(preferences, newProfiles.keys)
                 }
             }
-            if (incomplete) throwIncompleteTransferRecovery(failure)
-            throw failure
+            val created = linkedMapOf<String, Config>()
+            try {
+                preferencesStore.edit { preferences ->
+                    val servers = AppDataTransfer.validateMetadata(archive, preferences)
+                    for ((name, config) in newProfiles) {
+                        created[name] = withContext(Dispatchers.IO) { configStore.create(name, config) }
+                    }
+                    AppDataTransfer.applyMetadata(archive, preferences, servers, created.keys)
+                }
+            } catch (failure: Throwable) {
+                var incomplete = false
+                for ((name, config) in created) {
+                    try {
+                        withContext(Dispatchers.IO) { configStore.delete(name) }
+                    } catch (recovery: Throwable) {
+                        incomplete = true
+                        addRecoveryFailure(failure, recovery)
+                        addToList(name, config, Tunnel.State.DOWN)
+                    }
+                }
+                if (incomplete) throwIncompleteTransferRecovery(failure)
+                throw failure
+            }
+            for ((name, config) in created) addToList(name, config, Tunnel.State.DOWN)
+            if (selection != null) publishLastUsedTunnel(tunnelMap[selection])
+            created.size
         }
-        for ((name, config) in created) addToList(name, config, Tunnel.State.DOWN)
-        if (selection != null) publishLastUsedTunnel(tunnelMap[selection])
-        created.size
     }
 
     private fun throwIncompleteTransferRecovery(failure: Throwable): Nothing {
@@ -191,6 +289,8 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     @Suppress("TooGenericExceptionCaught")
     suspend fun delete(tunnel: ObservableTunnel) = mutate {
         requireManaged(tunnel)
+        networkAutomation.fence(setOf(tunnel.name))
+        invalidateRecovery(tunnel)
         tunnel.invalidateStatistics()
         val backend = getBackend()
         val originalState = withContext(Dispatchers.IO) { backend.getState(tunnel) }
@@ -237,7 +337,17 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     }
 
     suspend fun getTunnelConfig(tunnel: ObservableTunnel): Config = withContext(Dispatchers.Main.immediate) {
-        tunnel.onConfigChanged(withContext(Dispatchers.IO) { configStore.load(tunnel.name) })!!
+        requireManaged(tunnel)
+        var current: Config?
+        do {
+            val name = tunnel.name
+            val generation = tunnel.configGeneration
+            val config = withContext(Dispatchers.IO) { configStore.load(name) }
+            requireManaged(tunnel)
+            current = if (name == tunnel.name && generation == tunnel.configGeneration)
+                tunnel.onConfigChanged(config) else tunnel.peekConfig()
+        } while (current == null)
+        current
     }
 
     // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
@@ -260,17 +370,26 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
                 Log.e(TAG, "Failed to load tunnels on create", e)
                 return@launch
             }
+        }.also { job ->
+            job.invokeOnCompletion { cause ->
+                if (cause != null)
+                    result.completeExceptionally(cause)
+            }
+        }
+    }
+
+    // Backend/ConfigStore expose Exception; background restore reports failures while cancellation and Errors propagate.
+    @Suppress("TooGenericExceptionCaught")
+    fun onActivityCreated() {
+        if (activityRestoreRequested) return
+        activityRestoreRequested = true
+        applicationScope.launch {
             try {
                 restoreState(true)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to restore tunnel state", e)
-            }
-        }.also { job ->
-            job.invokeOnCompletion { cause ->
-                if (cause != null)
-                    result.completeExceptionally(cause)
             }
         }
     }
@@ -303,28 +422,33 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
     // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
     @Suppress("TooGenericExceptionCaught")
     suspend fun restoreState(force: Boolean) {
-        if (!haveLoaded || (!force && !UserKnobs.restoreOnBoot.first()))
-            return
-        val eligible = tunnelMap.toList()
+        if (networkAutomation.restorationHandled()) return
+        val eligible = getTunnels().toList()
+        if (!force && !UserKnobs.restoreOnBoot.first()) return
         val previouslyRunning = UserKnobs.runningTunnels.first()
         if (previouslyRunning.isEmpty()) return
-        coroutineScope {
-            eligible.filter { previouslyRunning.contains(it.name) }.map { tunnel ->
-                async {
-                    try {
-                        setTunnelState(tunnel, Tunnel.State.UP)
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Failed to restore tunnel ${tunnel.name}", e)
-                    }
+        val caller = currentCoroutineContext()
+        mutate {
+            val admitted = previouslyRunning.intersect(UserKnobs.runningTunnels.first())
+            for (tunnel in eligible.filter { it.name in admitted }) {
+                // Reconcile an admitted transition noncancellably without admitting another after caller cancellation.
+                caller.ensureActive()
+                try {
+                    requireManaged(tunnel)
+                    if (networkAutomation.suppressesRestore(tunnel.name)) continue
+                    changeTunnelState(tunnel, Tunnel.State.UP)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to restore tunnel ${tunnel.name}", e)
                 }
-            }.awaitAll()
+            }
         }
     }
 
     suspend fun saveState() {
-        UserKnobs.setRunningTunnels(tunnelMap.filter { it.state == Tunnel.State.UP }.map { it.name }.toSet())
+        val tunnels = getTunnels()
+        UserKnobs.setRunningTunnels(tunnels.filter { it.state == Tunnel.State.UP }.map { it.name }.toSet())
     }
 
     private suspend fun refreshObservedStates() {
@@ -333,27 +457,66 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
             tunnel.onStateChanged(if (running.contains(tunnel.name)) Tunnel.State.UP else Tunnel.State.DOWN)
     }
 
-    // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
-    @Suppress("TooGenericExceptionCaught")
     suspend fun setTunnelConfig(tunnel: ObservableTunnel, config: Config): Config = mutate {
         requireManaged(tunnel)
+        networkAutomation.fence(setOf(tunnel.name))
+        invalidateRecovery(tunnel)
         tunnel.invalidateStatistics()
         val previousConfig = tunnel.getConfigAsync()
         val backend = getBackend()
-        tunnel.onConfigChanged(withContext(Dispatchers.IO) {
+        val saved = tunnel.onConfigChanged(withContext(Dispatchers.IO) {
             val state = backend.getState(tunnel)
-            backend.setState(tunnel, state, config)
-            try {
-                configStore.save(tunnel.name, config)
-            } catch (e: Exception) {
-                try {
-                    backend.setState(tunnel, state, previousConfig)
-                } catch (recovery: Exception) {
-                    e.addSuppressed(recovery)
-                }
-                throw e
-            }
+            saveTunnelConfig(tunnel, config, previousConfig, backend, state)
         })!!
+        networkAutomation.resolveBinding(tunnel, tunnel.name)
+        saved
+    }
+
+    suspend fun setTunnelConfigIfDown(
+        tunnel: ObservableTunnel,
+        expectedName: String,
+        expectedConfig: Config,
+        config: Config,
+        validateAdmission: suspend () -> Unit,
+    ): Config = mutate {
+        if (tunnelMap[tunnel.name] !== tunnel || tunnel.name != expectedName) throw ConfigUpdateRejectedException()
+        val previousConfig = tunnel.getConfigAsync()
+        if (previousConfig != expectedConfig || tunnel.state != Tunnel.State.DOWN) throw ConfigUpdateRejectedException()
+        val backend = getBackend()
+        val state = withContext(Dispatchers.IO) { backend.getState(tunnel) }
+        if (state != Tunnel.State.DOWN || tunnel.state != Tunnel.State.DOWN) throw ConfigUpdateRejectedException()
+        validateAdmission()
+        if (previousConfig == config) return@mutate previousConfig
+        networkAutomation.fence(setOf(tunnel.name))
+        invalidateRecovery(tunnel)
+        tunnel.invalidateStatistics()
+        val saved = tunnel.onConfigChanged(withContext(Dispatchers.IO) {
+            saveTunnelConfig(tunnel, config, previousConfig, backend, state)
+        })!!
+        networkAutomation.resolveBinding(tunnel, tunnel.name)
+        saved
+    }
+
+    // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
+    @Suppress("TooGenericExceptionCaught")
+    private fun saveTunnelConfig(
+        tunnel: ObservableTunnel,
+        config: Config,
+        previousConfig: Config,
+        backend: Backend,
+        state: Tunnel.State,
+    ): Config {
+        backend.setState(tunnel, state, config)
+        return try {
+            configStore.save(tunnel.name, config)
+        } catch (e: Exception) {
+            try {
+                backend.setState(tunnel, state, previousConfig)
+            } catch (recovery: Exception) {
+                e.addSuppressed(recovery)
+            }
+            throw e
+        }
     }
 
     // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
@@ -365,12 +528,16 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         if (tunnelMap.containsKey(name)) {
             throw IllegalArgumentException(context.getString(R.string.tunnel_error_already_exists, name))
         }
+        networkAutomation.fence(setOf(tunnel.name, name))
+        val previousName = tunnel.name
+        invalidateRecovery(tunnel)
         tunnel.invalidateStatistics()
         val backend = getBackend()
         val originalState = withContext(Dispatchers.IO) { backend.getState(tunnel) }
         val wasLastUsed = tunnel == lastUsedTunnel
         if (wasLastUsed)
             lastUsedTunnel = null
+        var failure: Exception? = null
         try {
             if (originalState == Tunnel.State.UP) {
                 val config = getDownConfig(tunnel, backend, originalState)
@@ -383,26 +550,54 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
             if (originalState == Tunnel.State.UP)
                 withContext(Dispatchers.IO) { backend.setState(tunnel, Tunnel.State.UP, tunnel.getConfigAsync()) }
         } catch (e: Exception) {
+            failure = e
             try {
                 tunnel.onStateChanged(withContext(Dispatchers.IO) { backend.getState(tunnel) })
             } catch (recovery: Exception) {
-                e.addSuppressed(recovery)
+                addRecoveryFailure(e, recovery)
             }
-            throw e
         } finally {
             tunnelMap.add(tunnel)
             if (wasLastUsed)
                 lastUsedTunnel = tunnel
         }
+        try {
+            refreshObservedStates()
+            saveState()
+        } catch (e: Exception) {
+            if (failure == null) throw e
+            addRecoveryFailure(failure, e)
+        }
+        if (failure != null) throw failure
+        networkAutomation.resolveBinding(tunnel, previousName)
         tunnel.name
     }
 
-    suspend fun setTunnelState(tunnel: ObservableTunnel, state: Tunnel.State): Tunnel.State = mutate {
-        requireManaged(tunnel)
-        changeTunnelState(tunnel, state)
+    suspend fun setTunnelState(tunnel: ObservableTunnel, state: Tunnel.State): Tunnel.State = withContext(Dispatchers.Main.immediate) {
+        var ordinary: Tunnel.State? = null
+        val admission = operationLock.withLock {
+            if (backendSwitchPending) throw BackendSwitchPendingException()
+            withContext(NonCancellable) {
+                requireManaged(tunnel)
+                val admitted = networkAutomation.admitManual(tunnel, state)
+                invalidateRecovery(if (state == Tunnel.State.DOWN) tunnel else null)
+                if (admitted == null) ordinary = changeTunnelState(tunnel, state)
+                admitted
+            }
+        }
+        val result = if (admission == null) requireNotNull(ordinary) else withContext(NonCancellable) { networkAutomation.runManual(admission) }
+        currentCoroutineContext().ensureActive()
+        result
+    }
+
+    suspend fun setMultipleTunnels(enabled: Boolean) = mutate {
+        if (enabled) networkAutomation.requireDisabled()
+        UserKnobs.setMultipleTunnels(enabled)
     }
 
     suspend fun prepareBackendSwitch(enableKernel: Boolean) = mutate {
+        networkAutomation.requireDisabled()
+        invalidateRecovery()
         for (tunnel in tunnelMap)
             tunnel.invalidateStatistics()
         for (tunnel in tunnelMap)
@@ -486,7 +681,15 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
                     else -> return@launch
                 }
                 val tunnelName = intent.getStringExtra("tunnel") ?: return@launch
-                val tunnels = manager.getTunnels()
+                val tunnels = try {
+                    manager.getTunnels()
+                } catch (e: IOException) {
+                    Toast.makeText(context, ErrorMessages[e], Toast.LENGTH_LONG).show()
+                    return@launch
+                } catch (e: RootShellException) {
+                    Toast.makeText(context, ErrorMessages[e], Toast.LENGTH_LONG).show()
+                    return@launch
+                }
                 val tunnel = tunnels[tunnelName] ?: return@launch
                 try {
                     manager.setTunnelState(tunnel, state)
@@ -521,6 +724,275 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
                 Log.e(TAG, "Failed to reconcile backend state notification", e)
             }
         }
+    }
+
+    internal suspend fun onHandshakeSessionAccepted(tunnel: ObservableTunnel, session: HandshakeSession) {
+        if (tunnelMap[tunnel.name] !== tunnel || tunnel.activeHandshakeSession !== session) return
+        val backend = getBackend() as? GoBackend ?: return
+        val previous = recoveryActivation
+        if (tunnelMap[tunnel.name] !== tunnel || tunnel.activeHandshakeSession !== session ||
+            previous?.tunnel === tunnel && previous.session === session) return
+        invalidateRecovery()
+        val activation = RecoveryActivation(tunnel, backend, session)
+        recoveryActivation = activation
+        publishRecovery(activation)
+    }
+
+    internal fun onHandshakeSessionRetired(tunnel: ObservableTunnel) {
+        val activation = recoveryActivation ?: return
+        if (activation.tunnel !== tunnel || tunnel.activeHandshakeSession === activation.session) return
+        invalidateRecovery(tunnel)
+        recoveryActivation = null
+    }
+
+    internal suspend fun onHandshakeExhausted(tunnel: ObservableTunnel, observation: HandshakeObservation) {
+        onHandshakeSessionAccepted(tunnel, observation.session())
+        val activation = recoveryActivation ?: return
+        if (!claimRecoveryEpisode(activation, tunnel, observation)) return
+        if (activation.request != null) {
+            activation.status = ObservableTunnel.RecoveryStatus.DROPPED_BUSY
+            publishRecovery(activation)
+        } else {
+            val request = RecoveryRequest(activation, observation, activation.generation)
+            activation.request = request
+            activation.status = ObservableTunnel.RecoveryStatus.PENDING
+            request.job = applicationScope.launch(start = CoroutineStart.LAZY) {
+                request.started = true
+                runRecovery(request)
+            }
+            request.job.invokeOnCompletion {
+                if (!request.started) applicationScope.launch(Dispatchers.Main.immediate + NonCancellable) {
+                    releaseRecovery(request, true)
+                }
+            }
+            publishRecovery(activation)
+            request.job.start()
+        }
+    }
+
+    private fun claimRecoveryEpisode(
+        activation: RecoveryActivation,
+        tunnel: ObservableTunnel,
+        observation: HandshakeObservation,
+    ): Boolean {
+        if (activation.tunnel !== tunnel || activation.session !== observation.session()) return false
+        val peers = tunnel.peekConfig()?.peers?.map { it.publicKey }?.toSet() ?: return false
+        activation.handledEpisodes.keys.retainAll(peers)
+        val previousEpisode = activation.handledEpisodes[observation.peer()] ?: 0L
+        val fresh = observation.peer() in peers && observation.exhaustedEpisode() > previousEpisode
+        if (fresh) {
+            activation.handledEpisodes[observation.peer()] = observation.exhaustedEpisode()
+            activation.lastTriggerPeer = observation.peer()
+        }
+        return fresh && hasNumericEndpoint(observation)
+    }
+
+    private fun hasNumericEndpoint(observation: HandshakeObservation): Boolean {
+        val endpoint = observation.endpoint() ?: return false
+        val address = try {
+            InetAddresses.parse(endpoint.host)
+        } catch (failure: ParseException) {
+            return false
+        }
+        return when (observation.addressFamily()) {
+            HandshakeObservation.AddressFamily.IPV4 -> address is Inet4Address
+            HandshakeObservation.AddressFamily.IPV6 -> address is Inet6Address
+            HandshakeObservation.AddressFamily.UNKNOWN -> false
+        }
+    }
+
+    private fun invalidateRecovery(tunnel: ObservableTunnel? = null) {
+        val activation = recoveryActivation ?: return
+        if (tunnel != null && activation.tunnel !== tunnel) return
+        activation.generation++
+        activation.request?.job?.cancel(CancellationException("Tunnel recovery request changed"))
+    }
+
+    private suspend fun runRecovery(request: RecoveryRequest) {
+        val activation = request.activation
+        try {
+            if (admitRecovery(request)) {
+                val first = enterRecovery(request)
+                if (first?.outcome() == RecoveryResult.Outcome.BUSY && first.contextReusable() && first.currentActivation()) {
+                    currentCoroutineContext().ensureActive()
+                    activation.status = ObservableTunnel.RecoveryStatus.BUSY_DEFERRED
+                    publishRecovery(activation)
+                    delay(RECOVERY_BUSY_DELAY_MILLIS)
+                    if (admitRecovery(request)) enterRecovery(request)
+                }
+            }
+        } finally {
+            val cancelled = currentCoroutineContext()[Job]?.isCancelled == true
+            withContext(NonCancellable) {
+                request.child?.cancel()
+                request.child?.join()
+                withContext(Dispatchers.Main.immediate) {
+                    releaseRecovery(request, cancelled)
+                }
+            }
+        }
+    }
+
+    private fun releaseRecovery(request: RecoveryRequest, cancelled: Boolean) {
+        val activation = request.activation
+        if (activation.request === request) activation.request = null
+        if (cancelled && activation.status != ObservableTunnel.RecoveryStatus.FAILED)
+            activation.status = ObservableTunnel.RecoveryStatus.CANCELLED
+        publishRecovery(activation)
+    }
+
+    private suspend fun admitRecovery(request: RecoveryRequest): Boolean = operationLock.withLock {
+        currentCoroutineContext().ensureActive()
+        val activation = request.activation
+        val tunnel = activation.tunnel
+        val currentObservation = tunnel.handshakeDiagnostics?.get(request.observation.peer())?.lastObservation
+        val obsolete = recoveryActivation !== activation || activation.request !== request ||
+            activation.generation != request.generation || tunnelMap[tunnel.name] !== tunnel ||
+            tunnel.activeHandshakeSession !== activation.session || getBackend() !== activation.backend ||
+            backendSwitchPending || tunnel.state != Tunnel.State.UP || tunnel.transitionTarget != null ||
+            tunnel.peekConfig()?.peers?.any { it.publicKey == request.observation.peer() } != true ||
+            currentObservation?.sequence() != request.observation.sequence() || networkAutomation.suppressesRecovery(tunnel)
+        val now = SystemClock.elapsedRealtime()
+        val status = when {
+            obsolete -> ObservableTunnel.RecoveryStatus.OBSOLETE
+            activation.disabled -> ObservableTunnel.RecoveryStatus.DISABLED
+            readRecoveryPower(activation) == ObservableTunnel.RecoveryPowerState.DEEP_IDLE -> ObservableTunnel.RecoveryStatus.DROPPED_DOZE
+            activation.chargedAttempts >= RECOVERY_ATTEMPT_LIMIT -> ObservableTunnel.RecoveryStatus.DROPPED_ATTEMPT_LIMIT
+            activation.backendEntries >= RECOVERY_ENTRY_LIMIT -> ObservableTunnel.RecoveryStatus.DROPPED_ENTRY_LIMIT
+            activation.lastChargedAt?.let { now - it < RECOVERY_SPACING_MILLIS } == true -> ObservableTunnel.RecoveryStatus.DROPPED_COOLDOWN
+            else -> null
+        }
+        if (status != null) {
+            activation.status = status
+            publishRecovery(activation)
+        }
+        status == null
+    }
+
+    private fun readRecoveryPower(activation: RecoveryActivation): ObservableTunnel.RecoveryPowerState {
+        val power = context.getSystemService(PowerManager::class.java)
+        activation.powerState = when {
+            power == null -> ObservableTunnel.RecoveryPowerState.UNKNOWN
+            power.isDeviceIdleMode -> ObservableTunnel.RecoveryPowerState.DEEP_IDLE
+            else -> ObservableTunnel.RecoveryPowerState.NOT_DEEP_IDLE
+        }
+        return activation.powerState
+    }
+
+    // Both dispatch boundaries can copy defects; preserve native identity and propagate cancellation after owned settlement.
+    @Suppress("TooGenericExceptionCaught", "ThrowsCount")
+    private suspend fun enterRecovery(request: RecoveryRequest): RecoveryResult? {
+        val activation = request.activation
+        val entry = RecoveryEntry(SystemClock.elapsedRealtime())
+        activation.chargedAttempts++
+        activation.lastRequestPeer = request.observation.peer()
+        activation.lastRequestAt = entry.requestedAt
+        activation.lastOutcome = null
+        activation.lastResultRecordedAt = null
+        activation.failureCategory = null
+        activation.status = ObservableTunnel.RecoveryStatus.REQUESTED
+        publishRecovery(activation)
+        val child = applicationScope.async(Dispatchers.IO) {
+            try {
+                runInterruptible {
+                    entry.enteredAt = SystemClock.elapsedRealtime()
+                    entry.entered = true
+                    try {
+                        entry.result = activation.backend.recover(activation.tunnel, request.observation)
+                    } catch (failure: Throwable) {
+                        entry.failure = failure
+                        throw failure
+                    }
+                }
+            } catch (failure: IOException) {
+                if (entry.failure == null) entry.failure = failure
+            } catch (failure: BackendException) {
+                if (entry.failure == null) entry.failure = failure
+                if (failure.reason != BackendException.Reason.UNABLE_TO_START_VPN) throw failure
+            } catch (failure: Throwable) {
+                if (entry.failure == null) entry.failure = failure
+                throw failure
+            }
+        }
+        request.child = child
+        var waitingFailure: Throwable? = null
+        try {
+            child.await()
+        } catch (failure: Throwable) {
+            waitingFailure = failure
+        } finally {
+            withContext(NonCancellable) {
+                child.cancel()
+                child.join()
+                withContext(Dispatchers.Main.immediate) {
+                    settleRecovery(activation, entry)
+                    request.child = null
+                }
+            }
+        }
+        val original = entry.failure
+        if (original != null && recoveryFailureCategory(original) == ObservableTunnel.RecoveryFailureCategory.DEFECT)
+            throw original
+        if (waitingFailure != null) throw waitingFailure
+        return entry.result
+    }
+
+    private fun settleRecovery(activation: RecoveryActivation, entry: RecoveryEntry) {
+        val result = entry.result
+        if (entry.entered) activation.backendEntries++
+        if (!entry.entered || result?.admitted() == false || entry.failure is GoBackend.EndpointResolutionException) {
+            activation.chargedAttempts--
+        } else {
+            activation.lastChargedAt = checkNotNull(entry.enteredAt)
+            if (result != null) activation.confirmedAdmissions++
+            else {
+                activation.unknownSettlements++
+                activation.disabled = true
+                activation.transportState = ObservableTunnel.RecoveryTransportState.UNKNOWN
+            }
+        }
+        activation.lastRequestAt = entry.enteredAt ?: entry.requestedAt
+        activation.lastOutcome = result?.outcome()
+        activation.lastResultRecordedAt = SystemClock.elapsedRealtime()
+        activation.failureCategory = recoveryFailureCategory(entry.failure)
+        activation.status = when {
+            result != null -> ObservableTunnel.RecoveryStatus.COMPLETED
+            entry.failure is CancellationException || entry.failure is InterruptedException -> ObservableTunnel.RecoveryStatus.CANCELLED
+            entry.failure != null -> ObservableTunnel.RecoveryStatus.FAILED
+            else -> ObservableTunnel.RecoveryStatus.CANCELLED
+        }
+        if (result != null) {
+            if (!result.contextReusable() || !result.currentActivation()) activation.disabled = true
+            if (result.outcome() == RecoveryResult.Outcome.TRANSPORT_FAILED)
+                activation.transportState = ObservableTunnel.RecoveryTransportState.UNAVAILABLE
+            else if (result.transportReady())
+                activation.transportState = ObservableTunnel.RecoveryTransportState.READY
+            else if (!result.contextReusable() && activation.transportState != ObservableTunnel.RecoveryTransportState.UNAVAILABLE)
+                activation.transportState = ObservableTunnel.RecoveryTransportState.UNKNOWN
+        }
+        publishRecovery(activation)
+    }
+
+    private fun recoveryFailureCategory(failure: Throwable?): ObservableTunnel.RecoveryFailureCategory? = when (failure) {
+        null -> null
+        is CancellationException -> ObservableTunnel.RecoveryFailureCategory.CANCELLED
+        is InterruptedException -> ObservableTunnel.RecoveryFailureCategory.INTERRUPTED
+        is GoBackend.EndpointResolutionException -> ObservableTunnel.RecoveryFailureCategory.DNS_RESOLUTION
+        is IOException -> ObservableTunnel.RecoveryFailureCategory.IO
+        is BackendException -> if (failure.reason == BackendException.Reason.UNABLE_TO_START_VPN)
+            ObservableTunnel.RecoveryFailureCategory.SERVICE_UNAVAILABLE else ObservableTunnel.RecoveryFailureCategory.DEFECT
+        else -> ObservableTunnel.RecoveryFailureCategory.DEFECT
+    }
+
+    private fun publishRecovery(activation: RecoveryActivation) {
+        if (recoveryActivation !== activation || activation.tunnel.activeHandshakeSession !== activation.session) return
+        activation.tunnel.onRecoverySnapshotChanged(activation.session, ObservableTunnel.RecoverySnapshot(
+            activation.confirmedAdmissions, activation.chargedAttempts, activation.backendEntries, activation.unknownSettlements,
+            activation.request != null, activation.disabled, activation.lastTriggerPeer, activation.lastRequestPeer,
+            activation.lastRequestAt, activation.lastOutcome,
+            activation.status, activation.failureCategory, activation.transportState, activation.powerState,
+            activation.lastResultRecordedAt,
+        ))
     }
 
     suspend fun getTunnelStatistics(tunnel: ObservableTunnel): Statistics? = withContext(Dispatchers.Main.immediate) {
@@ -591,5 +1063,9 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
 
     companion object {
         private const val TAG = "vpn0wn/TunnelManager"
+        private const val RECOVERY_ATTEMPT_LIMIT = 2
+        private const val RECOVERY_ENTRY_LIMIT = 4
+        private const val RECOVERY_SPACING_MILLIS = 30_000L
+        private const val RECOVERY_BUSY_DELAY_MILLIS = 1_000L
     }
 }

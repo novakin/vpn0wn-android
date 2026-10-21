@@ -10,11 +10,22 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
 import org.json.JSONTokener
+import java.io.IOException
+import java.util.UUID
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 
 data class StoredVpsServer(
     val id: String,
@@ -35,46 +46,728 @@ data class StoredVpsServer(
     val running: Boolean? = null,
 )
 
-class VpsServerStore(private val dataStore: DataStore<Preferences>) {
+class VpsServerStore internal constructor(
+    private val dataStore: DataStore<Preferences>,
+    private val credentialFile: VpsCredentialFile,
+) {
     internal class InvalidTransferMetadataException : IllegalArgumentException("Invalid VPS fleet metadata")
+    class CredentialConflictException : IllegalStateException("Saved SSH identity does not match the current server")
+    class ServerChangedException : IllegalStateException("Server changed while status was being read")
+    class AddPendingException(val owner: StoredVpsServer? = null) : IllegalStateException("A user creation needs reconciliation")
+    class RemovePendingException(val ownerServerId: String? = null, val owner: StoredVpsServer? = null,
+        val attempt: PendingVpsRemove? = null) : IllegalStateException("A user removal needs reconciliation") {
+        val action: PendingVpsRemove.Action? get() = attempt?.action
+    }
+    class RotatePendingException(val ownerServerId: String? = null, val owner: StoredVpsServer? = null,
+        val attempt: PendingVpsRotate? = null) : IllegalStateException("A client-key rotation needs reconciliation")
+    class InstallPendingException(val owner: StoredVpsServer? = null) : IllegalStateException("An earlier installation needs reconciliation")
+    class RestorePendingException(val ownerServerId: String? = null, val attempt: PendingVpsRestore? = null,
+        val target: StoredVpsServer? = null) : IllegalStateException("A server restoration needs reconciliation")
+    class IncompleteCredentialRecoveryException : IOException("Server change failed; saved SSH credentials could not be restored")
+    private val mutationMutex = Mutex()
 
     val servers: Flow<List<StoredVpsServer>> = dataStore.data.map { preferences ->
         decodeServers(preferences[SERVERS].orEmpty())
-    }
+    }.distinctUntilChanged()
 
-    suspend fun upsert(server: StoredVpsServer) {
+    suspend fun upsert(server: StoredVpsServer) = mutate {
+        decodeTransferServers(encodeServers(listOf(server)))
+        val preferences = dataStore.data.first()
+        val previous = decodeServersForMutation(preferences[SERVERS].orEmpty()).singleOrNull { it.id == server.id }
+        if (previous != server) {
+            previous?.let { requireNoRestore(preferences, it) }
+            requireNoRestore(preferences, server)
+            requireNoRotation(preferences, server)
+            PendingVpsRemove.decode(preferences[PENDING_REMOVALS].orEmpty()).firstOrNull { it.matches(server) }
+                ?.let { throw removePendingFailure(preferences, it) }
+        }
+        if (previous == null || !sameSshEndpoint(previous, server)) {
+            withCredentials { records ->
+                if (server.id in records.credentials) throw CredentialConflictException()
+            }
+        }
         dataStore.edit { preferences ->
-            val servers = decodeServers(preferences[SERVERS].orEmpty())
+            val servers = decodeServersForMutation(preferences[SERVERS].orEmpty())
                 .filterNot { it.id == server.id } + server
             preferences[SERVERS] = encodeServers(servers)
         }
+        Unit
     }
 
-    suspend fun remove(id: String) {
-        dataStore.edit { preferences ->
-            val servers = decodeServers(preferences[SERVERS].orEmpty()).filterNot { it.id == id }
-            preferences[SERVERS] = encodeServers(servers)
+    // Separate commits need recovery without reclassifying cancellation or programming defects.
+    @Suppress("TooGenericExceptionCaught", "InstanceOfCheckForException")
+    suspend fun remove(id: String) = mutate {
+        val preferences = dataStore.data.first()
+        val captured = decodeServersForMutation(preferences[SERVERS].orEmpty()).singleOrNull { it.id == id }
+        PendingVpsRestore.decode(preferences[PENDING_RESTORES].orEmpty())
+            .firstOrNull { it.serverId == id || captured?.let(it::matches) == true }
+            ?.let { throw RestorePendingException(it.serverId, it, captured) }
+        PendingVpsRotate.decode(preferences[PENDING_ROTATIONS].orEmpty())
+            .firstOrNull { it.serverId == id || captured?.let(it::matches) == true }?.let { throw rotationPendingFailure(preferences, it) }
+        PendingVpsRemove.decode(preferences[PENDING_REMOVALS].orEmpty()).firstOrNull { it.serverId == id }
+            ?.let { throw removePendingFailure(preferences, it) }
+        val original = currentServers().singleOrNull { it.id == id }
+        withCredentials { records ->
+            val removed = records.credentials.remove(id)
+            var credentialRemoved = false
+            try {
+                if (removed != null) {
+                    writeCredentials(records)
+                    credentialRemoved = true
+                }
+                dataStore.edit { preferences ->
+                    val servers = decodeServersForMutation(preferences[SERVERS].orEmpty()).filterNot { it.id == id }
+                    preferences[SERVERS] = encodeServers(servers)
+                }
+            } catch (failure: Throwable) {
+                if (credentialRemoved && removed != null && original != null) {
+                    try {
+                        val current = currentServers().singleOrNull { it.id == id }
+                        if (current == original) {
+                            records.credentials[id] = removed
+                            writeCredentials(records)
+                        } else if (current != null) {
+                            throw CredentialConflictException()
+                        }
+                    } catch (recovery: Throwable) {
+                        if (recovery !== failure) failure.addSuppressed(recovery)
+                        if (failure !is Exception || failure is RuntimeException && failure !is SecurityException) throw failure
+                        throw IncompleteCredentialRecoveryException().apply { initCause(failure) }
+                    }
+                }
+                throw failure
+            } finally {
+                (removed?.credential as? VpsCredential.Password)?.clear()
+            }
         }
     }
 
-    suspend fun updateStatus(id: String, status: VpsServerStatus, syncedAtEpochSeconds: Long) {
+    suspend fun pendingInstall(expected: StoredVpsServer): PendingVpsInstall? = mutate {
+        val preferences = dataStore.data.first()
+        val servers = decodeServersForMutation(preferences[SERVERS].orEmpty())
+        if (servers.singleOrNull { it.id == expected.id } != expected) throw ServerChangedException()
+        PendingVpsInstall.decode(preferences[PENDING_INSTALLS].orEmpty()).firstOrNull { it.matches(expected) }
+    }
+
+    suspend fun pendingRestore(expected: StoredVpsServer): PendingVpsRestore? = mutate {
+        val preferences = dataStore.data.first()
+        if (decodeServersForMutation(preferences[SERVERS].orEmpty()).singleOrNull { it.id == expected.id } != expected)
+            throw ServerChangedException()
+        PendingVpsRestore.decode(preferences[PENDING_RESTORES].orEmpty()).firstOrNull { it.matches(expected) }
+    }
+
+    // The durable intent excludes every older writer before a restore can reach the server.
+    @Suppress("ThrowsCount")
+    suspend fun admitRestore(expected: StoredVpsServer, attempt: PendingVpsRestore): PendingVpsRestore = mutate {
+        attempt.validate()
+        if (!attempt.owns(expected)) throw ServerChangedException()
+        requireCurrentCredential(expected, attempt.fingerprint)
         dataStore.edit { preferences ->
-            val servers = decodeServers(preferences[SERVERS].orEmpty()).map { server ->
-                if (server.id != id) {
-                    server
-                } else {
-                    server.copy(
-                        endpoint = status.endpoint,
-                        listenPort = status.listenPort,
-                        cidr = status.cidr,
-                        dns = status.dns,
-                        lastSyncEpochSeconds = syncedAtEpochSeconds,
-                        running = status.running,
-                    )
+            if (decodeServersForMutation(preferences[SERVERS].orEmpty()).singleOrNull { it.id == expected.id } != expected)
+                throw ServerChangedException()
+            requireNoRestore(preferences, expected)
+            requireNoRotation(preferences, expected)
+            if (PendingVpsInstall.decode(preferences[PENDING_INSTALLS].orEmpty()).any { it.matches(expected) }) throw InstallPendingException(expected)
+            if (PendingVpsAdd.decode(preferences[PENDING_ADDS].orEmpty()).any { it.matches(expected) }) throw AddPendingException(expected)
+            PendingVpsRemove.decode(preferences[PENDING_REMOVALS].orEmpty()).firstOrNull { it.matches(expected) }
+                ?.let { throw removePendingFailure(preferences, it) }
+            val attempts = PendingVpsRestore.decode(preferences[PENDING_RESTORES].orEmpty())
+            preferences[PENDING_RESTORES] = PendingVpsRestore.encode(attempts + attempt)
+        }
+        attempt
+    }
+
+    suspend fun checkRestoreOwner(expected: StoredVpsServer, attempt: PendingVpsRestore) = mutate {
+        requireRestoreOwner(expected, attempt)
+    }
+
+    suspend fun settleRestore(expected: StoredVpsServer, attempt: PendingVpsRestore, verification: VpsRestoreVerification,
+        syncedAtEpochSeconds: Long): StoredVpsServer = mutate {
+        val current = requireRestoreOwner(expected, attempt)
+        if (!attempt.observes(verification)) throw RestorePendingException(current.serverId, current, expected)
+        require(syncedAtEpochSeconds > 0L)
+        val updated = expected.copy(endpoint = verification.endpoint, listenPort = verification.port, cidr = verification.cidr,
+            dns = verification.dns, running = verification.running, lastSyncEpochSeconds = syncedAtEpochSeconds)
+        dataStore.edit { preferences ->
+            val servers = decodeServersForMutation(preferences[SERVERS].orEmpty())
+            if (servers.singleOrNull { it.id == expected.id } != expected) throw ServerChangedException()
+            val attempts = PendingVpsRestore.decode(preferences[PENDING_RESTORES].orEmpty())
+            if (attempt !in attempts) {
+                val pending = attempts.firstOrNull { it.matches(expected) }
+                throw RestorePendingException(pending?.serverId, pending, expected)
+            }
+            preferences[SERVERS] = encodeServers(servers.map { if (it.id == expected.id) updated else it })
+            preferences[PENDING_RESTORES] = PendingVpsRestore.encode(attempts - attempt)
+        }
+        updated
+    }
+
+    private suspend fun requireRestoreOwner(expected: StoredVpsServer, attempt: PendingVpsRestore): PendingVpsRestore {
+        requireCurrentCredential(expected, attempt.fingerprint)
+        val current = pendingRestores().firstOrNull { it.matches(expected) }
+        if (!attempt.owns(expected) || attempt != current) throw RestorePendingException(current?.serverId, current, expected)
+        return requireNotNull(current)
+    }
+
+    // Each conflicting owner must reject before either operation can reach the server.
+    @Suppress("ThrowsCount")
+    suspend fun admitInstall(expected: StoredVpsServer, target: VpsEndpoint, request: VpsInstallRequest): PendingVpsInstall = mutate {
+        require(!request.force)
+        if (target != VpsEndpoint(expected.host, expected.sshPort, expected.sshUser)) throw ServerChangedException()
+        val attempt = PendingVpsInstall(expected.id, target, request)
+        dataStore.edit { preferences ->
+            requireNoRestore(preferences, expected)
+            requireNoRotation(preferences, expected)
+            val servers = decodeServersForMutation(preferences[SERVERS].orEmpty())
+            if (servers.singleOrNull { it.id == expected.id } != expected) throw ServerChangedException()
+            val attempts = PendingVpsInstall.decode(preferences[PENDING_INSTALLS].orEmpty())
+            if (attempts.any { it.matches(expected) }) throw InstallPendingException(expected)
+            if (PendingVpsAdd.decode(preferences[PENDING_ADDS].orEmpty()).any { it.matches(expected) }) throw AddPendingException(expected)
+            PendingVpsRemove.decode(preferences[PENDING_REMOVALS].orEmpty()).firstOrNull { it.matches(expected) }
+                ?.let { throw removePendingFailure(preferences, it) }
+            preferences[PENDING_INSTALLS] = PendingVpsInstall.encode(attempts + attempt)
+        }
+        attempt
+    }
+
+    suspend fun settleInstall(expected: StoredVpsServer, attempt: PendingVpsInstall, status: VpsServerStatus, syncedAtEpochSeconds: Long): StoredVpsServer = mutate {
+        val updated = observedRecord(expected, status, syncedAtEpochSeconds)
+        dataStore.edit { preferences ->
+            val servers = decodeServersForMutation(preferences[SERVERS].orEmpty())
+            if (servers.singleOrNull { it.id == expected.id } != expected) throw ServerChangedException()
+            val attempts = PendingVpsInstall.decode(preferences[PENDING_INSTALLS].orEmpty())
+            if (attempt !in attempts || !attempt.matches(expected) ||
+                attempt.ssh != VpsEndpoint(expected.host, expected.sshPort, expected.sshUser)) throw InstallPendingException(expected)
+            preferences[SERVERS] = encodeServers(servers.map { if (it.id == expected.id) updated else it })
+            preferences[PENDING_INSTALLS] = PendingVpsInstall.encode(attempts - attempt)
+        }
+        updated
+    }
+
+    suspend fun clearFailedInstall(expected: StoredVpsServer, attempt: PendingVpsInstall) = mutate {
+        dataStore.edit { preferences ->
+            val servers = decodeServersForMutation(preferences[SERVERS].orEmpty())
+            if (servers.singleOrNull { it.id == expected.id } != expected) throw ServerChangedException()
+            val attempts = PendingVpsInstall.decode(preferences[PENDING_INSTALLS].orEmpty())
+            if (attempt !in attempts || attempt.ssh != VpsEndpoint(expected.host, expected.sshPort, expected.sshUser))
+                throw InstallPendingException(expected)
+            preferences[PENDING_INSTALLS] = PendingVpsInstall.encode(attempts - attempt)
+        }
+        Unit
+    }
+
+    suspend fun updateStatus(expected: StoredVpsServer, status: VpsServerStatus, syncedAtEpochSeconds: Long): StoredVpsServer = mutate {
+        val updated = observedRecord(expected, status, syncedAtEpochSeconds)
+        dataStore.edit { preferences ->
+            requireNoRestore(preferences, expected)
+            requireNoRotation(preferences, expected)
+            val servers = decodeServersForMutation(preferences[SERVERS].orEmpty())
+            if (servers.singleOrNull { it.id == expected.id } != expected) throw ServerChangedException()
+            preferences[SERVERS] = encodeServers(servers.map { if (it.id == expected.id) updated else it })
+        }
+        updated
+    }
+
+    suspend fun pendingAdd(expected: StoredVpsServer): PendingVpsAdd? = mutate {
+        val preferences = dataStore.data.first()
+        if (decodeServersForMutation(preferences[SERVERS].orEmpty()).singleOrNull { it.id == expected.id } != expected)
+            throw ServerChangedException()
+        PendingVpsAdd.decode(preferences[PENDING_ADDS].orEmpty()).firstOrNull { it.matches(expected) }
+    }
+
+    // Current-record, install and add conflicts need distinct admission outcomes.
+    @Suppress("ThrowsCount")
+    suspend fun admitAdd(expected: StoredVpsServer, fingerprint: String, serverPublicKey: String, request: VpsAddPeerRequest): PendingVpsAdd = mutate {
+        val attempt = PendingVpsAdd(expected.id, VpsEndpoint(expected.host, expected.sshPort, expected.sshUser), fingerprint, serverPublicKey, request)
+        attempt.validate()
+        requireCurrentCredential(expected, fingerprint)
+        dataStore.edit { preferences ->
+            requireNoRestore(preferences, expected)
+            requireNoRotation(preferences, expected)
+            if (decodeServersForMutation(preferences[SERVERS].orEmpty()).singleOrNull { it.id == expected.id } != expected)
+                throw ServerChangedException()
+            if (PendingVpsInstall.decode(preferences[PENDING_INSTALLS].orEmpty()).any { it.matches(expected) })
+                throw InstallPendingException(expected)
+            PendingVpsRemove.decode(preferences[PENDING_REMOVALS].orEmpty()).firstOrNull { it.matches(expected) }
+                ?.let { throw removePendingFailure(preferences, it) }
+            val attempts = PendingVpsAdd.decode(preferences[PENDING_ADDS].orEmpty())
+            if (attempts.any { it.matches(expected) }) throw AddPendingException(expected)
+            preferences[PENDING_ADDS] = PendingVpsAdd.encode(attempts + attempt)
+        }
+        attempt
+    }
+
+    suspend fun recordAddReceipt(attempt: PendingVpsAdd, clientPublicKey: String): PendingVpsAdd = mutate {
+        val retained = attempt.copy(clientPublicKey = clientPublicKey).also { it.validate() }
+        dataStore.edit { preferences ->
+            val attempts = PendingVpsAdd.decode(preferences[PENDING_ADDS].orEmpty())
+            if (retained !in attempts) {
+                if (attempt !in attempts || attempt.clientPublicKey != null) throw AddPendingException()
+                preferences[PENDING_ADDS] = PendingVpsAdd.encode(attempts.map { if (it == attempt) retained else it })
+            }
+        }
+        retained
+    }
+
+    // Identity, record and durable-intent checks all precede the shared commit.
+    @Suppress("ThrowsCount")
+    suspend fun settleAdd(expected: StoredVpsServer, attempt: PendingVpsAdd, status: VpsServerStatus, syncedAtEpochSeconds: Long): StoredVpsServer = mutate {
+        requireCurrentCredential(expected, attempt.fingerprint)
+        if (attempt.serverId != expected.id || attempt.ssh != VpsEndpoint(expected.host, expected.sshPort, expected.sshUser) ||
+            attempt.clientPublicKey == null || status.serverPublicKey != attempt.serverPublicKey ||
+            status.peers.singleOrNull { it.name == attempt.request.name }?.publicKey != attempt.clientPublicKey)
+            throw AddPendingException()
+        val updated = observedRecord(expected, status, syncedAtEpochSeconds)
+        dataStore.edit { preferences ->
+            val servers = decodeServersForMutation(preferences[SERVERS].orEmpty())
+            if (servers.singleOrNull { it.id == expected.id } != expected) throw ServerChangedException()
+            val attempts = PendingVpsAdd.decode(preferences[PENDING_ADDS].orEmpty())
+            if (attempt !in attempts) throw AddPendingException()
+            preferences[SERVERS] = encodeServers(servers.map { if (it.id == expected.id) updated else it })
+            preferences[PENDING_ADDS] = PendingVpsAdd.encode(attempts - attempt)
+        }
+        updated
+    }
+
+    suspend fun clearRejectedAdd(expected: StoredVpsServer, attempt: PendingVpsAdd) = mutate {
+        requireCurrentCredential(expected, attempt.fingerprint)
+        dataStore.edit { preferences ->
+            if (decodeServersForMutation(preferences[SERVERS].orEmpty()).singleOrNull { it.id == expected.id } != expected)
+                throw ServerChangedException()
+            val attempts = PendingVpsAdd.decode(preferences[PENDING_ADDS].orEmpty())
+            if (attempt !in attempts || attempt.clientPublicKey != null ||
+                attempt.serverId != expected.id || attempt.ssh != VpsEndpoint(expected.host, expected.sshPort, expected.sshUser))
+                throw AddPendingException()
+            preferences[PENDING_ADDS] = PendingVpsAdd.encode(attempts - attempt)
+        }
+        Unit
+    }
+
+    private suspend fun requireCurrentCredential(expected: StoredVpsServer, fingerprint: String) {
+        if (currentServers().singleOrNull { it.id == expected.id } != expected) throw ServerChangedException()
+        withCredentials { records ->
+            val credential = records.credentials[expected.id]
+            if (credential == null || !credential.matches(expected) || credential.fingerprint != fingerprint)
+                throw CredentialConflictException()
+        }
+    }
+
+    suspend fun pendingRemove(expected: StoredVpsServer): PendingVpsRemove? = mutate {
+        val preferences = dataStore.data.first()
+        if (decodeServersForMutation(preferences[SERVERS].orEmpty()).singleOrNull { it.id == expected.id } != expected)
+            throw ServerChangedException()
+        PendingVpsRemove.decode(preferences[PENDING_REMOVALS].orEmpty()).firstOrNull { it.matches(expected) }
+    }
+
+    // Each existing durable writer must exclude a conflicting removal before dispatch.
+    @Suppress("ThrowsCount")
+    suspend fun admitRemove(expected: StoredVpsServer, attempt: PendingVpsRemove): PendingVpsRemove = mutate {
+        attempt.validate()
+        if (!attempt.owns(expected)) throw ServerChangedException()
+        requireCurrentCredential(expected, attempt.fingerprint)
+        dataStore.edit { preferences ->
+            requireNoRestore(preferences, expected)
+            requireNoRotation(preferences, expected)
+            if (decodeServersForMutation(preferences[SERVERS].orEmpty()).singleOrNull { it.id == expected.id } != expected)
+                throw ServerChangedException()
+            if (PendingVpsInstall.decode(preferences[PENDING_INSTALLS].orEmpty()).any { it.matches(expected) }) throw InstallPendingException(expected)
+            if (PendingVpsAdd.decode(preferences[PENDING_ADDS].orEmpty()).any { it.matches(expected) }) throw AddPendingException(expected)
+            val attempts = PendingVpsRemove.decode(preferences[PENDING_REMOVALS].orEmpty())
+            attempts.firstOrNull { it.matches(expected) }?.let { throw removePendingFailure(preferences, it) }
+            preferences[PENDING_REMOVALS] = PendingVpsRemove.encode(attempts + attempt)
+        }
+        attempt
+    }
+
+    // Observation, current owner and exact durable intent must all hold before settlement.
+    @Suppress("ThrowsCount")
+    suspend fun settleRemove(expected: StoredVpsServer, attempt: PendingVpsRemove, status: VpsServerStatus,
+        syncedAtEpochSeconds: Long, removeProfile: suspend () -> Unit): StoredVpsServer = mutate {
+        requireCurrentCredential(expected, attempt.fingerprint)
+        if (!attempt.owns(expected) || !attempt.observesCompletion(status)) throw RemovePendingException()
+        if (attempt !in pendingRemovals()) throw RemovePendingException()
+        val updated = observedRecord(expected, status, syncedAtEpochSeconds)
+        removeProfile()
+        dataStore.edit { preferences ->
+            val servers = decodeServersForMutation(preferences[SERVERS].orEmpty())
+            if (servers.singleOrNull { it.id == expected.id } != expected) throw ServerChangedException()
+            val attempts = PendingVpsRemove.decode(preferences[PENDING_REMOVALS].orEmpty())
+            if (attempt !in attempts) throw RemovePendingException()
+            preferences[SERVERS] = encodeServers(servers.map { if (it.id == expected.id) updated else it })
+            preferences[PENDING_REMOVALS] = PendingVpsRemove.encode(attempts - attempt)
+        }
+        updated
+    }
+
+    // A structured rejection may clear only the captured credential, record and intent owner.
+    @Suppress("ThrowsCount")
+    suspend fun clearRejectedRemove(expected: StoredVpsServer, attempt: PendingVpsRemove) = mutate {
+        requireCurrentCredential(expected, attempt.fingerprint)
+        if (!attempt.owns(expected)) throw RemovePendingException()
+        dataStore.edit { preferences ->
+            if (decodeServersForMutation(preferences[SERVERS].orEmpty()).singleOrNull { it.id == expected.id } != expected) throw ServerChangedException()
+            val attempts = PendingVpsRemove.decode(preferences[PENDING_REMOVALS].orEmpty())
+            if (attempt !in attempts) throw RemovePendingException()
+            preferences[PENDING_REMOVALS] = PendingVpsRemove.encode(attempts - attempt)
+        }
+        Unit
+    }
+
+    suspend fun checkAddOwner(expected: StoredVpsServer, fingerprint: String) = mutate {
+        requireCurrentCredential(expected, fingerprint)
+    }
+
+    suspend fun checkProfileOwner(expected: StoredVpsServer, fingerprint: String) = mutate {
+        requireCurrentCredential(expected, fingerprint)
+        requireNoRotation(dataStore.data.first(), expected)
+    }
+
+    // Every durable writer must reject endpoint review before its uncertain result can be trusted.
+    @Suppress("ThrowsCount")
+    suspend fun checkPeerEndpointOwner(expected: StoredVpsServer, fingerprint: String) = mutate {
+        requireCurrentCredential(expected, fingerprint)
+        val preferences = dataStore.data.first()
+        requireNoRestore(preferences, expected)
+        requireNoRotation(preferences, expected)
+        if (PendingVpsInstall.decode(preferences[PENDING_INSTALLS].orEmpty()).any { it.matches(expected) })
+            throw InstallPendingException(expected)
+        if (PendingVpsAdd.decode(preferences[PENDING_ADDS].orEmpty()).any { it.matches(expected) })
+            throw AddPendingException(expected)
+        PendingVpsRemove.decode(preferences[PENDING_REMOVALS].orEmpty()).firstOrNull { it.matches(expected) }
+            ?.let { throw removePendingFailure(preferences, it) }
+    }
+
+    suspend fun pendingRotation(expected: StoredVpsServer): PendingVpsRotate? = mutate {
+        if (currentServers().singleOrNull { it.id == expected.id } != expected) throw ServerChangedException()
+        pendingRotations().firstOrNull { it.matches(expected) }
+    }
+
+    internal suspend fun cleanupRotationProfiles(profiles: VpsUserProfileStore) = mutate {
+        profiles.cleanupRotations(pendingRotations())
+    }
+
+    // Stage cleanup must retain the original failure, including cancellation and programming defects.
+    @Suppress("TooGenericExceptionCaught", "ThrowsCount")
+    internal suspend fun admitRotation(expected: StoredVpsServer, fingerprint: String, old: VpsUserProfile,
+        profiles: VpsUserProfileStore): PendingVpsRotate = mutate {
+        requireCurrentCredential(expected, fingerprint)
+        val preferences = dataStore.data.first()
+        requireNoRestore(preferences, expected)
+        requireNoRotation(preferences, expected)
+        if (PendingVpsInstall.decode(preferences[PENDING_INSTALLS].orEmpty()).any { it.matches(expected) }) throw InstallPendingException(expected)
+        if (PendingVpsAdd.decode(preferences[PENDING_ADDS].orEmpty()).any { it.matches(expected) }) throw AddPendingException(expected)
+        PendingVpsRemove.decode(preferences[PENDING_REMOVALS].orEmpty()).firstOrNull { it.matches(expected) }
+            ?.let { throw removePendingFailure(preferences, it) }
+        if (old.identity.serverId != expected.id || old.identity.ssh != VpsEndpoint(expected.host, expected.sshPort, expected.sshUser))
+            throw ServerChangedException()
+        profiles.cleanupRotations(PendingVpsRotate.decode(preferences[PENDING_ROTATIONS].orEmpty()))
+        val operationId = UUID.randomUUID().toString()
+        val proposed = profiles.stageRotation(old, operationId)
+        val attempt = PendingVpsRotate(expected.id, old.identity.ssh, fingerprint, old.identity.serverPublicKey, old.name,
+            old.identity.clientPublicKey, proposed.identity.clientPublicKey, operationId).also { it.validate() }
+        try {
+            dataStore.edit { current ->
+                requireNoRestore(current, expected)
+                if (decodeServersForMutation(current[SERVERS].orEmpty()).singleOrNull { it.id == expected.id } != expected) throw ServerChangedException()
+                val attempts = PendingVpsRotate.decode(current[PENDING_ROTATIONS].orEmpty())
+                requireNoRotation(current, expected)
+                current[PENDING_ROTATIONS] = PendingVpsRotate.encode(attempts + attempt)
+            }
+        } catch (failure: Throwable) {
+            try {
+                profiles.cleanupRotations(pendingRotations())
+            } catch (cleanup: Throwable) {
+                if (cleanup !== failure) failure.addSuppressed(cleanup)
+            }
+            throw failure
+        }
+        attempt
+    }
+
+    internal suspend fun dispatchRotation(expected: StoredVpsServer, attempt: PendingVpsRotate, profiles: VpsUserProfileStore): PendingVpsRotate = mutate {
+        requireRotationOwner(expected, attempt)
+        if (attempt.phase != PendingVpsRotate.Phase.PREPARED || profiles.loadRotation(attempt).rotation?.settled != false) throw RotatePendingException()
+        val dispatched = attempt.copy(phase = PendingVpsRotate.Phase.DISPATCHED)
+        dataStore.edit { preferences ->
+            val attempts = PendingVpsRotate.decode(preferences[PENDING_ROTATIONS].orEmpty())
+            if (attempt !in attempts) throw RotatePendingException()
+            preferences[PENDING_ROTATIONS] = PendingVpsRotate.encode(attempts.map { if (it == attempt) dispatched else it })
+        }
+        dispatched
+    }
+
+    internal suspend fun settleRotation(expected: StoredVpsServer, attempt: PendingVpsRotate, verification: VpsPeerRotationResult,
+        syncedAtEpochSeconds: Long, profiles: VpsUserProfileStore): StoredVpsServer = mutate {
+        requireRotationOwner(expected, attempt)
+        if (attempt.phase != PendingVpsRotate.Phase.DISPATCHED || verification.mode != VpsPeerRotationResult.Mode.VERIFY || !verification.matches(attempt))
+            throw RotatePendingException()
+        require(syncedAtEpochSeconds > 0L)
+        val updated = expected.copy(running = verification.running, lastSyncEpochSeconds = syncedAtEpochSeconds)
+        profiles.settleRotation(attempt)
+        dataStore.edit { preferences ->
+            val attempts = PendingVpsRotate.decode(preferences[PENDING_ROTATIONS].orEmpty())
+            if (attempt !in attempts || decodeServersForMutation(preferences[SERVERS].orEmpty()).singleOrNull { it.id == expected.id } != expected)
+                throw RotatePendingException()
+            preferences[SERVERS] = encodeServers(decodeServersForMutation(preferences[SERVERS].orEmpty()).map { if (it.id == expected.id) updated else it })
+            preferences[PENDING_ROTATIONS] = PendingVpsRotate.encode(attempts - attempt)
+        }
+        profiles.cleanupRotations(pendingRotations())
+        updated
+    }
+
+    internal suspend fun failRotation(expected: StoredVpsServer, attempt: PendingVpsRotate, profiles: VpsUserProfileStore) = mutate {
+        requireRotationOwner(expected, attempt)
+        if (attempt.phase == PendingVpsRotate.Phase.PREPARED) throw RotatePendingException()
+        if (attempt.phase == PendingVpsRotate.Phase.DISPATCHED && profiles.loadRotation(attempt).rotation?.settled != false) throw RotatePendingException()
+        retireRotationFailure(attempt, profiles)
+    }
+
+    internal suspend fun abandonPreparedRotation(expected: StoredVpsServer, attempt: PendingVpsRotate, profiles: VpsUserProfileStore) = mutate {
+        requireRotationOwner(expected, attempt)
+        if (attempt.phase != PendingVpsRotate.Phase.PREPARED) throw RotatePendingException()
+        if (profiles.loadRotation(attempt).rotation?.settled != false) throw RotatePendingException()
+        retireRotationFailure(attempt, profiles)
+    }
+
+    private suspend fun retireRotationFailure(attempt: PendingVpsRotate, profiles: VpsUserProfileStore) {
+        val failed = attempt.copy(phase = PendingVpsRotate.Phase.REJECTED)
+        if (attempt.phase != PendingVpsRotate.Phase.REJECTED) {
+            dataStore.edit { preferences ->
+                val attempts = PendingVpsRotate.decode(preferences[PENDING_ROTATIONS].orEmpty())
+                if (attempt !in attempts) throw RotatePendingException()
+                preferences[PENDING_ROTATIONS] = PendingVpsRotate.encode(attempts.map { if (it == attempt) failed else it })
+            }
+        }
+        profiles.discardFailedRotation(failed)
+        dataStore.edit { preferences ->
+            val attempts = PendingVpsRotate.decode(preferences[PENDING_ROTATIONS].orEmpty())
+            if (failed !in attempts) throw RotatePendingException()
+            preferences[PENDING_ROTATIONS] = PendingVpsRotate.encode(attempts - failed)
+        }
+    }
+
+    private suspend fun requireRotationOwner(expected: StoredVpsServer, attempt: PendingVpsRotate) {
+        requireCurrentCredential(expected, attempt.fingerprint)
+        if (!attempt.owns(expected) || attempt !in pendingRotations()) throw RotatePendingException()
+    }
+
+    private fun observedRecord(expected: StoredVpsServer, status: VpsServerStatus, syncedAtEpochSeconds: Long): StoredVpsServer {
+        require(syncedAtEpochSeconds > 0L)
+        return expected.copy(
+            endpoint = status.endpoint,
+            listenPort = status.listenPort,
+            cidr = status.cidr,
+            dns = status.dns,
+            lastSyncEpochSeconds = syncedAtEpochSeconds,
+            running = status.running,
+        )
+    }
+
+    suspend fun trustedHostFingerprint(host: String, port: Int): String? = mutate {
+        val endpoint = SshHost.parse(host, port)
+        withCredentials { records -> records.trustedHosts[endpoint] }
+    }
+
+    suspend fun trustHost(host: String, port: Int, fingerprint: String) = mutate {
+        val endpoint = SshHost.parse(host, port)
+        JschRemoteShellClientFactory.decodeHostFingerprint(fingerprint)
+        withCredentials { records ->
+            val previous = records.trustedHosts[endpoint]
+            if (previous != null && previous != fingerprint) throw CredentialConflictException()
+            if (previous == null) {
+                records.trustedHosts[endpoint] = fingerprint
+                writeCredentials(records)
+            }
+        }
+    }
+
+    suspend fun saveCredential(server: StoredVpsServer, fingerprint: String, credential: VpsCredential) = mutate {
+        JschRemoteShellClientFactory.decodeHostFingerprint(fingerprint)
+        requireCurrent(server)
+        val preferences = dataStore.data.first()
+        requireNoRestore(preferences, server)
+        PendingVpsRotate.decode(preferences[PENDING_ROTATIONS].orEmpty())
+            .firstOrNull { it.matches(server) && (!it.owns(server) || it.fingerprint != fingerprint) }
+            ?.let { throw rotationPendingFailure(preferences, it) }
+        PendingVpsRemove.decode(preferences[PENDING_REMOVALS].orEmpty())
+            .firstOrNull { it.matches(server) && (!it.owns(server) || it.fingerprint != fingerprint) }
+            ?.let { throw removePendingFailure(preferences, it) }
+        withCredentials { records ->
+            records.credentials[server.id]?.let { if (!it.matches(server)) throw CredentialConflictException() }
+            val host = SshHost.parse(server.host, server.sshPort)
+            val trusted = records.trustedHosts[host]
+            if (trusted != null && trusted != fingerprint) throw CredentialConflictException()
+            records.trustedHosts[host] = fingerprint
+            val saved = SavedVpsCredential(
+                VpsEndpoint(server.host, server.sshPort, server.sshUser),
+                fingerprint,
+                when (credential) {
+                    is VpsCredential.Password -> VpsCredential.Password(credential.value.copyOf())
+                    is VpsCredential.PrivateKey -> credential.copy()
+                },
+            )
+            val previous = records.credentials.put(server.id, saved)
+            (previous?.credential as? VpsCredential.Password)?.clear()
+            writeCredentials(records)
+        }
+    }
+
+    // Cancellation can reject a decrypted result after the admitted read finishes.
+    suspend fun loadConnection(server: StoredVpsServer): VpsConnection? {
+        var loaded: VpsConnection? = null
+        var published = false
+        try {
+            val result = mutate {
+                requireCurrent(server)
+                withCredentials { records ->
+                    records.credentials[server.id]?.let { saved ->
+                        if (!saved.matches(server) || records.trustedHosts[SshHost.parse(server.host, server.sshPort)] != saved.fingerprint)
+                            throw CredentialConflictException()
+                        saved.connection().also { loaded = it }
+                    }
                 }
             }
-            preferences[SERVERS] = encodeServers(servers)
+            published = true
+            return result
+        } finally {
+            if (!published) (loaded?.credential as? VpsCredential.Password)?.clear()
         }
+    }
+
+    suspend fun clearCredential(id: String) = mutate {
+        val preferences = dataStore.data.first()
+        val captured = decodeServersForMutation(preferences[SERVERS].orEmpty()).singleOrNull { it.id == id }
+        PendingVpsRestore.decode(preferences[PENDING_RESTORES].orEmpty())
+            .firstOrNull { it.serverId == id || captured?.let(it::matches) == true }
+            ?.let { throw RestorePendingException(it.serverId, it, captured) }
+        PendingVpsRotate.decode(preferences[PENDING_ROTATIONS].orEmpty()).firstOrNull { it.serverId == id }
+            ?.let { throw rotationPendingFailure(preferences, it) }
+        PendingVpsRemove.decode(preferences[PENDING_REMOVALS].orEmpty()).firstOrNull { it.serverId == id }
+            ?.let { throw removePendingFailure(preferences, it) }
+        withCredentials { records ->
+            val removed = records.credentials.remove(id)
+            try {
+                if (removed != null) writeCredentials(records)
+            } finally {
+                (removed?.credential as? VpsCredential.Password)?.clear()
+            }
+        }
+    }
+
+    internal suspend fun <T> withImportAdmission(incoming: List<StoredVpsServer>, block: suspend () -> T): T = mutate {
+        val preferences = dataStore.data.first()
+        val current = decodeServersForMutation(preferences[SERVERS].orEmpty()).associateBy { it.id }
+        val restores = PendingVpsRestore.decode(preferences[PENDING_RESTORES].orEmpty())
+        incoming.forEach { candidate ->
+            val previous = current[candidate.id]
+            if (previous != candidate) {
+                restores.firstOrNull { it.matches(candidate) || previous?.let(it::matches) == true }
+                    ?.let { throw RestorePendingException(it.serverId, it, previous ?: candidate) }
+            }
+        }
+        val pending = PendingVpsRemove.decode(preferences[PENDING_REMOVALS].orEmpty())
+        val rotations = PendingVpsRotate.decode(preferences[PENDING_ROTATIONS].orEmpty())
+        rotations.firstOrNull { attempt -> incoming.any { current[it.id] != it && attempt.matches(it) } }
+            ?.let { throw rotationPendingFailure(preferences, it) }
+        pending.firstOrNull { attempt -> incoming.any { current[it.id] != it && attempt.matches(it) } }
+            ?.let { throw removePendingFailure(preferences, it) }
+        val currentIds = current.keys
+        val newIds = incoming.map { it.id }.filterNot { it in currentIds }
+        if (newIds.isNotEmpty()) {
+            withCredentials { records ->
+                if (newIds.any { it in records.credentials }) throw CredentialConflictException()
+            }
+        }
+        block()
+    }
+
+    private suspend fun requireCurrent(server: StoredVpsServer) {
+        val current = currentServers().singleOrNull { it.id == server.id }
+        if (current == null || !sameSshEndpoint(current, server)) throw CredentialConflictException()
+    }
+
+    private fun sameSshEndpoint(first: StoredVpsServer, second: StoredVpsServer): Boolean =
+        first.host == second.host && first.sshPort == second.sshPort && first.sshUser == second.sshUser
+
+    private suspend fun currentServers(): List<StoredVpsServer> =
+        decodeServersForMutation(dataStore.data.first()[SERVERS].orEmpty())
+
+    private suspend fun pendingRemovals(): List<PendingVpsRemove> =
+        PendingVpsRemove.decode(dataStore.data.first()[PENDING_REMOVALS].orEmpty())
+
+    private suspend fun pendingRotations(): List<PendingVpsRotate> =
+        PendingVpsRotate.decode(dataStore.data.first()[PENDING_ROTATIONS].orEmpty())
+
+    private suspend fun pendingRestores(): List<PendingVpsRestore> =
+        PendingVpsRestore.decode(dataStore.data.first()[PENDING_RESTORES].orEmpty())
+
+    private fun requireNoRestore(preferences: Preferences, server: StoredVpsServer) {
+        PendingVpsRestore.decode(preferences[PENDING_RESTORES].orEmpty()).firstOrNull { it.matches(server) }
+            ?.let { throw RestorePendingException(it.serverId, it, server) }
+    }
+
+    private fun requireNoRotation(preferences: Preferences, server: StoredVpsServer) {
+        PendingVpsRotate.decode(preferences[PENDING_ROTATIONS].orEmpty()).firstOrNull { it.matches(server) }
+            ?.let { throw rotationPendingFailure(preferences, it) }
+    }
+
+    private fun removePendingFailure(preferences: Preferences, attempt: PendingVpsRemove): RemovePendingException =
+        RemovePendingException(attempt.serverId, decodeServersForMutation(preferences[SERVERS].orEmpty()).singleOrNull(attempt::owns), attempt)
+
+    private fun rotationPendingFailure(preferences: Preferences, attempt: PendingVpsRotate): RotatePendingException =
+        RotatePendingException(attempt.serverId, decodeServersForMutation(preferences[SERVERS].orEmpty()).singleOrNull(attempt::owns), attempt)
+
+    private suspend fun <T> withCredentials(block: suspend (VpsCredentialSnapshot) -> T): T {
+        val records = withContext(Dispatchers.IO) {
+            credentialFile.read()?.let { bytes ->
+                try { VpsCredentialRecords.decode(bytes) } finally { bytes.fill(0) }
+            } ?: VpsCredentialSnapshot()
+        }
+        return try { block(records) } finally { VpsCredentialRecords.clear(records) }
+    }
+
+    private suspend fun writeCredentials(records: VpsCredentialSnapshot) = withContext(Dispatchers.IO) {
+        val bytes = VpsCredentialRecords.encode(records)
+        try { credentialFile.write(bytes) } finally { bytes.fill(0) }
+    }
+
+    private suspend fun <T> mutate(block: suspend () -> T): T = mutationMutex.withLock {
+        currentCoroutineContext().ensureActive()
+        // Once admitted, commit or recover both owners before honouring cancellation.
+        val result = withContext(NonCancellable) { block() }
+        currentCoroutineContext().ensureActive()
+        result
+    }
+
+    private fun decodeServersForMutation(value: String): List<StoredVpsServer> {
+        if (value.isEmpty()) return emptyList()
+        try {
+            val tokener = JSONTokener(value)
+            val array = tokener.nextValue() as? JSONArray ?: invalidTransferServers()
+            if (tokener.nextClean() != '\u0000') invalidTransferServers()
+            val ids = mutableSetOf<String>()
+            for (index in 0 until array.length()) {
+                val json = array.get(index) as? JSONObject ?: invalidTransferServers()
+                if (json.keys().asSequence().any { it !in SERVER_FIELDS }) invalidTransferServers()
+                val id = json.get("id") as? String ?: invalidTransferServers()
+                val host = json.get("host") as? String ?: invalidTransferServers()
+                val user = if (json.has("sshUser")) {
+                    json.get("sshUser") as? String ?: invalidTransferServers()
+                } else {
+                    "root"
+                }
+                val port = if (json.has("sshPort")) {
+                    json.get("sshPort") as? Int ?: invalidTransferServers()
+                } else {
+                    DEFAULT_SSH_PORT
+                }
+                if (id.isBlank() || host.isBlank() || user.isBlank() || port !in 1..MAX_PORT_NUMBER || !ids.add(id))
+                    invalidTransferServers()
+            }
+        } catch (_: JSONException) {
+            invalidTransferServers()
+        }
+        return decodeServers(value)
     }
 
     private fun decodeServers(value: String): List<StoredVpsServer> {
@@ -116,8 +809,17 @@ class VpsServerStore(private val dataStore: DataStore<Preferences>) {
         private const val DEFAULT_SSH_PORT = 22
         private const val MAX_PORT_NUMBER = 65_535
         private const val TRANSFER_FIELD_COUNT = 16
+        private val SERVER_FIELDS = setOf(
+            "id", "name", "host", "sshPort", "sshUser", "endpoint", "listenPort", "cidr", "dns",
+            "os", "version", "provider", "region", "engine", "lastSyncEpochSeconds", "running",
+        )
         private const val TAG = "vpn0wn/VpsServerStore"
         internal val SERVERS = stringPreferencesKey("vps_servers")
+        private val PENDING_INSTALLS = stringPreferencesKey("vps_pending_installs")
+        private val PENDING_ADDS = stringPreferencesKey("vps_pending_adds")
+        private val PENDING_REMOVALS = stringPreferencesKey("vps_pending_removals")
+        private val PENDING_ROTATIONS = stringPreferencesKey("vps_pending_rotations")
+        private val PENDING_RESTORES = stringPreferencesKey("vps_pending_restores")
 
         internal fun encodeServers(servers: List<StoredVpsServer>): String {
             val array = JSONArray()

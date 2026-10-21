@@ -67,7 +67,7 @@
     <string name="bad_config_context">%2$s de %1$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%1$s em %2$s</string>
-    <string name="bad_config_explanation_pka">: Tem que ser positivo e não mais do que 65535</string>
+    <string name="bad_config_explanation_pka">: 0–65535</string>
     <string name="bad_config_explanation_positive_number">: tem que ser positivo</string>
     <string name="bad_config_explanation_udp_port">: Tem que ser um número de porta UDP válido</string>
     <string name="bad_config_reason_invalid_key">Chave inválida</string>

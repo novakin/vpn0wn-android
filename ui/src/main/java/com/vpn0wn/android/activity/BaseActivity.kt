@@ -6,28 +6,56 @@
 package com.vpn0wn.android.activity
 
 import android.os.Bundle
+import android.util.Log
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.databinding.CallbackRegistry
 import androidx.databinding.CallbackRegistry.NotifierCallback
 import androidx.lifecycle.lifecycleScope
 import com.vpn0wn.android.Application
+import com.vpn0wn.android.R
+import com.vpn0wn.android.NetworkMonitorService
 import com.vpn0wn.android.model.ObservableTunnel
+import com.vpn0wn.android.util.ErrorMessages
+import com.vpn0wn.android.util.RootShell.RootShellException
+import java.io.IOException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 /**
  * Base class for activities that need to remember the currently-selected tunnel.
  */
 abstract class BaseActivity : AppCompatActivity() {
+    override fun onResume() {
+        super.onResume()
+        lifecycleScope.launch {
+            try {
+                NetworkMonitorService.startIfEnabled(this@BaseActivity)
+            } catch (_: IOException) {
+                Application.getTunnelManager().networkAutomation.startFailed()
+            }
+        }
+    }
+
     private val selectionChangeRegistry = SelectionChangeRegistry()
+    private val selectionListenersReady = CompletableDeferred<Unit>()
+    private var selectionRestoreJob: Job? = null
+    private var pendingTunnelName: String? = null
+    private var selection: ObservableTunnel? = null
     private var created = false
-    var selectedTunnel: ObservableTunnel? = null
+    var selectedTunnel: ObservableTunnel?
+        get() = selection
         set(value) {
-            val oldTunnel = field
+            selectionRestoreJob?.cancel()
+            selectionRestoreJob = null
+            pendingTunnelName = null
+            val oldTunnel = selection
             if (oldTunnel == value) return
-            field = value
+            selection = value
             if (created) {
                 if (!onSelectedTunnelChanged(oldTunnel, value)) {
-                    field = oldTunnel
+                    selection = oldTunnel
                 } else {
                     selectionChangeRegistry.notifyCallbacks(oldTunnel, 0, value)
                 }
@@ -48,20 +76,42 @@ abstract class BaseActivity : AppCompatActivity() {
             else -> null
         }
         if (savedTunnelName != null) {
-            lifecycleScope.launch {
-                val tunnel = Application.getTunnelManager().getTunnels()[savedTunnelName]
-                if (tunnel == null)
-                    created = true
-                selectedTunnel = tunnel
-                created = true
+            pendingTunnelName = savedTunnelName
+            selectionRestoreJob = lifecycleScope.launch {
+                val tunnel = try {
+                    Application.getTunnelManager().getTunnels()[savedTunnelName]
+                } catch (failure: IOException) {
+                    reportInventoryFailure(failure)
+                    return@launch
+                } catch (failure: RootShellException) {
+                    reportInventoryFailure(failure)
+                    return@launch
+                }
+                pendingTunnelName = null
+                val oldTunnel = selection
+                if (oldTunnel == tunnel) return@launch
+                selection = tunnel
+                selectionListenersReady.await()
+                // Restored fragments already own navigation; replaying it can pop a saved editor.
+                selectionChangeRegistry.notifyCallbacks(oldTunnel, 0, tunnel)
             }
-        } else {
-            created = true
         }
     }
 
+    override fun onPostCreate(savedInstanceState: Bundle?) {
+        super.onPostCreate(savedInstanceState)
+        created = true
+        selectionListenersReady.complete(Unit)
+    }
+
+    private fun reportInventoryFailure(failure: Exception) {
+        val message = getString(R.string.error_prepare, ErrorMessages[failure])
+        Log.e(TAG, message, failure)
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
-        if (selectedTunnel != null) outState.putString(KEY_SELECTED_TUNNEL, selectedTunnel!!.name)
+        (selectedTunnel?.name ?: pendingTunnelName)?.let { outState.putString(KEY_SELECTED_TUNNEL, it) }
         super.onSaveInstanceState(outState)
     }
 
@@ -92,6 +142,7 @@ abstract class BaseActivity : AppCompatActivity() {
         CallbackRegistry<OnSelectedTunnelChangedListener, ObservableTunnel, ObservableTunnel>(SelectionChangeNotifier())
 
     companion object {
+        private const val TAG = "vpn0wn/BaseActivity"
         private const val KEY_SELECTED_TUNNEL = "selected_tunnel"
     }
 }

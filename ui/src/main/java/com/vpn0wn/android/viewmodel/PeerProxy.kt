@@ -15,8 +15,11 @@ import androidx.databinding.ObservableList
 import com.vpn0wn.android.BR
 import com.vpn0wn.config.Attribute
 import com.vpn0wn.config.BadConfigException
+import com.vpn0wn.config.InetAddresses
+import com.vpn0wn.config.ParseException
 import com.vpn0wn.config.Peer
 import java.lang.ref.WeakReference
+import java.net.Inet4Address
 
 class PeerProxy : BaseObservable, Parcelable {
     private val dnsRoutes: MutableList<String?> = ArrayList()
@@ -25,6 +28,10 @@ class PeerProxy : BaseObservable, Parcelable {
     private var peerListListener: PeerListListener? = null
     private var owner: ConfigProxy? = null
     private var totalPeers = 0
+
+    @get:Bindable
+    val isAmnezia: Boolean
+        get() = owner?.`interface`?.isAmnezia == true
 
     @get:Bindable
     var allowedIps: String = ""
@@ -81,7 +88,7 @@ class PeerProxy : BaseObservable, Parcelable {
     constructor(other: Peer) {
         allowedIps = Attribute.join(other.allowedIps)
         endpoint = other.endpoint.map { it.toString() }.orElse("")
-        persistentKeepalive = other.persistentKeepalive.map { it.toString() }.orElse("")
+        persistentKeepalive = other.persistentKeepaliveText.orElse("")
         preSharedKey = other.preSharedKey.map { it.toBase64() }.orElse("")
         publicKey = other.publicKey.toBase64()
     }
@@ -98,6 +105,7 @@ class PeerProxy : BaseObservable, Parcelable {
         peers.addOnListChangedCallback(peerListListener)
         setTotalPeers(peers.size)
         this.owner = owner
+        notifyPropertyChanged(BR.amnezia)
     }
 
     private fun calculateAllowedIpsState() {
@@ -163,14 +171,24 @@ class PeerProxy : BaseObservable, Parcelable {
         val builder = Peer.Builder()
         if (allowedIps.isNotEmpty()) builder.parseAllowedIPs(allowedIps)
         if (endpoint.isNotEmpty()) builder.parseEndpoint(endpoint)
-        if (persistentKeepalive.isNotEmpty()) builder.parsePersistentKeepalive(persistentKeepalive)
+        if (persistentKeepalive.isNotEmpty()) {
+            if (isAmnezia) builder.parseAmneziaKeepalive(persistentKeepalive)
+            else builder.parsePersistentKeepalive(persistentKeepalive)
+        }
         if (preSharedKey.isNotEmpty()) builder.parsePreSharedKey(preSharedKey)
         if (publicKey.isNotEmpty()) builder.parsePublicKey(publicKey)
         return builder.build()
     }
 
     private fun setInterfaceDns(dnsServers: CharSequence) {
-        val newDnsRoutes = Attribute.split(dnsServers).filter { !it.contains(":") }.map { "$it/32" }
+        val newDnsRoutes = Attribute.split(dnsServers).mapNotNull { dnsServer ->
+            val address = try {
+                InetAddresses.parse(dnsServer)
+            } catch (_: ParseException) {
+                null
+            }
+            if (address is Inet4Address) "${address.hostAddress}/32" else null
+        }
         if (allowedIpsState == AllowedIpsState.CONTAINS_IPV4_PUBLIC_NETWORKS) {
             val input = getAllowedIpsSet()
             // Yes, this is quadratic in the number of DNS servers, but most users have 1 or 2.

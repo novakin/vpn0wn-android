@@ -113,14 +113,14 @@
     <string name="addresses">العناوين</string>
     <string name="applications">التطبيقات</string>
     <string name="allow_remote_control_intents_summary_off">لا يمكن للتطبيقات الخارجية تبدل الأنفاق (مستحسن)</string>
-    <string name="allow_remote_control_intents_summary_on">يمكن للتطبيقات الخارجية تبدل الأنفاق (مستحسن)</string>
+    <string name="allow_remote_control_intents_summary_on">يمكن للتطبيقات الخارجية تبدل الأنفاق (متقدم)</string>
     <string name="allow_remote_control_intents_title">السماح بتطبيقات التحكم عن بعد</string>
     <string name="allowed_ips">عناوين بروتوكول الإنترنت (IP) المسموح بها</string>
     <string name="bad_config_context">%2$s الخاص بـ %1$s</string>
     <string name="bad_config_context_top_level">%s</string>
     <string name="bad_config_error">%1$s في %2$s</string>
-    <string name="bad_config_explanation_pka">: يجب أن يكون موجباً و ألا يتجاوز 65535</string>
-    <string name="bad_config_explanation_positive_number">يجب أن يكون إيجابياً</string>
+    <string name="bad_config_explanation_pka">: \u20660–65535\u2069</string>
+    <string name="bad_config_explanation_positive_number">: يجب أن يكون إيجابياً</string>
     <string name="bad_config_explanation_udp_port">: يجب أن يكون رقم منفذ حزم بيانات المستخدم (UDP) صالح</string>
     <string name="bad_config_reason_invalid_key">مفتاح غير صالح</string>
     <string name="bad_config_reason_invalid_number">رَقَم غير صالح</string>
@@ -161,7 +161,7 @@
     <string name="tv_no_file_picker">الرجاء تثبيت مدير ملفات لتتمكن من تصفح الملفات</string>
     <string name="tv_add_tunnel_get_started">أضف نفقاً لتبدأ</string>
     <string name="disable_config_export_title">تعطيل تصدير التكوين</string>
-    <string name="disable_config_export_description">تعطيل تصدير الإعدادات يجعل المفاتيح الخاصة غير متاحة</string>
+    <string name="disable_config_export_description">تعطيل تصدير التكوين يجعل الوصول إلى المفاتيح الخاصة أقل سهولة</string>
     <string name="dns_servers">خوادم DNS</string>
     <string name="dns_search_domains">البحث عن النطاقات</string>
     <string name="edit">تعديل</string>
@@ -234,7 +234,7 @@
     <string name="public_key">مفتاح عام</string>
     <string name="qr_code_hint">نصيحة: إنشاء بواسطة `qrencode -t ansiutf8 &lt; tunnel.conf`.</string>
     <string name="quick_settings_tile_add_title">إضافة بلاطة إلى لوحة الإعدادات السريعة</string>
-    <string name="quick_settings_tile_add_summary">بلاطة الاختصار تستبدل أحدث نفق</string>
+    <string name="quick_settings_tile_add_summary">تبدّل بلاطة الاختصار حالة آخر نفق استُخدم</string>
     <string name="quick_settings_tile_add_failure">تعذر إضافة لوحة الاختصار: خطأ %d</string>
     <string name="quick_settings_tile_action">تبديل النفق</string>
     <string name="restore_on_boot_summary_off">لن تجلب الأنفاق المفعلة عند التمهيد</string>
@@ -276,7 +276,7 @@
     <string name="tunnel_dns_failure">غير قادر على حل اسم مضيف نظام أسماء النطاقات (DNS hostname): \"%s\"</string>
     <string name="tunnel_rename_error">غير قادر على إعادة تسمية النفق: %s</string>
     <string name="tunnel_rename_success">تمت إعادة تسمية النفق بنجاح إلى \"%s\"</string>
-    <string name="type_name_go_userspace">انتقل مساحة المستخدمين</string>
+    <string name="type_name_go_userspace">مساحة المستخدم (Go)</string>
     <string name="type_name_kernel_module">وحدة النواة</string>
     <string name="unknown_error">خطأ غير معروف</string>
     <string name="version_summary">%1$s خلفية %2$s</string>
@@ -313,11 +313,19 @@
     <string name="vpn0wn_selection_status_empty">0 محدد</string>
     <string name="vpn0wn_selection_status_count">%1$d من %2$d محدد</string>
     <plurals name="vpn0wn_selection_title">
-        <item quantity="one">%d محدد</item>
-        <item quantity="other">%d محدد</item>
+        <item quantity="zero">تم تحديد %d</item>
+        <item quantity="one">تم تحديد %d</item>
+        <item quantity="two">تم تحديد %d</item>
+        <item quantity="few">تم تحديد %d</item>
+        <item quantity="many">تم تحديد %d</item>
+        <item quantity="other">تم تحديد %d</item>
     </plurals>
     <plurals name="vpn0wn_delete_sheet_title">
-        <item quantity="one">حذف نفق %d؟</item>
-        <item quantity="other">حذف %d أنفاق؟</item>
+        <item quantity="zero">حذف %d من الأنفاق؟</item>
+        <item quantity="one">حذف نفق واحد؟</item>
+        <item quantity="two">حذف نفقين؟</item>
+        <item quantity="few">حذف %d أنفاق؟</item>
+        <item quantity="many">حذف %d نفقًا؟</item>
+        <item quantity="other">حذف %d نفق؟</item>
     </plurals>
 </resources>
