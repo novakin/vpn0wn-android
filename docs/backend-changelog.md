@@ -86,11 +86,8 @@ Tracks non-UI changes: backend logic, data layer, permissions, networking, build
 
 ## Done
 
-<<<<<<< HEAD
 - **Fresh absent-service admission — #321 (2026-10-21, Europe/Paris):** `third_party/wireguard-install/vpn0wn/common.sh::observe_service` recognizes Ubuntu's `not-found`/4 and `inactive`/4 pair only when LoadState is independently `not-found` and the interface is absent. Legacy missing-unit handling remains. A clean authorized local Ubuntu VM reproduced the original pre-install refusal; focused regressions cover admission and failed, loaded, active or live-interface contradictions. Runtime rerun and broader #143 acceptance remain separate.
-=======
 - **Android entry-point lifetime — #317 (2026-10-21, Europe/Paris):** `TunnelManager.IntentReceiver` retains its broadcast until the actual SET/REFRESH coroutine settles; refresh is now awaited, and completion releases the result even if its scope was already cancelled. `TvMainActivity` reuses the retained `VpnPermissionViewModel`, captures the original direction, consumes approval once and handles denial/preparation failure without toggling. The [entry-point contract](backend-contracts.md#tv-consent-and-remote-broadcast-lifetime--317) preserves finite Android lifetime, managed identity and fail-closed process restoration. Thirty-three focused JVM controls and zero-finding Detekt pass across the recorded runs; no new device acceptance is claimed.
->>>>>>> origin/master
 
 - **Peer address allocation — #318 (2026-10-21, Europe/Paris):** `common.sh::next_peer_address` reads every peer route using ordinary assignment whitespace and comma-list forms, reserves IPv4 CIDR coverage and selects only unused pool addresses. `add-peer.sh` distinguishes a full pool from invalid allocation inventory before generating keys or writing config/runtime state. Eight new offline regressions and the strengthened canonical control pass with the complete 207-check safety suite; live-server proof remains separate. The [script contract](../third_party/wireguard-install/vpn0wn/README.md#peer-address-allocation) owns compatibility and validation limits.
 
