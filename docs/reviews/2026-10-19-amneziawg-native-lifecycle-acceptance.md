@@ -1,6 +1,6 @@
 # AmneziaWG native lifecycle and traffic acceptance — #76
 
-Last updated: 2026-10-20 (Europe/Paris).
+Last updated: 2026-10-21 (Europe/Paris).
 
 ## Scope and status
 
@@ -10,7 +10,7 @@ This document records existing evidence; it adds no product changes or runtime e
 
 The later [A2 retry1 traffic cohort](#api24-a2-retry1-traffic--2026-10-19) is separately accepted below. The A4 source, artifact, observations, failures and limits retain their original scope.
 
-The separate [API36 A2 traffic cohort](#api36-a2-traffic--2026-10-20) extends the local platform matrix below; it does not widen either earlier cohort.
+The separate [API36 A2 traffic cohort](#api36-a2-traffic--2026-10-20) extends the local platform matrix below; it does not widen either earlier cohort. The later [padding/header/rebind cohort](2026-10-21-amneziawg-padding-rebind-acceptance.md) adds a separate configured nonzero-field and rebind traffic result; the limits below retain their original cohort scope.
 
 ## Tested source and artifact
 
