@@ -14,7 +14,7 @@ Production source is `12075b73ccd1d4516c440dae2252a092500ddaef`, tree `d6d911062
 | B8 producer input manifest | `f29fb3a895cc8b49570d892f6637d5a5ede35bc6314f66b26ed5a649c9c63bd4` |
 | B9 runtime input manifest | `579deadfc623f4b397b7aeed9967b925cdb94c040c868b5e5c015c6c796f22c9` |
 | B9 independent input/artifact-reuse/runtime review | `0c09dd1f2511af32cf56c8bcb56f80b25e054ea29300ec2ab932dc8c48eaf49c` |
-| B9 independent outcome review | `c41e765117f841832cb3b556f86b1801e36de9e5e82690f6b766e6e556a51299` |
+| B9 independent outcome review | `44caef57326f1d4ebf8a90506ea5d64c3e5a50ba99a2ad2368d0d7cd37fc14a9` |
 
 The production Application, Fragment/ViewModel, archive codec, JSch transport, stores and Android Keystore remain intact. The source snapshot is acquired by the VM fixture and encrypted through the production codec; native source export is not exercised. A temporary synthetic ECDSA SSH credential, independently checked destination host key and one owned ADB reverse connect Android to the real destination.
 
