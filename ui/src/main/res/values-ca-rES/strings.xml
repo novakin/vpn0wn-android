@@ -201,9 +201,7 @@
     <string name="tools_installer_failure">No s\'ha pogut instalar les eines de linia de comandes (ets root?)</string>
     <string name="tools_installer_initial">Instal·lar eines opcionals per l\'scripting</string>
     <string name="tools_installer_initial_magisk">Instal·lar eines opcionals per l\'scripting com el mòdul Magisk</string>
-    <string name="tools_installer_initial_system">Instal·lar eines opcionals per l\'scripting a la partició del sistema</string>
     <string name="tools_installer_success_magisk">wg i wg-quick instalats com a mòdul de Magisk (es necessita reinicar)</string>
-    <string name="tools_installer_success_system">wg i wg-quick instalats a la partició de sistema</string>
     <string name="tools_installer_title">Instala les eines de la línia d\'ordres</string>
     <string name="tools_installer_working">Instalant wg i wg-quick</string>
     <string name="tools_unavailable_error">Eines necessàries no disponibles</string>

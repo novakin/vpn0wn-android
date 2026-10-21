@@ -188,9 +188,7 @@
     <string name="tools_installer_failure">コマンドラインツールをインストールできません(root権限がない？)</string>
     <string name="tools_installer_initial">スクリプティングのためのオプションツールのインストール</string>
     <string name="tools_installer_initial_magisk">スクリプティングのためのオプションツールを Magisk モジュールとしてインストール</string>
-    <string name="tools_installer_initial_system">スクリプティングのためのオプションツールをシステムパーティションにインストール</string>
     <string name="tools_installer_success_magisk">wg および wg-quick を Magisk モジュールとしてインストールしました (再起動必須)</string>
-    <string name="tools_installer_success_system">wg および wg-quick をシステムパーティションにインストールしました</string>
     <string name="tools_installer_title">コマンドラインツールのインストール</string>
     <string name="tools_installer_working">wg および wg-quick のインストール</string>
     <string name="tools_unavailable_error">必須のツールが利用できません</string>

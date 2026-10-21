@@ -33,15 +33,15 @@ class ToolsInstallerPreference(context: Context, attrs: AttributeSet?) : Prefere
         lifecycleScope.launch {
             try {
                 val state = withContext(Dispatchers.IO) { Application.getToolsInstaller().areInstalled() }
-                when {
-                    state == ToolsInstaller.ERROR -> setState(State.INITIAL)
-                    state and ToolsInstaller.YES == ToolsInstaller.YES -> setState(State.ALREADY)
-                    state and (ToolsInstaller.MAGISK or ToolsInstaller.NO) == ToolsInstaller.MAGISK or ToolsInstaller.NO -> setState(State.INITIAL_MAGISK)
-                    state and (ToolsInstaller.SYSTEM or ToolsInstaller.NO) == ToolsInstaller.SYSTEM or ToolsInstaller.NO -> setState(State.INITIAL_SYSTEM)
-                    else -> setState(State.INITIAL)
+                when (state) {
+                    ToolsInstaller.YES or ToolsInstaller.MAGISK -> setState(State.SUCCESS_MAGISK)
+                    ToolsInstaller.YES or ToolsInstaller.SYSTEM -> setState(State.ALREADY)
+                    ToolsInstaller.NO or ToolsInstaller.MAGISK -> setState(State.INITIAL_MAGISK)
+                    ToolsInstaller.BLOCKED -> setState(State.BLOCKED)
+                    else -> setState(State.PROBE_FAILURE)
                 }
             } catch (_: RootShellException) {
-                setState(State.INITIAL)
+                setState(State.PROBE_FAILURE)
             }
         }
     }
@@ -51,9 +51,10 @@ class ToolsInstallerPreference(context: Context, attrs: AttributeSet?) : Prefere
         lifecycleScope.launch {
             try {
                 val result = withContext(Dispatchers.IO) { Application.getToolsInstaller().install() }
-                when {
-                    result and (ToolsInstaller.YES or ToolsInstaller.MAGISK) == ToolsInstaller.YES or ToolsInstaller.MAGISK -> setState(State.SUCCESS_MAGISK)
-                    result and (ToolsInstaller.YES or ToolsInstaller.SYSTEM) == ToolsInstaller.YES or ToolsInstaller.SYSTEM -> setState(State.SUCCESS_SYSTEM)
+                when (result) {
+                    ToolsInstaller.YES or ToolsInstaller.MAGISK -> setState(State.SUCCESS_MAGISK)
+                    ToolsInstaller.YES or ToolsInstaller.SYSTEM -> setState(State.ALREADY)
+                    ToolsInstaller.BLOCKED -> setState(State.BLOCKED)
                     else -> setState(State.FAILURE)
                 }
             } catch (_: RootShellException) {
@@ -76,10 +77,10 @@ class ToolsInstallerPreference(context: Context, attrs: AttributeSet?) : Prefere
     private enum class State(val messageResourceId: Int, val shouldEnableView: Boolean) {
         INITIAL(R.string.tools_installer_initial, true),
         ALREADY(R.string.tools_installer_already, false),
+        BLOCKED(R.string.tools_installer_blocked, false),
+        PROBE_FAILURE(R.string.tools_installer_probe_failure, true),
         FAILURE(R.string.tools_installer_failure, true),
         WORKING(R.string.tools_installer_working, false),
-        INITIAL_SYSTEM(R.string.tools_installer_initial_system, true),
-        SUCCESS_SYSTEM(R.string.tools_installer_success_system, false),
         INITIAL_MAGISK(R.string.tools_installer_initial_magisk, true),
         SUCCESS_MAGISK(R.string.tools_installer_success_magisk, false);
     }

@@ -202,10 +202,8 @@
     <string name="tools_installer_failure">ابزارهای خط-فرمان نصب نمی‌شود (روت نیستید؟)</string>
     <string name="tools_installer_initial">ابزارهای اختیاری را برای اسکریپت نویسی نصب کنید</string>
     <string name="tools_installer_initial_magisk">ابزار اختیاری را برای اسکریپت نویسی به عنوان ماژول Magisk نصب کنید</string>
-    <string name="tools_installer_initial_system">ابزارهای اختیاری را برای اسکریپت نویسی در پارتیشن سیستم نصب کنید</string>
     <string name="tools_installer_success_magisk">wg و wg-quick به عنوان پودمان Magisk نصب شدند
 ( نیاز به راه‌اندازی دوباره)</string>
-    <string name="tools_installer_success_system">wg و wg-quick در پارتیشن سیستم نصب شده است</string>
     <string name="tools_installer_title">ابزارهای خط فرمان را نصب کنید</string>
     <string name="tools_installer_working">در حال نصب wg و wg-quick</string>
     <string name="tools_unavailable_error">ابزارهای لازم در دسترس نیست</string>
