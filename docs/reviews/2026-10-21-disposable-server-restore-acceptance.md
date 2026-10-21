@@ -21,6 +21,18 @@ R4 passed eight phases and both owned cleanup checks:
 
 Both cleanup checks passed: test client namespace/interface, managed server interface/configuration, HTTP listeners and uploaded operation directories were removed. Product uninstall recovery backups and installed WireGuard packages remain on the disposable guest disks. This is owned cleanup, not complete guest-baseline restoration or secret erasure.
 
+## R5 retired-user, new-client and hostname follow-up
+
+On 2026-10-21 (Europe/Paris), a separate R5 run used clean source `6da78bdb309f59377fa9aabc294da7652e92121c`; the production scripts are identical to R4's tested revision. Before reuse, the passed R4 receipt and inactive guest resources were checked, and each prior managed-history directory was retained through a same-filesystem rename with its inode preserved. No production server was accessed.
+
+R5 passed thirteen phases and both owned cleanup checks. It repeats the eight R4 phases and adds:
+
+- The peer already revoked in the snapshot remains unable to authenticate after both source and destination restoration: fresh client interfaces show zero handshake and HTTP times out.
+- A newly added destination peer has a public key distinct from the retained and retired identities. Server inventory contains exactly the retained and new active peers; the exported profile has the restored server identity and selected endpoint. The new client's actual derived identity, fresh handshake, positive counters and exact destination HTTP response pass.
+- The retained client's identity and configured hostname/port work from separate source and destination guest-local namespaces. Native resolution of `restore196.test` returns controlled addresses `127.0.0.2` and `127.0.0.3` respectively; both clients establish fresh handshakes and exact authenticated HTTP responses. The client is recreated between guests. This establishes guest-local NSS resolution, not public DNS propagation or migration of one continuously running client.
+
+R5 runner SHA256 is `88460a96533147033c53e6db38218c366947529f0aa0162b8c360a962258899c`. The command exited zero in 55,725 ms. Both original hosts-file contents were restored exactly. Client/server interfaces, namespace, HTTP listeners and operation directories were removed; packages and product uninstall backups remain on the disposable disks. R4's blank-line normalization and byte-exact revoked-record results were reproduced; configuration byte equality is still not claimed. R4 and earlier results retain their original scope.
+
 ## Earlier failures and correction
 
 R1 stopped during same-server CHECK with exit 73. Its error reporting omitted the public error code. R2 added bounded diagnostics and confirmed `postcondition_failed`: selected-interface iproute2 output omits the already-selected `dev wg0` field, and an otherwise IPv4-only interface has an automatic IPv6 multicast route. The original offline fixture masked both native forms. The correction accepts those exact forms while keeping whole-table device ownership, duplicate and custom-route refusal strict.
@@ -33,4 +45,4 @@ R3 passed restored-client traffic but failed a compound byte-equality assertion.
 
 R4 runner SHA256: `571d995c1994bf0a6e68c7d2f7191a0f06c938f5c866db0f1443f6b0a3b73498`. Its dated private result and independent input/outcome reviews belong to this cohort. [PR #324](https://github.com/novakin/vpn0wn-android/pull/324) owns current final-head review, CI, publication and merge acceptance; these facts are not implied by this runtime record.
 
-This trial establishes the named local CLI/kernel-client scenarios. It does not establish Android picker/Keystore/JSch orchestration, encrypted-container interoperability, newly created clients after restore, stable-hostname DNS cutover, unchanged full exported-profile behavior or full-tunnel Internet traffic, external IPv4/IPv6 paths, other distributions, failure/cancellation under real SSH loss, or production readiness. The snapshot-retired peer's traffic denial was not tested after either restore; the observed denial control revoked the retained active peer after backup and before literal rollback. Existing source and separate Android evidence retain their original scope. #143/#196 stay open until their remaining acceptance is met.
+These trials establish their named local CLI/kernel-client scenarios. They do not establish Android picker/Keystore/JSch orchestration, encrypted-container interoperability, public DNS cutover, unchanged full exported-profile behavior or full-tunnel Internet traffic, external IPv4/IPv6 paths, other distributions, failure/cancellation under real SSH loss, or production readiness. R4 did not test snapshot-retired-peer traffic denial or a new client after restoration; the separate R5 controls above add those results. Existing source and separate Android evidence retain their original scope. #143/#196 stay open until their remaining acceptance is met.
