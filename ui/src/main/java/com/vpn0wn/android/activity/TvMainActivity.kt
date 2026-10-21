@@ -9,6 +9,7 @@ package com.vpn0wn.android.activity
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import android.Manifest
+import android.app.Activity
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -23,6 +24,7 @@ import android.util.Log
 import android.view.View
 import android.widget.Toast
 import androidx.activity.addCallback
+import androidx.activity.viewModels
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
@@ -38,6 +40,7 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.GridLayoutManager.SpanSizeLookup
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.vpn0wn.android.Application
+import com.vpn0wn.android.BR
 import com.vpn0wn.android.R
 import com.vpn0wn.android.backend.GoBackend
 import com.vpn0wn.android.backend.Tunnel
@@ -48,6 +51,7 @@ import com.vpn0wn.android.databinding.TvActivityBinding
 import com.vpn0wn.android.databinding.TvFileListItemBinding
 import com.vpn0wn.android.databinding.TvTunnelListItemBinding
 import com.vpn0wn.android.model.ObservableTunnel
+import com.vpn0wn.android.model.VpnPermissionViewModel
 import com.vpn0wn.android.util.ErrorMessages
 import com.vpn0wn.android.util.QuantityFormatter
 import com.vpn0wn.android.util.RootShell.RootShellException
@@ -90,27 +94,59 @@ class TvMainActivity : AppCompatActivity() {
             }
         }
     }
-    private var pendingTunnel: ObservableTunnel? = null
-    private val permissionActivityResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        val tunnel = pendingTunnel
-        if (tunnel != null)
-            setTunnelStateWithPermissionsResult(tunnel)
-        pendingTunnel = null
+    private val permissionState by viewModels<VpnPermissionViewModel>()
+    private val permissionActivityResultLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val request = permissionState.request
+        permissionState.request = null
+        if (request != null) {
+            if (result.resultCode == Activity.RESULT_OK)
+                setTunnelStateWithPermissionsResult(request.tunnel, request.checked)
+            else
+                request.tunnel.notifyPropertyChanged(BR.state)
+        }
+    }
+
+    private suspend fun prepareTunnelState(tunnel: ObservableTunnel, checked: Boolean) {
+        try {
+            if (Application.getBackend() is GoBackend) {
+                val intent = GoBackend.VpnService.prepare(this)
+                if (intent != null) {
+                    permissionState.request = VpnPermissionViewModel.Request(tunnel, checked)
+                    permissionActivityResultLauncher.launch(intent)
+                    return
+                }
+            }
+            setTunnelStateWithPermissionsResult(tunnel, checked)
+        } catch (failure: SecurityException) {
+            reportConsentFailure(tunnel, failure)
+        } catch (failure: ActivityNotFoundException) {
+            reportConsentFailure(tunnel, failure)
+        }
+    }
+
+    private fun reportConsentFailure(tunnel: ObservableTunnel, failure: Exception) {
+        permissionState.request = null
+        tunnel.notifyPropertyChanged(BR.state)
+        val message = getString(R.string.error_prepare, ErrorMessages[failure])
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        Log.e(TAG, message, failure)
     }
 
     // Backend/ConfigStore expose Exception; this operation reports their failures while cancellation and Errors propagate.
     @Suppress("TooGenericExceptionCaught")
-    private fun setTunnelStateWithPermissionsResult(tunnel: ObservableTunnel) {
+    private fun setTunnelStateWithPermissionsResult(tunnel: ObservableTunnel, checked: Boolean) {
         lifecycleScope.launch {
             try {
-                tunnel.setStateAsync(Tunnel.State.TOGGLE)
+                tunnel.setStateAsync(Tunnel.State.of(checked))
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 val error = ErrorMessages[e]
-                val message = getString(R.string.error_up, error)
+                val message = getString(if (checked) R.string.error_up else R.string.error_down, error)
                 Toast.makeText(this@TvMainActivity, message, Toast.LENGTH_LONG).show()
                 Log.e(TAG, message, e)
+            } finally {
+                tunnel.notifyPropertyChanged(BR.state)
             }
             updateStats()
         }
@@ -163,6 +199,7 @@ class TvMainActivity : AppCompatActivity() {
                     binding.isFocused?.set(focused)
                 }
                 binding.root.setOnClickListener {
+                    val checked = item.state != Tunnel.State.UP
                     lifecycleScope.launch {
                         if (isDeleting.get()) {
                             try {
@@ -178,15 +215,7 @@ class TvMainActivity : AppCompatActivity() {
                                 Log.e(TAG, message, e)
                             }
                         } else {
-                            if (Application.getBackend() is GoBackend) {
-                                val intent = GoBackend.VpnService.prepare(binding.root.context)
-                                if (intent != null) {
-                                    pendingTunnel = item
-                                    permissionActivityResultLauncher.launch(intent)
-                                    return@launch
-                                }
-                            }
-                            setTunnelStateWithPermissionsResult(item)
+                            prepareTunnelState(item, checked)
                         }
                     }
                 }

@@ -307,7 +307,8 @@ class TunnelInventoryFailureTest {
 
     private suspend fun TestScope.receive(env: TunnelTestEnvironment, intent: Intent) {
         val previousJobs = env.applicationScope.coroutineContext[Job]!!.children.toSet()
-        TunnelManager.IntentReceiver().onReceive(env.application, intent)
+        env.application.sendBroadcast(intent.setClass(env.application, TunnelManager.IntentReceiver::class.java))
+        shadowOf(Looper.getMainLooper()).idle()
         env.applicationScope.coroutineContext[Job]!!.children.single { it !in previousJobs }.join()
         settleInventory(env)
     }

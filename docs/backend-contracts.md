@@ -145,6 +145,12 @@ Denial/cancellation rebinds the captured model's current state for retry without
 
 Process death or permanent fragment removal drops unconsumed ephemeral consent intent; a restored callback without that owner cannot activate a tunnel. An already-consumed, approved transition is no longer pending consent. Inspect current state and retry manually when pending intent is lost. No name-based saved-state restoration, persistence migration, permission bypass or backend/native/protocol change is added. [QA](qa-test-plan.md#vpn-consent-continuation-acceptance--177) separates source controls from actual Android acceptance.
 
+### TV consent and remote broadcast lifetime — #317
+
+`TvMainActivity` uses the same `model/VpnPermissionViewModel` with Activity scope. A row click captures the original managed model and absolute requested direction before asynchronous preparation. Only approval consumes that request into a transition; denial, duplicate results and process restoration without the retained owner cannot activate a tunnel. Configuration recreation keeps the request, and manager identity checks reject deleted or same-name replacement models. Expected preparation/launch failures clear pending intent and report the existing error. Fragment consent keeps its existing Fragment scope and behavior.
+
+`TunnelManager.IntentReceiver` acquires `goAsync()` synchronously and finishes the pending broadcast when its application-owned coroutine completes, including cancellation before execution. Refresh is awaited in that coroutine rather than detached. Admitted manager work still drains before cancellation settles; the receiver does not gain an unlimited execution window or a new background scheduler. Existing action, permission and remote-control preference gates remain. Source/JVM regression checks do not establish cold-process Android delivery or TV-device acceptance.
+
 ### Literal kernel cleanup identity — #165
 
 The Android `wg-quick` helper treats the validated interface name as a literal in its firewall-comment and route-table matchers. Valid `.` and `+` characters are escaped for POSIX extended regular expressions; a route-table name must end or be followed by whitespace. Cleanup selects only comments with the complete quoted `wireguard rule <name>` identity and the matching netd route table. Shell command names, IPv4/IPv6 cleanup, root admission, transition serialization and existing failure/recovery behavior remain unchanged.
