@@ -1,6 +1,6 @@
 # Architecture and maintenance boundaries
 
-Last updated: 2026-10-19 (Europe/Paris).
+Last updated: 2026-10-21 (Europe/Paris).
 
 [Documentation index](../README.md#project-documentation) · Reviewed 2026-10-06
 
@@ -338,6 +338,8 @@ Alternatives were UI busy flags alone, detached transition jobs or cancellation 
 **Problem/decision:** Android can return VPN consent to a recreated fragment after its ordinary fields are lost; Activity-owned preparation can also resume after its fragment is removed. For [#177](https://github.com/novakin/vpn0wn-android/issues/177), `BaseFragment` gives preparation to the fragment's `lifecycleScope` and retains original model/direction in its Fragment-scoped AndroidX ViewModel. The callback consumes ephemeral intent once and delegates approved transitions to the existing Activity/manager owners. [The contract](backend-contracts.md#vpn-consent-continuation--177) owns failure settlement; tunnel-state ownership stays unchanged.
 
 **Alternatives/consequences:** persisting a tunnel name could authorize a replacement profile; Activity-wide pending intent/preparation would outlive the requesting fragment. Original identity and Fragment ownership preserve configuration recreation, removal cancellation and manager stale-model checks without a dependency or persistence change. Process death and permanent fragment removal discard unconsumed intent for manual retry. Approved transitions keep their existing Activity scope across navigation; Activity destruction cancels waiting admission, while admitted manager mutations reconcile before propagating cancellation. [QA gates](qa-test-plan.md#vpn-consent-continuation-acceptance--177) keep native Android consent/service and traffic proof separate. Revisit persistent continuation only if a concrete requirement defines identity and authorization after process death.
+
+**2026-10-21 follow-up — #317:** TV now reuses the same consent request type with Activity scope, matching its actual presentation owner. The class moves from `BaseFragment.kt` into `model/VpnPermissionViewModel.kt`; Fragment ownership remains unchanged. Original object/direction and one-time approval semantics also cover TV recreation, denial and stale targets. Remote SET/REFRESH broadcasts separately adopt the existing boot receiver's completion-bound `goAsync()` pattern; refresh no longer starts detached work. These are lifecycle-owner corrections, with no new scheduler, persisted consent or backend transition policy.
 
 ### Kernel backend owns complete transitions
 
