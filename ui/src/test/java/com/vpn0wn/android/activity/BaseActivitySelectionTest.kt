@@ -184,6 +184,10 @@ class BaseActivitySelectionTest {
                 assertFalse(binding.isNew)
                 assertEquals("draft-name", binding.name)
             } else {
+                val detail = controller.get().supportFragmentManager.fragments.filterIsInstance<TunnelDetailFragment>().single()
+                val configJob = TunnelDetailFragment::class.java.getDeclaredField("configJob").apply { isAccessible = true }
+                    .get(detail) as Job
+                configJob.join()
                 val binding = detailBinding(controller)
                 assertSame(tunnel, binding.tunnel)
                 assertEquals(51820, binding.config!!.`interface`.listenPort.get())
