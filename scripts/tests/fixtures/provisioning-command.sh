@@ -267,9 +267,9 @@ case "$command_name" in
       fi
     elif [[ "$*" == '-4 -o route show table all dev wg0' ]]; then
       if [[ -f "$TEST_STATE/owned-resource-observations" && -f "$runtime_file" ]]; then
-        owned_ipv4_routes
+        owned_ipv4_routes | sed 's/ dev wg0 / /'
       fi
-      [[ ! -f "$TEST_STATE/owned-extra-routes" ]] || cat "$TEST_STATE/owned-extra-routes"
+      [[ ! -f "$TEST_STATE/owned-extra-routes" ]] || sed 's/ dev wg0 / /' "$TEST_STATE/owned-extra-routes"
     elif [[ "$*" == '-6 -o route show table all dev wg0' ]]; then
       [[ ! -f "$TEST_STATE/owned-ipv6-routes" ]] || cat "$TEST_STATE/owned-ipv6-routes"
     elif [[ "$*" == '-4 -o route show table all root '* || "$*" == '-4 -o route show table all match '* ]]; then

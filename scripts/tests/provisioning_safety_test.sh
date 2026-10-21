@@ -2107,7 +2107,7 @@ ROUTES
 
 test_restore_same_server_rejects_custom_route_exemptions() {
   local variant route
-  for variant in table gateway scope duplicate; do
+  for variant in table gateway scope duplicate missing-device foreign-device; do
     (
       setup
       same_server_restore_source
@@ -2117,12 +2117,50 @@ test_restore_same_server_rejects_custom_route_exemptions() {
         gateway) route='10.9.0.0/24 via 192.0.2.1 dev wg0 proto kernel scope link src 10.9.0.1' ;;
         scope) route='10.9.0.0/24 dev wg0 proto kernel scope host src 10.9.0.1' ;;
         duplicate) route='10.9.0.0/24 dev wg0 proto kernel scope link src 10.9.0.1' ;;
+        missing-device) route='10.9.0.0/24 proto kernel scope link src 10.9.0.1' ;;
+        foreign-device) route='10.9.0.0/24 dev eth0 proto kernel scope link src 10.9.0.1' ;;
       esac
       printf '%s\n' "$route" > "$TEST_STATE/ipv4-routes-root"
       run_same_server_check
       assert_failure subnet_in_use
       assert_no_mutations
       ! grep -Eq 'PrivateKey|PresharedKey' "$TEST_ROOT/response" "$TEST_ROOT/stderr"
+    )
+  done
+}
+
+test_restore_same_server_accepts_kernel_multicast_route() {
+  same_server_restore_source
+  printf 'multicast ff00::/8 table local proto kernel metric 256 pref medium\n' > "$TEST_STATE/owned-ipv6-routes"
+  run_same_server_check
+  assert_success
+  assert_no_mutations
+  read_same_server_review
+  run_same_server_restore
+  assert_success
+  run_restore_verify
+  assert_success
+}
+
+test_restore_same_server_rejects_custom_ipv6_routes() {
+  local route
+  for route in \
+    'multicast ff00::/8 table 123 proto kernel metric 256 pref medium' \
+    'multicast ff00::/8 table local proto static metric 256 pref medium' \
+    'multicast ff00::/8 table local proto kernel metric 512 pref medium' \
+    'multicast ff00::/8 table local proto kernel metric 256 pref high' \
+    'multicast ff00::/8 table local proto kernel metric 256 pref medium mtu 1420' \
+    '2001:db8::/64 proto kernel metric 256 pref medium' \
+    $'multicast ff00::/8 table local proto kernel metric 256 pref medium\nmulticast ff00::/8 table local proto kernel metric 256 pref medium'; do
+    (
+      setup
+      same_server_restore_source
+      printf '%s\n' "$route" > "$TEST_STATE/owned-ipv6-routes"
+      run_same_server_check
+      assert_failure postcondition_failed
+      assert_no_mutations
+      cmp -s "$WG_CONF" "$TEST_ROOT/before.conf"
+      diff -r "$TUNNL_DIR/revoked" "$TEST_ROOT/before.revoked"
     )
   done
 }
@@ -3583,6 +3621,8 @@ tests=(
   test_restore_same_server_rejects_custom_owned_routes
   test_restore_same_server_accepts_native_managed_route_inventory
   test_restore_same_server_rejects_custom_route_exemptions
+  test_restore_same_server_accepts_kernel_multicast_route
+  test_restore_same_server_rejects_custom_ipv6_routes
   test_restore_same_server_rechecks_resources_after_old_teardown
   test_restore_same_server_failure_boundaries_restore_complete_target
   test_restore_same_server_incomplete_rollback_retains_original_history
