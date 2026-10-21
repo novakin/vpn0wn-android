@@ -18,7 +18,6 @@ import androidx.databinding.ViewDataBinding
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.lifecycleScope
-import androidx.lifecycle.ViewModel
 import com.google.android.material.snackbar.Snackbar
 import com.vpn0wn.android.Application
 import com.vpn0wn.android.R
@@ -30,6 +29,7 @@ import com.vpn0wn.android.backend.Tunnel
 import com.vpn0wn.android.databinding.TunnelDetailFragmentBinding
 import com.vpn0wn.android.databinding.TunnelListItemBinding
 import com.vpn0wn.android.model.ObservableTunnel
+import com.vpn0wn.android.model.VpnPermissionViewModel
 import com.vpn0wn.android.util.ErrorMessages
 import com.vpn0wn.android.util.vpn0wnStyle
 import kotlinx.coroutines.launch
@@ -138,10 +138,4 @@ abstract class BaseFragment : Fragment(), OnSelectedTunnelChangedListener {
     companion object {
         private const val TAG = "vpn0wn/BaseFragment"
     }
-}
-
-internal class VpnPermissionViewModel : ViewModel() {
-    var request: Request? = null
-
-    data class Request(val tunnel: ObservableTunnel, val checked: Boolean)
 }
