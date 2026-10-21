@@ -1,6 +1,6 @@
 # vpn0wn WireGuard provisioning scripts
 
-Last updated: 2026-10-18 (Europe/Paris).
+Last updated: 2026-10-21 (Europe/Paris).
 
 These vpn0wn-owned Bash commands adapt the [pinned upstream reference](../UPSTREAM.md) into a non-interactive server surface. Android uses these scripts rather than the upstream interactive installer. Concrete Android SSH transport and read-only Detect/Plan/manual-status source wiring exist. Confirmed fresh installation, user creation/encrypted retention and authenticated profile-access source are delivered through [PRs #201](https://github.com/novakin/vpn0wn-android/pull/201), [#202](https://github.com/novakin/vpn0wn-android/pull/202) and [#203](https://github.com/novakin/vpn0wn-android/pull/203). Android/live runtime acceptance and remaining mutation UI stay open under #143. The #196 snapshot/codec foundation is delivered through merged [PR #204](https://github.com/novakin/vpn0wn-android/pull/204); the separate fresh-destination restore source is delivered through merged [PR #205](https://github.com/novakin/vpn0wn-android/pull/205), after independent ultra review and final-head CI. A separate [private encrypted-export candidate](../../../docs/backend-contracts.md#private-encrypted-server-export-candidate--196) now wires the first file path. Its [scoped API34 writer controls](../../../docs/reviews/2026-10-17-native-backup-export-acceptance.md) pass UI retirement/drain and independent file recovery at unchanged format/KDF; [PR #226](https://github.com/novakin/vpn0wn-android/pull/226) delivered the experimental export source after final-head review/checks; the [guarded Android restore candidate](../../../docs/backend-contracts.md#guarded-android-fresh-restore-workflow--196) has separate source and installed/live acceptance.
 
@@ -46,6 +46,12 @@ Package installation/purge and global forwarding enable are not an OS transactio
 After operation postconditions and archive publication commit, cleanup does not roll back using partially deleted snapshots. Success includes `cleanupPath`: empty when cleanup completed, otherwise the private residue needing operator inspection/removal. Signals during mutation trigger recovery where Bash can handle them; SIGKILL, host loss and a lost remote response still require reconciliation.
 
 Correlated revocation validates and flushes the original archive before destructive apply. Complete rollback removes only its owned archive; incomplete recovery retains both archive and private recovery material. `sync-status.sh` publishes only complete validated public archive metadata or null, never private bodies/PSKs. Plain, six-character and UUID archive names retain their bounded snapshot/restore validation; [the revoke contract](../../../docs/backend-contracts.md#correlated-user-revocation--143) owns correlation and read-only settlement. A retained archive alone does not establish peer absence.
+
+### Peer address allocation
+
+`common.sh::next_peer_address` scans every peer's `AllowedIPs` assignments, including ordinary whitespace, repeated assignments and every comma-separated route. IPv4 host routes and wider CIDRs reserve every covered address in the managed `/24` pool; allocation chooses the first free address from `.2` through `.254`. It runs under the existing interface lock before key generation or configuration/runtime writes. Existing configuration bytes remain unchanged by parsing.
+
+An exhausted pool reports `address_pool_full`. Unsupported or ambiguous allocation inventory reports `invalid_config` through the existing mutation-recovery path. IPv6 routes do not consume the IPv4 pool; their validation retains the existing lexical limits and does not establish complete native configuration validity while stopped. The #318 offline regressions cover compact/tabbed fields, later list tokens, wider routes, empty/full pools and refusal before key generation; real-server acceptance remains separate under #143.
 
 ## Exact client-key rotation source
 
