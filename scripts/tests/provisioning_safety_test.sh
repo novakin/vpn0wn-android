@@ -258,6 +258,110 @@ test_c2_valid_add() {
   assert_success
   grep -qxF '# BEGIN_PEER laptop' "$WG_CONF"
   [[ "$RESPONSE" == *'0.0.0.0/0, ::/0'* ]]
+  [[ "$RESPONSE" == *'"address":"10.8.0.3"'* ]]
+}
+
+stopped_allocation_config() {
+  owned_config
+  /bin/rm "$TEST_STATE/runtime.conf" "$TEST_STATE/enabled"
+  awk -v assignment="$1" '
+    /^AllowedIPs = / {print assignment; next}
+    {print}
+  ' "$WG_CONF" > "$TEST_ROOT/allocation.conf"
+  /bin/cp "$TEST_ROOT/allocation.conf" "$WG_CONF"
+  : > "$TEST_STATE/trace"
+}
+
+assert_stopped_allocation() {
+  local expected=$1
+  /bin/cp "$WG_CONF" "$TEST_ROOT/before.conf"
+  run_script add-peer --name laptop
+  assert_success
+  [[ "$RESPONSE" == *"\"address\":\"$expected\""* && "$RESPONSE" == *"Address = $expected/32"* ]] || {
+    printf 'Allocator returned an unexpected address; expected %s.\n' "$expected" >&2
+    return 1
+  }
+  grep -qxF "AllowedIPs = $expected/32" "$WG_CONF"
+  head -c "$(stat -c %s "$TEST_ROOT/before.conf")" "$WG_CONF" > "$TEST_ROOT/preserved.conf"
+  cmp -s "$TEST_ROOT/before.conf" "$TEST_ROOT/preserved.conf"
+  [[ ! -e "$TEST_STATE/runtime.conf" && ! -e "$TEST_STATE/enabled" ]]
+  ! grep -Eq '^wg syncconf |^systemctl (start|restart) ' "$TEST_STATE/trace"
+}
+
+assert_allocation_refused() {
+  /bin/cp "$WG_CONF" "$TEST_ROOT/before.conf"
+  : > "$TEST_STATE/trace"
+  run_script add-peer --name unavailable
+  assert_failure "$1"
+  [[ "$RESPONSE" == *'"recovery":"unchanged"'* && "$RESPONSE" != *'"config":'* ]]
+  cmp -s "$WG_CONF" "$TEST_ROOT/before.conf"
+  [[ ! -e "$TEST_STATE/runtime.conf" && ! -e "$TEST_STATE/enabled" ]]
+  [[ -z $(find "$WG_DIR" -maxdepth 1 -type d -name '.tunnl-recovery.*') ]]
+  ! grep -Eq '^wg (genkey|genpsk|syncconf|set) |^mv |^systemctl (start|restart) ' "$TEST_STATE/trace"
+}
+
+test_c318_compact_allocation() {
+  stopped_allocation_config 'AllowedIPs=10.8.0.2/32'
+  assert_stopped_allocation 10.8.0.3
+}
+
+test_c318_tabbed_allocation() {
+  stopped_allocation_config $'\taLlOwEdIpS\t=\t10.8.0.2/32\t# retained comment'
+  assert_stopped_allocation 10.8.0.3
+  stopped_allocation_config $'\tAllowed\tIPs\t=\t10.8.0.2/32'
+  assert_stopped_allocation 10.8.0.3
+}
+
+test_c318_later_route_allocation() {
+  stopped_allocation_config $'AllowedIPs = 2001:db8::/64,\t192.0.2.2/32, 10.8.0.2/32'
+  assert_stopped_allocation 10.8.0.3
+}
+
+test_c318_complete_peer_route_allocation() {
+  stopped_allocation_config $'AllowedIPs = 10.8.0.2/32\nAllowedIPs=10.8.0.3/32'
+  printf '\n[peer]\nPublicKey=%s\nAllowedIPs = 10.8.0.4/32\n# AllowedIPs = 10.8.0.5/32\n' \
+    "$(printf '%-32.32s' PUBLIC-unmarked | base64 -w0)" >> "$WG_CONF"
+  assert_stopped_allocation 10.8.0.5
+}
+
+test_c318_route_coverage_allocation() {
+  stopped_allocation_config 'AllowedIPs = 10.8.0.3/30, 10.8.0.4/31, 10.8.0.6'
+  assert_stopped_allocation 10.8.0.7
+  stopped_allocation_config 'AllowedIPs = 10.8.0.1/25, 10.8.1.0/24, 192.0.2.1/32'
+  assert_stopped_allocation 10.8.0.128
+  stopped_allocation_config 'AllowedIPs = 10.8.0.128/25, 10.8.1.0/24'
+  assert_stopped_allocation 10.8.0.2
+}
+
+test_c318_covered_pool_refusal() {
+  local route
+  for route in 10.8.0.1/24 10.8.1.1/16 10.9.1.1/15 0.0.0.0/0; do
+    stopped_allocation_config "AllowedIPs=$route"
+    assert_allocation_refused address_pool_full
+  done
+}
+
+test_c318_individual_pool_exhaustion() {
+  local octet routes=''
+  for ((octet=2; octet<254; octet++)); do
+    routes+="${routes:+, }10.8.0.$octet/32"
+  done
+  stopped_allocation_config "AllowedIPs = $routes"
+  assert_stopped_allocation 10.8.0.254
+  assert_allocation_refused address_pool_full
+}
+
+test_c318_invalid_route_inventory_refusal() {
+  local assignment
+  for assignment in 'AllowedIPs = 10.8.0.2/33' 'AllowedIPs = 10.8.0.256/32' \
+      'AllowedIPs = 10.8.0.2/32,,10.8.0.3/32' 'AllowedIPs = 10.8.0.2/no' \
+      'AllowedIPs = hostname/32' 'AllowedIPs = 10.8.0.2/32/1' \
+      'AllowedIPs = 10.8.0.2/32,' 'AllowedIPs = ,10.8.0.2/32' \
+      'AllowedIPs = 10.8.0.0/24, hostname/32' 'AllowedIPs = 2001:db8::/129' \
+      'AllowedIPs 10.8.0.2/32' $'[unsupported]\nAllowedIPs = 10.8.0.2/32'; do
+    stopped_allocation_config "$assignment"
+    assert_allocation_refused invalid_config
+  done
 }
 
 test_c143_guarded_add_success_running_and_stopped() {
@@ -3503,6 +3607,9 @@ tests=(
   test_c2_unmanaged_peer_mutations test_c2_endpoint_injection test_c2_dns_injection
   test_c2_peer_input_injection test_c2_missing_values test_c2_foreign_forwarding_file
   test_c2_valid_plan test_c2_valid_install test_c2_valid_add
+  test_c318_compact_allocation test_c318_tabbed_allocation test_c318_later_route_allocation
+  test_c318_complete_peer_route_allocation test_c318_route_coverage_allocation
+  test_c318_covered_pool_refusal test_c318_individual_pool_exhaustion test_c318_invalid_route_inventory_refusal
   test_c2_shared_package_config test_c2_shared_package_runtime
   test_c3_concurrent_adds test_c3_concurrent_add_remove test_c3_strip_failure
   test_c3_candidate_copy_failure test_c3_atomic_rename_failure test_c3_apply_failure_retry
