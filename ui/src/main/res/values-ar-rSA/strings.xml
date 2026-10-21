@@ -253,9 +253,7 @@
     <string name="tools_installer_failure">غير قادر على تثبيت أدوات سطر الأوامر (لا يوجد root؟)</string>
     <string name="tools_installer_initial">تثبيت الأدوات الاختيارية للبرمجة النصية (scripting)</string>
     <string name="tools_installer_initial_magisk">تثبيت الأدوات الاختيارية للبرمجة النصية كوحدة ماجيسك (Magisk Module)</string>
-    <string name="tools_installer_initial_system">تثبيت الأدوات الاختيارية للبرمجة النصية في قسم النظام</string>
     <string name="tools_installer_success_magisk">wg و wg-quick ثبتا كوحدة ماجيسك (إعادة التشغيل مطلوبة)</string>
-    <string name="tools_installer_success_system">wg و wg-quick ثبتا في قسم النظام</string>
     <string name="tools_installer_title">تثبيت أدوات سطر الأوامر</string>
     <string name="tools_installer_working">تثبيت wg وwg-quick</string>
     <string name="tools_unavailable_error">الأدوات المطلوبة غير متوفرة</string>
