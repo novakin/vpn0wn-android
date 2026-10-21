@@ -16,7 +16,7 @@ The original app APK, candidate data, legacy profiles, module inventory and root
 | Other existing module-root entries | After parking the foreign module, two original empty regular files still cause refusal. Same-filesystem renames preserve their original identities and metadata. |
 | Free-path install | With those conflicts temporarily parked, native installation stages only the owned vpn0wn module. Tool bytes match the candidate APK; root ownership, executable modes and SELinux labels pass. |
 | Completed-stage reconciliation | Reopening Settings recognizes the completed stage without rewriting it. |
-| Actual reboot activation and reuse | Reboot mounts the exact candidate tools globally; Settings reports compatible tools already installed. All 283 unrelated module inventory rows are unchanged. |
+| Actual reboot activation and reuse | Reboot mounts the exact candidate tools globally; Settings reports compatible tools already installed. All 283 unrelated pre-reboot module inventory rows remain unchanged after reboot. |
 | Incomplete owned-stage refusal | A separate empty partial-stage fixture is refused without mutation, then removed by checked empty-directory removal. |
 | Interrupted production copy | An injected FIFO-open stall holds the second production `cp` after the first tool copies. Exact process argv, root UID, calling package and process identity are rechecked before terminating only that child. Native installation reports failure, and the actual EXIT cleanup removes incomplete staging. |
 | Retry after interruption | Original private source binary is restored with its inode, bytes, owner, mode and label. Native retry succeeds with a complete verified stage; that unmounted test stage is then removed. |
