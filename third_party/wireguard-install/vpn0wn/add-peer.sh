@@ -55,7 +55,14 @@ if [[ -n "$expected_server_public_key" ]]; then
   fi
 fi
 begin_mutation peer
-peer_ip=$(next_peer_address "$cidr") || mutation_abort address_pool_full
+peer_ip=$(next_peer_address "$cidr") || {
+  allocation_status=$?
+  if [[ "$allocation_status" -eq 73 ]]; then
+    mutation_abort address_pool_full
+  else
+    mutation_abort invalid_config
+  fi
+}
 private_key=$(wg genkey 2>/dev/null) || mutation_abort key_failed
 public_key=$(wg_public_key_from_private "$private_key" 2>/dev/null) || mutation_abort key_failed
 psk=$(wg genpsk 2>/dev/null) || mutation_abort key_failed

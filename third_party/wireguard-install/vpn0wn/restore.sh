@@ -169,19 +169,23 @@ observed_ipv4_range() {
 }
 
 classify_owned_restore_route() {
-  local owned_cidr=$2 owned_address=${3%/*}
+  local owned_cidr=$2 owned_address=${3%/*} device_clause=" dev $WG_IFACE"
+  # ip suppresses the device field only when the query already selected that interface.
+  if [[ ${4:-false} == true ]]; then
+    device_clause=
+  fi
   local -a fields
   read -r -a fields <<< "$1"
   # Only these native address routes return when the managed interface is recreated.
   case "${fields[*]}" in
-    "$owned_cidr dev $WG_IFACE proto kernel scope link src $owned_address"|\
-      "$owned_cidr dev $WG_IFACE table main proto kernel scope link src $owned_address")
+    "$owned_cidr$device_clause proto kernel scope link src $owned_address"|\
+      "$owned_cidr$device_clause table main proto kernel scope link src $owned_address")
       RESTORE_ROUTE_KIND=connected ;;
-    "local $owned_address dev $WG_IFACE table local proto kernel scope host src $owned_address")
+    "local $owned_address$device_clause table local proto kernel scope host src $owned_address")
       RESTORE_ROUTE_KIND=local ;;
-    "broadcast ${owned_cidr%/*} dev $WG_IFACE table local proto kernel scope link src $owned_address")
+    "broadcast ${owned_cidr%/*}$device_clause table local proto kernel scope link src $owned_address")
       RESTORE_ROUTE_KIND=broadcast_first ;;
-    "broadcast ${owned_cidr%.0/*}.255 dev $WG_IFACE table local proto kernel scope link src $owned_address")
+    "broadcast ${owned_cidr%.0/*}.255$device_clause table local proto kernel scope link src $owned_address")
       RESTORE_ROUTE_KIND=broadcast_last ;;
     *) return 1 ;;
   esac
@@ -279,7 +283,7 @@ require_absent_restore_interface() {
 }
 
 require_supported_running_network() {
-  local addresses routes line RESTORE_ROUTE_KIND count=0 connected=false
+  local addresses routes line RESTORE_ROUTE_KIND count=0 connected=false multicast=false
   local -a fields
   local -A owned_routes=()
   addresses=$(ip -o address show dev "$WG_IFACE" 2>/dev/null) || fail_json "runtime_unknown" "Unable to inspect current interface addresses." 74
@@ -294,14 +298,20 @@ require_supported_running_network() {
   routes=$(ip -4 -o route show table all dev "$WG_IFACE" 2>/dev/null) || fail_json "runtime_unknown" "Unable to inspect current interface routes." 74
   while IFS= read -r line; do
     [[ -n "$line" ]] || continue
-    classify_owned_restore_route "$line" "$cidr" "$server_address" && [[ -z ${owned_routes[$RESTORE_ROUTE_KIND]+x} ]] ||
+    classify_owned_restore_route "$line" "$cidr" "$server_address" true && [[ -z ${owned_routes[$RESTORE_ROUTE_KIND]+x} ]] ||
       fail_json "postcondition_failed" "Current interface contains unsupported routes." 73
     owned_routes[$RESTORE_ROUTE_KIND]=1
     [[ "$RESTORE_ROUTE_KIND" != connected ]] || connected=true
   done <<< "$routes"
   [[ "$connected" == true ]] || fail_json "postcondition_failed" "Current interface subnet route is absent." 73
   routes=$(ip -6 -o route show table all dev "$WG_IFACE" 2>/dev/null) || fail_json "runtime_unknown" "Unable to inspect current interface routes." 74
-  [[ -z "${routes//[[:space:]]/}" ]] || fail_json "postcondition_failed" "Current interface contains unsupported routes." 73
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    read -r -a fields <<< "$line"
+    [[ "$multicast" == false && "${fields[*]}" == 'multicast ff00::/8 table local proto kernel metric 256 pref medium' ]] ||
+      fail_json "postcondition_failed" "Current interface contains unsupported routes." 73
+    multicast=true
+  done <<< "$routes"
 }
 
 inspect_replacement_destination() {

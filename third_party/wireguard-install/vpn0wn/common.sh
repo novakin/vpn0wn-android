@@ -261,16 +261,64 @@ server_address_for_cidr() {
 
 next_peer_address() {
   local cidr=${1:?}
-  local prefix
-  prefix=$(cidr_prefix "$cidr")
-  local octet
-  for octet in $(seq 2 254); do
-    if [[ ! -f "$WG_CONF" ]] || ! grep -Eq "AllowedIPs = ${prefix//./\\.}\.${octet}/32(,|$)" "$WG_CONF"; then
-      printf '%s.%s' "$prefix" "$octet"
-      return 0
-    fi
-  done
-  fail_json "address_pool_full" "No free peer address remains in the /24 pool." 73
+  LC_ALL=C awk -v pool="${cidr%/*}" -v prefix="$(cidr_prefix "$cidr")" '
+    function ipv4_number(address, octets, count, octet_index, number) {
+      count=split(address, octets, /[.]/)
+      if (count != 4) return -1
+      number=0
+      for (octet_index=1; octet_index<=4; octet_index++) {
+        if (octets[octet_index] !~ /^[0-9]+$/ || length(octets[octet_index]) > 3 || octets[octet_index]+0 > 255) return -1
+        number=number*256+octets[octet_index]
+      }
+      return number
+    }
+    function reserve_route(route, parts, count, address, bits, number, size, first, octet) {
+      sub(/^[[:space:]]+/, "", route); sub(/[[:space:]]+$/, "", route)
+      count=split(route, parts, "/"); address=parts[1]
+      bits=parts[2]
+      if (count == 1) bits=(index(address, ":") ? 128 : 32)
+      if (count > 2 || bits !~ /^[0-9]+$/ || length(bits) > 3) {invalid=1; return}
+      if (index(address, ":")) {
+        if (address !~ /^[0-9A-Fa-f:.]+$/ || bits+0 > 128) invalid=1
+        return
+      }
+      number=ipv4_number(address)
+      if (number < 0 || bits+0 > 32) {invalid=1; return}
+      size=2^(32-bits)
+      first=int(number/size)*size
+      for (octet=2; octet<=254; octet++) {
+        if (pool_start+octet >= first && pool_start+octet < first+size) occupied[octet]=1
+      }
+    }
+    BEGIN {pool_start=ipv4_number(pool)}
+    {
+      line=$0; sub(/#.*/, "", line); sub(/^[[:space:]]+/, "", line); sub(/[[:space:]]+$/, "", line)
+      if (line == "") next
+      if (line ~ /^\[/) {
+        heading=tolower(line)
+        if (heading == "[peer]") section="peer"
+        else if (heading == "[interface]") section="interface"
+        else {section=""; invalid=1}
+        next
+      }
+      separator=index(line, "=")
+      if (separator == 0 || section == "") {invalid=1; next}
+      field=substr(line, 1, separator-1); gsub(/[[:space:]]/, "", field)
+      if (tolower(field) != "allowedips") next
+      if (section != "peer") {invalid=1; next}
+      routes=substr(line, separator+1); sub(/^[[:space:]]+/, "", routes)
+      if (routes == "") next
+      count=split(routes, tokens, ",")
+      for (route_index=1; route_index<=count; route_index++) reserve_route(tokens[route_index])
+    }
+    END {
+      if (invalid) exit 74
+      for (octet=2; octet<=254; octet++) {
+        if (!occupied[octet]) {printf "%s.%d", prefix, octet; exit}
+      }
+      exit 73
+    }
+  ' "$WG_CONF"
 }
 
 conf_value() {
@@ -334,6 +382,11 @@ observe_service() {
   active=$(systemctl is-active "wg-quick@$WG_IFACE" 2>/dev/null) && status=0 || status=$?
   case "$active:$status" in
     active:0) [[ "$RUNTIME_RUNNING" == true ]] ;;
+    inactive:4)
+      [[ "$enabled" == not-found && "$RUNTIME_RUNNING" == false ]] || return 1
+      load_state=$(systemctl show --property=LoadState --value "wg-quick@$WG_IFACE" 2>/dev/null) || return 1
+      [[ "$load_state" == not-found ]]
+      ;;
     inactive:3|failed:3|unknown:4) [[ "$RUNTIME_RUNNING" == false ]] ;;
     *) return 1 ;;
   esac

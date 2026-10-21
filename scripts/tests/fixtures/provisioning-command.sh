@@ -168,14 +168,21 @@ case "$command_name" in
   systemctl)
     case "$action" in
       is-active)
+        if [[ -f "$TEST_STATE/report-active" ]]; then printf 'active\n'; exit 0; fi
+        if [[ -f "$TEST_STATE/absent-template-inactive4" || -f "$TEST_STATE/inactive4" ]]; then printf 'inactive\n'; exit 4; fi
         if [[ ! -f "$runtime_file" ]]; then printf 'inactive\n'; exit 3; fi
         printf 'active\n'
         ;;
       is-enabled)
+        if [[ -f "$TEST_STATE/absent-template-inactive4" ]]; then printf 'not-found\n'; exit 4; fi
         [[ ! -f "$TEST_STATE/absent-template" ]] || exit 1
         if [[ -f "$enabled_file" ]]; then printf 'enabled\n'; else printf 'disabled\n'; exit 1; fi
         ;;
-      show) [[ -f "$TEST_STATE/absent-template" ]] && printf 'not-found\n' || printf 'loaded\n' ;;
+      show)
+        if [[ -f "$TEST_STATE/report-loaded" ]]; then printf 'loaded\n';
+        elif [[ -f "$TEST_STATE/absent-template" || -f "$TEST_STATE/absent-template-inactive4" ]]; then printf 'not-found\n';
+        else printf 'loaded\n'; fi
+        ;;
       enable)
         touch "$enabled_file"
         if [[ " $* " == *' --now '* && ! -f "$runtime_file" ]]; then
@@ -210,7 +217,7 @@ case "$command_name" in
       install)
         [[ ! -f "$TEST_STATE/install-delay" ]] || sleep "$(cat "$TEST_STATE/install-delay")"
         printf '%s\n' wireguard wireguard-tools qrencode iptables > "$TEST_STATE/packages"
-        /bin/rm -f "$TEST_STATE/absent-template"
+        /bin/rm -f "$TEST_STATE/absent-template" "$TEST_STATE/absent-template-inactive4"
         if [[ -f "$TEST_STATE/restore-wg-on-install" ]]; then
           /bin/ln -s command "${0%/*}/wg"
         fi
@@ -260,9 +267,9 @@ case "$command_name" in
       fi
     elif [[ "$*" == '-4 -o route show table all dev wg0' ]]; then
       if [[ -f "$TEST_STATE/owned-resource-observations" && -f "$runtime_file" ]]; then
-        owned_ipv4_routes
+        owned_ipv4_routes | sed 's/ dev wg0 / /'
       fi
-      [[ ! -f "$TEST_STATE/owned-extra-routes" ]] || cat "$TEST_STATE/owned-extra-routes"
+      [[ ! -f "$TEST_STATE/owned-extra-routes" ]] || sed 's/ dev wg0 / /' "$TEST_STATE/owned-extra-routes"
     elif [[ "$*" == '-6 -o route show table all dev wg0' ]]; then
       [[ ! -f "$TEST_STATE/owned-ipv6-routes" ]] || cat "$TEST_STATE/owned-ipv6-routes"
     elif [[ "$*" == '-4 -o route show table all root '* || "$*" == '-4 -o route show table all match '* ]]; then

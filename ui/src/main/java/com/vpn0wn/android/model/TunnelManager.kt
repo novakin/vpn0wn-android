@@ -405,17 +405,15 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
 
     // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
     @Suppress("TooGenericExceptionCaught")
-    private fun refreshTunnelStates() {
-        applicationScope.launch {
-            try {
-                mutate {
-                    refreshObservedStates()
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to refresh tunnel states", e)
+    private suspend fun refreshTunnelStates() {
+        try {
+            mutate {
+                refreshObservedStates()
             }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to refresh tunnel states", e)
         }
     }
 
@@ -664,6 +662,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
         // Backend/ConfigStore declare Exception; admitted mutations reconcile before rethrowing, and recovery failures stay attached.
         @Suppress("TooGenericExceptionCaught")
         override fun onReceive(context: Context, intent: Intent?) {
+            val pendingResult = goAsync()
             applicationScope.launch {
                 val manager = getTunnelManager()
                 if (intent == null) return@launch
@@ -698,7 +697,7 @@ class TunnelManager(private val configStore: ConfigStore) : BaseObservable() {
                 } catch (e: Exception) {
                     Toast.makeText(context, ErrorMessages[e], Toast.LENGTH_LONG).show()
                 }
-            }
+            }.invokeOnCompletion { pendingResult.finish() }
         }
     }
 
