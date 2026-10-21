@@ -1160,6 +1160,59 @@ test_c3_install_unknown_service_bus() {
   assert_no_mutations
 }
 
+test_c3_install_absent_inactive4_service() {
+  touch "$TEST_STATE/absent-template-inactive4" "$TEST_STATE/restore-wg-on-install"
+  hide_wg
+  run_script install --endpoint vpn.example
+  assert_success
+  [[ -f "$WG_CONF" && -f "$TEST_STATE/runtime.conf" ]]
+}
+
+test_c3_install_absent_inactive4_unknown_load() {
+  touch "$TEST_STATE/absent-template-inactive4"
+  printf '*' > "$TEST_STATE/fail-systemctl-show"
+  run_script install --endpoint vpn.example
+  assert_failure runtime_unknown
+  assert_no_mutations
+}
+
+test_c3_install_absent_inactive4_running_interface() {
+  owned_config
+  touch "$TEST_STATE/absent-template-inactive4"
+  run_script install --endpoint vpn.example --force
+  assert_failure runtime_unknown
+  assert_no_mutations
+  cmp -s "$WG_CONF" "$TEST_ROOT/before.conf"
+}
+
+test_c3_install_absent_inactive4_loaded_service() {
+  touch "$TEST_STATE/absent-template-inactive4" "$TEST_STATE/report-loaded"
+  run_script install --endpoint vpn.example
+  assert_failure runtime_unknown
+  assert_no_mutations
+}
+
+test_c3_install_absent_but_active_service() {
+  touch "$TEST_STATE/absent-template-inactive4" "$TEST_STATE/report-active"
+  run_script install --endpoint vpn.example
+  assert_failure runtime_unknown
+  assert_no_mutations
+}
+
+test_c3_install_disabled_inactive4_service() {
+  touch "$TEST_STATE/inactive4"
+  run_script install --endpoint vpn.example
+  assert_failure runtime_unknown
+  assert_no_mutations
+}
+
+test_c3_install_enabled_inactive4_service() {
+  touch "$TEST_STATE/inactive4" "$TEST_STATE/enabled"
+  run_script install --endpoint vpn.example
+  assert_failure runtime_unknown
+  assert_no_mutations
+}
+
 test_c3_wrong_psk() {
   owned_config
   touch "$TEST_STATE/ignore-psk"
@@ -3623,6 +3676,10 @@ tests=(
   test_c3_uninstall_preserves_other_config test_c3_signal_recovery
   test_c3_revoke_cleanup_failure test_c3_restore_disk_failure test_c3_unique_backup_and_keep_packages
   test_c3_install_absent_template test_c3_install_unknown_service_bus
+  test_c3_install_absent_inactive4_service test_c3_install_absent_inactive4_unknown_load
+  test_c3_install_absent_inactive4_running_interface
+  test_c3_install_absent_inactive4_loaded_service test_c3_install_absent_but_active_service
+  test_c3_install_disabled_inactive4_service test_c3_install_enabled_inactive4_service
   test_c3_wrong_psk test_c3_residual_package_config test_c3_shared_host_lock test_c3_malformed_peer_markers
   test_c3_force_postcondition_rollback_hooks test_c3_new_postcondition_rollback_hooks
   test_c3_missing_wg_existing_interface test_c3_missing_wg_clean_install

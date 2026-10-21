@@ -382,6 +382,11 @@ observe_service() {
   active=$(systemctl is-active "wg-quick@$WG_IFACE" 2>/dev/null) && status=0 || status=$?
   case "$active:$status" in
     active:0) [[ "$RUNTIME_RUNNING" == true ]] ;;
+    inactive:4)
+      [[ "$enabled" == not-found && "$RUNTIME_RUNNING" == false ]] || return 1
+      load_state=$(systemctl show --property=LoadState --value "wg-quick@$WG_IFACE" 2>/dev/null) || return 1
+      [[ "$load_state" == not-found ]]
+      ;;
     inactive:3|failed:3|unknown:4) [[ "$RUNTIME_RUNNING" == false ]] ;;
     *) return 1 ;;
   esac
