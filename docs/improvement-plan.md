@@ -6,6 +6,8 @@ Last updated: 2026-10-21 (Europe/Paris).
 
 ## Scope and baseline
 
+2026-10-21 review checkpoint (Europe/Paris): the [whole-codebase source/security consolidation](reviews/2026-10-21-whole-codebase-security-review.md) records the five completed review lanes, their explicit coverage limits and three confirmed P2 findings repaired through #317/PR #320 and #318/PR #319. Separate disposable-server findings #321/PR #322 and #323/PR #324 are also merged. This refresh follows historical #208 without reopening its completed acceptance; release/device/operational gates remain issue-owned. Inventory counts are not reviewed-file totals or a production-readiness score.
+
 Improve agent instructions, documentation/process and code reliability while preserving the Android DataBinding/Fragment architecture and WireGuard configuration compatibility.
 
 The review covered Android UI/model/services, VPN/config/native integration, provisioning scripts, resources, tests and build configuration. Baseline: branch `master`, HEAD `6658cbea30c1a2ae8fc0ff0aae365da34cff9f59`, with substantial existing tracked and untracked work. Findings describe the reviewed worktree, not a clean release snapshot. Recheck the responsible source and current Git state before each implementation task.
